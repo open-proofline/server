@@ -25,9 +25,10 @@ import (
 )
 
 type testApp struct {
-	handler http.Handler
-	dataDir string
-	db      *sql.DB
+	privateHandler http.Handler
+	publicHandler  http.Handler
+	dataDir        string
+	db             *sql.DB
 }
 
 func newTestApp(t *testing.T) *testApp {
@@ -60,15 +61,16 @@ func newTestAppWithMaxUploadBytesAndLogger(t *testing.T, maxUploadBytes int64, l
 		t.Fatalf("create storage: %v", err)
 	}
 	repo := incidents.NewRepository(conn)
-	handler := httpapi.New(repo, blobStore, httpapi.Options{
+	options := httpapi.Options{
 		MaxUploadBytes: maxUploadBytes,
 		Logger:         logger,
-	})
+	}
 
 	return &testApp{
-		handler: handler,
-		dataDir: dataDir,
-		db:      conn,
+		privateHandler: httpapi.NewPrivate(repo, blobStore, options),
+		publicHandler:  httpapi.NewPublic(repo, blobStore, options),
+		dataDir:        dataDir,
+		db:             conn,
 	}
 }
 
@@ -319,12 +321,53 @@ func TestEmergencyRawTokenIsNotStored(t *testing.T) {
 	}
 }
 
+func TestPublicServerDoesNotMountPrivateRoutes(t *testing.T) {
+	app := newTestApp(t)
+
+	tests := []struct {
+		method string
+		target string
+	}{
+		{http.MethodPost, "/v1/incidents"},
+		{http.MethodGet, "/v1/incidents/inc_missing"},
+		{http.MethodPost, "/v1/incidents/inc_missing/chunks"},
+		{http.MethodGet, "/v1/incidents/inc_missing/chunks"},
+		{http.MethodGet, "/v1/incidents/inc_missing/chunks/audio/0"},
+		{http.MethodPost, "/v1/incidents/inc_missing/checkins"},
+		{http.MethodPost, "/v1/incidents/inc_missing/close"},
+		{http.MethodPost, "/v1/incidents/inc_missing/emergency-tokens"},
+		{http.MethodPost, "/v1/emergency-tokens/etk_missing/revoke"},
+	}
+
+	for _, tt := range tests {
+		response, body := request(t, app.publicHandler, tt.method, tt.target, "application/json", bytes.NewBufferString(`{}`))
+		response.Body.Close()
+		if response.StatusCode != http.StatusNotFound {
+			t.Fatalf("%s %s: expected public server status 404, got %d: %s", tt.method, tt.target, response.StatusCode, body)
+		}
+	}
+}
+
+func TestPrivateServerDoesNotMountPublicEmergencyRoutes(t *testing.T) {
+	app := newTestApp(t)
+	incidentID := createIncident(t, app, `{}`)
+	token := createEmergencyToken(t, app, incidentID, "trusted contact", nil)
+
+	for _, target := range []string{"/e/" + token.Token, "/e/" + token.Token + "/data"} {
+		response, body := get(t, app, target)
+		response.Body.Close()
+		if response.StatusCode != http.StatusNotFound {
+			t.Fatalf("GET %s: expected private server status 404, got %d: %s", target, response.StatusCode, body)
+		}
+	}
+}
+
 func TestValidEmergencyTokenCanReadIncidentData(t *testing.T) {
 	app := newTestApp(t)
 	incidentID := createIncident(t, app, `{"client_label":"iphone"}`)
 	token := createEmergencyToken(t, app, incidentID, "trusted contact", nil)
 
-	response, body := get(t, app, "/e/"+token.Token)
+	response, body := getPublic(t, app, "/e/"+token.Token)
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
@@ -360,7 +403,7 @@ func TestValidEmergencyTokenCanReadIncidentData(t *testing.T) {
 func TestEmergencyStaticAssetsAreServed(t *testing.T) {
 	app := newTestApp(t)
 
-	response, body := get(t, app, "/static/styles.css")
+	response, body := getPublic(t, app, "/static/styles.css")
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("expected stylesheet status 200, got %d: %s", response.StatusCode, body)
@@ -369,7 +412,7 @@ func TestEmergencyStaticAssetsAreServed(t *testing.T) {
 		t.Fatalf("expected stylesheet content, got: %s", body)
 	}
 
-	response, body = get(t, app, "/static/scripts.js")
+	response, body = getPublic(t, app, "/static/scripts.js")
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("expected script status 200, got %d: %s", response.StatusCode, body)
@@ -385,7 +428,7 @@ func TestExpiredEmergencyTokenIsRejected(t *testing.T) {
 	expiresAt := time.Now().UTC().Add(-time.Minute)
 	token := createEmergencyToken(t, app, incidentID, "expired", &expiresAt)
 
-	response, body := get(t, app, "/e/"+token.Token+"/data")
+	response, body := getPublic(t, app, "/e/"+token.Token+"/data")
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusNotFound {
@@ -405,7 +448,7 @@ func TestRevokedEmergencyTokenIsRejected(t *testing.T) {
 		t.Fatalf("expected revoke status 200, got %d: %s", response.StatusCode, body)
 	}
 
-	response, body = get(t, app, "/e/"+token.Token+"/data")
+	response, body = getPublic(t, app, "/e/"+token.Token+"/data")
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusNotFound {
 		t.Fatalf("expected revoked token status 404, got %d: %s", response.StatusCode, body)
@@ -416,7 +459,7 @@ func TestRevokedEmergencyTokenIsRejected(t *testing.T) {
 func TestInvalidEmergencyTokenIsRejected(t *testing.T) {
 	app := newTestApp(t)
 
-	response, body := get(t, app, "/e/not-a-real-token/data")
+	response, body := getPublic(t, app, "/e/not-a-real-token/data")
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusNotFound {
@@ -433,7 +476,7 @@ func TestEmergencyTokenIsRedactedFromRequestLogs(t *testing.T) {
 	incidentID := createIncident(t, app, `{}`)
 	token := createEmergencyToken(t, app, incidentID, "trusted contact", nil)
 
-	response, body := get(t, app, "/e/"+token.Token)
+	response, body := getPublic(t, app, "/e/"+token.Token)
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("expected emergency page status 200, got %d: %s", response.StatusCode, body)
@@ -461,7 +504,7 @@ func TestEmergencyTokenCannotMutateIncidentChunkOrCheckinData(t *testing.T) {
 	token := createEmergencyToken(t, app, incidentID, "trusted contact", nil)
 
 	for _, target := range []string{"/e/" + token.Token, "/e/" + token.Token + "/data", "/e/" + token.Token + "/checkins"} {
-		response, body := post(t, app, target, "application/json", bytes.NewBufferString(`{"device_network":"cell"}`))
+		response, body := postPublic(t, app, target, "application/json", bytes.NewBufferString(`{"device_network":"cell"}`))
 		response.Body.Close()
 		if response.StatusCode >= 200 && response.StatusCode < 300 {
 			t.Fatalf("expected POST %s to fail, got %d: %s", target, response.StatusCode, body)
@@ -492,7 +535,7 @@ func TestEmergencyDataReturnsExpectedReadOnlyJSON(t *testing.T) {
 	createCheckin(t, app, incidentID)
 	token := createEmergencyToken(t, app, incidentID, "trusted contact", nil)
 
-	response, body = get(t, app, "/e/"+token.Token+"/data")
+	response, body = getPublic(t, app, "/e/"+token.Token+"/data")
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("expected emergency data status 200, got %d: %s", response.StatusCode, body)
@@ -651,24 +694,36 @@ func uploadChunk(t *testing.T, app *testApp, incidentID string, index int, media
 func post(t *testing.T, app *testApp, target string, contentType string, body io.Reader) (*http.Response, []byte) {
 	t.Helper()
 
-	request := httptest.NewRequest(http.MethodPost, target, body)
-	request.Header.Set("Content-Type", contentType)
-	recorder := httptest.NewRecorder()
-	app.handler.ServeHTTP(recorder, request)
-	response := recorder.Result()
-	responseBody, err := io.ReadAll(response.Body)
-	if err != nil {
-		t.Fatalf("read response body: %v", err)
-	}
-	return response, responseBody
+	return request(t, app.privateHandler, http.MethodPost, target, contentType, body)
+}
+
+func postPublic(t *testing.T, app *testApp, target string, contentType string, body io.Reader) (*http.Response, []byte) {
+	t.Helper()
+
+	return request(t, app.publicHandler, http.MethodPost, target, contentType, body)
 }
 
 func get(t *testing.T, app *testApp, target string) (*http.Response, []byte) {
 	t.Helper()
 
-	request := httptest.NewRequest(http.MethodGet, target, nil)
+	return request(t, app.privateHandler, http.MethodGet, target, "", nil)
+}
+
+func getPublic(t *testing.T, app *testApp, target string) (*http.Response, []byte) {
+	t.Helper()
+
+	return request(t, app.publicHandler, http.MethodGet, target, "", nil)
+}
+
+func request(t *testing.T, handler http.Handler, method string, target string, contentType string, body io.Reader) (*http.Response, []byte) {
+	t.Helper()
+
+	request := httptest.NewRequest(method, target, body)
+	if contentType != "" {
+		request.Header.Set("Content-Type", contentType)
+	}
 	recorder := httptest.NewRecorder()
-	app.handler.ServeHTTP(recorder, request)
+	handler.ServeHTTP(recorder, request)
 	response := recorder.Result()
 	responseBody, err := io.ReadAll(response.Body)
 	if err != nil {

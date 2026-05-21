@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -46,30 +47,49 @@ func run(logger *slog.Logger) error {
 	}
 
 	repo := incidents.NewRepository(conn)
-	server := &http.Server{
-		Addr:              cfg.BindAddr,
-		Handler:           httpapi.New(repo, blobStore, httpapi.Options{MaxUploadBytes: cfg.MaxUploadBytes, Logger: logger}),
+	apiOptions := httpapi.Options{MaxUploadBytes: cfg.MaxUploadBytes, Logger: logger}
+	privateServer := &http.Server{
+		Addr:              cfg.PrivateBindAddr,
+		Handler:           httpapi.NewPrivate(repo, blobStore, apiOptions),
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+	publicServer := &http.Server{
+		Addr:              cfg.PublicBindAddr,
+		Handler:           httpapi.NewPublic(repo, blobStore, apiOptions),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
-	errCh := make(chan error, 1)
-	go func() {
-		logger.Info("starting server", "addr", cfg.BindAddr)
-		errCh <- server.ListenAndServe()
-	}()
+	errCh := make(chan error, 2)
+	startServer(errCh, logger, "private api", privateServer)
+	startServer(errCh, logger, "public emergency viewer", publicServer)
 
 	select {
 	case <-ctx.Done():
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		if err := server.Shutdown(shutdownCtx); err != nil {
-			return err
-		}
-		return nil
+		return shutdownServers([]*http.Server{privateServer, publicServer})
 	case err := <-errCh:
-		if errors.Is(err, http.ErrServerClosed) {
-			return nil
-		}
+		_ = shutdownServers([]*http.Server{privateServer, publicServer})
 		return err
 	}
+}
+
+func startServer(errCh chan<- error, logger *slog.Logger, name string, server *http.Server) {
+	go func() {
+		logger.Info("starting "+name+" server", "addr", server.Addr)
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errCh <- fmt.Errorf("%s server: %w", name, err)
+		}
+	}()
+}
+
+func shutdownServers(servers []*http.Server) error {
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var shutdownErr error
+	for _, server := range servers {
+		if err := server.Shutdown(shutdownCtx); err != nil && shutdownErr == nil {
+			shutdownErr = err
+		}
+	}
+	return shutdownErr
 }

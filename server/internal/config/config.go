@@ -8,18 +8,20 @@ import (
 )
 
 const (
-	defaultBindAddr       = ":8080"
-	defaultDataDir        = "./data"
-	defaultDBPath         = "./data/safety.db"
-	defaultMaxUploadBytes = int64(250 * 1024 * 1024)
+	defaultPrivateBindAddr = "127.0.0.1:8080"
+	defaultPublicBindAddr  = "127.0.0.1:8081"
+	defaultDataDir         = "./data"
+	defaultDBPath          = "./data/safety.db"
+	defaultMaxUploadBytes  = int64(250 * 1024 * 1024)
 )
 
 // Config contains the runtime settings needed by the API server.
 type Config struct {
-	BindAddr       string
-	DataDir        string
-	DBPath         string
-	MaxUploadBytes int64
+	PrivateBindAddr string
+	PublicBindAddr  string
+	DataDir         string
+	DBPath          string
+	MaxUploadBytes  int64
 }
 
 // Load reads configuration from environment variables and applies v0.1
@@ -35,10 +37,11 @@ func Load() (Config, error) {
 	}
 
 	return Config{
-		BindAddr:       envOrDefault("SAFE_BIND_ADDR", defaultBindAddr),
-		DataDir:        envOrDefault("SAFE_DATA_DIR", defaultDataDir),
-		DBPath:         envOrDefault("SAFE_DB_PATH", defaultDBPath),
-		MaxUploadBytes: maxUploadBytes,
+		PrivateBindAddr: envOrDefault("SAFE_PRIVATE_BIND_ADDR", defaultPrivateBindAddr),
+		PublicBindAddr:  envOrDefault("SAFE_PUBLIC_BIND_ADDR", defaultPublicBindAddr),
+		DataDir:         envOrDefault("SAFE_DATA_DIR", defaultDataDir),
+		DBPath:          envOrDefault("SAFE_DB_PATH", defaultDBPath),
+		MaxUploadBytes:  maxUploadBytes,
 	}, nil
 }
 

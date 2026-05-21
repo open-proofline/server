@@ -25,16 +25,16 @@ The planned system is:
 ```text
 iOS app
   → WireGuard/private network
-      → private backend write API
+      → private backend write API on `SAFE_PRIVATE_BIND_ADDR`
 
 trusted contact
   → HTTPS emergency viewer link
-      → scoped read-only token
+      → public emergency viewer on `SAFE_PUBLIC_BIND_ADDR`
 ```
 
 ## Security Warning
 
-This v0.1 server has no public user authentication, no user accounts, no OAuth, and no JWT protection. The `/e/{token}` emergency viewer is token-gated and read-only, but the `/v1` routes include write/admin operations and must stay behind localhost, WireGuard, a firewall, or a strict reverse proxy.
+This v0.1 binary starts two HTTP servers: a private `/v1` write/admin API and a public-shaped emergency viewer. Separate ports are a deployment boundary, not a complete security model. The private server has no public user authentication, no user accounts, no OAuth, and no JWT protection, so it must stay behind localhost, WireGuard, a firewall, or a strict reverse proxy.
 
 Do not treat this as production-ready public infrastructure. Public deployment still needs TLS, rate limiting, access control for `/v1`, operational logging review, retention policy, and proxy hardening.
 
@@ -60,11 +60,17 @@ From the `server` directory:
 go run ./cmd/api
 ```
 
+By default this starts:
+
+- private API server: `127.0.0.1:8080`
+- public emergency viewer server: `127.0.0.1:8081`
+
 Configuration is read from environment variables:
 
 | Variable | Default |
 |---|---|
-| `SAFE_BIND_ADDR` | `:8080` |
+| `SAFE_PRIVATE_BIND_ADDR` | `127.0.0.1:8080` |
+| `SAFE_PUBLIC_BIND_ADDR` | `127.0.0.1:8081` |
 | `SAFE_DATA_DIR` | `./data` |
 | `SAFE_DB_PATH` | `./data/safety.db` |
 | `SAFE_MAX_UPLOAD_BYTES` | `250MB` |
@@ -85,7 +91,7 @@ Uploads are staged in `tmp/`, hashed while streaming, then hard-linked into the 
 ## Create An Incident
 
 ```bash
-curl -sS -X POST http://localhost:8080/v1/incidents \
+curl -sS -X POST http://127.0.0.1:8080/v1/incidents \
   -H 'Content-Type: application/json' \
   -d '{"client_label":"iphone","notes":"test incident"}'
 ```
@@ -97,7 +103,7 @@ printf 'encrypted bytes go here' > /tmp/chunk.enc
 SHA256_HEX="$(sha256sum /tmp/chunk.enc | awk '{print $1}')"
 INCIDENT_ID="inc_replace_me"
 
-curl -sS -X POST "http://localhost:8080/v1/incidents/${INCIDENT_ID}/chunks" \
+curl -sS -X POST "http://127.0.0.1:8080/v1/incidents/${INCIDENT_ID}/chunks" \
   -F "file=@/tmp/chunk.enc" \
   -F "chunk_index=1" \
   -F "media_type=audio" \
@@ -116,7 +122,7 @@ Create a token:
 ```bash
 INCIDENT_ID="inc_replace_me"
 
-curl -sS -X POST "http://localhost:8080/v1/incidents/${INCIDENT_ID}/emergency-tokens" \
+curl -sS -X POST "http://127.0.0.1:8080/v1/incidents/${INCIDENT_ID}/emergency-tokens" \
   -H 'Content-Type: application/json' \
   -d '{"label":"trusted contact","expires_at":"2030-01-01T00:00:00Z"}'
 ```
@@ -124,7 +130,7 @@ curl -sS -X POST "http://localhost:8080/v1/incidents/${INCIDENT_ID}/emergency-to
 Open the emergency page:
 
 ```text
-http://localhost:8080/e/{token_from_create_response}
+http://127.0.0.1:8081/e/{token_from_create_response}
 ```
 
 Revoke a token:
@@ -132,10 +138,12 @@ Revoke a token:
 ```bash
 TOKEN_ID="etk_replace_me"
 
-curl -sS -X POST "http://localhost:8080/v1/emergency-tokens/${TOKEN_ID}/revoke"
+curl -sS -X POST "http://127.0.0.1:8080/v1/emergency-tokens/${TOKEN_ID}/revoke"
 ```
 
 ## API Summary
+
+Private API server:
 
 - `POST /v1/incidents`
 - `GET /v1/incidents/{incident_id}`
@@ -146,6 +154,9 @@ curl -sS -X POST "http://localhost:8080/v1/emergency-tokens/${TOKEN_ID}/revoke"
 - `POST /v1/incidents/{incident_id}/close`
 - `POST /v1/incidents/{incident_id}/emergency-tokens`
 - `POST /v1/emergency-tokens/{token_id}/revoke`
+
+Public emergency viewer server:
+
 - `GET /e/{token}`
 - `GET /e/{token}/data`
 
@@ -158,4 +169,5 @@ See [docs/threat-model.md](docs/threat-model.md) for current security assumption
 - iOS client
 - client-side encryption
 - dead-man switch
+- reverse proxy/TLS hardening for the emergency viewer
 - public deployment hardening and `/v1` access control

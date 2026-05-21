@@ -1,6 +1,11 @@
 # API
 
-This is the current backend-only v0.1 HTTP surface. The `/v1` routes are private and unauthenticated. The emergency viewer routes are token-gated and read-only. The planned iOS recording client is not part of this repository yet.
+This is the current backend-only v0.1 HTTP surface. The binary starts a private API server and a public emergency viewer server. The `/v1` routes are private and unauthenticated. The emergency viewer routes are token-gated and read-only. The planned iOS recording client is not part of this repository yet.
+
+Default bind addresses:
+
+- private API server: `127.0.0.1:8080`
+- public emergency viewer server: `127.0.0.1:8081`
 
 ## Common Responses
 
@@ -18,6 +23,8 @@ Errors use:
 Non-upload JSON bodies are limited to 64 KiB. Upload file bytes are limited by `SAFE_MAX_UPLOAD_BYTES`; multipart metadata has a small fixed overhead allowance.
 
 ## Incidents
+
+Incident routes are mounted only on the private API server.
 
 ### `POST /v1/incidents`
 
@@ -69,6 +76,8 @@ Response `200` is the updated incident object.
 
 ## Chunks
 
+Chunk routes are mounted only on the private API server.
+
 ### `POST /v1/incidents/{incident_id}/chunks`
 
 Uploads one already-encrypted chunk as `multipart/form-data`.
@@ -113,6 +122,8 @@ Returns encrypted chunk bytes as `application/octet-stream`. This route is priva
 
 ## Checkins
 
+Checkin routes are mounted only on the private API server.
+
 ### `POST /v1/incidents/{incident_id}/checkins`
 
 Adds optional device status and location metadata.
@@ -132,6 +143,8 @@ Request:
 Response `201` is the created checkin.
 
 ## Emergency Tokens
+
+Emergency token creation and revocation routes are mounted only on the private API server.
 
 ### `POST /v1/incidents/{incident_id}/emergency-tokens`
 
@@ -175,6 +188,8 @@ Response `200`:
 ```
 
 ## Emergency Viewer
+
+Emergency viewer routes are mounted only on the public emergency viewer server.
 
 ### `GET /e/{token}`
 

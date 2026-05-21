@@ -12,8 +12,10 @@ This document describes the current backend-only v0.1 security posture. It is in
 
 ## Trust Boundaries
 
-- `/v1` routes are private/admin routes. They can create incidents, upload chunks, close incidents, create emergency tokens, revoke tokens, and read encrypted bytes.
-- `/e/{token}` and `/e/{token}/data` are public-shaped read-only routes gated by an emergency token.
+- The private API server binds separately from the public emergency viewer server. By default it listens on `127.0.0.1:8080`.
+- The public emergency viewer server binds separately from the private API server. By default it listens on `127.0.0.1:8081`.
+- `/v1` routes are private/admin routes. They can create incidents, upload chunks, close incidents, create emergency tokens, revoke tokens, and read encrypted bytes. They are mounted only on the private API server.
+- `/e/{token}` and `/e/{token}/data` are public-shaped read-only routes gated by an emergency token. They are mounted only on the public emergency viewer server.
 - Static assets under `/static/` are embedded and token-neutral.
 
 ## Current Controls
@@ -33,6 +35,7 @@ This document describes the current backend-only v0.1 security posture. It is in
 ## Known Limitations
 
 - No public authentication, user accounts, OAuth, JWT, sessions, or CSRF protection.
+- Separate private/public ports reduce accidental route exposure, but they are not a complete security model.
 - `/v1` must not be publicly exposed as-is.
 - No iOS app, local recording, local encryption implementation, push notifications, SMS, Messenger integration, or public admin dashboard.
 - No built-in TLS, rate limiting, abuse throttling, or IP allowlist.
@@ -44,7 +47,7 @@ This document describes the current backend-only v0.1 security posture. It is in
 
 ## Deployment Guidance
 
-For local/private v0.1 use, bind to localhost or a private network and restrict access with WireGuard, firewall rules, or a reverse proxy. If any part is exposed publicly, expose only the emergency viewer routes unless `/v1` has an additional authenticated control plane in front of it.
+For local/private v0.1 use, bind the private API server to localhost or a private network and restrict access with WireGuard, firewall rules, or a reverse proxy. If any part is exposed publicly, expose only the emergency viewer server unless `/v1` has an additional authenticated control plane in front of it.
 
 Use TLS at the edge for any network access. Keep reverse-proxy logs from recording raw `/e/{token}` paths.
 

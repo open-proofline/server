@@ -40,8 +40,24 @@ type API struct {
 	logger         *slog.Logger
 }
 
-// New builds the HTTP handler tree for the private v0.1 API.
+// New builds the private HTTP handler. Prefer NewPrivate or NewPublic at call
+// sites that need to make the routing boundary explicit.
 func New(repo *incidents.Repository, store *storage.Store, opts Options) http.Handler {
+	return NewPrivate(repo, store, opts)
+}
+
+// NewPrivate builds the HTTP handler tree for the private v0.1 write/admin API.
+func NewPrivate(repo *incidents.Repository, store *storage.Store, opts Options) http.Handler {
+	return newAPI(repo, store, opts).privateRoutes()
+}
+
+// NewPublic builds the HTTP handler tree for the public read-only emergency
+// viewer.
+func NewPublic(repo *incidents.Repository, store *storage.Store, opts Options) http.Handler {
+	return newAPI(repo, store, opts).publicRoutes()
+}
+
+func newAPI(repo *incidents.Repository, store *storage.Store, opts Options) *API {
 	maxUploadBytes := opts.MaxUploadBytes
 	if maxUploadBytes <= 0 {
 		maxUploadBytes = defaultMaxUploadBytes
@@ -51,16 +67,15 @@ func New(repo *incidents.Repository, store *storage.Store, opts Options) http.Ha
 		logger = slog.Default()
 	}
 
-	api := &API{
+	return &API{
 		repo:           repo,
 		store:          store,
 		maxUploadBytes: maxUploadBytes,
 		logger:         logger,
 	}
-	return api.routes()
 }
 
-func (a *API) routes() http.Handler {
+func (a *API) privateRoutes() http.Handler {
 	mux := http.NewServeMux()
 	// Request flow:
 	// 1. create an incident;
@@ -78,6 +93,15 @@ func (a *API) routes() http.Handler {
 	mux.HandleFunc("POST /v1/incidents/{incident_id}/close", a.closeIncident)
 	mux.HandleFunc("POST /v1/incidents/{incident_id}/emergency-tokens", a.createEmergencyToken)
 	mux.HandleFunc("POST /v1/emergency-tokens/{token_id}/revoke", a.revokeEmergencyToken)
+	mux.HandleFunc("/", a.notFound)
+
+	// v0.1 has no public authentication by design. Deployment must provide the
+	// private boundary, for example localhost, WireGuard, or firewall rules.
+	return a.loggingMiddleware(a.recoveryMiddleware(mux))
+}
+
+func (a *API) publicRoutes() http.Handler {
+	mux := http.NewServeMux()
 	mux.HandleFunc("GET /e/{token}", a.emergencyPage)
 	mux.HandleFunc("GET /e/{token}/data", a.emergencyData)
 	// Static emergency assets are embedded and token-neutral; the token stays
@@ -85,8 +109,6 @@ func (a *API) routes() http.Handler {
 	mux.Handle("GET /static/", emergencyStaticHandler())
 	mux.HandleFunc("/", a.notFound)
 
-	// v0.1 has no public authentication by design. Deployment must provide the
-	// private boundary, for example localhost, WireGuard, or firewall rules.
 	return a.loggingMiddleware(a.recoveryMiddleware(mux))
 }
 
