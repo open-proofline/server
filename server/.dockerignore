@@ -1,0 +1,11 @@
+.codex/
+.agents/
+data/
+tmp/
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.test
+coverage.out
+Dockerfile

@@ -75,6 +75,36 @@ Configuration is read from environment variables:
 | `SAFE_DB_PATH` | `./data/safety.db` |
 | `SAFE_MAX_UPLOAD_BYTES` | `250MB` |
 
+## Run With Docker
+
+Build from the repository root:
+
+```bash
+docker build -t safety-recorder-backend ./server
+```
+
+Run with a named volume for SQLite and uploaded blobs:
+
+```bash
+docker run --rm \
+  -p 127.0.0.1:8080:8080 \
+  -p 127.0.0.1:8081:8081 \
+  -v safety-recorder-data:/data \
+  safety-recorder-backend
+```
+
+The container defaults are:
+
+| Variable | Container default |
+|---|---|
+| `SAFE_PRIVATE_BIND_ADDR` | `0.0.0.0:8080` |
+| `SAFE_PUBLIC_BIND_ADDR` | `0.0.0.0:8081` |
+| `SAFE_DATA_DIR` | `/data` |
+| `SAFE_DB_PATH` | `/data/safety.db` |
+| `SAFE_MAX_UPLOAD_BYTES` | `250MB` |
+
+The example `docker run` command publishes both ports on localhost. Keep the private API port behind WireGuard, a firewall, or an equivalent private boundary.
+
 ## Data Directory Layout
 
 By default the server writes under `./data`:
