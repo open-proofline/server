@@ -39,6 +39,13 @@ func newTestApp(t *testing.T) *testApp {
 func newTestAppWithMaxUploadBytes(t *testing.T, maxUploadBytes int64) *testApp {
 	t.Helper()
 
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	return newTestAppWithMaxUploadBytesAndLogger(t, maxUploadBytes, logger)
+}
+
+func newTestAppWithMaxUploadBytesAndLogger(t *testing.T, maxUploadBytes int64, logger *slog.Logger) *testApp {
+	t.Helper()
+
 	dataDir := t.TempDir()
 	conn, err := db.Open(context.Background(), filepath.Join(dataDir, "safety.db"))
 	if err != nil {
@@ -53,7 +60,6 @@ func newTestAppWithMaxUploadBytes(t *testing.T, maxUploadBytes int64) *testApp {
 		t.Fatalf("create storage: %v", err)
 	}
 	repo := incidents.NewRepository(conn)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	handler := httpapi.New(repo, blobStore, httpapi.Options{
 		MaxUploadBytes: maxUploadBytes,
 		Logger:         logger,
@@ -324,6 +330,12 @@ func TestValidEmergencyTokenCanReadIncidentData(t *testing.T) {
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("expected emergency page status 200, got %d: %s", response.StatusCode, body)
 	}
+	if response.Header.Get("Referrer-Policy") != "no-referrer" {
+		t.Fatalf("expected no-referrer policy, got %q", response.Header.Get("Referrer-Policy"))
+	}
+	if !bytes.Contains(body, []byte(`name="referrer" content="no-referrer"`)) {
+		t.Fatalf("expected no-referrer meta tag in response: %s", body)
+	}
 	if !bytes.Contains(body, []byte("Emergency Incident Viewer")) {
 		t.Fatalf("expected emergency page title in response: %s", body)
 	}
@@ -415,6 +427,27 @@ func TestInvalidEmergencyTokenIsRejected(t *testing.T) {
 	assertErrorCode(t, body, "emergency_token_invalid")
 }
 
+func TestEmergencyTokenIsRedactedFromRequestLogs(t *testing.T) {
+	var logs bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&logs, nil))
+	app := newTestAppWithMaxUploadBytesAndLogger(t, 1024*1024, logger)
+	incidentID := createIncident(t, app, `{}`)
+	token := createEmergencyToken(t, app, incidentID, "trusted contact", nil)
+
+	response, body := get(t, app, "/e/"+token.Token)
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("expected emergency page status 200, got %d: %s", response.StatusCode, body)
+	}
+
+	if bytes.Contains(logs.Bytes(), []byte(token.Token)) {
+		t.Fatalf("request logs exposed raw token: %s", logs.String())
+	}
+	if !bytes.Contains(logs.Bytes(), []byte("/e/{token}")) {
+		t.Fatalf("expected redacted emergency path in request logs: %s", logs.String())
+	}
+}
+
 func TestEmergencyTokenCannotMutateIncidentChunkOrCheckinData(t *testing.T) {
 	app := newTestApp(t)
 	incidentID := createIncident(t, app, `{}`)
@@ -464,6 +497,9 @@ func TestEmergencyDataReturnsExpectedReadOnlyJSON(t *testing.T) {
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("expected emergency data status 200, got %d: %s", response.StatusCode, body)
+	}
+	if response.Header.Get("Referrer-Policy") != "no-referrer" {
+		t.Fatalf("expected no-referrer policy, got %q", response.Header.Get("Referrer-Policy"))
 	}
 	if bytes.Contains(body, []byte("stored_path")) {
 		t.Fatalf("emergency data exposed storage path: %s", body)

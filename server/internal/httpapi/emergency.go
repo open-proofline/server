@@ -130,6 +130,7 @@ func (a *API) emergencyPage(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	setEmergencyReferrerPolicy(w)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := emergencyPageTemplate.Execute(w, data); err != nil {
 		a.logger.Error("render emergency page", "err", err)
@@ -142,7 +143,12 @@ func (a *API) emergencyData(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	setEmergencyReferrerPolicy(w)
 	writeJSON(w, http.StatusOK, data)
+}
+
+func setEmergencyReferrerPolicy(w http.ResponseWriter) {
+	w.Header().Set("Referrer-Policy", "no-referrer")
 }
 
 // loadEmergencyData collapses invalid, expired, and revoked tokens into one
