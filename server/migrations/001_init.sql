@@ -10,14 +10,17 @@ CREATE TABLE IF NOT EXISTS incidents (
 CREATE TABLE IF NOT EXISTS chunks (
   id TEXT PRIMARY KEY,
   incident_id TEXT NOT NULL REFERENCES incidents(id) ON DELETE CASCADE,
-  chunk_index INTEGER NOT NULL,
+  chunk_index INTEGER NOT NULL CHECK (chunk_index >= 0),
   media_type TEXT NOT NULL CHECK (media_type IN ('audio', 'video', 'location', 'metadata')),
   started_at TEXT NOT NULL,
   ended_at TEXT NOT NULL,
   original_filename TEXT,
   stored_path TEXT NOT NULL,
-  byte_size INTEGER NOT NULL,
-  sha256_hex TEXT NOT NULL,
+  byte_size INTEGER NOT NULL CHECK (byte_size >= 0),
+  sha256_hex TEXT NOT NULL CHECK (
+    length(sha256_hex) = 64
+    AND sha256_hex GLOB '[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]'
+  ),
   created_at TEXT NOT NULL,
   UNIQUE (incident_id, media_type, chunk_index)
 );

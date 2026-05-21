@@ -31,6 +31,12 @@ type testApp struct {
 func newTestApp(t *testing.T) *testApp {
 	t.Helper()
 
+	return newTestAppWithMaxUploadBytes(t, 1024*1024)
+}
+
+func newTestAppWithMaxUploadBytes(t *testing.T, maxUploadBytes int64) *testApp {
+	t.Helper()
+
 	dataDir := t.TempDir()
 	conn, err := db.Open(context.Background(), filepath.Join(dataDir, "safety.db"))
 	if err != nil {
@@ -47,7 +53,7 @@ func newTestApp(t *testing.T) *testApp {
 	repo := incidents.NewRepository(conn)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	handler := httpapi.New(repo, blobStore, httpapi.Options{
-		MaxUploadBytes: 1024 * 1024,
+		MaxUploadBytes: maxUploadBytes,
 		Logger:         logger,
 	})
 
@@ -100,6 +106,7 @@ func TestRejectDuplicateChunkIndex(t *testing.T) {
 	app := newTestApp(t)
 	incidentID := createIncident(t, app, `{}`)
 	payload := []byte("encrypted audio data")
+	duplicatePayload := []byte("different encrypted audio data")
 
 	response, body := uploadChunk(t, app, incidentID, 1, "audio", payload, sha256Hex(payload))
 	response.Body.Close()
@@ -107,12 +114,22 @@ func TestRejectDuplicateChunkIndex(t *testing.T) {
 		t.Fatalf("expected first upload status 201, got %d: %s", response.StatusCode, body)
 	}
 
-	response, body = uploadChunk(t, app, incidentID, 1, "audio", payload, sha256Hex(payload))
+	response, body = uploadChunk(t, app, incidentID, 1, "audio", duplicatePayload, sha256Hex(duplicatePayload))
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusConflict {
 		t.Fatalf("expected duplicate status 409, got %d: %s", response.StatusCode, body)
 	}
 	assertErrorCode(t, body, "duplicate_chunk")
+
+	storedPath := filepath.Join(app.dataDir, "incidents", incidentID, "audio_000001.enc")
+	stored, err := os.ReadFile(storedPath)
+	if err != nil {
+		t.Fatalf("read stored chunk: %v", err)
+	}
+	if !bytes.Equal(stored, payload) {
+		t.Fatalf("duplicate upload overwrote stored payload")
+	}
+	assertTempDirEmpty(t, app)
 }
 
 func TestRejectHashMismatchRemovesTempFile(t *testing.T) {
@@ -127,14 +144,24 @@ func TestRejectHashMismatchRemovesTempFile(t *testing.T) {
 		t.Fatalf("expected hash mismatch status 400, got %d: %s", response.StatusCode, body)
 	}
 	assertErrorCode(t, body, "hash_mismatch")
+	assertNoStoredFile(t, app, incidentID, "audio_000001.enc")
+	assertTempDirEmpty(t, app)
+}
 
-	entries, err := os.ReadDir(filepath.Join(app.dataDir, "tmp"))
-	if err != nil {
-		t.Fatalf("read temp dir: %v", err)
+func TestRejectUploadTooLargeRemovesTempFile(t *testing.T) {
+	app := newTestAppWithMaxUploadBytes(t, 8)
+	incidentID := createIncident(t, app, `{}`)
+	payload := []byte("this encrypted payload is too large")
+
+	response, body := uploadChunk(t, app, incidentID, 1, "audio", payload, sha256Hex(payload))
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusRequestEntityTooLarge {
+		t.Fatalf("expected upload too large status 413, got %d: %s", response.StatusCode, body)
 	}
-	if len(entries) != 0 {
-		t.Fatalf("expected temp dir to be empty, found %d entries", len(entries))
-	}
+	assertErrorCode(t, body, "upload_too_large")
+	assertNoStoredFile(t, app, incidentID, "audio_000001.enc")
+	assertTempDirEmpty(t, app)
 }
 
 func TestRejectUploadToMissingIncident(t *testing.T) {
@@ -328,6 +355,27 @@ func assertErrorCode(t *testing.T, body []byte, expected string) {
 	}
 	if response.Error.Code != expected {
 		t.Fatalf("expected error code %q, got %q", expected, response.Error.Code)
+	}
+}
+
+func assertNoStoredFile(t *testing.T, app *testApp, incidentID, filename string) {
+	t.Helper()
+
+	storedPath := filepath.Join(app.dataDir, "incidents", incidentID, filename)
+	if _, err := os.Stat(storedPath); !os.IsNotExist(err) {
+		t.Fatalf("expected no stored file at %s, got err %v", storedPath, err)
+	}
+}
+
+func assertTempDirEmpty(t *testing.T, app *testApp) {
+	t.Helper()
+
+	entries, err := os.ReadDir(filepath.Join(app.dataDir, "tmp"))
+	if err != nil {
+		t.Fatalf("read temp dir: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("expected temp dir to be empty, found %d entries", len(entries))
 	}
 }
 

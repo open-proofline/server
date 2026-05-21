@@ -145,7 +145,7 @@ func (a *API) uploadChunk(w http.ResponseWriter, r *http.Request) {
 
 	storedPath, err := a.store.CommitTemp(upload.temp, incidentID, upload.mediaType, upload.chunkIndex)
 	if errors.Is(err, storage.ErrAlreadyExists) {
-		writeError(w, http.StatusConflict, "chunk_file_exists", "stored chunk file already exists")
+		writeError(w, http.StatusConflict, "duplicate_chunk", "stored chunk already exists for this incident and media type")
 		return
 	}
 	if err != nil {

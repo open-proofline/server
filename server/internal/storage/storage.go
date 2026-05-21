@@ -15,6 +15,7 @@ import (
 var (
 	ErrTooLarge      = errors.New("upload too large")
 	ErrAlreadyExists = errors.New("stored chunk already exists")
+	ErrUnsafePath    = errors.New("unsafe storage path")
 )
 
 type Store struct {
@@ -81,9 +82,15 @@ func (s *Store) CommitTemp(upload *TempUpload, incidentID, mediaType string, chu
 	if upload == nil || upload.Path == "" {
 		return "", fmt.Errorf("missing temp upload")
 	}
+	if chunkIndex < 0 || !safePathSegment(incidentID) || !safePathSegment(mediaType) {
+		return "", ErrUnsafePath
+	}
 
 	relPath := path.Join("incidents", incidentID, fmt.Sprintf("%s_%06d.enc", mediaType, chunkIndex))
-	finalPath := filepath.Join(s.dataDir, filepath.FromSlash(relPath))
+	finalPath, err := s.fullPath(relPath)
+	if err != nil {
+		return "", err
+	}
 	if err := os.MkdirAll(filepath.Dir(finalPath), 0o700); err != nil {
 		return "", fmt.Errorf("create incident storage directory: %w", err)
 	}
@@ -101,16 +108,38 @@ func (s *Store) CommitTemp(upload *TempUpload, incidentID, mediaType string, chu
 }
 
 func (s *Store) Open(relPath string) (*os.File, error) {
-	return os.Open(s.fullPath(relPath))
+	fullPath, err := s.fullPath(relPath)
+	if err != nil {
+		return nil, err
+	}
+	return os.Open(fullPath)
 }
 
 func (s *Store) Remove(relPath string) error {
-	return os.Remove(s.fullPath(relPath))
+	fullPath, err := s.fullPath(relPath)
+	if err != nil {
+		return err
+	}
+	return os.Remove(fullPath)
 }
 
-func (s *Store) fullPath(relPath string) string {
-	clean := path.Clean(strings.TrimPrefix(relPath, "/"))
-	return filepath.Join(s.dataDir, filepath.FromSlash(clean))
+func (s *Store) fullPath(relPath string) (string, error) {
+	if relPath == "" || path.IsAbs(relPath) || strings.Contains(relPath, "\\") {
+		return "", ErrUnsafePath
+	}
+	clean := path.Clean(relPath)
+	if clean == "." || clean == ".." || strings.HasPrefix(clean, "../") {
+		return "", ErrUnsafePath
+	}
+	return filepath.Join(s.dataDir, filepath.FromSlash(clean)), nil
+}
+
+func safePathSegment(value string) bool {
+	return value != "" &&
+		value != "." &&
+		value != ".." &&
+		!strings.Contains(value, "/") &&
+		!strings.Contains(value, "\\")
 }
 
 func (u *TempUpload) Cleanup() {
