@@ -94,6 +94,7 @@ func (a *API) createEmergencyToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	setNoStore(w)
 	// The raw token is returned only in this response; the repository stores
 	// only its hash.
 	writeJSON(w, http.StatusCreated, createEmergencyTokenResponse{
@@ -126,11 +127,11 @@ func (a *API) revokeEmergencyToken(w http.ResponseWriter, r *http.Request) {
 
 // emergencyPage renders the public read-only HTML view after token validation.
 func (a *API) emergencyPage(w http.ResponseWriter, r *http.Request) {
+	setEmergencyPrivacyHeaders(w)
 	data, ok := a.loadEmergencyData(w, r)
 	if !ok {
 		return
 	}
-	setEmergencyReferrerPolicy(w)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := emergencyPageTemplate.Execute(w, data); err != nil {
 		a.logger.Error("render emergency page", "err", err)
@@ -139,16 +140,21 @@ func (a *API) emergencyPage(w http.ResponseWriter, r *http.Request) {
 
 // emergencyData returns the same read-only summary as JSON for page polling.
 func (a *API) emergencyData(w http.ResponseWriter, r *http.Request) {
+	setEmergencyPrivacyHeaders(w)
 	data, ok := a.loadEmergencyData(w, r)
 	if !ok {
 		return
 	}
-	setEmergencyReferrerPolicy(w)
 	writeJSON(w, http.StatusOK, data)
 }
 
-func setEmergencyReferrerPolicy(w http.ResponseWriter) {
+func setEmergencyPrivacyHeaders(w http.ResponseWriter) {
 	w.Header().Set("Referrer-Policy", "no-referrer")
+	setNoStore(w)
+}
+
+func setNoStore(w http.ResponseWriter) {
+	w.Header().Set("Cache-Control", "no-store")
 }
 
 // loadEmergencyData collapses invalid, expired, and revoked tokens into one

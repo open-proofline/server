@@ -330,9 +330,7 @@ func TestValidEmergencyTokenCanReadIncidentData(t *testing.T) {
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("expected emergency page status 200, got %d: %s", response.StatusCode, body)
 	}
-	if response.Header.Get("Referrer-Policy") != "no-referrer" {
-		t.Fatalf("expected no-referrer policy, got %q", response.Header.Get("Referrer-Policy"))
-	}
+	assertEmergencyPrivacyHeaders(t, response)
 	if !bytes.Contains(body, []byte(`name="referrer" content="no-referrer"`)) {
 		t.Fatalf("expected no-referrer meta tag in response: %s", body)
 	}
@@ -424,6 +422,7 @@ func TestInvalidEmergencyTokenIsRejected(t *testing.T) {
 	if response.StatusCode != http.StatusNotFound {
 		t.Fatalf("expected invalid token status 404, got %d: %s", response.StatusCode, body)
 	}
+	assertEmergencyPrivacyHeaders(t, response)
 	assertErrorCode(t, body, "emergency_token_invalid")
 }
 
@@ -498,9 +497,7 @@ func TestEmergencyDataReturnsExpectedReadOnlyJSON(t *testing.T) {
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("expected emergency data status 200, got %d: %s", response.StatusCode, body)
 	}
-	if response.Header.Get("Referrer-Policy") != "no-referrer" {
-		t.Fatalf("expected no-referrer policy, got %q", response.Header.Get("Referrer-Policy"))
-	}
+	assertEmergencyPrivacyHeaders(t, response)
 	if bytes.Contains(body, []byte("stored_path")) {
 		t.Fatalf("emergency data exposed storage path: %s", body)
 	}
@@ -592,6 +589,7 @@ func createEmergencyToken(t *testing.T, app *testApp, incidentID string, label s
 	if response.StatusCode != http.StatusCreated {
 		t.Fatalf("expected create emergency token status 201, got %d: %s", response.StatusCode, body)
 	}
+	assertNoStore(t, response)
 
 	var result emergencyTokenResponse
 	if err := json.Unmarshal(body, &result); err != nil {
@@ -690,6 +688,23 @@ func stringsOf(value string, count int) string {
 		builder.WriteString(value)
 	}
 	return builder.String()
+}
+
+func assertEmergencyPrivacyHeaders(t *testing.T, response *http.Response) {
+	t.Helper()
+
+	if response.Header.Get("Referrer-Policy") != "no-referrer" {
+		t.Fatalf("expected no-referrer policy, got %q", response.Header.Get("Referrer-Policy"))
+	}
+	assertNoStore(t, response)
+}
+
+func assertNoStore(t *testing.T, response *http.Response) {
+	t.Helper()
+
+	if response.Header.Get("Cache-Control") != "no-store" {
+		t.Fatalf("expected no-store cache policy, got %q", response.Header.Get("Cache-Control"))
+	}
 }
 
 func assertErrorCode(t *testing.T, body []byte, expected string) {
