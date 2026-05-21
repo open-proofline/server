@@ -217,7 +217,7 @@ func (r *Repository) ListChunks(ctx context.Context, incidentID string) ([]Chunk
 	}
 	defer rows.Close()
 
-	var chunks []Chunk
+	chunks := []Chunk{}
 	for rows.Next() {
 		chunk, err := scanChunk(rows)
 		if err != nil {
@@ -310,7 +310,7 @@ func (r *Repository) ListCheckins(ctx context.Context, incidentID string) ([]Che
 	}
 	defer rows.Close()
 
-	var checkins []Checkin
+	checkins := []Checkin{}
 	for rows.Next() {
 		checkin, err := scanCheckin(rows)
 		if err != nil {

@@ -84,6 +84,23 @@ func TestCreateIncident(t *testing.T) {
 	}
 }
 
+func TestGetIncidentReturnsEmptyArrays(t *testing.T) {
+	app := newTestApp(t)
+	incidentID := createIncident(t, app, `{}`)
+
+	response, body := get(t, app, "/v1/incidents/"+incidentID)
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("expected incident status 200, got %d: %s", response.StatusCode, body)
+	}
+	if !bytes.Contains(body, []byte(`"chunks":[]`)) {
+		t.Fatalf("expected chunks to be an empty array, got: %s", body)
+	}
+	if !bytes.Contains(body, []byte(`"checkins":[]`)) {
+		t.Fatalf("expected checkins to be an empty array, got: %s", body)
+	}
+}
+
 func TestUploadValidChunk(t *testing.T) {
 	app := newTestApp(t)
 	incidentID := createIncident(t, app, `{}`)
