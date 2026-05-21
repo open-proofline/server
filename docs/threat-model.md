@@ -1,0 +1,57 @@
+# Threat Model
+
+This document describes the current backend-only v0.1 security posture. It is intentionally conservative and does not claim production readiness.
+
+## Assets
+
+- Already-encrypted uploaded chunk files under `SAFE_DATA_DIR`
+- Incident, chunk, checkin, and emergency-token metadata in SQLite
+- Raw emergency tokens returned once at creation time
+- Emergency viewer URLs containing bearer tokens
+- Future client-side recordings and encryption keys are out of scope for this repository today.
+
+## Trust Boundaries
+
+- `/v1` routes are private/admin routes. They can create incidents, upload chunks, close incidents, create emergency tokens, revoke tokens, and read encrypted bytes.
+- `/e/{token}` and `/e/{token}/data` are public-shaped read-only routes gated by an emergency token.
+- Static assets under `/static/` are embedded and token-neutral.
+
+## Current Controls
+
+- Uploads stream to `data/tmp` while computing SHA-256 and enforcing `SAFE_MAX_UPLOAD_BYTES`.
+- Uploaded bytes are committed only after hash verification.
+- Final chunk storage uses no-overwrite hard links.
+- SQLite enforces media type, chunk index, byte size, SHA-256 shape, foreign keys, and unique chunk identity.
+- Emergency tokens use 256 bits from `crypto/rand`; only SHA-256 token hashes are stored.
+- Expired, revoked, and invalid emergency tokens return the same public error.
+- Emergency summaries do not expose `stored_path` or encrypted file bytes.
+- Emergency responses use `Referrer-Policy: no-referrer` and `Cache-Control: no-store`.
+- Request logging records method, redacted route pattern, status, byte count, and duration. It does not log request bodies, uploaded bytes, Authorization headers, or raw emergency tokens.
+- Templates use Go `html/template` escaping.
+- Storage rejects absolute paths, `..`, slash-containing path segments, and backslash traversal.
+
+## Known Limitations
+
+- No public authentication, user accounts, OAuth, JWT, sessions, or CSRF protection.
+- `/v1` must not be publicly exposed as-is.
+- No iOS app, local recording, local encryption implementation, push notifications, SMS, Messenger integration, or public admin dashboard.
+- No built-in TLS, rate limiting, abuse throttling, or IP allowlist.
+- No default emergency-token expiry policy; callers choose `expires_at`.
+- No retention, backup, secure deletion, or disk encryption policy.
+- No malware/content scanning; uploaded bytes are assumed to be client-encrypted blobs.
+- No multi-user authorization model.
+- Emergency links are bearer tokens and must be shared carefully.
+
+## Deployment Guidance
+
+For local/private v0.1 use, bind to localhost or a private network and restrict access with WireGuard, firewall rules, or a reverse proxy. If any part is exposed publicly, expose only the emergency viewer routes unless `/v1` has an additional authenticated control plane in front of it.
+
+Use TLS at the edge for any network access. Keep reverse-proxy logs from recording raw `/e/{token}` paths.
+
+## Next Security Steps
+
+- Add an explicit access-control story for `/v1`.
+- Add rate limiting for token guesses, uploads, and admin actions.
+- Decide default emergency-token expiry and revocation workflows.
+- Define retention, backup, and deletion policy.
+- Review deployment logging so raw tokens are not captured outside the Go server.
