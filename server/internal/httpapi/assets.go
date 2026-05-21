@@ -12,11 +12,15 @@ import (
 //go:embed web/templates/emergency.html web/static/styles.css web/static/scripts.js
 var emergencyWebFS embed.FS
 
+// emergencyPageTemplate loads the standalone HTML file with presentation-only
+// helpers. Incident data still comes from the token-checked handlers.
 var emergencyPageTemplate = template.Must(template.New("emergency.html").Funcs(template.FuncMap{
 	"humanTime":    humanTime,
 	"relativeTime": relativeTime,
 }).ParseFS(emergencyWebFS, "web/templates/emergency.html"))
 
+// emergencyStaticHandler serves embedded CSS and JavaScript through the
+// standard file server. Static assets contain no incident data or raw tokens.
 func emergencyStaticHandler() http.Handler {
 	staticFiles, err := fs.Sub(emergencyWebFS, "web/static")
 	if err != nil {
@@ -25,6 +29,7 @@ func emergencyStaticHandler() http.Handler {
 	return http.StripPrefix("/static/", http.FileServer(http.FS(staticFiles)))
 }
 
+// humanTime formats absolute timestamps for the emergency page template.
 func humanTime(value time.Time) string {
 	if value.IsZero() {
 		return "Unknown"
@@ -32,6 +37,8 @@ func humanTime(value time.Time) string {
 	return value.Local().Format("2 Jan 2006, 3:04 pm")
 }
 
+// relativeTime formats recent activity for quick scanning in the emergency
+// page template.
 func relativeTime(value time.Time) string {
 	if value.IsZero() {
 		return "Unknown"

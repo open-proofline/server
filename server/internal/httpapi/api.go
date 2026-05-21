@@ -80,6 +80,8 @@ func (a *API) routes() http.Handler {
 	mux.HandleFunc("POST /v1/emergency-tokens/{token_id}/revoke", a.revokeEmergencyToken)
 	mux.HandleFunc("GET /e/{token}", a.emergencyPage)
 	mux.HandleFunc("GET /e/{token}/data", a.emergencyData)
+	// Static emergency assets are embedded and token-neutral; the token stays
+	// in the request path handled above.
 	mux.Handle("GET /static/", emergencyStaticHandler())
 	mux.HandleFunc("/", a.notFound)
 

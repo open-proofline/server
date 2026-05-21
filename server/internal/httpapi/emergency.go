@@ -64,6 +64,8 @@ type createEmergencyTokenResponse struct {
 
 const emergencyWarning = "If you are concerned about immediate safety, call emergency services now."
 
+// createEmergencyToken is a private v0.1 route that mints a read-only
+// emergency capability for one incident.
 func (a *API) createEmergencyToken(w http.ResponseWriter, r *http.Request) {
 	incidentID := r.PathValue("incident_id")
 	if _, err := a.repo.GetIncident(r.Context(), incidentID); errors.Is(err, incidents.ErrNotFound) {
@@ -92,6 +94,8 @@ func (a *API) createEmergencyToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// The raw token is returned only in this response; the repository stores
+	// only its hash.
 	writeJSON(w, http.StatusCreated, createEmergencyTokenResponse{
 		TokenID:    token.ID,
 		IncidentID: token.IncidentID,
@@ -102,6 +106,8 @@ func (a *API) createEmergencyToken(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// revokeEmergencyToken is a private v0.1 route that disables an emergency
+// token without deleting its audit metadata.
 func (a *API) revokeEmergencyToken(w http.ResponseWriter, r *http.Request) {
 	tokenID := r.PathValue("token_id")
 	if err := a.repo.RevokeEmergencyToken(r.Context(), tokenID); errors.Is(err, incidents.ErrNotFound) {
@@ -118,6 +124,7 @@ func (a *API) revokeEmergencyToken(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// emergencyPage renders the public read-only HTML view after token validation.
 func (a *API) emergencyPage(w http.ResponseWriter, r *http.Request) {
 	data, ok := a.loadEmergencyData(w, r)
 	if !ok {
@@ -129,6 +136,7 @@ func (a *API) emergencyPage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// emergencyData returns the same read-only summary as JSON for page polling.
 func (a *API) emergencyData(w http.ResponseWriter, r *http.Request) {
 	data, ok := a.loadEmergencyData(w, r)
 	if !ok {
@@ -137,6 +145,8 @@ func (a *API) emergencyData(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, data)
 }
 
+// loadEmergencyData collapses invalid, expired, and revoked tokens into one
+// public error so callers cannot distinguish token state.
 func (a *API) loadEmergencyData(w http.ResponseWriter, r *http.Request) (emergencyViewData, bool) {
 	data, err := a.buildEmergencyData(r.Context(), r.PathValue("token"))
 	if errors.Is(err, incidents.ErrNotFound) {
@@ -150,6 +160,8 @@ func (a *API) loadEmergencyData(w http.ResponseWriter, r *http.Request) (emergen
 	return data, true
 }
 
+// buildEmergencyData validates the raw token before loading incident metadata
+// and records last-used only after a successful read.
 func (a *API) buildEmergencyData(ctx context.Context, rawToken string) (emergencyViewData, error) {
 	token, err := a.repo.LookupEmergencyToken(ctx, rawToken)
 	if err != nil {
@@ -166,6 +178,8 @@ func (a *API) buildEmergencyData(ctx context.Context, rawToken string) (emergenc
 	return summarizeEmergencyData(detail), nil
 }
 
+// summarizeEmergencyData prepares viewer-safe incident data without exposing
+// stored paths or encrypted file bytes.
 func summarizeEmergencyData(detail incidents.IncidentDetail) emergencyViewData {
 	chunkCounts := make(map[string]int)
 	latestChunks := make(map[string]*emergencyChunkSummary)
@@ -223,6 +237,7 @@ func summarizeEmergencyData(detail incidents.IncidentDetail) emergencyViewData {
 	}
 }
 
+// summarizeChunk copies only metadata that is safe for the emergency viewer.
 func summarizeChunk(chunk incidents.Chunk) emergencyChunkSummary {
 	return emergencyChunkSummary{
 		ChunkIndex:       chunk.ChunkIndex,

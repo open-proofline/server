@@ -331,6 +331,8 @@ func (r *Repository) CreateEmergencyToken(ctx context.Context, incidentID, label
 	if _, err := rand.Read(tokenBytes); err != nil {
 		return EmergencyToken{}, "", fmt.Errorf("generate emergency token: %w", err)
 	}
+	// Generate a URL-safe 256-bit bearer token and persist only its SHA-256
+	// hash so database disclosure does not reveal usable emergency links.
 	rawToken := base64.RawURLEncoding.EncodeToString(tokenBytes)
 	tokenHash := hashEmergencyToken(rawToken)
 
@@ -361,6 +363,9 @@ func (r *Repository) CreateEmergencyToken(ctx context.Context, incidentID, label
 		nullableTime(token.ExpiresAt),
 	)
 	if err != nil {
+		// Constraint failures include missing incident foreign keys and the
+		// vanishingly unlikely token-hash collision; callers treat both as a
+		// failed token creation.
 		if isConstraint(err) {
 			return EmergencyToken{}, "", ErrNotFound
 		}
@@ -388,6 +393,8 @@ func (r *Repository) LookupEmergencyToken(ctx context.Context, rawToken string) 
 	if err != nil {
 		return EmergencyToken{}, fmt.Errorf("lookup emergency token: %w", err)
 	}
+	// The indexed lookup should already match the hash; keep a constant-time
+	// comparison as a final equality check before considering token state.
 	if subtle.ConstantTimeCompare([]byte(token.TokenHash), []byte(tokenHash)) != 1 {
 		return EmergencyToken{}, ErrNotFound
 	}
