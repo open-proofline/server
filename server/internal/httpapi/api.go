@@ -26,11 +26,13 @@ const (
 	multipartOverhead     = int64(1024 * 1024)
 )
 
+// Options configures API construction.
 type Options struct {
 	MaxUploadBytes int64
 	Logger         *slog.Logger
 }
 
+// API holds the dependencies and limits used by the HTTP handlers.
 type API struct {
 	repo           *incidents.Repository
 	store          *storage.Store
@@ -38,6 +40,7 @@ type API struct {
 	logger         *slog.Logger
 }
 
+// New builds the HTTP handler tree for the private v0.1 API.
 func New(repo *incidents.Repository, store *storage.Store, opts Options) http.Handler {
 	maxUploadBytes := opts.MaxUploadBytes
 	if maxUploadBytes <= 0 {
@@ -59,6 +62,13 @@ func New(repo *incidents.Repository, store *storage.Store, opts Options) http.Ha
 
 func (a *API) routes() http.Handler {
 	mux := http.NewServeMux()
+	// Request flow:
+	// 1. create an incident;
+	// 2. upload encrypted chunks for that incident;
+	// 3. stream each upload to temp storage while hashing;
+	// 4. verify the client-provided SHA-256;
+	// 5. commit the blob to an immutable final path;
+	// 6. insert chunk metadata only after the file is safely written.
 	mux.HandleFunc("POST /v1/incidents", a.createIncident)
 	mux.HandleFunc("GET /v1/incidents/{incident_id}", a.getIncident)
 	mux.HandleFunc("POST /v1/incidents/{incident_id}/chunks", a.uploadChunk)
@@ -68,6 +78,8 @@ func (a *API) routes() http.Handler {
 	mux.HandleFunc("POST /v1/incidents/{incident_id}/close", a.closeIncident)
 	mux.HandleFunc("/", a.notFound)
 
+	// v0.1 has no public authentication by design. Deployment must provide the
+	// private boundary, for example localhost, WireGuard, or firewall rules.
 	return a.loggingMiddleware(a.recoveryMiddleware(mux))
 }
 
@@ -80,6 +92,8 @@ func (a *API) createIncident(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Creating an incident is the first step in the client upload flow. New
+	// incidents start open so encrypted chunks can be attached immediately.
 	incident, err := a.repo.CreateIncident(r.Context(), request.ClientLabel, request.Notes)
 	if err != nil {
 		a.internalError(w, "create incident", err)
@@ -122,17 +136,23 @@ func (a *API) uploadChunk(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// readChunkUpload enforces request size limits and stages the file in temp
+	// storage while computing its SHA-256 hash.
 	upload, ok := a.readChunkUpload(w, r)
 	if !ok {
 		return
 	}
 	defer upload.temp.Cleanup()
 
+	// The backend assumes encryption already happened on the client; this hash
+	// check is only an integrity check for the encrypted bytes in transit.
 	if upload.temp.SHA256Hex != upload.sha256Hex {
 		writeError(w, http.StatusBadRequest, "hash_mismatch", "computed SHA-256 did not match provided hash")
 		return
 	}
 
+	// Fast duplicate rejection avoids unnecessary final-file work in the common
+	// case. SQLite still enforces uniqueness during metadata insert below.
 	exists, err := a.repo.ChunkExists(r.Context(), incidentID, upload.mediaType, upload.chunkIndex)
 	if err != nil {
 		a.internalError(w, "check duplicate chunk", err)
@@ -143,6 +163,8 @@ func (a *API) uploadChunk(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// CommitTemp places the verified file at its final immutable path and fails
+	// rather than overwriting an existing chunk file.
 	storedPath, err := a.store.CommitTemp(upload.temp, incidentID, upload.mediaType, upload.chunkIndex)
 	if errors.Is(err, storage.ErrAlreadyExists) {
 		writeError(w, http.StatusConflict, "duplicate_chunk", "stored chunk already exists for this incident and media type")
@@ -153,6 +175,9 @@ func (a *API) uploadChunk(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Metadata is inserted only after the verified blob has been committed. If
+	// SQLite rejects the insert, the just-written blob is removed to avoid an
+	// orphaned chunk.
 	chunk, err := a.repo.CreateChunk(r.Context(), incidents.CreateChunkParams{
 		IncidentID:       incidentID,
 		ChunkIndex:       upload.chunkIndex,
@@ -219,6 +244,8 @@ func (a *API) getChunkBytes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// This returns encrypted bytes only and is intended for private/dev testing,
+	// not a public emergency viewer.
 	file, err := a.store.Open(chunk.StoredPath)
 	if errors.Is(err, os.ErrNotExist) {
 		a.internalError(w, "open chunk bytes", fmt.Errorf("metadata exists but file is missing: %w", err))
@@ -303,6 +330,9 @@ type chunkUpload struct {
 }
 
 func (a *API) readChunkUpload(w http.ResponseWriter, r *http.Request) (chunkUpload, bool) {
+	// The multipart reader adds overhead around the file bytes, so the request
+	// cap allows a small fixed envelope while SaveTemp enforces the exact file
+	// byte limit.
 	r.Body = http.MaxBytesReader(w, r.Body, a.maxUploadBytes+multipartOverhead)
 
 	reader, err := r.MultipartReader()
@@ -343,6 +373,8 @@ func (a *API) readChunkUpload(w http.ResponseWriter, r *http.Request) (chunkUplo
 				return chunkUpload{}, false
 			}
 			partFilename = cleanFilename(part.FileName())
+			// SaveTemp streams the file part straight to disk and hashes it as it
+			// reads, so large uploads are never buffered in memory.
 			temp, err = a.store.SaveTemp(part, a.maxUploadBytes)
 			if errors.Is(err, storage.ErrTooLarge) || isMaxBytesError(err) {
 				writeError(w, http.StatusRequestEntityTooLarge, "upload_too_large", "upload exceeded SAFE_MAX_UPLOAD_BYTES")
@@ -495,6 +527,7 @@ func cleanFilename(value string) string {
 }
 
 func decodeJSON(w http.ResponseWriter, r *http.Request, target any) bool {
+	// Non-upload JSON bodies are intentionally small metadata requests.
 	r.Body = http.MaxBytesReader(w, r.Body, jsonBodyLimit)
 	defer r.Body.Close()
 
@@ -549,6 +582,7 @@ type statusRecorder struct {
 	bytes  int
 }
 
+// WriteHeader records the response status before forwarding it to the client.
 func (r *statusRecorder) WriteHeader(status int) {
 	if r.status != 0 {
 		return
@@ -557,6 +591,8 @@ func (r *statusRecorder) WriteHeader(status int) {
 	r.ResponseWriter.WriteHeader(status)
 }
 
+// Write records response size for access logs without inspecting response
+// contents.
 func (r *statusRecorder) Write(bytes []byte) (int, error) {
 	if r.status == 0 {
 		r.status = http.StatusOK
@@ -575,6 +611,8 @@ func (a *API) loggingMiddleware(next http.Handler) http.Handler {
 		if status == 0 {
 			status = http.StatusOK
 		}
+		// Log routing metadata only. Bodies, upload bytes, Authorization headers,
+		// and any future token-like values are deliberately omitted.
 		a.logger.Info("request",
 			"method", r.Method,
 			"path", r.URL.Path,

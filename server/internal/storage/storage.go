@@ -13,22 +13,31 @@ import (
 )
 
 var (
-	ErrTooLarge      = errors.New("upload too large")
+	// ErrTooLarge indicates that an upload exceeded its configured byte limit.
+	ErrTooLarge = errors.New("upload too large")
+	// ErrAlreadyExists indicates that committing a temp upload would overwrite
+	// an existing immutable chunk file.
 	ErrAlreadyExists = errors.New("stored chunk already exists")
-	ErrUnsafePath    = errors.New("unsafe storage path")
+	// ErrUnsafePath indicates that a requested storage path could escape the
+	// configured data directory.
+	ErrUnsafePath = errors.New("unsafe storage path")
 )
 
+// Store manages temporary and final blob files under one data directory.
 type Store struct {
 	dataDir string
 	tempDir string
 }
 
+// TempUpload describes a staged upload and the hash computed while it was read.
 type TempUpload struct {
 	Path      string
 	ByteSize  int64
 	SHA256Hex string
 }
 
+// New creates the data and temporary directories used for encrypted blob
+// storage.
 func New(dataDir string) (*Store, error) {
 	if err := os.MkdirAll(dataDir, 0o700); err != nil {
 		return nil, fmt.Errorf("create data directory: %w", err)
@@ -40,6 +49,8 @@ func New(dataDir string) (*Store, error) {
 	return &Store{dataDir: dataDir, tempDir: tempDir}, nil
 }
 
+// SaveTemp streams reader into a temporary file, enforcing maxBytes and
+// computing SHA-256 without buffering the upload in memory.
 func (s *Store) SaveTemp(reader io.Reader, maxBytes int64) (*TempUpload, error) {
 	file, err := os.CreateTemp(s.tempDir, "upload-*")
 	if err != nil {
@@ -52,6 +63,8 @@ func (s *Store) SaveTemp(reader io.Reader, maxBytes int64) (*TempUpload, error) 
 	}
 
 	hash := sha256.New()
+	// Read one byte past the limit so an oversized upload is detected without
+	// accepting a truncated file.
 	limited := &io.LimitedReader{R: reader, N: maxBytes + 1}
 	byteSize, copyErr := io.Copy(io.MultiWriter(file, hash), limited)
 	if copyErr != nil {
@@ -78,6 +91,8 @@ func (s *Store) SaveTemp(reader io.Reader, maxBytes int64) (*TempUpload, error) 
 	}, nil
 }
 
+// CommitTemp links a verified temp upload into its final immutable chunk path.
+// It never overwrites an existing file.
 func (s *Store) CommitTemp(upload *TempUpload, incidentID, mediaType string, chunkIndex int) (string, error) {
 	if upload == nil || upload.Path == "" {
 		return "", fmt.Errorf("missing temp upload")
@@ -95,6 +110,8 @@ func (s *Store) CommitTemp(upload *TempUpload, incidentID, mediaType string, chu
 		return "", fmt.Errorf("create incident storage directory: %w", err)
 	}
 
+	// Hard-linking to a new path gives us atomic no-overwrite behavior on the
+	// same filesystem. Existing chunk files are treated as conflicts.
 	if err := os.Link(upload.Path, finalPath); err != nil {
 		if errors.Is(err, os.ErrExist) {
 			return "", ErrAlreadyExists
@@ -107,6 +124,7 @@ func (s *Store) CommitTemp(upload *TempUpload, incidentID, mediaType string, chu
 	return relPath, nil
 }
 
+// Open opens a previously committed blob by its stored relative path.
 func (s *Store) Open(relPath string) (*os.File, error) {
 	fullPath, err := s.fullPath(relPath)
 	if err != nil {
@@ -115,6 +133,7 @@ func (s *Store) Open(relPath string) (*os.File, error) {
 	return os.Open(fullPath)
 }
 
+// Remove deletes a committed blob by its stored relative path.
 func (s *Store) Remove(relPath string) error {
 	fullPath, err := s.fullPath(relPath)
 	if err != nil {
@@ -142,6 +161,7 @@ func safePathSegment(value string) bool {
 		!strings.Contains(value, "\\")
 }
 
+// Cleanup removes the staged file if it has not already been committed.
 func (u *TempUpload) Cleanup() {
 	if u == nil || u.Path == "" {
 		return

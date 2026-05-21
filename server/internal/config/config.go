@@ -14,6 +14,7 @@ const (
 	defaultMaxUploadBytes = int64(250 * 1024 * 1024)
 )
 
+// Config contains the runtime settings needed by the API server.
 type Config struct {
 	BindAddr       string
 	DataDir        string
@@ -21,6 +22,8 @@ type Config struct {
 	MaxUploadBytes int64
 }
 
+// Load reads configuration from environment variables and applies v0.1
+// defaults for unset values.
 func Load() (Config, error) {
 	maxUploadBytes := defaultMaxUploadBytes
 	if raw := os.Getenv("SAFE_MAX_UPLOAD_BYTES"); raw != "" {

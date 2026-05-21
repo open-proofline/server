@@ -15,6 +15,8 @@ import (
 	"safety-recorder/server/migrations"
 )
 
+// Open creates a SQLite connection, enables required pragmas, and applies the
+// embedded schema before returning the database handle.
 func Open(ctx context.Context, dbPath string) (*sql.DB, error) {
 	if dbPath != ":memory:" {
 		if err := os.MkdirAll(filepath.Dir(dbPath), 0o700); err != nil {
@@ -28,10 +30,14 @@ func Open(ctx context.Context, dbPath string) (*sql.DB, error) {
 	}
 	conn.SetMaxOpenConns(1)
 
+	// Foreign keys protect chunk/checkin rows from pointing at missing
+	// incidents even if a future caller bypasses HTTP validation.
 	if _, err := conn.ExecContext(ctx, "PRAGMA foreign_keys = ON"); err != nil {
 		_ = conn.Close()
 		return nil, fmt.Errorf("enable foreign keys: %w", err)
 	}
+	// WAL keeps the single local database responsive for concurrent reads while
+	// uploads are inserting metadata.
 	if _, err := conn.ExecContext(ctx, "PRAGMA journal_mode = WAL"); err != nil {
 		_ = conn.Close()
 		return nil, fmt.Errorf("enable wal mode: %w", err)
@@ -44,6 +50,7 @@ func Open(ctx context.Context, dbPath string) (*sql.DB, error) {
 	return conn, nil
 }
 
+// Migrate applies every embedded SQL migration in lexical order.
 func Migrate(ctx context.Context, conn *sql.DB) error {
 	entries, err := fs.ReadDir(migrations.FS, ".")
 	if err != nil {

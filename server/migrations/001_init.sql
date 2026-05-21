@@ -7,6 +7,8 @@ CREATE TABLE IF NOT EXISTS incidents (
   notes TEXT
 );
 
+-- Chunks are immutable once accepted. The unique constraint rejects duplicate
+-- uploads for the same incident, media type, and client-supplied chunk index.
 CREATE TABLE IF NOT EXISTS chunks (
   id TEXT PRIMARY KEY,
   incident_id TEXT NOT NULL REFERENCES incidents(id) ON DELETE CASCADE,
@@ -17,6 +19,8 @@ CREATE TABLE IF NOT EXISTS chunks (
   original_filename TEXT,
   stored_path TEXT NOT NULL,
   byte_size INTEGER NOT NULL CHECK (byte_size >= 0),
+  -- Store only lowercase SHA-256 hex; the backend verifies the bytes before
+  -- metadata is inserted.
   sha256_hex TEXT NOT NULL CHECK (
     length(sha256_hex) = 64
     AND sha256_hex GLOB '[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]'

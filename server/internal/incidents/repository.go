@@ -13,18 +13,24 @@ import (
 )
 
 var (
-	ErrNotFound  = errors.New("not found")
+	// ErrNotFound indicates that a requested incident, chunk, or related row
+	// does not exist.
+	ErrNotFound = errors.New("not found")
+	// ErrDuplicate indicates that SQLite rejected a duplicate chunk identity.
 	ErrDuplicate = errors.New("duplicate")
 )
 
+// Repository stores incident, chunk, and checkin metadata in SQLite.
 type Repository struct {
 	db *sql.DB
 }
 
+// NewRepository wraps db with incident-specific query methods.
 func NewRepository(db *sql.DB) *Repository {
 	return &Repository{db: db}
 }
 
+// CreateIncident inserts a new open incident.
 func (r *Repository) CreateIncident(ctx context.Context, clientLabel, notes string) (Incident, error) {
 	now := time.Now().UTC()
 	id, err := newID("inc")
@@ -57,6 +63,7 @@ func (r *Repository) CreateIncident(ctx context.Context, clientLabel, notes stri
 	return incident, nil
 }
 
+// GetIncident returns one incident by ID.
 func (r *Repository) GetIncident(ctx context.Context, id string) (Incident, error) {
 	row := r.db.QueryRowContext(ctx, `
 		SELECT id, created_at, updated_at, status, client_label, notes
@@ -73,6 +80,7 @@ func (r *Repository) GetIncident(ctx context.Context, id string) (Incident, erro
 	return incident, nil
 }
 
+// GetIncidentDetail returns an incident with its chunk and checkin metadata.
 func (r *Repository) GetIncidentDetail(ctx context.Context, id string) (IncidentDetail, error) {
 	incident, err := r.GetIncident(ctx, id)
 	if err != nil {
@@ -94,6 +102,8 @@ func (r *Repository) GetIncidentDetail(ctx context.Context, id string) (Incident
 	}, nil
 }
 
+// CloseIncident marks an incident closed so the HTTP layer rejects later chunk
+// uploads.
 func (r *Repository) CloseIncident(ctx context.Context, id string) (Incident, error) {
 	now := time.Now().UTC()
 	result, err := r.db.ExecContext(ctx, `
@@ -117,6 +127,8 @@ func (r *Repository) CloseIncident(ctx context.Context, id string) (Incident, er
 	return r.GetIncident(ctx, id)
 }
 
+// ChunkExists reports whether an incident already has a chunk with the same
+// media type and index.
 func (r *Repository) ChunkExists(ctx context.Context, incidentID, mediaType string, chunkIndex int) (bool, error) {
 	var exists int
 	err := r.db.QueryRowContext(ctx, `
@@ -136,6 +148,8 @@ func (r *Repository) ChunkExists(ctx context.Context, incidentID, mediaType stri
 	return true, nil
 }
 
+// CreateChunk inserts metadata for a chunk after the blob has been committed to
+// disk.
 func (r *Repository) CreateChunk(ctx context.Context, params CreateChunkParams) (Chunk, error) {
 	id, err := newID("chk")
 	if err != nil {
@@ -174,6 +188,8 @@ func (r *Repository) CreateChunk(ctx context.Context, params CreateChunkParams) 
 		formatDBTime(chunk.CreatedAt),
 	)
 	if err != nil {
+		// The schema's unique constraint is the final duplicate guard. This
+		// matters if two uploads race past the HTTP preflight check.
 		if isConstraint(err) {
 			return Chunk{}, ErrDuplicate
 		}
@@ -183,6 +199,7 @@ func (r *Repository) CreateChunk(ctx context.Context, params CreateChunkParams) 
 	return chunk, nil
 }
 
+// ListChunks returns chunk metadata for an incident without loading file bytes.
 func (r *Repository) ListChunks(ctx context.Context, incidentID string) ([]Chunk, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, incident_id, chunk_index, media_type, started_at, ended_at,
@@ -211,6 +228,7 @@ func (r *Repository) ListChunks(ctx context.Context, incidentID string) ([]Chunk
 	return chunks, nil
 }
 
+// GetChunkByKey returns one chunk by incident, media type, and chunk index.
 func (r *Repository) GetChunkByKey(ctx context.Context, incidentID, mediaType string, chunkIndex int) (Chunk, error) {
 	row := r.db.QueryRowContext(ctx, `
 		SELECT id, incident_id, chunk_index, media_type, started_at, ended_at,
@@ -232,6 +250,7 @@ func (r *Repository) GetChunkByKey(ctx context.Context, incidentID, mediaType st
 	return chunk, nil
 }
 
+// CreateCheckin inserts a checkin for an incident.
 func (r *Repository) CreateCheckin(ctx context.Context, incidentID string, params CreateCheckinParams) (Checkin, error) {
 	id, err := newID("cin")
 	if err != nil {
@@ -273,6 +292,7 @@ func (r *Repository) CreateCheckin(ctx context.Context, incidentID string, param
 	return checkin, nil
 }
 
+// ListCheckins returns checkin metadata for an incident.
 func (r *Repository) ListCheckins(ctx context.Context, incidentID string) ([]Checkin, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, incident_id, created_at, device_battery_percent, device_network,

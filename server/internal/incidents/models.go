@@ -3,15 +3,23 @@ package incidents
 import "time"
 
 const (
-	StatusOpen   = "open"
+	// StatusOpen means the incident can still accept chunks and checkins.
+	StatusOpen = "open"
+	// StatusClosed means the incident metadata remains readable, but new chunk
+	// uploads are rejected by the HTTP layer.
 	StatusClosed = "closed"
 
-	MediaTypeAudio    = "audio"
-	MediaTypeVideo    = "video"
+	// MediaTypeAudio identifies encrypted audio chunks.
+	MediaTypeAudio = "audio"
+	// MediaTypeVideo identifies encrypted video chunks.
+	MediaTypeVideo = "video"
+	// MediaTypeLocation identifies encrypted location chunks.
 	MediaTypeLocation = "location"
+	// MediaTypeMetadata identifies encrypted metadata chunks.
 	MediaTypeMetadata = "metadata"
 )
 
+// Incident is the top-level recording session tracked by the backend.
 type Incident struct {
 	ID          string    `json:"id"`
 	CreatedAt   time.Time `json:"created_at"`
@@ -21,6 +29,7 @@ type Incident struct {
 	Notes       string    `json:"notes,omitempty"`
 }
 
+// Chunk records metadata for an accepted encrypted upload.
 type Chunk struct {
 	ID               string    `json:"id"`
 	IncidentID       string    `json:"incident_id"`
@@ -35,6 +44,7 @@ type Chunk struct {
 	CreatedAt        time.Time `json:"created_at"`
 }
 
+// Checkin records optional device status and location metadata for an incident.
 type Checkin struct {
 	ID                   string    `json:"id"`
 	IncidentID           string    `json:"incident_id"`
@@ -46,12 +56,15 @@ type Checkin struct {
 	AccuracyMeters       *float64  `json:"accuracy_meters,omitempty"`
 }
 
+// IncidentDetail combines one incident with its chunk and checkin metadata.
 type IncidentDetail struct {
 	Incident Incident  `json:"incident"`
 	Chunks   []Chunk   `json:"chunks"`
 	Checkins []Checkin `json:"checkins"`
 }
 
+// CreateChunkParams contains metadata saved after a chunk file has been safely
+// written and hash-verified.
 type CreateChunkParams struct {
 	IncidentID       string
 	ChunkIndex       int
@@ -64,6 +77,7 @@ type CreateChunkParams struct {
 	SHA256Hex        string
 }
 
+// CreateCheckinParams contains optional device metadata for a checkin.
 type CreateCheckinParams struct {
 	DeviceBatteryPercent *int
 	DeviceNetwork        *string
@@ -72,6 +86,8 @@ type CreateCheckinParams struct {
 	AccuracyMeters       *float64
 }
 
+// ValidMediaType reports whether mediaType is one of the supported chunk
+// categories.
 func ValidMediaType(mediaType string) bool {
 	switch mediaType {
 	case MediaTypeAudio, MediaTypeVideo, MediaTypeLocation, MediaTypeMetadata:
