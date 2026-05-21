@@ -4,7 +4,7 @@ Minimal Go backend for receiving already-encrypted safety recording chunks from 
 
 ## Security Warning
 
-This v0.1 server has no public authentication, no user accounts, no OAuth, and no JWT protection. Do not expose it to the public internet. Run it only on localhost or a private network until it is protected by WireGuard/firewall rules or another private access boundary.
+This v0.1 server has no public user authentication, no user accounts, no OAuth, and no JWT protection. The `/e/{token}` emergency viewer is token-gated and read-only, but the private `/v1` write endpoints must still not be exposed casually. Public deployment needs TLS, rate limiting, logging review, and careful firewall/reverse proxy configuration.
 
 ## Requirements
 
@@ -60,6 +60,34 @@ curl -sS -X POST "http://localhost:8080/v1/incidents/${INCIDENT_ID}/chunks" \
   -F "original_filename=chunk.enc"
 ```
 
+## Emergency Viewer
+
+Emergency viewer tokens are scoped to one incident, stored only as SHA-256 hashes, and can expire or be revoked. The raw token is returned only when created.
+
+Create a token:
+
+```bash
+INCIDENT_ID="inc_replace_me"
+
+curl -sS -X POST "http://localhost:8080/v1/incidents/${INCIDENT_ID}/emergency-tokens" \
+  -H 'Content-Type: application/json' \
+  -d '{"label":"trusted contact","expires_at":"2030-01-01T00:00:00Z"}'
+```
+
+Open the emergency page:
+
+```text
+http://localhost:8080/e/{token_from_create_response}
+```
+
+Revoke a token:
+
+```bash
+TOKEN_ID="etk_replace_me"
+
+curl -sS -X POST "http://localhost:8080/v1/emergency-tokens/${TOKEN_ID}/revoke"
+```
+
 ## API Summary
 
 - `POST /v1/incidents`
@@ -69,6 +97,10 @@ curl -sS -X POST "http://localhost:8080/v1/incidents/${INCIDENT_ID}/chunks" \
 - `GET /v1/incidents/{incident_id}/chunks/{media_type}/{chunk_index}`
 - `POST /v1/incidents/{incident_id}/checkins`
 - `POST /v1/incidents/{incident_id}/close`
+- `POST /v1/incidents/{incident_id}/emergency-tokens`
+- `POST /v1/emergency-tokens/{token_id}/revoke`
+- `GET /e/{token}`
+- `GET /e/{token}/data`
 
 ## Next Steps
 
@@ -76,4 +108,4 @@ curl -sS -X POST "http://localhost:8080/v1/incidents/${INCIDENT_ID}/chunks" \
 - iOS client
 - client-side encryption
 - dead-man switch
-- emergency read-only token viewer
+- public deployment hardening for the emergency viewer

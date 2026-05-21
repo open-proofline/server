@@ -76,6 +76,11 @@ func (a *API) routes() http.Handler {
 	mux.HandleFunc("GET /v1/incidents/{incident_id}/chunks/{media_type}/{chunk_index}", a.getChunkBytes)
 	mux.HandleFunc("POST /v1/incidents/{incident_id}/checkins", a.createCheckin)
 	mux.HandleFunc("POST /v1/incidents/{incident_id}/close", a.closeIncident)
+	mux.HandleFunc("POST /v1/incidents/{incident_id}/emergency-tokens", a.createEmergencyToken)
+	mux.HandleFunc("POST /v1/emergency-tokens/{token_id}/revoke", a.revokeEmergencyToken)
+	mux.HandleFunc("GET /e/{token}", a.emergencyPage)
+	mux.HandleFunc("GET /e/{token}/data", a.emergencyData)
+	mux.Handle("GET /static/", emergencyStaticHandler())
 	mux.HandleFunc("/", a.notFound)
 
 	// v0.1 has no public authentication by design. Deployment must provide the
@@ -615,12 +620,28 @@ func (a *API) loggingMiddleware(next http.Handler) http.Handler {
 		// and any future token-like values are deliberately omitted.
 		a.logger.Info("request",
 			"method", r.Method,
-			"path", r.URL.Path,
+			"path", safeLogPath(r),
 			"status", status,
 			"bytes", recorder.bytes,
 			"duration_ms", time.Since(started).Milliseconds(),
 		)
 	})
+}
+
+func safeLogPath(r *http.Request) string {
+	if r.Pattern != "" && r.Pattern != "/" {
+		return r.Pattern
+	}
+	if strings.HasPrefix(r.URL.Path, "/e/") {
+		if strings.HasSuffix(r.URL.Path, "/data") {
+			return "/e/{token}/data"
+		}
+		return "/e/{token}"
+	}
+	if r.Pattern != "" {
+		return r.Pattern
+	}
+	return r.URL.Path
 }
 
 func (a *API) recoveryMiddleware(next http.Handler) http.Handler {

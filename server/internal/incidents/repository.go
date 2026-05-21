@@ -3,7 +3,10 @@ package incidents
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
+	"crypto/subtle"
 	"database/sql"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -321,6 +324,127 @@ func (r *Repository) ListCheckins(ctx context.Context, incidentID string) ([]Che
 	return checkins, nil
 }
 
+// CreateEmergencyToken creates a read-only token scoped to one incident and
+// returns the raw token once for the caller to share.
+func (r *Repository) CreateEmergencyToken(ctx context.Context, incidentID, label string, expiresAt *time.Time) (EmergencyToken, string, error) {
+	tokenBytes := make([]byte, 32)
+	if _, err := rand.Read(tokenBytes); err != nil {
+		return EmergencyToken{}, "", fmt.Errorf("generate emergency token: %w", err)
+	}
+	rawToken := base64.RawURLEncoding.EncodeToString(tokenBytes)
+	tokenHash := hashEmergencyToken(rawToken)
+
+	id, err := newID("etk")
+	if err != nil {
+		return EmergencyToken{}, "", err
+	}
+	now := time.Now().UTC()
+	token := EmergencyToken{
+		ID:         id,
+		IncidentID: incidentID,
+		TokenHash:  tokenHash,
+		Label:      label,
+		CreatedAt:  now,
+		ExpiresAt:  utcTimePtr(expiresAt),
+	}
+
+	_, err = r.db.ExecContext(ctx, `
+		INSERT INTO emergency_tokens (
+			id, incident_id, token_hash, label, created_at, expires_at
+		)
+		VALUES (?, ?, ?, ?, ?, ?)`,
+		token.ID,
+		token.IncidentID,
+		token.TokenHash,
+		nullableString(token.Label),
+		formatDBTime(token.CreatedAt),
+		nullableTime(token.ExpiresAt),
+	)
+	if err != nil {
+		if isConstraint(err) {
+			return EmergencyToken{}, "", ErrNotFound
+		}
+		return EmergencyToken{}, "", fmt.Errorf("insert emergency token: %w", err)
+	}
+
+	return token, rawToken, nil
+}
+
+// LookupEmergencyToken returns token metadata when rawToken is valid, unexpired,
+// and not revoked.
+func (r *Repository) LookupEmergencyToken(ctx context.Context, rawToken string) (EmergencyToken, error) {
+	tokenHash := hashEmergencyToken(rawToken)
+	row := r.db.QueryRowContext(ctx, `
+		SELECT id, incident_id, token_hash, label, created_at, expires_at, revoked_at, last_used_at
+		FROM emergency_tokens
+		WHERE token_hash = ?`,
+		tokenHash,
+	)
+
+	token, err := scanEmergencyToken(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return EmergencyToken{}, ErrNotFound
+	}
+	if err != nil {
+		return EmergencyToken{}, fmt.Errorf("lookup emergency token: %w", err)
+	}
+	if subtle.ConstantTimeCompare([]byte(token.TokenHash), []byte(tokenHash)) != 1 {
+		return EmergencyToken{}, ErrNotFound
+	}
+	if token.RevokedAt != nil {
+		return EmergencyToken{}, ErrNotFound
+	}
+	if token.ExpiresAt != nil && !token.ExpiresAt.After(time.Now().UTC()) {
+		return EmergencyToken{}, ErrNotFound
+	}
+
+	return token, nil
+}
+
+// RevokeEmergencyToken revokes a token so it can no longer read emergency data.
+func (r *Repository) RevokeEmergencyToken(ctx context.Context, tokenID string) error {
+	result, err := r.db.ExecContext(ctx, `
+		UPDATE emergency_tokens
+		SET revoked_at = ?
+		WHERE id = ? AND revoked_at IS NULL`,
+		formatDBTime(time.Now().UTC()),
+		tokenID,
+	)
+	if err != nil {
+		return fmt.Errorf("revoke emergency token: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("revoke emergency token rows affected: %w", err)
+	}
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// UpdateEmergencyTokenLastUsed records successful emergency token use.
+func (r *Repository) UpdateEmergencyTokenLastUsed(ctx context.Context, tokenID string) error {
+	result, err := r.db.ExecContext(ctx, `
+		UPDATE emergency_tokens
+		SET last_used_at = ?
+		WHERE id = ?`,
+		formatDBTime(time.Now().UTC()),
+		tokenID,
+	)
+	if err != nil {
+		return fmt.Errorf("update emergency token last used: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("update emergency token last used rows affected: %w", err)
+	}
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 type scanner interface {
 	Scan(dest ...any) error
 }
@@ -443,6 +567,45 @@ func scanCheckin(s scanner) (Checkin, error) {
 	return checkin, nil
 }
 
+func scanEmergencyToken(s scanner) (EmergencyToken, error) {
+	var token EmergencyToken
+	var label sql.NullString
+	var createdAt string
+	var expiresAt sql.NullString
+	var revokedAt sql.NullString
+	var lastUsedAt sql.NullString
+	if err := s.Scan(
+		&token.ID,
+		&token.IncidentID,
+		&token.TokenHash,
+		&label,
+		&createdAt,
+		&expiresAt,
+		&revokedAt,
+		&lastUsedAt,
+	); err != nil {
+		return EmergencyToken{}, err
+	}
+	parsedCreatedAt, err := parseDBTime(createdAt)
+	if err != nil {
+		return EmergencyToken{}, err
+	}
+	token.CreatedAt = parsedCreatedAt
+	if label.Valid {
+		token.Label = label.String
+	}
+	if token.ExpiresAt, err = nullableDBTime(expiresAt); err != nil {
+		return EmergencyToken{}, err
+	}
+	if token.RevokedAt, err = nullableDBTime(revokedAt); err != nil {
+		return EmergencyToken{}, err
+	}
+	if token.LastUsedAt, err = nullableDBTime(lastUsedAt); err != nil {
+		return EmergencyToken{}, err
+	}
+	return token, nil
+}
+
 func formatDBTime(value time.Time) string {
 	return value.UTC().Format(time.RFC3339Nano)
 }
@@ -480,9 +643,40 @@ func nullableFloat(value *float64) sql.NullFloat64 {
 	return sql.NullFloat64{Float64: *value, Valid: true}
 }
 
+func nullableTime(value *time.Time) sql.NullString {
+	if value == nil {
+		return sql.NullString{}
+	}
+	return sql.NullString{String: formatDBTime(*value), Valid: true}
+}
+
+func nullableDBTime(value sql.NullString) (*time.Time, error) {
+	if !value.Valid {
+		return nil, nil
+	}
+	parsed, err := parseDBTime(value.String)
+	if err != nil {
+		return nil, err
+	}
+	return &parsed, nil
+}
+
+func utcTimePtr(value *time.Time) *time.Time {
+	if value == nil {
+		return nil
+	}
+	utc := value.UTC()
+	return &utc
+}
+
 func isConstraint(err error) bool {
 	var sqliteErr sqlite3.Error
 	return errors.As(err, &sqliteErr) && sqliteErr.Code == sqlite3.ErrConstraint
+}
+
+func hashEmergencyToken(rawToken string) string {
+	sum := sha256.Sum256([]byte(rawToken))
+	return hex.EncodeToString(sum[:])
 }
 
 func newID(prefix string) (string, error) {
