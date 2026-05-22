@@ -2,6 +2,12 @@
 
 Safety Recorder is a Go backend only. Keep changes small, boring, and testable.
 
+## AI Assistance
+
+This repository uses OpenAI Codex as an AI-assisted development tool. Codex may generate or modify code and documentation, but changes are accepted only after maintainer review and testing.
+
+The maintainer remains responsible for correctness, security, licensing, releases, deployment decisions, and real-world use. Use of Codex does not imply endorsement, audit, certification, or maintenance by OpenAI.
+
 ## Repository Layout
 
 ```text

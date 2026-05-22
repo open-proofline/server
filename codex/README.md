@@ -4,6 +4,8 @@
 
 Reusable prompts live in `codex/prompts/`.
 
+This directory records the Codex prompt workflow used for AI-assisted development. Codex output is treated as maintainer-reviewed work, not as endorsement, audit, certification, or maintenance by OpenAI.
+
 Use reusable prompts in this rough order:
 
 1. `00-project-context-check.md`

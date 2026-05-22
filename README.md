@@ -129,6 +129,23 @@ Container defaults bind to `0.0.0.0` inside the container. Restrict host exposur
 - [Development](docs/development.md)
 - [Code map](docs/code-map.md)
 
+## AI-Assisted Development
+
+This project has been developed with substantial assistance from OpenAI Codex.
+
+Codex has been used to draft, refactor, test, document, and review parts of the Go backend and Markdown documentation. All accepted changes are reviewed, tested, and committed by the maintainer.
+
+AI assistance does not replace human responsibility. The maintainer remains responsible for:
+
+- code correctness
+- security review
+- licensing decisions
+- release decisions
+- deployment choices
+- any real-world use of the software
+
+Use of Codex does not imply endorsement, audit, certification, or maintenance by OpenAI.
+
 ## Security
 
 Emergency viewer links are bearer-token URLs and should be treated as secrets. Public deployment still needs TLS, rate limiting, log review, retention policy, proxy hardening, and operational testing. Do not expose `/v1` publicly as-is.
