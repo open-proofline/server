@@ -4,6 +4,7 @@ Safety Recorder currently contains the Go backend for a private personal-safety 
 
 ## Package Layout
 
+- `.github/workflows/ci.yml`: runs Go tests on pull requests and pushes, builds a Linux amd64 binary artifact, builds the Docker image, and publishes it to GitHub Container Registry on `main` and `v*` tag pushes.
 - `server/cmd/api`: starts the private API and public emergency viewer HTTP servers, loads config, opens SQLite, creates storage, wires handlers, and handles graceful shutdown.
 - `server/internal/config`: reads environment variables such as private/public bind addresses, data directory, database path, and max upload size.
 - `server/internal/db`: opens SQLite, enables foreign keys and WAL mode, and applies embedded migrations.

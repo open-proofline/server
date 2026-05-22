@@ -52,6 +52,15 @@ From the `server` directory:
 go test ./...
 ```
 
+## CI/CD
+
+GitHub Actions runs CI on pull requests and pushes. The workflow:
+
+- runs Go tests from `server/`
+- builds a Linux amd64 binary artifact
+- builds the Docker image from `server/Dockerfile`
+- publishes `ghcr.io/thesilkky/safety-recorder` on pushes to `main` and `v*` tags
+
 ## Start The Server
 
 From the `server` directory:
