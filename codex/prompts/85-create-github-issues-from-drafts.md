@@ -1,15 +1,16 @@
 # Codex Prompt: Prepare GitHub Issue Creation Commands from Reviewed Backlog Drafts
 
-Read `.backlog-drafts/`.
+Read reviewed backlog drafts and generate a script that can create GitHub issues with GitHub CLI.
 
 Do **not** modify application code.
 Do **not** create GitHub issues directly unless explicitly told to run commands.
+Do **not** execute the generated script.
 Do **not** include sensitive vulnerability details in public issues.
 Do **not** modify workflows, Dockerfiles, SQL migrations, Go code, generated files, binaries, database files, or uploaded blob data.
 
 ## Goal
 
-Generate a shell script that creates GitHub issues from reviewed backlog draft files using GitHub CLI.
+Generate a shell script that creates GitHub issues from maintainer-reviewed backlog draft files.
 
 Create:
 
@@ -19,24 +20,44 @@ scripts/create-backlog-issues.sh
 
 ## Repository
 
-Use repo:
-
 ```text
 TheSilkky/safety-recorder
 ```
 
+## Draft directory
+
+Backlog drafts are normally created by `80-backlog-scan-issue-drafts.md`.
+
+They should live under a timestamped directory such as:
+
+```text
+.backlog-drafts/YYYY-MM-DD/
+```
+
+or:
+
+```text
+.backlog-drafts/current/
+```
+
+Before generating the script:
+
+1. Prefer an explicitly provided draft directory, if the maintainer gives one.
+2. Otherwise, inspect `.backlog-drafts/` and choose the newest timestamped directory.
+3. If multiple directories exist and the newest is unclear, stop and ask which draft directory to use.
+4. Do not use `.backlog-drafts/private-notes/` or any `private-notes/` directory for public issue creation.
+
 ## Requirements
 
 - Use `gh issue create`.
-- For each `.backlog-drafts/NNN-*.md` file, derive:
+- For each `NNN-*.md` file in the selected draft directory, derive:
   - title from the first Markdown heading
   - body from the entire file
   - labels from the `## Labels` section
 - Do not execute the script.
 - Make the script readable and reviewable.
 - Add comments explaining that labels must exist or GitHub CLI may fail.
-- Do not create issues marked sensitive/private.
-- Do not include drafts that say they should not be public.
+- Exclude drafts marked sensitive/private or not for public creation.
 - Keep the idempotence warning clear: running the script twice may create duplicate issues.
 - Keep output readable.
 - Quote file paths and arguments safely.
@@ -59,47 +80,23 @@ The script should:
    REPO="TheSilkky/safety-recorder"
    ```
 
-3. Create issues one by one.
+3. Refuse to run if GitHub CLI is not installed or not authenticated.
 
-4. Use `--body-file` rather than embedding large Markdown bodies inline.
+4. Print which issue draft is being created.
 
-5. Use labels from the draft if practical.
+5. Use `--body-file`.
 
-6. Print which issue draft is being created.
-
-7. Refuse to run if GitHub CLI is not installed or not authenticated.
-
-Example shape:
-
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-REPO="TheSilkky/safety-recorder"
-
-if ! command -v gh >/dev/null 2>&1; then
-  echo "gh is required" >&2
-  exit 1
-fi
-
-gh auth status >/dev/null
-
-echo "Creating issue from .backlog-drafts/001-example.md"
-gh issue create \
-  --repo "$REPO" \
-  --title "Example issue" \
-  --body-file ".backlog-drafts/001-example.md" \
-  --label "backlog,maintenance"
-```
+6. Use labels from the draft where practical.
 
 ## Review requirements
 
-Before generating the script, inspect every draft under `.backlog-drafts/`.
+Before generating the script, inspect every draft in the selected draft directory.
 
 Exclude any draft that:
 
 - is marked sensitive
 - says not to create publicly
+- lives under `private-notes/`
 - contains raw tokens
 - contains secrets
 - contains private deployment details
@@ -113,11 +110,12 @@ If a draft is excluded, list it in the output summary and explain why.
 Also create, if useful:
 
 ```text
-.backlog-drafts/create-issues-review.md
+.backlog-drafts/<selected-directory>/create-issues-review.md
 ```
 
 This file should summarize:
 
+- selected draft directory
 - issue drafts included in the script
 - issue drafts excluded
 - labels used
@@ -129,7 +127,7 @@ This file should summarize:
 Allowed files:
 
 - `scripts/create-backlog-issues.sh`
-- `.backlog-drafts/create-issues-review.md`
+- `.backlog-drafts/<selected-directory>/create-issues-review.md`
 
 Do not change anything else unless needed only for a tiny documentation link.
 
@@ -139,7 +137,7 @@ After generating the script:
 
 ```bash
 git diff --stat
-git diff -- scripts/create-backlog-issues.sh .backlog-drafts/create-issues-review.md
+git diff -- scripts/create-backlog-issues.sh .backlog-drafts
 ```
 
 Do not run Go tests unless code was changed.
@@ -150,9 +148,10 @@ Do not execute the script.
 
 Summarize:
 
-1. issue drafts included
-2. issue drafts excluded
-3. labels used
-4. script path
-5. command to run after maintainer review
-6. reminder that running twice may create duplicate issues
+1. selected draft directory
+2. issue drafts included
+3. issue drafts excluded
+4. labels used
+5. script path
+6. command to run after maintainer review
+7. reminder that running twice may create duplicate issues

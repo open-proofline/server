@@ -1,80 +1,125 @@
 # Codex Prompt: Documentation Update
 
-Update documentation to match the current code.
+Update documentation to match the current code and project scope.
 
-Do not change code unless documentation reveals a clear inconsistency or broken example.
+Do **not** change code unless documentation reveals a clear inconsistency or broken example and the maintainer explicitly wants it fixed.
+Do **not** overpromise production readiness.
 
 ## Source of truth
 
-Treat the current code and top-level `README.md` as the source of truth.
-
-The project currently includes:
-
-- private `/v1` API listener group
-- public emergency viewer listener group
-- plural bind address variables:
-  - `SAFE_PRIVATE_BIND_ADDRS`
-  - `SAFE_PUBLIC_BIND_ADDRS`
-- uploaded encrypted chunks
-- media streams
-- completed/failed stream states
-- completed encrypted stream/incident ZIP evidence bundles
-- emergency viewer tokens
-- simulator CLI
-- Docker/GHCR/CI support
-
-## Update only relevant docs
-
-Potential docs:
+Before making changes, read current source-of-truth files as relevant:
 
 - `README.md`
-- `docs/api.md`
-- `docs/code-map.md`
-- `docs/threat-model.md`
-- `docs/security-model.md`
-- `CHANGELOG.md`
 - `AGENTS.md`
+- `CHANGELOG.md`
+- `SECURITY.md`
+- `docs/README.md`
+- relevant files in `docs/`
+- relevant source files
+- relevant tests
+- relevant issue or PR, if this is issue/PR work
+
+Do not rely on stale assumptions from this prompt if the repository has changed.
+## Global constraints
+
+- Keep changes scoped to the task.
+- Do not add unrelated features.
+- Do not weaken security warnings.
+- Do not claim production readiness.
+- Do not expose `/v1` publicly.
+- Do not log raw tokens, request bodies, uploaded bytes, Authorization headers, plaintext, raw keys, or future token-like values.
+- Do not add React, Node, npm, OAuth, JWT, user accounts, SMS, Messenger, push notifications, Docker Compose, Kubernetes, cloud integrations, or public admin dashboard features unless explicitly requested.
+- Prefer Go standard library where practical.
+- Preserve private/public listener separation.
+- Preserve the current backend ciphertext-only implementation unless the task explicitly concerns key custody, emergency access, or decryption design.
+- Do not introduce backend decryption, raw server-held decryption keys, key escrow, browser decryption, or key-sharing behaviour as an incidental implementation detail.
+- Future production key custody should assume the iPhone may be unavailable; keys must not exist solely on the client device.
+- Server storage of wrapped/encrypted keys may be acceptable if explicitly designed.
+- Raw server-side key access or server-side decryption may be acceptable only as a deliberate break-glass/dead-man-switch/emergency-access mode with clear access controls, audit expectations, and deployment warnings.
+
+## Potential docs to update
+
+Update only relevant files:
+
+- `README.md`
+- `AGENTS.md`
+- `CHANGELOG.md`
+- `SECURITY.md`, only for small consistency updates
+- `docs/README.md`
+- `docs/api.md`
+- `docs/architecture.md`
+- `docs/configuration.md`
+- `docs/deployment.md`
+- `docs/encryption.md`
+- `docs/key-custody.md`, if present
+- `docs/browser-decryption.md`, if present
+- `docs/break-glass-key-access.md`, if present
+- `docs/security-model.md`
+- `docs/threat-model.md`
+- `docs/simulator.md`
+- `docs/development.md`
+- `docs/codex-change-control.md`
+- `docs/code-map.md`
+- `.github/ISSUE_TEMPLATE/*.md`, if docs/process changes require it
 - `codex/README.md`
+- `codex/prompts/*.md`, if prompt workflow documentation changes require it
 
-## Check
-
-Verify documentation for:
+## Check documentation for
 
 - project scope
 - current version number, if stated
 - endpoint list
 - request/response examples
 - environment variables
-- singular/plural bind address behaviour
+- bind address behaviour
 - Docker bind caveat
 - private/public listener separation
 - data directory layout
 - media stream lifecycle
 - completed evidence bundle downloads
+- encryption envelope format and simulator key-file behaviour
+- current backend does not decrypt or store raw keys by default
+- future hybrid key custody direction, if design docs exist
 - emergency viewer download buttons
 - simulator commands
 - security warnings
 - known limitations
 - test/run/build commands
 - CI/GHCR notes
-- next steps
+- issue/PR workflow
+- backlog draft workflow
+- Codex change-control workflow
+- AI-assisted development disclosure
+- next steps / roadmap
 
 ## Constraints
 
-- Do not overpromise production readiness.
-- Do not imply the backend decrypts chunks.
 - Do not imply evidence bundles are playable media.
 - Do not imply `/v1` is safe for public exposure.
-- Do not add React, Node, npm, OAuth, JWT, user accounts, SMS, Messenger, push notifications, Docker Compose, Kubernetes, or cloud integrations.
+- Do not claim the iOS client exists.
+- Do not claim production-readiness.
+- Do not describe future key custody/decryption as implemented unless it is implemented.
 - Keep wording clear and concise.
 
 ## Validation
 
-After documentation changes, run tests if any code changed:
+If only Markdown changed:
 
 ```bash
-gofmt -w .
-go test ./...
+git diff --stat
+git diff -- README.md docs codex AGENTS.md SECURITY.md CHANGELOG.md .github/ISSUE_TEMPLATE
 ```
 
-If only docs changed, state that tests were not required.
+Go tests are not required unless code changed.
+
+If code changed unexpectedly, stop and explain why.
+
+## Output
+
+Summarize:
+
+1. files changed
+2. docs updated
+3. docs intentionally not touched
+4. links/examples that should be manually checked
+5. whether tests were skipped as docs-only

@@ -25,14 +25,6 @@ The drafts should be specific enough that the maintainer can review them and lat
 TheSilkky/safety-recorder
 ```
 
-## Project context
-
-Safety Recorder is an experimental Go backend for a private personal-safety recording system.
-
-The project may change over time. Do not assume the version, feature set, or backlog state from this prompt alone.
-
-Start by reading the current repo source of truth.
-
 ## Source of truth to inspect
 
 Read current repository files where present:
@@ -48,6 +40,9 @@ Read current repository files where present:
 - `docs/configuration.md`
 - `docs/deployment.md`
 - `docs/encryption.md`
+- `docs/key-custody.md`, if present
+- `docs/browser-decryption.md`, if present
+- `docs/break-glass-key-access.md`, if present
 - `docs/security-model.md`
 - `docs/threat-model.md`
 - `docs/code-map.md`
@@ -82,7 +77,7 @@ Before drafting any issue:
 2. Check whether a closed issue or merged PR recently completed it.
 3. If an existing issue covers it, do not create a duplicate draft.
 4. If an existing issue is close but incomplete, create a draft suggesting an update/comment instead of a duplicate issue.
-5. If uncertain, include a note in `.backlog-drafts/README.md` rather than generating a duplicate issue.
+5. If uncertain, include a note in the scan index rather than generating a duplicate issue.
 
 ## Areas to scan
 
@@ -100,12 +95,11 @@ Look for future work in these categories:
 10. Operational readiness
 11. Release/CI polish
 12. Codex workflow/process improvements
+13. Key custody / emergency access design
 
 ## Candidate discovery guidance
 
 Do not blindly recreate the same backlog every run.
-
-Derive candidates from current code/docs/issues.
 
 Good candidate signals:
 
@@ -115,6 +109,7 @@ Good candidate signals:
 - docs saying “future work”
 - security model gaps
 - threat-model mitigations not implemented
+- key custody or emergency access design gaps
 - code paths with tests missing
 - deployment warnings without examples
 - workflows mentioned in docs but not automated
@@ -139,7 +134,13 @@ If you find a likely security vulnerability that should not be public:
 - Create a private note under:
 
 ```text
-.backlog-drafts/private-notes/
+.backlog-drafts/YYYY-MM-DD/private-notes/
+```
+
+If the date is not available, use:
+
+```text
+.backlog-drafts/current/private-notes/
 ```
 
 - Clearly mark it:
@@ -153,7 +154,7 @@ PRIVATE SECURITY NOTE - DO NOT CREATE PUBLIC ISSUE
 
 ## Output directory
 
-Create a timestamped draft directory so repeated scans do not overwrite previous scans:
+Create a timestamped draft directory:
 
 ```text
 .backlog-drafts/YYYY-MM-DD/
@@ -173,19 +174,19 @@ Filename format:
 NNN-short-kebab-title.md
 ```
 
-Example:
-
-```text
-001-add-default-token-expiry.md
-```
-
 Also create:
 
 ```text
 .backlog-drafts/YYYY-MM-DD/README.md
 ```
 
-The index should list all drafted issues grouped by priority/category and include any skipped duplicates.
+or:
+
+```text
+.backlog-drafts/current/README.md
+```
+
+The index should list drafted issues grouped by priority/category and include skipped duplicates.
 
 ## Number of issues
 
@@ -271,26 +272,6 @@ P3 = polish, documentation, cleanup, or governance
 ```
 
 Do not overuse P0.
-
-## Label guide
-
-Suggest labels only. Do not create labels in this task.
-
-Recommended labels:
-
-- `backlog`
-- `bug`
-- `maintenance`
-- `security`
-- `docs`
-- `deployment`
-- `testing`
-- `simulator`
-- `ios`
-- `ci`
-- `planning`
-
-If a label does not exist, still suggest it if useful, but mention missing/new labels in the index.
 
 ## Requirements
 

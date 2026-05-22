@@ -1,14 +1,47 @@
 # Codex Prompt: MDN-Aligned Web Security Header Review
 
-Review the Go backend's public emergency viewer and private API response headers against Mozilla MDN web security guidance.
+Review browser-facing response headers and web security posture.
 
-Do not add features.
-Do not add React, Node, npm, OAuth, JWT, user accounts, Docker Compose, Kubernetes, or cloud integrations.
-Do not change endpoint behaviour unless required to fix a security bug.
+Do **not** add features.
+Do **not** add React, Node, npm, OAuth, JWT, user accounts, Docker Compose, Kubernetes, or cloud integrations.
+Do **not** change endpoint behaviour unless required to fix a security bug.
+Do **not** add browser decryption or unrelated emergency viewer features.
+
+## Source of truth
+
+Before making changes, read current source-of-truth files as relevant:
+
+- `README.md`
+- `AGENTS.md`
+- `CHANGELOG.md`
+- `SECURITY.md`
+- `docs/README.md`
+- relevant files in `docs/`
+- relevant source files
+- relevant tests
+- relevant issue or PR, if this is issue/PR work
+
+Do not rely on stale assumptions from this prompt if the repository has changed.
+## Global constraints
+
+- Keep changes scoped to the task.
+- Do not add unrelated features.
+- Do not weaken security warnings.
+- Do not claim production readiness.
+- Do not expose `/v1` publicly.
+- Do not log raw tokens, request bodies, uploaded bytes, Authorization headers, plaintext, raw keys, or future token-like values.
+- Do not add React, Node, npm, OAuth, JWT, user accounts, SMS, Messenger, push notifications, Docker Compose, Kubernetes, cloud integrations, or public admin dashboard features unless explicitly requested.
+- Prefer Go standard library where practical.
+- Preserve private/public listener separation.
+- Preserve the current backend ciphertext-only implementation unless the task explicitly concerns key custody, emergency access, or decryption design.
+- Do not introduce backend decryption, raw server-held decryption keys, key escrow, browser decryption, or key-sharing behaviour as an incidental implementation detail.
+- Future production key custody should assume the iPhone may be unavailable; keys must not exist solely on the client device.
+- Server storage of wrapped/encrypted keys may be acceptable if explicitly designed.
+- Raw server-side key access or server-side decryption may be acceptable only as a deliberate break-glass/dead-man-switch/emergency-access mode with clear access controls, audit expectations, and deployment warnings.
 
 ## Goal
 
-Ensure the web server's security headers and browser-facing behaviour are MDN-aligned for a small server-rendered emergency viewer.
+Ensure browser-facing behaviour is MDN-aligned for a small server-rendered emergency viewer and private JSON API.
 
 Use MDN guidance conceptually for:
 
@@ -20,35 +53,21 @@ Use MDN guidance conceptually for:
 - X-Frame-Options or CSP `frame-ancestors`
 - Cache-Control for token-protected emergency pages/downloads
 
-## Project context
-
-The app has two server surfaces:
-
-1. Private API server
-   - write/admin/upload endpoints
-   - intended for localhost, LAN, or WireGuard/private network
-   - must not be publicly exposed
-
-2. Public emergency viewer server
-   - read-only token-scoped viewer
-   - intended to be exposed through HTTPS/reverse proxy
-   - must not expose private write/admin routes
-
 ## Review requirements
 
 Check:
 
 - public emergency HTML responses
 - public emergency JSON responses
+- static CSS/JS responses
 - stream ZIP download responses
 - incident ZIP download responses
 - private API JSON responses
 - 404/error responses
-- static CSS responses, if present
 
 Look for:
 
-- missing `Content-Type`
+- missing or incorrect `Content-Type`
 - missing `X-Content-Type-Options: nosniff`
 - missing or weak `Referrer-Policy`
 - missing or weak `Content-Security-Policy`
@@ -60,23 +79,19 @@ Look for:
 - cacheable emergency downloads
 - incorrect headers on ZIP downloads
 - headers that should be set by reverse proxy rather than app
+- HSTS accidentally enabled for localhost/dev HTTP
 
 ## Implementation guidance
 
-For emergency viewer HTML, prefer a strict CSP such as:
+For emergency viewer HTML, prefer strict CSP such as:
 
 ```http
 Content-Security-Policy: default-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'; object-src 'none'
 ```
 
-If inline CSS is currently used, either:
+If inline CSS/JS is introduced, either move it to static assets or explicitly justify the CSP change.
 
-- move it to a static CSS file and keep CSP strict, or
-- explicitly document why `style-src 'unsafe-inline'` is temporarily used.
-
-Do not add inline JavaScript unless explicitly requested.
-
-Set:
+For token-protected emergency pages, JSON, errors, and downloads, ensure:
 
 ```http
 X-Content-Type-Options: nosniff
@@ -85,7 +100,7 @@ Permissions-Policy: geolocation=(), microphone=(), camera=()
 Cache-Control: no-store
 ```
 
-For ZIP downloads, set:
+For ZIP downloads, ensure:
 
 ```http
 Content-Type: application/zip
@@ -99,7 +114,7 @@ For HSTS:
 
 - Do not enable HSTS by default for localhost/dev HTTP.
 - Document that HSTS should be enabled only when served over production HTTPS.
-- If implemented in-app, gate it behind an explicit env var such as `SAFE_ENABLE_HSTS=true`.
+- Prefer setting HSTS at the production HTTPS reverse proxy.
 
 ## Tests
 
@@ -107,43 +122,32 @@ Add or update tests to verify security headers for:
 
 - emergency viewer HTML
 - emergency viewer JSON data endpoint
+- static assets
 - stream ZIP download responses
 - incident ZIP download responses
 - private API JSON responses where appropriate
 - 404/error responses
 
-Tests should confirm:
-
-- private routes are not mounted on public server
-- public emergency pages use `Cache-Control: no-store`
-- public emergency pages use `Referrer-Policy: no-referrer`
-- public emergency pages use `X-Content-Type-Options: nosniff`
-- CSP is present on emergency viewer HTML
-- download responses use attachment disposition and no-store cache policy
-
 ## Documentation
 
-Update README or `docs/security-model.md` with:
-
-- which headers are set by the Go app
-- which headers should be set by reverse proxy
-- why HSTS is not enabled by default in local/dev mode
-- how to test the public site with MDN HTTP Observatory after deployment
+Update `docs/security-model.md`, `docs/deployment.md`, or README only if header behaviour or deployment guidance changes.
 
 ## Validation
 
 Run:
 
 ```bash
+cd server
 gofmt -w .
 go test ./...
+go vet ./...
 ```
 
-## Summary after implementation
+## Output
 
 Summarize:
 
-- headers added or changed
-- tests added
-- documentation updated
-- any MDN-related security items intentionally deferred to reverse proxy/deployment
+1. headers added or changed
+2. tests added/updated
+3. documentation updated
+4. security items intentionally deferred to reverse proxy/deployment

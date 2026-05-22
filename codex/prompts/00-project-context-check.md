@@ -1,25 +1,55 @@
 # Codex Prompt: Project Context Check
 
-Read project context before making changes.
+Read current project context before making changes.
 
-Required sources:
+Do **not** change files.
+Do **not** add features.
+
+## Goal
+
+Summarize the current repo state and the likely impact of the requested task before any implementation work begins.
+
+## Source of truth
+
+Before making changes, read current source-of-truth files as relevant:
 
 - `README.md`
 - `AGENTS.md`
+- `CHANGELOG.md`
+- `SECURITY.md`
 - `docs/README.md`
 - relevant files in `docs/`
-- relevant prompt in `codex/prompts/`
+- relevant source files
+- relevant tests
+- relevant issue or PR, if this is issue/PR work
 
-Summarize:
+Do not rely on stale assumptions from this prompt if the repository has changed.
 
-- current project scope
-- current backend surfaces
-- private/public listener split
-- current security boundaries
-- current known exclusions
-- files likely affected by the requested task
-- files or areas that must not change
-- likely validation commands
+## Additional sources for issue/PR tasks
 
-Do not change files yet.
-Do not add features.
+If the task references an issue or pull request, inspect it first:
+
+```bash
+gh issue view <ISSUE_NUMBER> --repo TheSilkky/safety-recorder
+gh pr view <PR_NUMBER> --repo TheSilkky/safety-recorder
+```
+
+Use whichever command is relevant.
+
+If GitHub CLI is unavailable, say so and continue from local files.
+
+## Output
+
+Return:
+
+1. Current project scope
+2. Current backend surfaces
+3. Private/public listener split
+4. Current security boundaries
+5. Current known exclusions / out-of-scope features
+6. Current key custody / encryption posture
+7. Files likely affected by the requested task
+8. Files or areas that must not change
+9. Likely validation commands
+10. Recommended next reusable prompt to use
+11. Any clarifying questions, only if required to avoid a bad change

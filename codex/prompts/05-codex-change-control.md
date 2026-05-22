@@ -2,24 +2,62 @@
 
 Review the requested Codex task before making changes.
 
-Do not change code.
-Do not change documentation unless the user explicitly asks this prompt to update process docs.
-Do not add features.
+Do **not** change code.
+Do **not** change documentation unless explicitly requested.
+Do **not** add features.
+
+## Goal
+
+Decide whether the task is scoped enough to begin, should become a backlog item, or needs one or two specific clarifications.
+
+## Source of truth
+
+Before making changes, read current source-of-truth files as relevant:
+
+- `README.md`
+- `AGENTS.md`
+- `CHANGELOG.md`
+- `SECURITY.md`
+- `docs/README.md`
+- relevant files in `docs/`
+- relevant source files
+- relevant tests
+- relevant issue or PR, if this is issue/PR work
+
+Do not rely on stale assumptions from this prompt if the repository has changed.
+## Global constraints
+
+- Keep changes scoped to the task.
+- Do not add unrelated features.
+- Do not weaken security warnings.
+- Do not claim production readiness.
+- Do not expose `/v1` publicly.
+- Do not log raw tokens, request bodies, uploaded bytes, Authorization headers, plaintext, raw keys, or future token-like values.
+- Do not add React, Node, npm, OAuth, JWT, user accounts, SMS, Messenger, push notifications, Docker Compose, Kubernetes, cloud integrations, or public admin dashboard features unless explicitly requested.
+- Prefer Go standard library where practical.
+- Preserve private/public listener separation.
+- Preserve the current backend ciphertext-only implementation unless the task explicitly concerns key custody, emergency access, or decryption design.
+- Do not introduce backend decryption, raw server-held decryption keys, key escrow, browser decryption, or key-sharing behaviour as an incidental implementation detail.
+- Future production key custody should assume the iPhone may be unavailable; keys must not exist solely on the client device.
+- Server storage of wrapped/encrypted keys may be acceptable if explicitly designed.
+- Raw server-side key access or server-side decryption may be acceptable only as a deliberate break-glass/dead-man-switch/emergency-access mode with clear access controls, audit expectations, and deployment warnings.
 
 ## Check
 
 Assess whether the task has:
 
 - a clear goal
-- files or areas likely affected
-- files or areas that must not change
+- likely affected files/areas
+- files/areas that must not change
 - validation commands
 - explicit out-of-scope items
-- a rollback/checkpoint point, or a clean enough working tree for a small change
+- a rollback/checkpoint point or clean enough working tree
+- a clear distinction between required work and future work
+- clear key custody/decryption scope, if relevant
 
-## Backlog Gate
+## Backlog gate
 
-If the request introduces future work that is not necessary for the current task, recommend creating an issue or backlog item instead of implementing it now.
+If the request introduces future work that is not necessary for the current task, recommend creating an issue/backlog item instead of implementing it now.
 
 Security vulnerabilities should follow `SECURITY.md`, not a public issue template. Non-sensitive security hardening can become a normal backlog item.
 
@@ -30,5 +68,11 @@ Return a short readiness assessment:
 - `Ready`: the task is scoped enough to start.
 - `Needs clarification`: one or two specific details are missing.
 - `Create backlog item`: the request is future work or too broad for the current task.
+- `Sensitive security handling`: the request may involve private vulnerability details and should not become a public issue.
+- `Key custody design required`: the request would change key custody/decryption and needs explicit design first.
 
-Include the likely validation commands. Do not make file changes.
+Also include:
+
+- likely validation commands
+- recommended prompt to use next
+- any suggested issue/backlog title, if applicable

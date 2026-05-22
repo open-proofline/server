@@ -22,10 +22,25 @@ TheSilkky/safety-recorder
 - Do not change public API behaviour unless the issue requires it.
 - Do not weaken security warnings.
 - Do not expose `/v1` publicly.
-- Do not log raw tokens, request bodies, uploaded bytes, Authorization headers, plaintext, or keys.
-- Do not add React, Node, npm, OAuth, JWT, user accounts, SMS, Messenger, push notifications, Docker Compose, Kubernetes, cloud integrations, or public admin dashboard features unless the issue explicitly requires it.
+- Preserve private/public listener separation.
+- If the issue appears security-sensitive, stop and state whether public issue handling is appropriate before making changes.
+
+## Global constraints
+
+- Keep changes scoped to the task.
+- Do not add unrelated features.
+- Do not weaken security warnings.
+- Do not claim production readiness.
+- Do not expose `/v1` publicly.
+- Do not log raw tokens, request bodies, uploaded bytes, Authorization headers, plaintext, raw keys, or future token-like values.
+- Do not add React, Node, npm, OAuth, JWT, user accounts, SMS, Messenger, push notifications, Docker Compose, Kubernetes, cloud integrations, or public admin dashboard features unless explicitly requested.
 - Prefer Go standard library where practical.
 - Preserve private/public listener separation.
+- Preserve the current backend ciphertext-only implementation unless the task explicitly concerns key custody, emergency access, or decryption design.
+- Do not introduce backend decryption, raw server-held decryption keys, key escrow, browser decryption, or key-sharing behaviour as an incidental implementation detail.
+- Future production key custody should assume the iPhone may be unavailable; keys must not exist solely on the client device.
+- Server storage of wrapped/encrypted keys may be acceptable if explicitly designed.
+- Raw server-side key access or server-side decryption may be acceptable only as a deliberate break-glass/dead-man-switch/emergency-access mode with clear access controls, audit expectations, and deployment warnings.
 
 ## First steps
 
@@ -40,6 +55,7 @@ Then read:
 - `README.md`
 - `AGENTS.md`
 - `CHANGELOG.md`
+- `SECURITY.md`
 - relevant files in `docs/`
 - relevant source files
 - relevant tests
@@ -47,10 +63,13 @@ Then read:
 Before changing files, summarize:
 
 1. issue goal
-2. files likely affected
-3. validation commands
-4. out-of-scope items
-5. whether this should be docs-only, code-only, or mixed
+2. acceptance criteria from the issue
+3. files likely affected
+4. validation commands
+5. out-of-scope items
+6. whether this should be docs-only, code-only, or mixed
+7. whether the issue is safe for normal public issue handling
+8. whether the issue changes key custody/decryption assumptions
 
 ## Implementation
 
@@ -93,6 +112,7 @@ Summarize:
 
 1. files changed
 2. implementation summary
-3. validation commands run
-4. any follow-up work
-5. whether a PR should be opened
+3. issue acceptance criteria satisfied
+4. validation commands run
+5. any follow-up work
+6. whether a PR should be opened

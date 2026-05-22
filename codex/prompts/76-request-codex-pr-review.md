@@ -22,17 +22,20 @@ Post this PR comment:
 Please review this PR for correctness, security, scope control, and consistency with README.md, AGENTS.md, SECURITY.md, and relevant docs.
 
 Focus on:
-- whether the change actually satisfies the linked issue
+- whether the change satisfies the linked issue acceptance criteria
 - whether unrelated scope was added
 - tests and validation
 - private/public listener separation
 - raw token / request body / uploaded byte / Authorization header logging
+- plaintext/key logging
+- backend decryption, server-side key access, or key custody changes accidentally introduced
 - ZIP bundle path safety, if relevant
 - encryption/key handling, if relevant
 - documentation accuracy
 - production-readiness claims
 
 Do not suggest unrelated features.
+Do not include sensitive vulnerability details in a public comment.
 ```
 
 ## Option B: Ask Codex locally to review a PR
@@ -52,7 +55,9 @@ Then review for:
 4. test coverage
 5. documentation accuracy
 6. consistency with README.md and AGENTS.md
-7. whether it satisfies the linked issue
+7. whether it satisfies the linked issue acceptance criteria
+8. whether it should remain draft
+9. whether it changes key custody/decryption assumptions
 
 Do not modify files unless explicitly requested.
 
