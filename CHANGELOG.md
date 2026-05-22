@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added a production key custody and emergency access design document covering the future hybrid trusted-contact model.
 - Rejected non-positive chunk indexes for streamed uploads while preserving legacy unstreamed compatibility.
 - Hardened chunk upload and stream completion against incident/stream state races.
 - Added explicit schema migration tracking with `schema_migrations`.

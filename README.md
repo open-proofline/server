@@ -20,7 +20,7 @@ This repository currently contains the backend only. The intended future client 
 
 Evidence bundles are ZIP files containing encrypted chunks and JSON manifests. They are not decrypted, playable, or merged media exports.
 
-The simulator encrypts fake chunks by default with the documented v1 AES-256-GCM envelope and verifies downloaded bundles locally. Keys remain client-side and are not uploaded to the backend.
+The simulator encrypts fake chunks by default with the documented v1 AES-256-GCM envelope and verifies downloaded bundles locally. Keys remain client-side and are not uploaded to the backend. Future production key custody is expected to use a hybrid trusted-contact model; see [docs/key-custody.md](docs/key-custody.md).
 
 ## What Works Today
 
@@ -121,6 +121,7 @@ Container defaults bind to `0.0.0.0` inside the container. Restrict host exposur
 - [Architecture](docs/architecture.md)
 - [Configuration](docs/configuration.md)
 - [Encryption](docs/encryption.md)
+- [Key custody and emergency access](docs/key-custody.md)
 - [API reference](docs/api.md)
 - [Deployment notes](docs/deployment.md)
 - [Security model](docs/security-model.md)
@@ -167,7 +168,7 @@ Please see [SECURITY.md](SECURITY.md) for supported versions and vulnerability r
 - WireGuard-only bind/firewall deployment guidance
 - iOS client
 - Client-side recording and encryption
-- Production client-side decryption and key sharing
+- Production key custody, trusted-contact access, and client-side decryption
 - Playable media export
 - Dead-man switch behavior
 - Reverse-proxy/TLS hardening for emergency viewer exposure

@@ -8,7 +8,7 @@ This milestone does not add backend decryption. The server still validates SHA-2
 
 The v1 envelope protects chunk plaintext from the backend, SQLite, local blob storage, and evidence bundle readers who do not have the client-held key. It does not protect metadata that is already sent to the backend, such as incident ID, stream ID, media type, chunk index, timestamps, byte size, and ciphertext hashes.
 
-The simulator key handling in this repository is for development and test use only. Future production client key storage, sharing, recovery, and emergency-contact access are out of scope.
+The simulator key handling in this repository is for development and test use only. Future production client key storage, sharing, recovery, and emergency-contact access are out of scope for the current implementation and are designed separately in [key-custody.md](key-custody.md).
 
 ## Scheme v1
 
@@ -144,4 +144,4 @@ Evidence bundles remain ZIP files containing encrypted `.enc` chunk files and JS
 
 The intended Apple-side equivalent is CryptoKit or Swift Crypto AES-GCM. This repository does not include iOS or Swift code yet.
 
-Future work includes production client key storage, Keychain integration, emergency-contact key access, key sharing, browser/client-side decryption, and playable export. Password-derived keys, passphrases, public-key wrapping, key escrow, backend decryption, and browser decryption are not implemented in this milestone.
+Future work includes production client key storage, Keychain integration, emergency-contact key access, key sharing, browser/client-side decryption, and playable export. The intended production key custody direction is a hybrid trusted-contact model documented in [key-custody.md](key-custody.md). Password-derived keys, passphrases, public-key wrapping, key escrow, backend decryption, and browser decryption are not implemented in this milestone.
