@@ -1,141 +1,97 @@
-# Safety Recorder Backend v0.3.0
+# Safety Recorder
 
-![CI](https://github.com/thesilkky/safety-recorder/actions/workflows/ci.yml/badge.svg)
+[![CI](https://github.com/TheSilkky/safety-recorder/actions/workflows/ci.yml/badge.svg)](https://github.com/TheSilkky/safety-recorder/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/TheSilkky/safety-recorder?sort=semver)](https://github.com/TheSilkky/safety-recorder/releases)
+[![License: AGPL-3.0-only](https://img.shields.io/badge/license-AGPL--3.0--only-blue.svg)](LICENSE)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/TheSilkky/safety-recorder?filename=server%2Fgo.mod)](server/go.mod)
+[![Status: Experimental](https://img.shields.io/badge/status-experimental-orange.svg)](#security-warning)
+[![Security Policy](https://img.shields.io/badge/security-policy-blue.svg)](SECURITY.md)
+[![GHCR](https://img.shields.io/badge/GHCR-ghcr.io%2Fthesilkky%2Fsafety--recorder-blue?logo=github)](https://github.com/TheSilkky/safety-recorder/pkgs/container/safety-recorder)
 
-Safety Recorder is a private personal-safety recording system.
-
-This repository currently contains the Go backend only. The intended client is a future iOS app that records audio/video in short chunks, encrypts them locally, and uploads them continuously so already-uploaded evidence is retained if the phone is lost, damaged, powered off, or taken.
-
-## Current scope
-
-v0.3.0 implements the backend ingest and emergency read-only viewing layer:
-
-- create incidents
-- receive already-encrypted recording chunks
-- verify uploaded chunks using SHA-256
-- store chunks immutably on local disk
-- store incident, chunk, and check-in metadata in SQLite
-- group chunks into media streams that can be marked complete or failed
-- download completed encrypted stream and incident evidence bundles
-- create scoped emergency viewer tokens
-- serve a simple read-only emergency incident page with completed-stream download buttons
-- run a small CLI simulator for incident upload/check-in flows
-
-Evidence bundles are ZIP files containing encrypted chunks plus JSON manifests. They are not decrypted, playable, or merged media exports.
-
-The backend does **not** currently implement recording, client-side encryption, decryption, playable media export, an iOS app, push notifications, SMS, Messenger integration, user accounts, or a public admin dashboard.
-
-## Intended future design
-
-The planned system is:
-
-```text
-iOS app
-  → WireGuard/private network
-      → private backend write API on `SAFE_PRIVATE_BIND_ADDRS`
-
-trusted contact
-  → HTTPS emergency viewer link
-      → public emergency viewer on `SAFE_PUBLIC_BIND_ADDRS`
-```
+Safety Recorder is an experimental Go backend for a private personal-safety recording system. It receives already-encrypted recording chunks, stores metadata in SQLite, keeps encrypted blobs on local disk, and exposes a token-scoped emergency viewer for read-only incident review.
 
 ## Security Warning
 
-The v0.3.0 API binary starts separate listener groups: private `/v1` write/admin listeners and public-shaped emergency viewer listeners. Separate bind addresses are a deployment boundary, not a complete security model. The private server has no public user authentication, no user accounts, no OAuth, and no JWT protection, so it must stay behind localhost, WireGuard, a firewall, or a strict reverse proxy.
+> This project is not production-ready public infrastructure. The private `/v1` API has no public user authentication and must stay behind localhost, LAN, WireGuard, a firewall, or a strict reverse proxy. Separate bind addresses are a deployment boundary, not a complete security model.
 
-Do not treat this as production-ready public infrastructure. Public deployment still needs TLS, rate limiting, access control for `/v1`, operational logging review, retention policy, and proxy hardening.
+## What It Is
 
-## License
+This repository currently contains the backend only. The intended future client is an iOS app that records audio/video in short chunks, encrypts them locally, and uploads them continuously so already-uploaded evidence is retained if a phone is lost, damaged, powered off, or taken.
 
-This project is licensed under the GNU Affero General Public License v3.0 only (`AGPL-3.0-only`). See [LICENSE](LICENSE).
+Evidence bundles are ZIP files containing encrypted chunks and JSON manifests. They are not decrypted, playable, or merged media exports.
 
-## Security
+## What Works Today
 
-Please see [SECURITY.md](SECURITY.md) for supported versions and vulnerability reporting guidance.
+- Private `/v1` write/admin API listener group
+- Public read-only emergency viewer listener group
+- SQLite metadata and local disk encrypted blob storage
+- Immutable chunk uploads with SHA-256 verification
+- Media streams with `open`, `complete`, and `failed` states
+- Completed encrypted stream and incident ZIP evidence bundle downloads
+- Scoped emergency viewer tokens
+- Simulator CLI for upload, check-in, stream completion, and bundle download flows
+- Docker image build and GitHub Actions / GHCR publishing
 
-Do not report security vulnerabilities through public GitHub issues.
+## What It Is Not Yet
 
-## Requirements
+- No iOS app
+- No recording implementation
+- No client-side encryption implementation
+- No decryption, key sharing, or playable media export
+- No push notifications, SMS, or Messenger integration
+- No user accounts, OAuth, JWT, or public admin dashboard
+- No built-in TLS, rate limiting, retention policy, or production deployment hardening
 
-- Go 1.26.3
-- SQLite, via the bundled Go SQLite driver dependency
-- Local disk storage for encrypted uploaded blobs
+## Architecture
 
-## Run Tests
+Safety Recorder runs separate private and public HTTP listener groups from the same Go binary. Private `/v1` routes handle writes and admin-style operations. Public emergency viewer routes are token-gated and read-only.
 
-From the `server` directory:
-
-```bash
-go test ./...
+```mermaid
+flowchart LR
+    FutureClient["Planned iOS client<br/>not in this repo"] --> Private["Private /v1 API<br/>localhost/LAN/WireGuard"]
+    Private --> DB[(SQLite metadata)]
+    Private --> Blobs[(Local encrypted blobs)]
+    Private --> Tokens["Emergency token creation"]
+    Contact["Trusted contact"] --> Public["Public emergency viewer<br/>/e/{token}"]
+    Public --> DB
+    Public --> Blobs
+    Public --> Bundles["Encrypted ZIP bundles<br/>completed streams only"]
 ```
 
-## CI/CD
+For more diagrams and package-level details, see [docs/architecture.md](docs/architecture.md) and [docs/code-map.md](docs/code-map.md).
 
-GitHub Actions runs CI on pull requests and pushes. The workflow:
+## Quick Start
 
-- runs Go tests from `server/`
-- builds a Linux amd64 binary artifact
-- builds the Docker image from `server/Dockerfile`
-- publishes `ghcr.io/thesilkky/safety-recorder` on pushes to `main` and `v*` tags
+Requirements:
 
-## Start The Server
+- Go 1.26.3
+- SQLite via the bundled Go SQLite driver dependency
+- Local disk storage for encrypted uploaded blobs
 
-From the `server` directory:
+Run the backend:
 
 ```bash
+cd server
 go run ./cmd/api
 ```
 
 By default this starts:
 
-- private API server: `127.0.0.1:8080`
-- public emergency viewer server: `127.0.0.1:8081`
-
-Configuration is read from environment variables:
-
-| Variable | Default |
+| Listener | Address |
 |---|---|
-| `SAFE_PRIVATE_BIND_ADDRS` | `127.0.0.1:8080` |
-| `SAFE_PUBLIC_BIND_ADDRS` | `127.0.0.1:8081` |
-| `SAFE_DATA_DIR` | `./data` |
-| `SAFE_DB_PATH` | `./data/safety.db` |
-| `SAFE_MAX_UPLOAD_BYTES` | `250MB` |
+| Private API | `127.0.0.1:8080` |
+| Public emergency viewer | `127.0.0.1:8081` |
 
-`SAFE_PRIVATE_BIND_ADDRS` and `SAFE_PUBLIC_BIND_ADDRS` are comma-separated `host:port` lists. Empty entries are rejected, so values like `,` or `127.0.0.1:8080,,10.66.0.1:8080` fail configuration loading. The older singular variables `SAFE_PRIVATE_BIND_ADDR` and `SAFE_PUBLIC_BIND_ADDR` are still supported when the matching plural variable is unset; plural variables take precedence.
-
-`SAFE_MAX_UPLOAD_BYTES` accepts a positive byte count or a binary unit suffix: `B`, `K`/`KB`, `M`/`MB`, or `G`/`GB`. Fractional unit values are allowed when they resolve to at least one byte, for example `0.5KB`. Non-positive, sub-byte, invalid, and oversized values are rejected during startup.
-
-Example:
+In another terminal, run the simulator:
 
 ```bash
-SAFE_PRIVATE_BIND_ADDRS=127.0.0.1:8080,10.66.0.1:8080 \
-SAFE_PUBLIC_BIND_ADDRS=127.0.0.1:8081 \
-go run ./cmd/api
-```
-
-## Simulate An Incident
-
-Run the backend, then in another terminal from the `server` directory:
-
-```bash
-go run ./cmd/simclient --chunks 12 --interval 5s
-```
-
-Open the printed emergency viewer URL to watch incident metadata update. The simulator now creates a media stream, uploads chunks with `stream_id`, and completes the stream by default.
-
-To also test encrypted bundle download through the emergency viewer:
-
-```bash
+cd server
 go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle
 ```
 
-To test upload failure/retry behavior:
+The simulator creates an incident, creates an emergency token, uploads encrypted test chunks into a media stream, sends checkins, completes the stream, and verifies emergency bundle download.
 
-```bash
-go run ./cmd/simclient --chunks 12 --interval 2s --simulate-failure-every 4
-```
-
-## Run With Docker
+## Docker
 
 Build from the repository root:
 
@@ -143,7 +99,7 @@ Build from the repository root:
 docker build -t safety-recorder-backend ./server
 ```
 
-Run with a named volume for SQLite and uploaded blobs:
+Run with local-only port publishing and a named data volume:
 
 ```bash
 docker run --rm \
@@ -153,177 +109,39 @@ docker run --rm \
   safety-recorder-backend
 ```
 
-The container defaults are:
+Container defaults bind to `0.0.0.0` inside the container. Restrict host exposure with port publishing, firewall rules, WireGuard, or a reverse proxy. See [docs/deployment.md](docs/deployment.md).
 
-| Variable | Container default |
-|---|---|
-| `SAFE_PRIVATE_BIND_ADDRS` | `0.0.0.0:8080` |
-| `SAFE_PUBLIC_BIND_ADDRS` | `0.0.0.0:8081` |
-| `SAFE_DATA_DIR` | `/data` |
-| `SAFE_DB_PATH` | `/data/safety.db` |
-| `SAFE_MAX_UPLOAD_BYTES` | `250MB` |
+## Documentation
 
-Inside containers, binding directly to host IP addresses may not work unless using host networking. Bind inside the container, usually to `0.0.0.0`, then restrict exposure with Docker port publishing, firewall rules, WireGuard, or a reverse proxy. The example `docker run` command publishes both ports on localhost. Keep the private API port behind WireGuard, a firewall, or an equivalent private boundary.
+- [Docs index](docs/README.md)
+- [Getting started](docs/getting-started.md)
+- [Architecture](docs/architecture.md)
+- [Configuration](docs/configuration.md)
+- [API reference](docs/api.md)
+- [Deployment notes](docs/deployment.md)
+- [Security model](docs/security-model.md)
+- [Threat model](docs/threat-model.md)
+- [Simulator](docs/simulator.md)
+- [Development](docs/development.md)
+- [Code map](docs/code-map.md)
 
-## Data Directory Layout
+## Security
 
-By default the server writes under `./data`:
+Emergency viewer links are bearer-token URLs and should be treated as secrets. Public deployment still needs TLS, rate limiting, log review, retention policy, proxy hardening, and operational testing. Do not expose `/v1` publicly as-is.
 
-```text
-data/
-  safety.db
-  tmp/
-  incidents/{incident_id}/{media_type}_{zero_padded_chunk_index}.enc
-```
+Please see [SECURITY.md](SECURITY.md) for supported versions and vulnerability reporting guidance. Do not report security vulnerabilities through public GitHub issues.
 
-Uploads are staged in `tmp/`, hashed while streaming, then hard-linked into the final incident path without overwriting existing files.
+## Roadmap
 
-## Create An Incident
-
-```bash
-curl -sS -X POST http://127.0.0.1:8080/v1/incidents \
-  -H 'Content-Type: application/json' \
-  -d '{"client_label":"iphone","notes":"test incident"}'
-```
-
-## Create A Media Stream
-
-New clients should create a media stream before uploading chunks and include the returned `stream.id` as `stream_id` on each chunk upload.
-
-```bash
-INCIDENT_ID="inc_replace_me"
-
-curl -sS -X POST "http://127.0.0.1:8080/v1/incidents/${INCIDENT_ID}/streams" \
-  -H 'Content-Type: application/json' \
-  -d '{"media_type":"audio","label":"main audio recording"}'
-```
-
-## Upload A Chunk
-
-```bash
-printf 'encrypted bytes go here' > /tmp/chunk.enc
-SHA256_HEX="$(sha256sum /tmp/chunk.enc | awk '{print $1}')"
-INCIDENT_ID="inc_replace_me"
-STREAM_ID="str_replace_me"
-
-curl -sS -X POST "http://127.0.0.1:8080/v1/incidents/${INCIDENT_ID}/chunks" \
-  -F "file=@/tmp/chunk.enc" \
-  -F "stream_id=${STREAM_ID}" \
-  -F "chunk_index=1" \
-  -F "media_type=audio" \
-  -F "started_at=2026-05-21T10:00:00Z" \
-  -F "ended_at=2026-05-21T10:00:10Z" \
-  -F "sha256_hex=${SHA256_HEX}" \
-  -F "original_filename=chunk.enc"
-```
-
-`stream_id` is optional for backwards compatibility. Chunks without a stream remain stored and listed as legacy chunk metadata, but they are not included in completed-stream bundle downloads.
-
-The current chunk identity remains `(incident_id, media_type, chunk_index)`, so clients should keep chunk indexes unique per incident and media type even when using streams.
-
-## Complete A Stream
-
-When all chunks for a stream are uploaded, mark the stream complete. The backend verifies chunks `1..expected_chunk_count` exist contiguously and that their stored files are readable before enabling downloads.
-
-```bash
-curl -sS -X POST "http://127.0.0.1:8080/v1/incidents/${INCIDENT_ID}/streams/${STREAM_ID}/complete" \
-  -H 'Content-Type: application/json' \
-  -d '{"expected_chunk_count":1}'
-```
-
-Download the encrypted ZIP bundle from the private API:
-
-```bash
-curl -OJ "http://127.0.0.1:8080/v1/incidents/${INCIDENT_ID}/streams/${STREAM_ID}/download"
-```
-
-## Emergency Viewer
-
-Emergency viewer tokens are scoped to one incident, stored only as SHA-256 hashes, and can expire or be revoked. The raw token is returned only when created. Emergency responses use strict browser security headers and `Cache-Control: no-store` for token-protected content.
-
-Create a token:
-
-```bash
-INCIDENT_ID="inc_replace_me"
-
-curl -sS -X POST "http://127.0.0.1:8080/v1/incidents/${INCIDENT_ID}/emergency-tokens" \
-  -H 'Content-Type: application/json' \
-  -d '{"label":"trusted contact","expires_at":"2030-01-01T00:00:00Z"}'
-```
-
-Open the emergency page. Completed streams show encrypted bundle download buttons:
-
-```text
-http://127.0.0.1:8081/e/{token_from_create_response}
-```
-
-Revoke a token:
-
-```bash
-TOKEN_ID="etk_replace_me"
-
-curl -sS -X POST "http://127.0.0.1:8080/v1/emergency-tokens/${TOKEN_ID}/revoke"
-```
-
-## Web Security Headers
-
-The Go app sets browser-facing headers for the emergency viewer:
-
-- `Content-Security-Policy: default-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'; object-src 'none'`
-- `X-Content-Type-Options: nosniff`
-- `Referrer-Policy: no-referrer`
-- `Permissions-Policy: geolocation=(), microphone=(), camera=()`
-- `X-Frame-Options: DENY`
-- `Cache-Control: no-store` on token-protected pages, JSON, errors, private JSON, private chunk reads, and bundle downloads
-
-ZIP bundle downloads also set `Content-Type: application/zip` and `Content-Disposition: attachment`.
-
-The app does not enable `Strict-Transport-Security` by default because local development is plain HTTP. Enable HSTS only at the HTTPS reverse proxy or deployment edge after TLS is working for the production hostname. Production public exposure should also add TLS, rate limiting, reverse-proxy log redaction for `/e/{token}` paths, and private `/v1` access controls.
-
-After deploying the public emergency viewer over HTTPS, test the exposed origin with the MDN HTTP Observatory:
-
-```text
-https://developer.mozilla.org/en-US/observatory
-```
-
-## API Summary
-
-Private API server:
-
-- `POST /v1/incidents`
-- `GET /v1/incidents/{incident_id}`
-- `GET /v1/incidents/{incident_id}/download`
-- `POST /v1/incidents/{incident_id}/chunks`
-- `GET /v1/incidents/{incident_id}/chunks`
-- `GET /v1/incidents/{incident_id}/chunks/{media_type}/{chunk_index}`
-- `POST /v1/incidents/{incident_id}/streams`
-- `GET /v1/incidents/{incident_id}/streams`
-- `GET /v1/incidents/{incident_id}/streams/{stream_id}`
-- `POST /v1/incidents/{incident_id}/streams/{stream_id}/complete`
-- `POST /v1/incidents/{incident_id}/streams/{stream_id}/fail`
-- `GET /v1/incidents/{incident_id}/streams/{stream_id}/download`
-- `POST /v1/incidents/{incident_id}/checkins`
-- `POST /v1/incidents/{incident_id}/close`
-- `POST /v1/incidents/{incident_id}/emergency-tokens`
-- `POST /v1/emergency-tokens/{token_id}/revoke`
-
-Public emergency viewer server:
-
-- `GET /e/{token}`
-- `GET /e/{token}/data`
-- `GET /e/{token}/streams/{stream_id}/download`
-- `GET /e/{token}/incident/download`
-
-See [docs/api.md](docs/api.md) for request and response examples.
-See [docs/threat-model.md](docs/threat-model.md) for current security assumptions and limitations.
-
-## Next Steps
-
-- WireGuard-only bind/firewall
+- WireGuard-only bind/firewall deployment guidance
 - iOS client
-- client-side encryption
-- client-side decryption and key sharing
-- playable media export
-- dead-man switch
-- reverse proxy/TLS hardening for the emergency viewer
-- public deployment hardening and `/v1` access control
+- Client-side recording and encryption
+- Client-side decryption and key sharing
+- Playable media export
+- Dead-man switch behavior
+- Reverse-proxy/TLS hardening for emergency viewer exposure
+- Explicit `/v1` access-control story before any public control-plane deployment
+
+## License
+
+Safety Recorder is licensed under the GNU Affero General Public License v3.0 only (`AGPL-3.0-only`). See [LICENSE](LICENSE).
