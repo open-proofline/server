@@ -93,6 +93,63 @@ func TestParseBindAddrsKeepsAddressStringsForHTTPValidation(t *testing.T) {
 	assertStringsEqual(t, addrs, []string{"not-a-net-addr"})
 }
 
+func TestParseBytesAcceptsUnitValues(t *testing.T) {
+	tests := map[string]int64{
+		"42":    42,
+		"1B":    1,
+		"0.5KB": 512,
+		"1.5MB": 1572864,
+		"2 G":   2 * 1024 * 1024 * 1024,
+	}
+
+	for raw, want := range tests {
+		t.Run(raw, func(t *testing.T) {
+			got, err := parseBytes(raw)
+			if err != nil {
+				t.Fatalf("parseBytes returned error: %v", err)
+			}
+			if got != want {
+				t.Fatalf("got %d, want %d", got, want)
+			}
+		})
+	}
+}
+
+func TestParseBytesRejectsUnsafeUnitValues(t *testing.T) {
+	tests := map[string]string{
+		"0B":                    "positive",
+		"0.0001B":               "at least one byte",
+		"9223372036854775808B":  "too large",
+		"9999999999999999999GB": "too large",
+		"NaNMB":                 "invalid byte value",
+		"InfMB":                 "invalid byte value",
+	}
+
+	for raw, wantError := range tests {
+		t.Run(raw, func(t *testing.T) {
+			_, err := parseBytes(raw)
+			if err == nil {
+				t.Fatal("expected parseBytes error")
+			}
+			if !strings.Contains(err.Error(), wantError) {
+				t.Fatalf("expected error containing %q, got %v", wantError, err)
+			}
+		})
+	}
+}
+
+func TestLoadRejectsUnsafeMaxUploadBytes(t *testing.T) {
+	_, err := loadConfigForTestErr(t, map[string]string{
+		"SAFE_MAX_UPLOAD_BYTES": "0.0001B",
+	})
+	if err == nil {
+		t.Fatal("expected Load error")
+	}
+	if !strings.Contains(err.Error(), "parse SAFE_MAX_UPLOAD_BYTES") {
+		t.Fatalf("expected SAFE_MAX_UPLOAD_BYTES context, got %v", err)
+	}
+}
+
 func loadConfigForTest(t *testing.T, env map[string]string) Config {
 	t.Helper()
 	cfg, err := loadConfigForTestErr(t, env)

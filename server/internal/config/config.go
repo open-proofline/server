@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"math/big"
 	"os"
 	"strconv"
 	"strings"
@@ -117,14 +118,7 @@ func parseBytes(raw string) (int64, error) {
 	for _, unit := range units {
 		if strings.HasSuffix(value, unit.suffix) {
 			number := strings.TrimSpace(strings.TrimSuffix(value, unit.suffix))
-			parsed, err := strconv.ParseFloat(number, 64)
-			if err != nil {
-				return 0, err
-			}
-			if parsed <= 0 {
-				return 0, fmt.Errorf("byte value must be positive")
-			}
-			return int64(parsed * float64(unit.size)), nil
+			return parseUnitBytes(number, unit.size)
 		}
 	}
 
@@ -136,4 +130,27 @@ func parseBytes(raw string) (int64, error) {
 		return 0, fmt.Errorf("byte value must be positive")
 	}
 	return parsed, nil
+}
+
+func parseUnitBytes(rawNumber string, multiplier int64) (int64, error) {
+	number := strings.TrimSpace(rawNumber)
+	parsed, ok := new(big.Rat).SetString(number)
+	if !ok {
+		return 0, fmt.Errorf("invalid byte value")
+	}
+	if parsed.Sign() <= 0 {
+		return 0, fmt.Errorf("byte value must be positive")
+	}
+
+	bytes := new(big.Rat).Mul(parsed, big.NewRat(multiplier, 1))
+	if bytes.Cmp(big.NewRat(1, 1)) < 0 {
+		return 0, fmt.Errorf("byte value must be at least one byte")
+	}
+	const maxInt64 = int64(1<<63 - 1)
+	if bytes.Cmp(big.NewRat(maxInt64, 1)) > 0 {
+		return 0, fmt.Errorf("byte value is too large")
+	}
+
+	truncated := new(big.Int).Quo(bytes.Num(), bytes.Denom())
+	return truncated.Int64(), nil
 }
