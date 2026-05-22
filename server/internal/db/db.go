@@ -76,6 +76,9 @@ func Migrate(ctx context.Context, conn *sql.DB) error {
 	if err := ensureChunkStreamColumn(ctx, conn); err != nil {
 		return err
 	}
+	if err := dropEmergencyTokenLastUsedColumn(ctx, conn); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -92,6 +95,20 @@ func ensureChunkStreamColumn(ctx context.Context, conn *sql.DB) error {
 	}
 	if _, err := conn.ExecContext(ctx, "CREATE INDEX IF NOT EXISTS idx_chunks_stream_id ON chunks(stream_id)"); err != nil {
 		return fmt.Errorf("create chunks stream index: %w", err)
+	}
+	return nil
+}
+
+func dropEmergencyTokenLastUsedColumn(ctx context.Context, conn *sql.DB) error {
+	hasLastUsedAt, err := tableHasColumn(ctx, conn, "emergency_tokens", "last_used_at")
+	if err != nil {
+		return err
+	}
+	if !hasLastUsedAt {
+		return nil
+	}
+	if _, err := conn.ExecContext(ctx, "ALTER TABLE emergency_tokens DROP COLUMN last_used_at"); err != nil {
+		return fmt.Errorf("drop emergency_tokens.last_used_at: %w", err)
 	}
 	return nil
 }

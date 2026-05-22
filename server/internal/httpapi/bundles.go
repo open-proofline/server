@@ -28,9 +28,6 @@ func (a *API) downloadEmergencyStreamBundle(w http.ResponseWriter, r *http.Reque
 	if !ok {
 		return
 	}
-	if !a.recordEmergencyTokenUse(w, r, token.ID) {
-		return
-	}
 	a.serveStreamBundle(w, bundle)
 }
 
@@ -68,9 +65,6 @@ func (a *API) downloadEmergencyIncidentBundle(w http.ResponseWriter, r *http.Req
 	}
 	bundles, ok := a.loadCompletedIncidentBundles(w, r, token.IncidentID)
 	if !ok {
-		return
-	}
-	if !a.recordEmergencyTokenUse(w, r, token.ID) {
 		return
 	}
 	a.serveIncidentBundle(w, detail, bundles)

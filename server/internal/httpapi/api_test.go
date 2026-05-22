@@ -907,6 +907,40 @@ func TestEmergencyTokenCannotMutateIncidentChunkOrCheckinData(t *testing.T) {
 	}
 }
 
+func TestEmergencyViewerReadsDoNotMutateEmergencyTokenRows(t *testing.T) {
+	app := newTestApp(t)
+	assertEmergencyTokenColumnMissing(t, app, "last_used_at")
+
+	incidentID, stream := createIncidentStreamWithChunks(t, app, 1)
+	completeMediaStream(t, app, incidentID, stream.ID, 1)
+	token := createEmergencyToken(t, app, incidentID, "trusted contact", nil)
+	before := emergencyTokenRows(t, app)
+
+	targets := []string{
+		"/e/" + token.Token,
+		"/e/" + token.Token + "/data",
+		"/e/" + token.Token + "/streams/" + stream.ID + "/download",
+		"/e/" + token.Token + "/incident/download",
+	}
+	for _, target := range targets {
+		response, body := getPublic(t, app, target)
+		response.Body.Close()
+		if response.StatusCode != http.StatusOK {
+			t.Fatalf("GET %s: expected status 200, got %d: %s", target, response.StatusCode, body)
+		}
+	}
+
+	after := emergencyTokenRows(t, app)
+	if len(before) != len(after) {
+		t.Fatalf("emergency token row count changed from %d to %d", len(before), len(after))
+	}
+	for i := range before {
+		if before[i] != after[i] {
+			t.Fatalf("emergency token row changed from %+v to %+v", before[i], after[i])
+		}
+	}
+}
+
 func TestEmergencyDataReturnsExpectedReadOnlyJSON(t *testing.T) {
 	app := newTestApp(t)
 	incidentID := createIncident(t, app, `{"client_label":"iphone"}`)
@@ -1318,6 +1352,79 @@ func assertZipEntry(t *testing.T, entries map[string][]byte, name string) {
 
 	if _, ok := entries[name]; !ok {
 		t.Fatalf("expected zip entry %q, got entries %+v", name, entries)
+	}
+}
+
+type emergencyTokenDBRow struct {
+	ID         string
+	IncidentID string
+	TokenHash  string
+	Label      string
+	CreatedAt  string
+	ExpiresAt  string
+	RevokedAt  string
+}
+
+func emergencyTokenRows(t *testing.T, app *testApp) []emergencyTokenDBRow {
+	t.Helper()
+
+	rows, err := app.db.QueryContext(context.Background(), `
+		SELECT id, incident_id, token_hash, COALESCE(label, ''),
+			created_at, COALESCE(expires_at, ''), COALESCE(revoked_at, '')
+		FROM emergency_tokens
+		ORDER BY id`)
+	if err != nil {
+		t.Fatalf("query emergency token rows: %v", err)
+	}
+	defer rows.Close()
+
+	tokenRows := []emergencyTokenDBRow{}
+	for rows.Next() {
+		var row emergencyTokenDBRow
+		if err := rows.Scan(
+			&row.ID,
+			&row.IncidentID,
+			&row.TokenHash,
+			&row.Label,
+			&row.CreatedAt,
+			&row.ExpiresAt,
+			&row.RevokedAt,
+		); err != nil {
+			t.Fatalf("scan emergency token row: %v", err)
+		}
+		tokenRows = append(tokenRows, row)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate emergency token rows: %v", err)
+	}
+	return tokenRows
+}
+
+func assertEmergencyTokenColumnMissing(t *testing.T, app *testApp, column string) {
+	t.Helper()
+
+	rows, err := app.db.QueryContext(context.Background(), `PRAGMA table_info(emergency_tokens)`)
+	if err != nil {
+		t.Fatalf("query emergency token schema: %v", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var cid int
+		var name string
+		var columnType string
+		var notNull int
+		var defaultValue sql.NullString
+		var primaryKey int
+		if err := rows.Scan(&cid, &name, &columnType, &notNull, &defaultValue, &primaryKey); err != nil {
+			t.Fatalf("scan emergency token schema: %v", err)
+		}
+		if name == column {
+			t.Fatalf("emergency_tokens still has removed column %q", column)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate emergency token schema: %v", err)
 	}
 }
 

@@ -386,7 +386,7 @@ func (r *Repository) CreateEmergencyToken(ctx context.Context, incidentID, label
 func (r *Repository) LookupEmergencyToken(ctx context.Context, rawToken string) (EmergencyToken, error) {
 	tokenHash := hashEmergencyToken(rawToken)
 	row := r.db.QueryRowContext(ctx, `
-		SELECT id, incident_id, token_hash, label, created_at, expires_at, revoked_at, last_used_at
+		SELECT id, incident_id, token_hash, label, created_at, expires_at, revoked_at
 		FROM emergency_tokens
 		WHERE token_hash = ?`,
 		tokenHash,
@@ -429,28 +429,6 @@ func (r *Repository) RevokeEmergencyToken(ctx context.Context, tokenID string) e
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		return fmt.Errorf("revoke emergency token rows affected: %w", err)
-	}
-	if rowsAffected == 0 {
-		return ErrNotFound
-	}
-	return nil
-}
-
-// UpdateEmergencyTokenLastUsed records successful emergency token use.
-func (r *Repository) UpdateEmergencyTokenLastUsed(ctx context.Context, tokenID string) error {
-	result, err := r.db.ExecContext(ctx, `
-		UPDATE emergency_tokens
-		SET last_used_at = ?
-		WHERE id = ?`,
-		formatDBTime(time.Now().UTC()),
-		tokenID,
-	)
-	if err != nil {
-		return fmt.Errorf("update emergency token last used: %w", err)
-	}
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("update emergency token last used rows affected: %w", err)
 	}
 	if rowsAffected == 0 {
 		return ErrNotFound

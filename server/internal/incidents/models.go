@@ -122,7 +122,6 @@ type EmergencyToken struct {
 	CreatedAt  time.Time  `json:"created_at"`
 	ExpiresAt  *time.Time `json:"expires_at,omitempty"`
 	RevokedAt  *time.Time `json:"revoked_at,omitempty"`
-	LastUsedAt *time.Time `json:"last_used_at,omitempty"`
 }
 
 // ValidMediaType reports whether mediaType is one of the supported chunk

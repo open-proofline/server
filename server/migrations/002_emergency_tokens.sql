@@ -10,11 +10,8 @@ CREATE TABLE IF NOT EXISTS emergency_tokens (
   ),
   label TEXT,
   created_at TEXT NOT NULL,
-  -- expires_at and revoked_at are the validity gates; last_used_at records
-  -- successful reads without granting extra access.
   expires_at TEXT,
-  revoked_at TEXT,
-  last_used_at TEXT
+  revoked_at TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_emergency_tokens_incident_id ON emergency_tokens(incident_id);

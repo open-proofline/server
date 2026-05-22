@@ -188,7 +188,6 @@ func scanEmergencyToken(s scanner) (EmergencyToken, error) {
 	var createdAt string
 	var expiresAt sql.NullString
 	var revokedAt sql.NullString
-	var lastUsedAt sql.NullString
 	if err := s.Scan(
 		&token.ID,
 		&token.IncidentID,
@@ -197,7 +196,6 @@ func scanEmergencyToken(s scanner) (EmergencyToken, error) {
 		&createdAt,
 		&expiresAt,
 		&revokedAt,
-		&lastUsedAt,
 	); err != nil {
 		return EmergencyToken{}, err
 	}
@@ -213,9 +211,6 @@ func scanEmergencyToken(s scanner) (EmergencyToken, error) {
 		return EmergencyToken{}, err
 	}
 	if token.RevokedAt, err = nullableDBTime(revokedAt); err != nil {
-		return EmergencyToken{}, err
-	}
-	if token.LastUsedAt, err = nullableDBTime(lastUsedAt); err != nil {
 		return EmergencyToken{}, err
 	}
 	return token, nil

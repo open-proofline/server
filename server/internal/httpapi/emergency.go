@@ -180,14 +180,10 @@ func (a *API) loadEmergencyData(w http.ResponseWriter, r *http.Request) (emergen
 		a.internalError(w, "load emergency data", err)
 		return emergencyViewData{}, false
 	}
-	if !a.recordEmergencyTokenUse(w, r, token.ID) {
-		return emergencyViewData{}, false
-	}
 	return data, true
 }
 
-// buildEmergencyData validates the raw token before loading incident metadata
-// and records last-used only after a successful read.
+// buildEmergencyData loads incident metadata only after token validation.
 func (a *API) buildEmergencyData(ctx context.Context, token incidents.EmergencyToken) (emergencyViewData, error) {
 	detail, err := a.repo.GetIncidentDetail(ctx, token.IncidentID)
 	if err != nil {
@@ -208,14 +204,6 @@ func (a *API) loadEmergencyToken(w http.ResponseWriter, r *http.Request) (incide
 		return incidents.EmergencyToken{}, false
 	}
 	return token, true
-}
-
-func (a *API) recordEmergencyTokenUse(w http.ResponseWriter, r *http.Request, tokenID string) bool {
-	if err := a.repo.UpdateEmergencyTokenLastUsed(r.Context(), tokenID); err != nil {
-		a.internalError(w, "update emergency token last used", err)
-		return false
-	}
-	return true
 }
 
 // summarizeEmergencyData prepares viewer-safe incident data without exposing
