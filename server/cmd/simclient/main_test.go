@@ -3,9 +3,12 @@ package main
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
@@ -47,6 +50,161 @@ func TestBuildViewerURL(t *testing.T) {
 	want := "http://localhost:8081/e/abc%2F123"
 	if got != want {
 		t.Fatalf("buildViewerURL returned %q, want %q", got, want)
+	}
+}
+
+func TestClientWriteRoutesUsePrivateAPIBase(t *testing.T) {
+	expectedPaths := []string{
+		"POST /v1/incidents",
+		"POST /v1/incidents/inc_1/emergency-tokens",
+		"POST /v1/incidents/inc_1/streams",
+		"POST /v1/incidents/inc_1/checkins",
+		"POST /v1/incidents/inc_1/streams/str_1/complete",
+		"POST /v1/incidents/inc_1/close",
+	}
+	var gotPaths []string
+	httpClient := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		if r.URL.Host != "api.example" {
+			t.Fatalf("write route used host %q, want api.example", r.URL.Host)
+		}
+		gotPaths = append(gotPaths, r.Method+" "+r.URL.Path)
+		switch r.URL.Path {
+		case "/v1/incidents":
+			return testResponse(http.StatusCreated, "application/json", `{"incident_id":"inc_1","status":"open"}`), nil
+		case "/v1/incidents/inc_1/emergency-tokens":
+			return testResponse(http.StatusCreated, "application/json", `{"token_id":"etk_1","incident_id":"inc_1","token":"tok_1","created_at":"2026-05-22T10:00:00Z"}`), nil
+		case "/v1/incidents/inc_1/streams":
+			return testResponse(http.StatusCreated, "application/json", `{"stream":{"id":"str_1","incident_id":"inc_1","media_type":"audio","status":"open","created_at":"2026-05-22T10:00:00Z","updated_at":"2026-05-22T10:00:00Z"}}`), nil
+		case "/v1/incidents/inc_1/checkins":
+			return testResponse(http.StatusCreated, "application/json", `{"id":"chk_1"}`), nil
+		case "/v1/incidents/inc_1/streams/str_1/complete":
+			return testResponse(http.StatusOK, "application/json", `{"stream":{"id":"str_1","incident_id":"inc_1","media_type":"audio","status":"complete","created_at":"2026-05-22T10:00:00Z","updated_at":"2026-05-22T10:01:00Z","completed_at":"2026-05-22T10:01:00Z"}}`), nil
+		case "/v1/incidents/inc_1/close":
+			return testResponse(http.StatusOK, "application/json", `{"id":"inc_1","status":"closed"}`), nil
+		default:
+			return testResponse(http.StatusNotFound, "application/json", `{"error":{"code":"not_found"}}`), nil
+		}
+	})}
+
+	sim := client{
+		httpClient: httpClient,
+		apiBase:    "http://api.example",
+		viewerBase: "http://viewer.example",
+	}
+	ctx := context.Background()
+
+	incidentID, err := sim.createIncident(ctx)
+	if err != nil {
+		t.Fatalf("createIncident returned error: %v", err)
+	}
+	if incidentID != "inc_1" {
+		t.Fatalf("incidentID = %q", incidentID)
+	}
+	token, err := sim.createEmergencyToken(ctx, incidentID)
+	if err != nil {
+		t.Fatalf("createEmergencyToken returned error: %v", err)
+	}
+	if token != "tok_1" {
+		t.Fatalf("token = %q", token)
+	}
+	streamID, err := sim.createMediaStream(ctx, incidentID, "audio")
+	if err != nil {
+		t.Fatalf("createMediaStream returned error: %v", err)
+	}
+	if streamID != "str_1" {
+		t.Fatalf("streamID = %q", streamID)
+	}
+	if err := sim.createCheckin(ctx, incidentID, 1); err != nil {
+		t.Fatalf("createCheckin returned error: %v", err)
+	}
+	if err := sim.completeMediaStream(ctx, incidentID, streamID, 1); err != nil {
+		t.Fatalf("completeMediaStream returned error: %v", err)
+	}
+	if err := sim.closeIncident(ctx, incidentID); err != nil {
+		t.Fatalf("closeIncident returned error: %v", err)
+	}
+
+	if len(gotPaths) != len(expectedPaths) {
+		t.Fatalf("got paths %v, want %v", gotPaths, expectedPaths)
+	}
+	for i, want := range expectedPaths {
+		if gotPaths[i] != want {
+			t.Fatalf("path %d = %q, want %q; all paths: %v", i, gotPaths[i], want, gotPaths)
+		}
+	}
+}
+
+func TestClientUploadChunkUsesPrivateAPIBaseAndStreamID(t *testing.T) {
+	body := []byte("encrypted bytes")
+	upload := buildChunkUpload("inc_1", "str_1", 2, "audio", time.Date(2026, 5, 22, 10, 0, 0, 0, time.UTC), body)
+
+	httpClient := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		if r.URL.Host != "api.example" {
+			t.Fatalf("upload used host %q, want api.example", r.URL.Host)
+		}
+		if r.Method != http.MethodPost || r.URL.Path != "/v1/incidents/inc_1/chunks" {
+			t.Fatalf("unexpected upload route %s %s", r.Method, r.URL.Path)
+		}
+		if err := r.ParseMultipartForm(1024 * 1024); err != nil {
+			t.Fatalf("ParseMultipartForm returned error: %v", err)
+		}
+		if got := r.FormValue("stream_id"); got != "str_1" {
+			t.Fatalf("stream_id = %q", got)
+		}
+		if got := r.FormValue("chunk_index"); got != "2" {
+			t.Fatalf("chunk_index = %q", got)
+		}
+		if got := r.FormValue("sha256_hex"); got != sha256Hex(body) {
+			t.Fatalf("sha256_hex = %q", got)
+		}
+		file, _, err := r.FormFile("file")
+		if err != nil {
+			t.Fatalf("FormFile returned error: %v", err)
+		}
+		defer file.Close()
+		fileBody, err := io.ReadAll(file)
+		if err != nil {
+			t.Fatalf("read multipart file: %v", err)
+		}
+		if !bytes.Equal(fileBody, body) {
+			t.Fatalf("uploaded file body = %q, want %q", fileBody, body)
+		}
+		return testResponse(http.StatusCreated, "application/json", `{"id":"chunk_1"}`), nil
+	})}
+
+	sim := client{
+		httpClient: httpClient,
+		apiBase:    "http://api.example",
+		viewerBase: "http://viewer.example",
+	}
+	if err := sim.uploadChunk(context.Background(), upload); err != nil {
+		t.Fatalf("uploadChunk returned error: %v", err)
+	}
+}
+
+func TestClientDownloadStreamBundleUsesViewerBase(t *testing.T) {
+	bundleBytes := []byte("zip bytes")
+	httpClient := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		if r.URL.Host != "viewer.example" {
+			t.Fatalf("bundle download used host %q, want viewer.example", r.URL.Host)
+		}
+		if r.Method != http.MethodGet || r.URL.Path != "/e/tok_1/streams/str_1/download" {
+			t.Fatalf("unexpected viewer route %s %s", r.Method, r.URL.Path)
+		}
+		return testResponse(http.StatusOK, "application/zip", string(bundleBytes)), nil
+	})}
+
+	sim := client{
+		httpClient: httpClient,
+		apiBase:    "http://api.example",
+		viewerBase: "http://viewer.example",
+	}
+	got, err := sim.downloadStreamBundle(context.Background(), "tok_1", "str_1")
+	if err != nil {
+		t.Fatalf("downloadStreamBundle returned error: %v", err)
+	}
+	if !bytes.Equal(got, bundleBytes) {
+		t.Fatalf("bundle body = %q, want %q", got, bundleBytes)
 	}
 }
 
@@ -348,6 +506,20 @@ func TestVerifyStreamBundleDecryptionRejectsWrongMetadata(t *testing.T) {
 
 	if _, err := verifyStreamBundleDecryption(bundleBytes, key, "inc_changed", streamID, mediaType); err == nil {
 		t.Fatal("verifyStreamBundleDecryption succeeded with wrong incident id")
+	}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (fn roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) {
+	return fn(r)
+}
+
+func testResponse(status int, contentType, body string) *http.Response {
+	return &http.Response{
+		StatusCode: status,
+		Header:     http.Header{"Content-Type": []string{contentType}},
+		Body:       io.NopCloser(bytes.NewBufferString(body)),
 	}
 }
 

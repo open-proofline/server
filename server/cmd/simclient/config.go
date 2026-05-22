@@ -35,7 +35,7 @@ func parseConfig(args []string) (config, error) {
 	fs.IntVar(&cfg.chunks, "chunks", defaultChunks, "Number of chunks to upload")
 	fs.DurationVar(&cfg.interval, "interval", defaultInterval, "Delay between chunk uploads")
 	fs.StringVar(&cfg.mediaType, "media-type", defaultMediaType, "Media type to upload")
-	fs.StringVar(&chunkSizeRaw, "chunk-size", defaultChunkSize, "Size of each fake encrypted chunk")
+	fs.StringVar(&chunkSizeRaw, "chunk-size", defaultChunkSize, "Size of each fake plaintext chunk before optional encryption")
 	fs.BoolVar(&cfg.closeIncident, "close", false, "Close the incident when complete")
 	fs.BoolVar(&cfg.completeStream, "complete-stream", true, "Mark the uploaded media stream complete")
 	fs.BoolVar(&cfg.downloadBundle, "download-bundle", false, "Download the completed stream bundle through the emergency viewer")
