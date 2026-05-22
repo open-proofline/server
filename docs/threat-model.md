@@ -1,6 +1,6 @@
 # Threat Model
 
-This document describes the current backend-only v0.1 security posture. It is intentionally conservative and does not claim production readiness.
+This document describes the current backend-only v0.2.0 security posture. It is intentionally conservative and does not claim production readiness.
 
 ## Assets
 
@@ -47,7 +47,7 @@ This document describes the current backend-only v0.1 security posture. It is in
 
 ## Deployment Guidance
 
-For local/private v0.1 use, bind the private API server to localhost or a private network and restrict access with WireGuard, firewall rules, or a reverse proxy. If any part is exposed publicly, expose only the emergency viewer server unless `/v1` has an additional authenticated control plane in front of it.
+For local/private v0.2.0 use, bind the private API server to localhost or a private network and restrict access with WireGuard, firewall rules, or a reverse proxy. If any part is exposed publicly, expose only the emergency viewer server unless `/v1` has an additional authenticated control plane in front of it.
 
 Use TLS at the edge for any network access. Keep reverse-proxy logs from recording raw `/e/{token}` paths.
 

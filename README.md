@@ -1,4 +1,4 @@
-# Safety Recorder Backend v0.1
+# Safety Recorder Backend v0.2.0
 
 ![CI](https://github.com/thesilkky/safety-recorder/actions/workflows/ci.yml/badge.svg)
 
@@ -8,7 +8,7 @@ This repository currently contains the Go backend only. The intended client is a
 
 ## Current scope
 
-v0.1 implements the backend ingest and emergency read-only viewing layer:
+v0.2.0 implements the backend ingest and emergency read-only viewing layer:
 
 - create incidents
 - receive already-encrypted recording chunks
@@ -17,6 +17,7 @@ v0.1 implements the backend ingest and emergency read-only viewing layer:
 - store incident, chunk, and check-in metadata in SQLite
 - create scoped emergency viewer tokens
 - serve a simple read-only emergency incident page
+- run a small CLI simulator for incident upload/check-in flows
 
 The backend does **not** currently implement recording, client-side encryption, an iOS app, push notifications, SMS, Messenger integration, user accounts, or a public admin dashboard.
 
@@ -36,7 +37,7 @@ trusted contact
 
 ## Security Warning
 
-This v0.1 binary starts two HTTP servers: a private `/v1` write/admin API and a public-shaped emergency viewer. Separate ports are a deployment boundary, not a complete security model. The private server has no public user authentication, no user accounts, no OAuth, and no JWT protection, so it must stay behind localhost, WireGuard, a firewall, or a strict reverse proxy.
+The v0.2.0 API binary starts two HTTP servers: a private `/v1` write/admin API and a public-shaped emergency viewer. Separate ports are a deployment boundary, not a complete security model. The private server has no public user authentication, no user accounts, no OAuth, and no JWT protection, so it must stay behind localhost, WireGuard, a firewall, or a strict reverse proxy.
 
 Do not treat this as production-ready public infrastructure. Public deployment still needs TLS, rate limiting, access control for `/v1`, operational logging review, retention policy, and proxy hardening.
 

@@ -24,7 +24,7 @@ type Config struct {
 	MaxUploadBytes  int64
 }
 
-// Load reads configuration from environment variables and applies v0.1
+// Load reads configuration from environment variables and applies v0.2.0
 // defaults for unset values.
 func Load() (Config, error) {
 	maxUploadBytes := defaultMaxUploadBytes

@@ -1,4 +1,4 @@
-// Package httpapi exposes separate v0.1 HTTP handlers for the private write
+// Package httpapi exposes separate v0.2.0 HTTP handlers for the private write
 // API and the read-only emergency viewer.
 //
 // This package deliberately does not implement public authentication. The
