@@ -2,7 +2,7 @@
 
 Safety Recorder is a single Go backend binary with separate private and public HTTP listener groups. It stores incident metadata in SQLite and encrypted uploaded chunks on local disk.
 
-The repository does not contain an iOS app, recording implementation, client-side encryption, decryption, key sharing, or playable media export.
+The repository does not contain an iOS app, recording implementation, production client key storage, key sharing, browser/client-side decryption, or playable media export. The Go simulator can produce the documented v1 client-side encryption envelope for development and test flows.
 
 ## High-Level System
 
@@ -57,7 +57,7 @@ sequenceDiagram
     Private->>DB: Store token hash only
     Client->>Private: POST /v1/incidents/{id}/streams
     Private->>DB: Create open stream
-    Client->>Private: POST encrypted chunks + SHA-256
+    Client->>Private: POST encrypted chunks + ciphertext SHA-256
     Private->>Blob: Stage, hash, commit immutable chunk
     Private->>DB: Store chunk metadata
     Client->>Private: POST /streams/{stream_id}/complete

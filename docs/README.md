@@ -9,6 +9,7 @@ This directory contains the detailed project documentation for Safety Recorder. 
 | [Getting started](getting-started.md) | Run the backend locally and exercise the simulator flow. |
 | [Architecture](architecture.md) | System diagrams, listener boundaries, and data flow. |
 | [Configuration](configuration.md) | Environment variables, bind addresses, upload limits, and data layout. |
+| [Encryption](encryption.md) | Client-side chunk envelope, simulator key file, and local bundle verification. |
 | [API](api.md) | Current HTTP routes, request examples, response examples, and bundle formats. |
 | [Deployment](deployment.md) | Local, Docker, reverse proxy, TLS, and public exposure notes. |
 | [Security model](security-model.md) | Current controls, browser headers, logging posture, and security assumptions. |
@@ -19,7 +20,7 @@ This directory contains the detailed project documentation for Safety Recorder. 
 
 ## Current Scope
 
-Safety Recorder currently contains the Go backend only. It receives already-encrypted chunks, stores metadata in SQLite, stores encrypted blobs on local disk, groups chunks into media streams, and exposes a token-scoped read-only emergency viewer.
+Safety Recorder currently contains the Go backend only. It receives already-encrypted chunks, stores metadata in SQLite, stores encrypted blobs on local disk, groups chunks into media streams, and exposes a token-scoped read-only emergency viewer. The Go simulator can produce the documented v1 client-side encryption envelope for development and test flows.
 
 Evidence bundles are encrypted chunk bundles with JSON manifests. They are not decrypted, playable, or merged media exports.
 

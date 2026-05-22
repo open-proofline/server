@@ -2,7 +2,7 @@
 
 This is the current backend-only v0.3.0 HTTP surface. The API binary starts private API listeners and public emergency viewer listeners on one or more configured bind addresses. The `/v1` routes are private and unauthenticated. The emergency viewer routes are token-gated and read-only. The planned iOS recording client is not part of this repository yet.
 
-Media bundle downloads are encrypted chunk bundles. The backend does not decrypt, merge, or produce playable media.
+Media bundle downloads are encrypted chunk bundles. The backend does not decrypt, merge, or produce playable media. The simulator's current encrypted uploads use the envelope documented in [encryption.md](encryption.md), but the API treats uploaded bytes as opaque ciphertext.
 
 Default bind addresses:
 
@@ -124,6 +124,8 @@ When `stream_id` is provided, the stream must exist, belong to the same incident
 The current chunk identity remains `(incident_id, media_type, chunk_index)`, so clients should keep chunk indexes unique per incident and media type even when using streams.
 
 Duplicate `(incident_id, media_type, chunk_index)` uploads return `409 duplicate_chunk`. Hash mismatches return `400 hash_mismatch` and do not commit a final file.
+
+For clients using the v1 encryption envelope, `sha256_hex` is the SHA-256 of the complete uploaded envelope bytes, not the plaintext.
 
 ### `GET /v1/incidents/{incident_id}/chunks`
 
@@ -268,6 +270,7 @@ chunks/audio_000002.enc
 ```
 
 The manifest is generated from trusted database metadata and includes incident ID, stream ID, media type, status, chunk count, total bytes, and chunk SHA-256 metadata. Server filesystem paths are not included.
+It also includes a non-secret `encryption` hint indicating expected client-side encryption and `server_decrypts: false`.
 
 ### `GET /v1/incidents/{incident_id}/download`
 

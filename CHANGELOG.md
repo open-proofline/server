@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added documented v1 client-side chunk encryption envelope using AES-256-GCM for simulator/test flows.
+- Updated the simulator to encrypt fake chunks by default, support local key files, and decrypt-verify downloaded stream bundles.
+- Added non-secret bundle manifest encryption hints while keeping backend storage and downloads opaque.
+
 ## v0.3.0
 
 - Added media streams for grouping uploaded chunks.

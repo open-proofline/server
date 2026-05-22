@@ -16,6 +16,9 @@
 .env.local
 .env.*.local
 
+# Local simulator encryption keys
+*.key.json
+
 # Go build and test output
 /bin/
 /server/bin/

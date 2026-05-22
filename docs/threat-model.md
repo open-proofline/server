@@ -9,7 +9,8 @@ This document describes the current backend-only v0.3.0 security posture. It is 
 - On-demand encrypted evidence ZIP bundles generated from completed streams
 - Raw emergency tokens returned once at creation time
 - Emergency viewer URLs containing bearer tokens
-- Future client-side recordings and encryption keys are out of scope for this repository today.
+- Simulator-only local encryption key files when developers opt into `--key-file`
+- Future iOS recordings, production client-side keys, and key sharing are out of scope for this repository today.
 
 ## Trust Boundaries
 
@@ -25,6 +26,8 @@ This document describes the current backend-only v0.3.0 security posture. It is 
 - Upload-limit configuration rejects non-positive, sub-byte, invalid, and oversized values before request-size limits are applied.
 - Uploaded bytes are committed only after hash verification.
 - Final chunk storage uses no-overwrite hard links.
+- The simulator encrypts fake chunk plaintext by default using the documented v1 AES-256-GCM envelope.
+- Encryption keys remain client-side; they are not uploaded, stored in SQLite, or added to evidence bundles.
 - SQLite enforces media type, chunk index, byte size, SHA-256 shape, foreign keys, and unique chunk identity.
 - Media streams must be open before new chunks can be attached, and stream completion verifies contiguous chunks plus readable stored files.
 - Emergency tokens use 256 bits from `crypto/rand`; only SHA-256 token hashes are stored.
@@ -42,7 +45,7 @@ This document describes the current backend-only v0.3.0 security posture. It is 
 - No public authentication, user accounts, OAuth, JWT, sessions, or CSRF protection.
 - Separate private/public ports reduce accidental route exposure, but they are not a complete security model.
 - `/v1` must not be publicly exposed as-is.
-- No iOS app, local recording, local encryption implementation, push notifications, SMS, Messenger integration, or public admin dashboard.
+- No iOS app, local recording, production client key storage, key sharing, push notifications, SMS, Messenger integration, or public admin dashboard.
 - No built-in TLS, rate limiting, abuse throttling, or IP allowlist.
 - No default emergency-token expiry policy; callers choose `expires_at`.
 - No retention, backup, secure deletion, or disk encryption policy.
@@ -50,6 +53,7 @@ This document describes the current backend-only v0.3.0 security posture. It is 
 - Bundle downloads are encrypted chunk bundles, not decrypted or playable media exports.
 - No multi-user authorization model.
 - Emergency links are bearer tokens and must be shared carefully.
+- No production key-sharing, key recovery, Keychain storage, emergency-contact access, browser decryption, or playable export.
 
 ## Deployment Guidance
 

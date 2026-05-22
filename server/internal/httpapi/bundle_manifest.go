@@ -3,6 +3,7 @@ package httpapi
 import (
 	"time"
 
+	"safety-recorder/server/internal/envelope"
 	"safety-recorder/server/internal/incidents"
 )
 
@@ -18,11 +19,18 @@ type streamBundleManifest struct {
 	MediaType   string                `json:"media_type"`
 	Label       string                `json:"label,omitempty"`
 	Status      string                `json:"status"`
+	Encryption  bundleEncryptionHint  `json:"encryption"`
 	CreatedAt   time.Time             `json:"created_at"`
 	CompletedAt *time.Time            `json:"completed_at,omitempty"`
 	ChunkCount  int                   `json:"chunk_count"`
 	TotalBytes  int64                 `json:"total_bytes"`
 	Chunks      []bundleChunkManifest `json:"chunks"`
+}
+
+type bundleEncryptionHint struct {
+	Expected       string `json:"expected"`
+	Scheme         string `json:"scheme"`
+	ServerDecrypts bool   `json:"server_decrypts"`
 }
 
 type bundleChunkManifest struct {
@@ -38,6 +46,7 @@ type bundleChunkManifest struct {
 type incidentBundleManifest struct {
 	Incident      emergencyIncidentSummary `json:"incident"`
 	LatestCheckin *emergencyCheckinSummary `json:"latest_checkin,omitempty"`
+	Encryption    bundleEncryptionHint     `json:"encryption"`
 	Streams       []streamBundleManifest   `json:"streams"`
 	StreamCount   int                      `json:"stream_count"`
 	TotalBytes    int64                    `json:"total_bytes"`
@@ -65,6 +74,7 @@ func makeStreamBundleManifest(stream incidents.MediaStream, chunks []incidents.C
 		MediaType:   stream.MediaType,
 		Label:       stream.Label,
 		Status:      stream.Status,
+		Encryption:  clientSideEncryptionHint(),
 		CreatedAt:   stream.CreatedAt,
 		CompletedAt: stream.CompletedAt,
 		ChunkCount:  len(chunks),
@@ -102,9 +112,18 @@ func makeIncidentBundleManifest(detail incidents.IncidentDetail, bundles []strea
 			UpdatedAt:   detail.Incident.UpdatedAt,
 		},
 		LatestCheckin: latestCheckin,
+		Encryption:    clientSideEncryptionHint(),
 		Streams:       manifests,
 		StreamCount:   len(manifests),
 		TotalBytes:    totalBytes,
 		GeneratedAt:   time.Now().UTC(),
+	}
+}
+
+func clientSideEncryptionHint() bundleEncryptionHint {
+	return bundleEncryptionHint{
+		Expected:       "client-side",
+		Scheme:         envelope.SchemeV1,
+		ServerDecrypts: false,
 	}
 }

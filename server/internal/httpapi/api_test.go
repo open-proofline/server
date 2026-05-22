@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"safety-recorder/server/internal/db"
+	"safety-recorder/server/internal/envelope"
 	"safety-recorder/server/internal/httpapi"
 	"safety-recorder/server/internal/incidents"
 	"safety-recorder/server/internal/storage"
@@ -541,6 +542,65 @@ func TestDownloadCompletedStreamBundle(t *testing.T) {
 	}
 	if manifest.Chunks[1].SHA256Hex != sha256Hex(entries["chunks/audio_000002.enc"]) {
 		t.Fatalf("second manifest hash does not match zip chunk bytes")
+	}
+}
+
+func TestEncryptedEnvelopeChunkRoundTripsThroughOpaqueBackendBundle(t *testing.T) {
+	app := newTestApp(t)
+	incidentID := createIncident(t, app, `{}`)
+	stream := createMediaStream(t, app, incidentID, incidents.MediaTypeAudio, "audio recording")
+	key, err := envelope.GenerateKey()
+	if err != nil {
+		t.Fatalf("generate key: %v", err)
+	}
+	ctx := envelope.ChunkContext{
+		IncidentID: incidentID,
+		StreamID:   stream.ID,
+		MediaType:  incidents.MediaTypeAudio,
+		ChunkIndex: 1,
+	}
+	payload, err := envelope.EncryptChunk(key, ctx, []byte("plaintext stays client-side"))
+	if err != nil {
+		t.Fatalf("encrypt chunk: %v", err)
+	}
+
+	response, body := uploadChunkWithStream(t, app, incidentID, stream.ID, 1, incidents.MediaTypeAudio, payload, sha256Hex(payload))
+	response.Body.Close()
+	if response.StatusCode != http.StatusCreated {
+		t.Fatalf("expected encrypted envelope upload status 201, got %d: %s", response.StatusCode, body)
+	}
+	completeMediaStream(t, app, incidentID, stream.ID, 1)
+
+	response, body = get(t, app, "/v1/incidents/"+incidentID+"/streams/"+stream.ID+"/download")
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("expected stream bundle status 200, got %d: %s", response.StatusCode, body)
+	}
+	entries := readZipEntries(t, body)
+	bundledChunk := entries["chunks/audio_000001.enc"]
+	if !bytes.Equal(bundledChunk, payload) {
+		t.Fatal("backend changed encrypted envelope bytes")
+	}
+	plaintext, err := envelope.DecryptChunk(key, ctx, bundledChunk)
+	if err != nil {
+		t.Fatalf("decrypt bundled chunk: %v", err)
+	}
+	if string(plaintext) != "plaintext stays client-side" {
+		t.Fatalf("unexpected plaintext: %q", plaintext)
+	}
+
+	var manifest struct {
+		Encryption struct {
+			Expected       string `json:"expected"`
+			Scheme         string `json:"scheme"`
+			ServerDecrypts bool   `json:"server_decrypts"`
+		} `json:"encryption"`
+	}
+	if err := json.Unmarshal(entries["manifest.json"], &manifest); err != nil {
+		t.Fatalf("decode manifest: %v", err)
+	}
+	if manifest.Encryption.Expected != "client-side" || manifest.Encryption.Scheme != envelope.SchemeV1 || manifest.Encryption.ServerDecrypts {
+		t.Fatalf("unexpected encryption hint: %+v", manifest.Encryption)
 	}
 }
 

@@ -29,6 +29,8 @@ Emergency URLs contain bearer tokens and should be treated as secrets. Reverse p
 - Upload file bytes are limited by `SAFE_MAX_UPLOAD_BYTES`.
 - Final chunk storage happens only after hash verification.
 - Stored chunks are immutable and never overwritten.
+- The simulator can wrap chunks in the documented v1 AES-256-GCM client-side encryption envelope before upload.
+- The backend validates and stores ciphertext bytes only; it does not store encryption keys or decrypt chunk contents.
 - SQLite enforces media type, chunk index, byte size, SHA-256 shape, foreign keys, and unique chunk identity.
 - Media stream completion verifies contiguous chunks and readable stored files.
 
@@ -37,6 +39,8 @@ Emergency URLs contain bearer tokens and should be treated as secrets. Reverse p
 Completed stream and incident bundles are generated on demand as ZIP responses. ZIP entry names are controlled by the server. Manifests are generated from database metadata and do not expose server filesystem paths.
 
 Bundles contain encrypted chunk bytes and JSON manifests only. They are not decrypted, playable, or merged media exports.
+
+Bundle manifests may include a non-secret client-side encryption hint. They do not include keys.
 
 ## Logging And Headers
 
@@ -59,6 +63,7 @@ HSTS is not enabled by default in the Go app because local development uses plai
 - No built-in TLS
 - No built-in rate limiting or abuse throttling
 - No default emergency-token expiry policy
+- No production client key storage, key sharing, or emergency-contact key access model
 - No retention, backup, secure deletion, or disk encryption policy
 - No malware/content scanning for uploaded encrypted blobs
 - No multi-user authorization model

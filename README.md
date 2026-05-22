@@ -20,24 +20,27 @@ This repository currently contains the backend only. The intended future client 
 
 Evidence bundles are ZIP files containing encrypted chunks and JSON manifests. They are not decrypted, playable, or merged media exports.
 
+The simulator encrypts fake chunks by default with the documented v1 AES-256-GCM envelope and verifies downloaded bundles locally. Keys remain client-side and are not uploaded to the backend.
+
 ## What Works Today
 
 - Private `/v1` write/admin API listener group
 - Public read-only emergency viewer listener group
 - SQLite metadata and local disk encrypted blob storage
 - Immutable chunk uploads with SHA-256 verification
+- Documented client-side chunk encryption envelope
 - Media streams with `open`, `complete`, and `failed` states
 - Completed encrypted stream and incident ZIP evidence bundle downloads
 - Scoped emergency viewer tokens
-- Simulator CLI for upload, check-in, stream completion, and bundle download flows
+- Simulator CLI for encrypted upload, check-in, stream completion, and bundle download/decrypt-verification flows
 - Docker image build and GitHub Actions / GHCR publishing
 
 ## What It Is Not Yet
 
 - No iOS app
 - No recording implementation
-- No client-side encryption implementation
-- No decryption, key sharing, or playable media export
+- No production client-side encryption implementation
+- No backend/browser decryption, key sharing, or playable media export
 - No push notifications, SMS, or Messenger integration
 - No user accounts, OAuth, JWT, or public admin dashboard
 - No built-in TLS, rate limiting, retention policy, or production deployment hardening
@@ -89,7 +92,7 @@ cd server
 go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle
 ```
 
-The simulator creates an incident, creates an emergency token, uploads encrypted test chunks into a media stream, sends checkins, completes the stream, and verifies emergency bundle download.
+The simulator creates an incident, creates an emergency token, encrypts and uploads test chunks into a media stream, sends checkins, completes the stream, downloads the encrypted bundle, and verifies local decryption.
 
 ## Docker
 
@@ -117,6 +120,7 @@ Container defaults bind to `0.0.0.0` inside the container. Restrict host exposur
 - [Getting started](docs/getting-started.md)
 - [Architecture](docs/architecture.md)
 - [Configuration](docs/configuration.md)
+- [Encryption](docs/encryption.md)
 - [API reference](docs/api.md)
 - [Deployment notes](docs/deployment.md)
 - [Security model](docs/security-model.md)
@@ -136,7 +140,7 @@ Please see [SECURITY.md](SECURITY.md) for supported versions and vulnerability r
 - WireGuard-only bind/firewall deployment guidance
 - iOS client
 - Client-side recording and encryption
-- Client-side decryption and key sharing
+- Production client-side decryption and key sharing
 - Playable media export
 - Dead-man switch behavior
 - Reverse-proxy/TLS hardening for emergency viewer exposure

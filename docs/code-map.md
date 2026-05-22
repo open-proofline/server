@@ -6,9 +6,10 @@ Safety Recorder currently contains the Go backend for a private personal-safety 
 
 - `.github/workflows/ci.yml`: runs Go tests on pull requests and pushes, builds a Linux amd64 binary artifact, builds the Docker image, and publishes it to GitHub Container Registry on `main` and `v*` tag pushes.
 - `server/cmd/api`: starts one private API HTTP server per private bind address and one public emergency viewer HTTP server per public bind address, loads config, opens SQLite, creates storage, wires shared handlers, and handles graceful shutdown.
-- `server/cmd/simclient`: simulates the future iOS client by creating an incident, creating an emergency viewer token, creating a media stream, uploading fake encrypted chunks, completing the stream, sending periodic checkins, and optionally testing hash-failure retry and bundle download behavior.
+- `server/cmd/simclient`: simulates the future iOS client by creating an incident, creating an emergency viewer token, creating a media stream, encrypting and uploading fake chunks, completing the stream, sending periodic checkins, and optionally testing hash-failure retry, bundle download, and local decrypt verification behavior.
 - `server/internal/config`: reads environment variables such as private/public bind address lists, legacy singular bind addresses, data directory, database path, and max upload size.
 - `server/internal/db`: opens SQLite, enables foreign keys and WAL mode, and applies embedded migrations.
+- `server/internal/envelope`: implements the simulator/test AES-256-GCM client-side chunk envelope, associated data builder, and local simulator key file helpers.
 - `server/internal/httpapi`: owns separate private/public muxes, JSON responses, request logging, recovery, request validation, upload handling, stream state handlers, ZIP bundle streaming, and the emergency viewer.
 - `server/internal/incidents`: defines incident/stream/chunk/checkin models and writes metadata to SQLite.
 - `server/internal/storage`: manages local disk blob storage, including temp uploads, hashing while streaming, and immutable final paths.
@@ -61,4 +62,4 @@ The separate ports are a deployment boundary, not a complete security model. Do 
 
 ## Out Of Scope Today
 
-The repository does not currently include the iOS app, local recording, local encryption implementation, client-side decryption, playable media export, push notifications, SMS, Messenger integration, user accounts, or a public admin dashboard.
+The repository does not currently include the iOS app, local recording, production client key storage, key sharing, browser/client-side decryption, playable media export, push notifications, SMS, Messenger integration, user accounts, or a public admin dashboard.
