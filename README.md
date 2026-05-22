@@ -1,5 +1,7 @@
 # Safety Recorder Backend v0.1
 
+![CI](https://github.com/thesilky/safety-recorder/actions/workflows/ci.yml/badge.svg)
+
 Safety Recorder is a private personal-safety recording system.
 
 This repository currently contains the Go backend only. The intended client is a future iOS app that records audio/video in short chunks, encrypts them locally, and uploads them continuously so already-uploaded evidence is retained if the phone is lost, damaged, powered off, or taken.
