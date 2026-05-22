@@ -18,7 +18,7 @@ Focus on:
 - panic/log leakage
 - template escaping
 - SQLite constraints
-- whether v0.2.0 warnings are still accurate
+- whether v0.2.1 warnings are still accurate
 
 Return a concise review with severity levels.
 

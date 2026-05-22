@@ -15,7 +15,7 @@ func (a *API) privateRoutes() http.Handler {
 	mux.HandleFunc("POST /v1/emergency-tokens/{token_id}/revoke", a.revokeEmergencyToken)
 	mux.HandleFunc("/", a.notFound)
 
-	// v0.2.0 has no public authentication by design. Deployment must provide the
+	// v0.2.1 has no public authentication by design. Deployment must provide the
 	// private boundary, for example localhost, WireGuard, or firewall rules.
 	return a.loggingMiddleware(a.recoveryMiddleware(mux))
 }

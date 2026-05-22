@@ -1,6 +1,6 @@
 # API
 
-This is the current backend-only v0.2.0 HTTP surface. The API binary starts private API listeners and public emergency viewer listeners on one or more configured bind addresses. The `/v1` routes are private and unauthenticated. The emergency viewer routes are token-gated and read-only. The planned iOS recording client is not part of this repository yet.
+This is the current backend-only v0.2.1 HTTP surface. The API binary starts private API listeners and public emergency viewer listeners on one or more configured bind addresses. The `/v1` routes are private and unauthenticated. The emergency viewer routes are token-gated and read-only. The planned iOS recording client is not part of this repository yet.
 
 Default bind addresses:
 

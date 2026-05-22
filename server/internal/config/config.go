@@ -24,7 +24,7 @@ type Config struct {
 	MaxUploadBytes   int64
 }
 
-// Load reads configuration from environment variables and applies v0.2.0
+// Load reads configuration from environment variables and applies v0.2.1
 // defaults for unset values.
 func Load() (Config, error) {
 	privateBindAddrs, err := bindAddrsFromEnv("SAFE_PRIVATE_BIND_ADDRS", "SAFE_PRIVATE_BIND_ADDR", defaultPrivateBindAddr)

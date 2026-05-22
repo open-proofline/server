@@ -35,7 +35,7 @@ func New(repo *incidents.Repository, store *storage.Store, opts Options) http.Ha
 	return NewPrivate(repo, store, opts)
 }
 
-// NewPrivate builds the HTTP handler tree for the private v0.2.0 write/admin API.
+// NewPrivate builds the HTTP handler tree for the private v0.2.1 write/admin API.
 func NewPrivate(repo *incidents.Repository, store *storage.Store, opts Options) http.Handler {
 	return newAPI(repo, store, opts).privateRoutes()
 }

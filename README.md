@@ -1,4 +1,4 @@
-# Safety Recorder Backend v0.2.0
+# Safety Recorder Backend v0.2.1
 
 ![CI](https://github.com/thesilkky/safety-recorder/actions/workflows/ci.yml/badge.svg)
 
@@ -8,7 +8,7 @@ This repository currently contains the Go backend only. The intended client is a
 
 ## Current scope
 
-v0.2.0 implements the backend ingest and emergency read-only viewing layer:
+v0.2.1 implements the backend ingest and emergency read-only viewing layer:
 
 - create incidents
 - receive already-encrypted recording chunks
@@ -37,7 +37,7 @@ trusted contact
 
 ## Security Warning
 
-The v0.2.0 API binary starts separate listener groups: private `/v1` write/admin listeners and public-shaped emergency viewer listeners. Separate bind addresses are a deployment boundary, not a complete security model. The private server has no public user authentication, no user accounts, no OAuth, and no JWT protection, so it must stay behind localhost, WireGuard, a firewall, or a strict reverse proxy.
+The v0.2.1 API binary starts separate listener groups: private `/v1` write/admin listeners and public-shaped emergency viewer listeners. Separate bind addresses are a deployment boundary, not a complete security model. The private server has no public user authentication, no user accounts, no OAuth, and no JWT protection, so it must stay behind localhost, WireGuard, a firewall, or a strict reverse proxy.
 
 Do not treat this as production-ready public infrastructure. Public deployment still needs TLS, rate limiting, access control for `/v1`, operational logging review, retention policy, and proxy hardening.
 
