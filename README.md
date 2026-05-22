@@ -86,6 +86,22 @@ Configuration is read from environment variables:
 | `SAFE_DB_PATH` | `./data/safety.db` |
 | `SAFE_MAX_UPLOAD_BYTES` | `250MB` |
 
+## Simulate An Incident
+
+Run the backend, then in another terminal from the `server` directory:
+
+```bash
+go run ./cmd/simclient --chunks 12 --interval 5s
+```
+
+Open the printed emergency viewer URL to watch incident metadata update.
+
+To test upload failure/retry behavior:
+
+```bash
+go run ./cmd/simclient --chunks 12 --interval 2s --simulate-failure-every 4
+```
+
 ## Run With Docker
 
 Build from the repository root:
