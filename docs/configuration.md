@@ -11,6 +11,14 @@ Configuration is read from environment variables when the API starts.
 | `SAFE_DATA_DIR` | `./data` | Local directory for SQLite, temp uploads, and encrypted blobs unless `SAFE_DB_PATH` points elsewhere. |
 | `SAFE_DB_PATH` | `./data/safety.db` | SQLite database path. |
 | `SAFE_MAX_UPLOAD_BYTES` | `250MB` | Maximum encrypted file bytes per upload. |
+| `SAFE_PRIVATE_READ_HEADER_TIMEOUT` | `10s` | Private API HTTP read-header timeout. |
+| `SAFE_PRIVATE_READ_TIMEOUT` | `0s` | Private API HTTP read timeout. `0` disables it for large or slow uploads. |
+| `SAFE_PRIVATE_WRITE_TIMEOUT` | `0s` | Private API HTTP write timeout. `0` disables it for large or slow downloads. |
+| `SAFE_PRIVATE_IDLE_TIMEOUT` | `120s` | Private API HTTP idle connection timeout. |
+| `SAFE_PUBLIC_READ_HEADER_TIMEOUT` | `10s` | Public emergency viewer HTTP read-header timeout. |
+| `SAFE_PUBLIC_READ_TIMEOUT` | `30s` | Public emergency viewer HTTP read timeout. |
+| `SAFE_PUBLIC_WRITE_TIMEOUT` | `300s` | Public emergency viewer HTTP write timeout for pages and ZIP downloads. |
+| `SAFE_PUBLIC_IDLE_TIMEOUT` | `120s` | Public emergency viewer HTTP idle connection timeout. |
 
 The older singular variables `SAFE_PRIVATE_BIND_ADDR` and `SAFE_PUBLIC_BIND_ADDR` are still supported when the matching plural variable is unset. Plural variables take precedence.
 
@@ -44,6 +52,12 @@ go run ./cmd/api
 
 Fractional unit values are allowed when they resolve to at least one byte, for example `0.5KB`. Non-positive, sub-byte, invalid, and oversized values are rejected during startup.
 
+## HTTP Timeouts
+
+Timeout values use Go duration strings such as `10s`, `30s`, or `5m`. `0` and `0s` disable a timeout.
+
+Private read and write timeouts default to disabled so slow chunk uploads and private downloads are not accidentally cut off. Public viewer requests use more defensive defaults because public routes are read-only and do not accept upload bodies. Large public ZIP downloads may require increasing `SAFE_PUBLIC_WRITE_TIMEOUT`.
+
 ## Data Directory Layout
 
 By default:
@@ -56,3 +70,5 @@ data/
 ```
 
 Uploaded chunks are staged in `tmp/`, hashed while streaming, and hard-linked into the final incident path only after SHA-256 verification. Stored chunk paths are relative server-controlled paths, not client-provided paths.
+
+SQLite schema changes are tracked in a `schema_migrations` table in the configured database.

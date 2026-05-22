@@ -19,7 +19,7 @@ Use reusable prompts in this rough order:
 
 Historical prompts are reference material only and are not part of the normal flow.
 
-Historical one-off prompts live in `codex/archive/`, `codex/features/`, and `codex/refactors/`. Do not re-run historical prompts without checking them against the current project `README.md` and `AGENTS.md`.
+Historical one-off prompts live in `codex/archive/`, `codex/features/`, `codex/refactors/` and `codex/work-orders/`. Do not re-run historical prompts without checking them against the current project `README.md` and `AGENTS.md`.
 
 ## Current project constraints
 

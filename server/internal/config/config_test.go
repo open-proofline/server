@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestLoadDefaultBindAddrs(t *testing.T) {
@@ -12,6 +13,75 @@ func TestLoadDefaultBindAddrs(t *testing.T) {
 
 	assertStringsEqual(t, cfg.PrivateBindAddrs, []string{"127.0.0.1:8080"})
 	assertStringsEqual(t, cfg.PublicBindAddrs, []string{"127.0.0.1:8081"})
+}
+
+func TestLoadDefaultHTTPTimeouts(t *testing.T) {
+	cfg := loadConfigForTest(t, nil)
+
+	assertTimeoutsEqual(t, cfg.PrivateTimeouts, HTTPTimeouts{
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       0,
+		WriteTimeout:      0,
+		IdleTimeout:       120 * time.Second,
+	})
+	assertTimeoutsEqual(t, cfg.PublicTimeouts, HTTPTimeouts{
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      300 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	})
+}
+
+func TestLoadHTTPTimeoutsFromEnv(t *testing.T) {
+	cfg := loadConfigForTest(t, map[string]string{
+		"SAFE_PRIVATE_READ_HEADER_TIMEOUT": "11s",
+		"SAFE_PRIVATE_READ_TIMEOUT":        "0",
+		"SAFE_PRIVATE_WRITE_TIMEOUT":       "0s",
+		"SAFE_PRIVATE_IDLE_TIMEOUT":        "2m",
+		"SAFE_PUBLIC_READ_HEADER_TIMEOUT":  "12s",
+		"SAFE_PUBLIC_READ_TIMEOUT":         "31s",
+		"SAFE_PUBLIC_WRITE_TIMEOUT":        "5m",
+		"SAFE_PUBLIC_IDLE_TIMEOUT":         "3m",
+	})
+
+	assertTimeoutsEqual(t, cfg.PrivateTimeouts, HTTPTimeouts{
+		ReadHeaderTimeout: 11 * time.Second,
+		ReadTimeout:       0,
+		WriteTimeout:      0,
+		IdleTimeout:       2 * time.Minute,
+	})
+	assertTimeoutsEqual(t, cfg.PublicTimeouts, HTTPTimeouts{
+		ReadHeaderTimeout: 12 * time.Second,
+		ReadTimeout:       31 * time.Second,
+		WriteTimeout:      5 * time.Minute,
+		IdleTimeout:       3 * time.Minute,
+	})
+}
+
+func TestLoadRejectsInvalidHTTPTimeouts(t *testing.T) {
+	tests := map[string]map[string]string{
+		"negative": {
+			"SAFE_PRIVATE_READ_TIMEOUT": "-1s",
+		},
+		"invalid": {
+			"SAFE_PUBLIC_WRITE_TIMEOUT": "soon",
+		},
+		"empty": {
+			"SAFE_PUBLIC_IDLE_TIMEOUT": "",
+		},
+	}
+
+	for name, env := range tests {
+		t.Run(name, func(t *testing.T) {
+			_, err := loadConfigForTestErr(t, env)
+			if err == nil {
+				t.Fatal("expected timeout config error")
+			}
+			if !strings.Contains(err.Error(), "parse SAFE_") {
+				t.Fatalf("expected env var parse context, got %v", err)
+			}
+		})
+	}
 }
 
 func TestLoadSingularBindAddrs(t *testing.T) {
@@ -170,6 +240,14 @@ func loadConfigForTestErr(t *testing.T, env map[string]string) (Config, error) {
 		"SAFE_DATA_DIR",
 		"SAFE_DB_PATH",
 		"SAFE_MAX_UPLOAD_BYTES",
+		"SAFE_PRIVATE_READ_HEADER_TIMEOUT",
+		"SAFE_PRIVATE_READ_TIMEOUT",
+		"SAFE_PRIVATE_WRITE_TIMEOUT",
+		"SAFE_PRIVATE_IDLE_TIMEOUT",
+		"SAFE_PUBLIC_READ_HEADER_TIMEOUT",
+		"SAFE_PUBLIC_READ_TIMEOUT",
+		"SAFE_PUBLIC_WRITE_TIMEOUT",
+		"SAFE_PUBLIC_IDLE_TIMEOUT",
 	}
 	restoreEnv(t, names)
 	for name, value := range env {
@@ -207,5 +285,12 @@ func assertStringsEqual(t *testing.T, got, want []string) {
 	t.Helper()
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
+	}
+}
+
+func assertTimeoutsEqual(t *testing.T, got, want HTTPTimeouts) {
+	t.Helper()
+	if got != want {
+		t.Fatalf("got %+v, want %+v", got, want)
 	}
 }

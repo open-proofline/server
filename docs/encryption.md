@@ -47,7 +47,7 @@ media_type=audio
 chunk_index=1
 ```
 
-Encryption and decryption must use identical associated data. IDs and media type must not contain newlines, and `chunk_index` must be positive. Decryption fails when incident ID, stream ID, media type, or chunk index differs from the original metadata.
+Encryption and decryption must use identical associated data. IDs and media type must not contain newlines, and `chunk_index` must be positive. This matches streamed upload semantics; legacy unstreamed `chunk_index = 0` chunks cannot use this v1 associated data. Decryption fails when incident ID, stream ID, media type, or chunk index differs from the original metadata.
 
 ## Chunk Envelope
 

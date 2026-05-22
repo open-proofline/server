@@ -29,6 +29,7 @@ Emergency URLs contain bearer tokens and should be treated as secrets. Reverse p
 - Upload file bytes are limited by `SAFE_MAX_UPLOAD_BYTES`.
 - Final chunk storage happens only after hash verification.
 - Stored chunks are immutable and never overwritten.
+- Streamed uploads require positive chunk indexes, while legacy unstreamed uploads may still use index `0`.
 - The simulator can wrap chunks in the documented v1 AES-256-GCM client-side encryption envelope before upload.
 - The backend validates and stores ciphertext bytes only; it does not store encryption keys or decrypt chunk contents.
 - SQLite enforces media type, chunk index, byte size, SHA-256 shape, foreign keys, and unique chunk identity.
@@ -57,6 +58,8 @@ The Go app sets these headers on public emergency viewer pages, JSON responses, 
 Token-protected emergency pages, JSON responses, errors, and ZIP downloads also use `Cache-Control: no-store`. Private API JSON responses use `Content-Type: application/json`, `X-Content-Type-Options: nosniff`, and `Cache-Control: no-store`.
 
 HSTS is not enabled by default in the Go app because local development uses plain HTTP and HSTS should only be sent over HTTPS. Set `Strict-Transport-Security` at the production HTTPS reverse proxy after TLS is established for the public hostname. After deployment, test the public emergency viewer with the MDN HTTP Observatory.
+
+HTTP server timeouts are configurable separately for private and public listener groups. Private read/write timeouts default to disabled for large uploads/downloads; public viewer timeouts are finite by default and should be coordinated with reverse-proxy timeouts.
 
 ## Known Security Gaps
 

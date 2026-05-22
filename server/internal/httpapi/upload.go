@@ -171,8 +171,14 @@ func parseChunkFields(w http.ResponseWriter, fields map[string]string, partFilen
 		originalFilename = partFilename
 	}
 
+	streamID := requiredField(fields, "stream_id")
+	if streamID != "" && chunkIndex <= 0 {
+		writeError(w, http.StatusBadRequest, "invalid_chunk_index", "chunk_index must be positive when stream_id is provided")
+		return chunkUpload{}, false
+	}
+
 	return chunkUpload{
-		streamID:         requiredField(fields, "stream_id"),
+		streamID:         streamID,
 		chunkIndex:       chunkIndex,
 		mediaType:        mediaType,
 		startedAt:        startedAt.UTC(),

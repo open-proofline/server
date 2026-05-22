@@ -51,6 +51,12 @@ Container defaults:
 
 Inside containers, bind to container addresses such as `0.0.0.0`, then restrict host exposure with Docker port publishing, firewall rules, WireGuard, or a reverse proxy.
 
+## Timeout Tuning
+
+The private API defaults keep read and write timeouts disabled so large or slow uploads and private downloads are not interrupted. The public emergency viewer has finite read/write timeouts by default, including a generous write timeout for encrypted ZIP downloads.
+
+Reverse proxies should still set their own connection, request, and upstream timeouts. If completed evidence bundles are large or clients are slow, tune `SAFE_PUBLIC_WRITE_TIMEOUT` together with the reverse proxy timeout.
+
 ## Public Emergency Viewer Exposure
 
 If exposing any part of the system publicly, expose only the emergency viewer listener unless `/v1` has a separate authenticated control plane in front of it.

@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const (
@@ -17,6 +18,16 @@ const (
 	// Leave room for the multipart envelope added by the HTTP upload handler
 	// so configured upload limits cannot overflow request-size arithmetic.
 	maxConfiguredUploadBytes = int64(1<<63 - 1 - 1024*1024)
+
+	defaultPrivateReadHeaderTimeout = 10 * time.Second
+	defaultPrivateReadTimeout       = 0
+	defaultPrivateWriteTimeout      = 0
+	defaultPrivateIdleTimeout       = 120 * time.Second
+
+	defaultPublicReadHeaderTimeout = 10 * time.Second
+	defaultPublicReadTimeout       = 30 * time.Second
+	defaultPublicWriteTimeout      = 300 * time.Second
+	defaultPublicIdleTimeout       = 120 * time.Second
 )
 
 // Config contains the runtime settings needed by the API server.
@@ -26,6 +37,16 @@ type Config struct {
 	DataDir          string
 	DBPath           string
 	MaxUploadBytes   int64
+	PrivateTimeouts  HTTPTimeouts
+	PublicTimeouts   HTTPTimeouts
+}
+
+// HTTPTimeouts groups net/http server timeout settings.
+type HTTPTimeouts struct {
+	ReadHeaderTimeout time.Duration
+	ReadTimeout       time.Duration
+	WriteTimeout      time.Duration
+	IdleTimeout       time.Duration
 }
 
 // Load reads configuration from environment variables and applies defaults for
@@ -49,13 +70,89 @@ func Load() (Config, error) {
 		maxUploadBytes = parsed
 	}
 
+	privateTimeouts, err := privateTimeoutsFromEnv()
+	if err != nil {
+		return Config{}, err
+	}
+	publicTimeouts, err := publicTimeoutsFromEnv()
+	if err != nil {
+		return Config{}, err
+	}
+
 	return Config{
 		PrivateBindAddrs: privateBindAddrs,
 		PublicBindAddrs:  publicBindAddrs,
 		DataDir:          envOrDefault("SAFE_DATA_DIR", defaultDataDir),
 		DBPath:           envOrDefault("SAFE_DB_PATH", defaultDBPath),
 		MaxUploadBytes:   maxUploadBytes,
+		PrivateTimeouts:  privateTimeouts,
+		PublicTimeouts:   publicTimeouts,
 	}, nil
+}
+
+func privateTimeoutsFromEnv() (HTTPTimeouts, error) {
+	return timeoutsFromEnv("SAFE_PRIVATE", HTTPTimeouts{
+		ReadHeaderTimeout: defaultPrivateReadHeaderTimeout,
+		ReadTimeout:       defaultPrivateReadTimeout,
+		WriteTimeout:      defaultPrivateWriteTimeout,
+		IdleTimeout:       defaultPrivateIdleTimeout,
+	})
+}
+
+func publicTimeoutsFromEnv() (HTTPTimeouts, error) {
+	return timeoutsFromEnv("SAFE_PUBLIC", HTTPTimeouts{
+		ReadHeaderTimeout: defaultPublicReadHeaderTimeout,
+		ReadTimeout:       defaultPublicReadTimeout,
+		WriteTimeout:      defaultPublicWriteTimeout,
+		IdleTimeout:       defaultPublicIdleTimeout,
+	})
+}
+
+func timeoutsFromEnv(prefix string, defaults HTTPTimeouts) (HTTPTimeouts, error) {
+	readHeaderTimeout, err := durationFromEnv(prefix+"_READ_HEADER_TIMEOUT", defaults.ReadHeaderTimeout)
+	if err != nil {
+		return HTTPTimeouts{}, err
+	}
+	readTimeout, err := durationFromEnv(prefix+"_READ_TIMEOUT", defaults.ReadTimeout)
+	if err != nil {
+		return HTTPTimeouts{}, err
+	}
+	writeTimeout, err := durationFromEnv(prefix+"_WRITE_TIMEOUT", defaults.WriteTimeout)
+	if err != nil {
+		return HTTPTimeouts{}, err
+	}
+	idleTimeout, err := durationFromEnv(prefix+"_IDLE_TIMEOUT", defaults.IdleTimeout)
+	if err != nil {
+		return HTTPTimeouts{}, err
+	}
+	return HTTPTimeouts{
+		ReadHeaderTimeout: readHeaderTimeout,
+		ReadTimeout:       readTimeout,
+		WriteTimeout:      writeTimeout,
+		IdleTimeout:       idleTimeout,
+	}, nil
+}
+
+func durationFromEnv(name string, fallback time.Duration) (time.Duration, error) {
+	raw, ok := os.LookupEnv(name)
+	if !ok {
+		return fallback, nil
+	}
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return 0, fmt.Errorf("parse %s: empty duration", name)
+	}
+	if value == "0" {
+		return 0, nil
+	}
+	parsed, err := time.ParseDuration(value)
+	if err != nil {
+		return 0, fmt.Errorf("parse %s: %w", name, err)
+	}
+	if parsed < 0 {
+		return 0, fmt.Errorf("parse %s: duration must be non-negative", name)
+	}
+	return parsed, nil
 }
 
 func bindAddrsFromEnv(pluralName, singularName, fallback string) ([]string, error) {

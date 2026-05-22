@@ -91,7 +91,7 @@ Fields:
 
 - `file`: encrypted chunk bytes
 - `stream_id`: optional media stream ID for new clients
-- `chunk_index`: non-negative integer
+- `chunk_index`: non-negative integer for legacy unstreamed uploads; positive integer when `stream_id` is provided
 - `media_type`: `audio`, `video`, `location`, or `metadata`
 - `started_at`: RFC3339 timestamp
 - `ended_at`: RFC3339 timestamp, not before `started_at`
@@ -117,9 +117,9 @@ Response `201`:
 }
 ```
 
-When `stream_id` is provided, the stream must exist, belong to the same incident, be open, and have the same `media_type` as the uploaded chunk. Uploads to completed or failed streams return `409 stream_not_open`.
+When `stream_id` is provided, the stream must exist, belong to the same incident, be open, and have the same `media_type` as the uploaded chunk. Streamed chunks must use indexes starting at `1`; `chunk_index <= 0` returns `400 invalid_chunk_index`. Uploads to completed or failed streams return `409 stream_not_open`.
 
-`stream_id` remains optional for backwards compatibility with existing chunks and clients. Unstreamed chunks are still stored and listed, but they are not included in completed-stream bundle downloads.
+New clients should create a media stream and upload chunks with `stream_id`. `stream_id` remains optional for backwards compatibility with existing chunks and clients. Legacy unstreamed chunks may use `chunk_index = 0`; they are still stored and listed, but they are not included in completed-stream bundle downloads.
 
 The current chunk identity remains `(incident_id, media_type, chunk_index)`, so clients should keep chunk indexes unique per incident and media type even when using streams.
 

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Rejected non-positive chunk indexes for streamed uploads while preserving legacy unstreamed compatibility.
+- Added explicit schema migration tracking with `schema_migrations`.
+- Added configurable private/public HTTP server timeout settings.
+
 ## v0.4.0 - 2026-05-23
 
 - Added documented v1 client-side chunk encryption envelope using AES-256-GCM for simulator/test flows.

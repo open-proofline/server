@@ -7,8 +7,8 @@ Safety Recorder currently contains the Go backend for a private personal-safety 
 - `.github/workflows/ci.yml`: runs Go tests on pull requests and pushes, builds a Linux amd64 binary artifact, builds the Docker image, and publishes it to GitHub Container Registry on `main` and `v*` tag pushes.
 - `server/cmd/api`: starts one private API HTTP server per private bind address and one public emergency viewer HTTP server per public bind address, loads config, opens SQLite, creates storage, wires shared handlers, and handles graceful shutdown.
 - `server/cmd/simclient`: simulates the future iOS client by creating an incident, creating an emergency viewer token, creating a media stream, encrypting and uploading fake chunks, completing the stream, sending periodic checkins, and optionally testing hash-failure retry, bundle download, and local decrypt verification behavior.
-- `server/internal/config`: reads environment variables such as private/public bind address lists, legacy singular bind addresses, data directory, database path, and max upload size.
-- `server/internal/db`: opens SQLite, enables foreign keys and WAL mode, and applies embedded migrations.
+- `server/internal/config`: reads environment variables such as private/public bind address lists, legacy singular bind addresses, data directory, database path, max upload size, and HTTP server timeouts.
+- `server/internal/db`: opens SQLite, enables foreign keys and WAL mode, applies embedded migrations, records `schema_migrations`, and runs named compatibility migrations.
 - `server/internal/envelope`: implements the simulator/test AES-256-GCM client-side chunk envelope, associated data builder, and local simulator key file helpers.
 - `server/internal/httpapi`: owns separate private/public muxes, JSON responses, request logging, recovery, request validation, upload handling, stream state handlers, ZIP bundle streaming, and the emergency viewer.
 - `server/internal/incidents`: defines incident/stream/chunk/checkin models and writes metadata to SQLite.
@@ -35,7 +35,7 @@ It uses no-overwrite behavior, so an existing chunk file is treated as a conflic
 
 SQLite metadata is written after the file is safely committed, through `server/internal/incidents.Repository.CreateChunk`. The schema also has a unique constraint on `incident_id + media_type + chunk_index`.
 
-New clients can create a media stream with `POST /v1/incidents/{incident_id}/streams` and include the returned `stream_id` during chunk upload. Existing chunks without `stream_id` remain valid and readable as legacy chunk metadata, but they are not included in completed-stream evidence bundles.
+New clients can create a media stream with `POST /v1/incidents/{incident_id}/streams` and include the returned `stream_id` during chunk upload. Streamed chunk indexes start at `1`. Existing chunks without `stream_id` remain valid and readable as legacy chunk metadata, including older index `0` chunks, but they are not included in completed-stream evidence bundles.
 
 Stream completion is handled by `server/internal/httpapi.completeMediaStream`. Before a stream moves from `open` to `complete`, the handler verifies that chunks `1..expected_chunk_count` exist contiguously for that stream and that each stored blob can be opened from local storage. Failed streams preserve uploaded chunks but are not offered as normal downloads.
 

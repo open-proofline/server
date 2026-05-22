@@ -14,8 +14,8 @@ The maintainer remains responsible for correctness, security, licensing, release
 server/
   cmd/api          API server entry point
   cmd/simclient    simulator CLI
-  internal/config  environment configuration
-  internal/db      SQLite setup and migrations
+  internal/config  environment configuration and HTTP timeout parsing
+  internal/db      SQLite setup, schema_migrations, and compatibility migrations
   internal/envelope client-side chunk encryption envelope helpers
   internal/httpapi HTTP handlers, muxes, middleware, bundles, web assets
   internal/incidents incident, stream, chunk, checkin, and token repository code

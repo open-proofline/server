@@ -79,7 +79,10 @@ func newHTTPServers(cfg config.Config, privateHandler, publicHandler http.Handle
 			server: &http.Server{
 				Addr:              addr,
 				Handler:           privateHandler,
-				ReadHeaderTimeout: 10 * time.Second,
+				ReadHeaderTimeout: cfg.PrivateTimeouts.ReadHeaderTimeout,
+				ReadTimeout:       cfg.PrivateTimeouts.ReadTimeout,
+				WriteTimeout:      cfg.PrivateTimeouts.WriteTimeout,
+				IdleTimeout:       cfg.PrivateTimeouts.IdleTimeout,
 			},
 		})
 	}
@@ -89,7 +92,10 @@ func newHTTPServers(cfg config.Config, privateHandler, publicHandler http.Handle
 			server: &http.Server{
 				Addr:              addr,
 				Handler:           publicHandler,
-				ReadHeaderTimeout: 10 * time.Second,
+				ReadHeaderTimeout: cfg.PublicTimeouts.ReadHeaderTimeout,
+				ReadTimeout:       cfg.PublicTimeouts.ReadTimeout,
+				WriteTimeout:      cfg.PublicTimeouts.WriteTimeout,
+				IdleTimeout:       cfg.PublicTimeouts.IdleTimeout,
 			},
 		})
 	}

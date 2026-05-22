@@ -166,6 +166,26 @@ func TestUploadValidChunk(t *testing.T) {
 	assertNoStore(t, response)
 }
 
+func TestLegacyUnstreamedChunkIndexZeroIsAccepted(t *testing.T) {
+	app := newTestApp(t)
+	incidentID := createIncident(t, app, `{}`)
+	payload := []byte("legacy encrypted audio data")
+
+	response, body := uploadChunk(t, app, incidentID, 0, "audio", payload, sha256Hex(payload))
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusCreated {
+		t.Fatalf("expected legacy zero-index upload status 201, got %d: %s", response.StatusCode, body)
+	}
+	var chunk incidents.Chunk
+	if err := json.Unmarshal(body, &chunk); err != nil {
+		t.Fatalf("decode chunk: %v", err)
+	}
+	if chunk.StreamID != "" || chunk.ChunkIndex != 0 {
+		t.Fatalf("unexpected legacy chunk response: %+v", chunk)
+	}
+}
+
 func TestRejectDuplicateChunkIndex(t *testing.T) {
 	app := newTestApp(t)
 	incidentID := createIncident(t, app, `{}`)
@@ -380,6 +400,41 @@ func TestUploadChunkWithValidStreamID(t *testing.T) {
 	if chunk.StreamID != stream.ID {
 		t.Fatalf("expected chunk stream_id %s, got %q", stream.ID, chunk.StreamID)
 	}
+}
+
+func TestRejectStreamedChunkIndexZero(t *testing.T) {
+	app := newTestApp(t)
+	incidentID := createIncident(t, app, `{}`)
+	stream := createMediaStream(t, app, incidentID, incidents.MediaTypeAudio, "audio")
+	payload := []byte("encrypted audio data")
+
+	response, body := uploadChunkWithStream(t, app, incidentID, stream.ID, 0, "audio", payload, sha256Hex(payload))
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected zero-index stream upload status 400, got %d: %s", response.StatusCode, body)
+	}
+	assertErrorCode(t, body, "invalid_chunk_index")
+	if !bytes.Contains(body, []byte("positive when stream_id is provided")) {
+		t.Fatalf("expected stream-specific chunk index message, got: %s", body)
+	}
+	assertNoStoredFile(t, app, incidentID, "audio_000000.enc")
+	assertTempDirEmpty(t, app)
+}
+
+func TestRejectStreamedNegativeChunkIndex(t *testing.T) {
+	app := newTestApp(t)
+	incidentID := createIncident(t, app, `{}`)
+	stream := createMediaStream(t, app, incidentID, incidents.MediaTypeAudio, "audio")
+	payload := []byte("encrypted audio data")
+
+	response, body := uploadChunkWithStream(t, app, incidentID, stream.ID, -1, "audio", payload, sha256Hex(payload))
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected negative-index stream upload status 400, got %d: %s", response.StatusCode, body)
+	}
+	assertErrorCode(t, body, "invalid_chunk_index")
 }
 
 func TestRejectChunkUploadWhereStreamBelongsToAnotherIncident(t *testing.T) {
