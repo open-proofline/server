@@ -2,9 +2,15 @@
 
 ## Unreleased
 
+## v3.1.0 - 2026-05-23
+
 - Added documented v1 client-side chunk encryption envelope using AES-256-GCM for simulator/test flows.
 - Updated the simulator to encrypt fake chunks by default, support local key files, and decrypt-verify downloaded stream bundles.
 - Added non-secret bundle manifest encryption hints while keeping backend storage and downloads opaque.
+- Split the simulator client into smaller files and added focused simulator helper tests.
+- Added MDN-aligned security header test coverage for emergency pages, JSON responses, static assets, ZIP downloads, and private API JSON responses.
+- Updated API, encryption, simulator, security, deployment, and code-map documentation to match the current backend.
+- Known limitation: the backend still does not decrypt chunks, share keys, produce playable media exports, or provide public-production hardening.
 
 ## v0.3.0
 

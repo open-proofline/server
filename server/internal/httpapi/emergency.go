@@ -79,8 +79,8 @@ type createEmergencyTokenResponse struct {
 
 const emergencyWarning = "If you are concerned about immediate safety, call emergency services now."
 
-// createEmergencyToken is a private v0.2.1 route that mints a read-only
-// emergency capability for one incident.
+// createEmergencyToken is a private route that mints a read-only emergency
+// capability for one incident.
 func (a *API) createEmergencyToken(w http.ResponseWriter, r *http.Request) {
 	incidentID := r.PathValue("incident_id")
 	if _, err := a.repo.GetIncident(r.Context(), incidentID); errors.Is(err, incidents.ErrNotFound) {
@@ -122,8 +122,8 @@ func (a *API) createEmergencyToken(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// revokeEmergencyToken is a private v0.2.1 route that disables an emergency
-// token without deleting its audit metadata.
+// revokeEmergencyToken is a private route that disables an emergency token
+// without deleting its audit metadata.
 func (a *API) revokeEmergencyToken(w http.ResponseWriter, r *http.Request) {
 	tokenID := r.PathValue("token_id")
 	if err := a.repo.RevokeEmergencyToken(r.Context(), tokenID); errors.Is(err, incidents.ErrNotFound) {
