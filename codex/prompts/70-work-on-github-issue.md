@@ -1,0 +1,98 @@
+# Codex Prompt: Work on GitHub Issue
+
+Work on one GitHub issue in this repository.
+
+## Inputs
+
+Issue number: `<ISSUE_NUMBER>`
+
+Repository:
+
+```text
+TheSilkky/safety-recorder
+```
+
+## Rules
+
+- Use the current checked-out branch.
+- Do not create or checkout another branch.
+- Do not create a pull request unless explicitly requested.
+- Keep the change scoped to the issue.
+- Do not add unrelated features.
+- Do not change public API behaviour unless the issue requires it.
+- Do not weaken security warnings.
+- Do not expose `/v1` publicly.
+- Do not log raw tokens, request bodies, uploaded bytes, Authorization headers, plaintext, or keys.
+- Do not add React, Node, npm, OAuth, JWT, user accounts, SMS, Messenger, push notifications, Docker Compose, Kubernetes, cloud integrations, or public admin dashboard features unless the issue explicitly requires it.
+- Prefer Go standard library where practical.
+- Preserve private/public listener separation.
+
+## First steps
+
+Read the issue:
+
+```bash
+gh issue view <ISSUE_NUMBER> --repo TheSilkky/safety-recorder
+```
+
+Then read:
+
+- `README.md`
+- `AGENTS.md`
+- `CHANGELOG.md`
+- relevant files in `docs/`
+- relevant source files
+- relevant tests
+
+Before changing files, summarize:
+
+1. issue goal
+2. files likely affected
+3. validation commands
+4. out-of-scope items
+5. whether this should be docs-only, code-only, or mixed
+
+## Implementation
+
+Make the smallest useful change that satisfies the issue.
+
+Keep the diff reviewable.
+
+If you discover unrelated future work, do not implement it. Suggest a backlog issue instead.
+
+## Validation
+
+If Go code changed:
+
+```bash
+cd server
+gofmt -w .
+go test ./...
+go vet ./...
+```
+
+If only Markdown changed, inspect docs and links manually. Go tests are not required unless code changed.
+
+If behaviour changed and the simulator is relevant:
+
+```bash
+cd server
+go run ./cmd/api
+```
+
+In another terminal:
+
+```bash
+cd server
+go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle
+```
+
+## Output
+
+Summarize:
+
+1. files changed
+2. implementation summary
+3. validation commands run
+4. any follow-up work
+5. whether a PR should be opened
