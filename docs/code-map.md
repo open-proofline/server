@@ -33,11 +33,11 @@ data/incidents/{incident_id}/{media_type}_{zero_padded_chunk_index}.enc
 
 It uses no-overwrite behavior, so an existing chunk file is treated as a conflict.
 
-SQLite metadata is written after the file is safely committed, through `server/internal/incidents.Repository.CreateChunk`. The schema also has a unique constraint on `incident_id + media_type + chunk_index`.
+SQLite metadata is written after the file is safely committed, through `server/internal/incidents.Repository.CreateChunk`. The repository rechecks the incident and stream state before inserting chunk metadata so uploads that race with incident close or stream completion are rejected. The schema also has a unique constraint on `incident_id + media_type + chunk_index`.
 
 New clients can create a media stream with `POST /v1/incidents/{incident_id}/streams` and include the returned `stream_id` during chunk upload. Streamed chunk indexes start at `1`. Existing chunks without `stream_id` remain valid and readable as legacy chunk metadata, including older index `0` chunks, but they are not included in completed-stream evidence bundles.
 
-Stream completion is handled by `server/internal/httpapi.completeMediaStream`. Before a stream moves from `open` to `complete`, the handler verifies that chunks `1..expected_chunk_count` exist contiguously for that stream and that each stored blob can be opened from local storage. Failed streams preserve uploaded chunks but are not offered as normal downloads.
+Stream completion is handled by `server/internal/httpapi.completeMediaStream`. Before a stream moves from `open` to `complete`, the handler verifies that chunks `1..expected_chunk_count` exist contiguously for that stream and that each stored blob can be opened from local storage. `server/internal/incidents.Repository.CompleteMediaStream` then revalidates the chunk rows in the completion transaction before committing the state change. Failed streams preserve uploaded chunks but are not offered as normal downloads.
 
 ## Emergency Viewer Flow
 

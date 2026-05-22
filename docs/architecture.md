@@ -59,9 +59,9 @@ sequenceDiagram
     Private->>DB: Create open stream
     Client->>Private: POST encrypted chunks + ciphertext SHA-256
     Private->>Blob: Stage, hash, commit immutable chunk
-    Private->>DB: Store chunk metadata
+    Private->>DB: Recheck state and store chunk metadata
     Client->>Private: POST /streams/{stream_id}/complete
-    Private->>DB: Verify contiguous chunks and mark complete
+    Private->>DB: Verify chunks and mark complete transactionally
     Contact->>Public: GET /e/{token}
     Public->>DB: Validate token and read summary
     Public->>Blob: Stream completed encrypted bundle

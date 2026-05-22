@@ -29,7 +29,8 @@ This document describes the current backend-only security posture. It is intenti
 - The simulator encrypts fake chunk plaintext by default using the documented v1 AES-256-GCM envelope.
 - Encryption keys remain client-side; they are not uploaded, stored in SQLite, or added to evidence bundles.
 - SQLite enforces media type, chunk index, byte size, SHA-256 shape, foreign keys, and unique chunk identity.
-- Media streams must be open before new chunks can be attached, and stream completion verifies contiguous chunks plus readable stored files.
+- Media streams must be open before new chunks can be attached. The repository rechecks incident and stream state when chunk metadata is inserted.
+- Stream completion verifies contiguous chunks plus readable stored files, and the repository revalidates chunk rows before committing the stream to `complete`.
 - Emergency tokens use 256 bits from `crypto/rand`; only SHA-256 token hashes are stored.
 - Expired, revoked, and invalid emergency tokens return the same public error.
 - Emergency summaries do not expose `stored_path`. Emergency bundle downloads expose only encrypted chunk bytes and generated manifests for completed streams.

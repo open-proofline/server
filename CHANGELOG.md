@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Rejected non-positive chunk indexes for streamed uploads while preserving legacy unstreamed compatibility.
+- Hardened chunk upload and stream completion against incident/stream state races.
 - Added explicit schema migration tracking with `schema_migrations`.
 - Added configurable private/public HTTP server timeout settings.
 

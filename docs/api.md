@@ -125,6 +125,8 @@ The current chunk identity remains `(incident_id, media_type, chunk_index)`, so 
 
 Duplicate `(incident_id, media_type, chunk_index)` uploads return `409 duplicate_chunk`. Hash mismatches return `400 hash_mismatch` and do not commit a final file.
 
+The repository rechecks incident and stream state when chunk metadata is inserted. If an upload races with incident close or stream completion, the final metadata insert is rejected and the committed blob path is removed.
+
 For clients using the v1 encryption envelope, `sha256_hex` is the SHA-256 of the complete uploaded envelope bytes, not the plaintext.
 
 ### `GET /v1/incidents/{incident_id}/chunks`
@@ -201,7 +203,7 @@ Returns one stream as:
 
 ### `POST /v1/incidents/{incident_id}/streams/{stream_id}/complete`
 
-Marks an open stream complete after verifying chunks `1..expected_chunk_count` exist contiguously and each stored file is readable.
+Marks an open stream complete after verifying chunks `1..expected_chunk_count` exist contiguously and each stored file is readable. Completion revalidates chunk rows in the repository before committing the state change.
 
 Request:
 

@@ -33,7 +33,8 @@ Emergency URLs contain bearer tokens and should be treated as secrets. Reverse p
 - The simulator can wrap chunks in the documented v1 AES-256-GCM client-side encryption envelope before upload.
 - The backend validates and stores ciphertext bytes only; it does not store encryption keys or decrypt chunk contents.
 - SQLite enforces media type, chunk index, byte size, SHA-256 shape, foreign keys, and unique chunk identity.
-- Media stream completion verifies contiguous chunks and readable stored files.
+- Chunk metadata inserts recheck incident and stream state in the repository so uploads racing with close or completion are rejected.
+- Media stream completion verifies contiguous chunks and readable stored files, then rechecks chunk rows transactionally before committing completion.
 
 ## Bundle Controls
 
