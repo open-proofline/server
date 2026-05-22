@@ -14,6 +14,9 @@ const (
 	defaultDataDir         = "./data"
 	defaultDBPath          = "./data/safety.db"
 	defaultMaxUploadBytes  = int64(250 * 1024 * 1024)
+	// Leave room for the multipart envelope added by the HTTP upload handler
+	// so configured upload limits cannot overflow request-size arithmetic.
+	maxConfiguredUploadBytes = int64(1<<63 - 1 - 1024*1024)
 )
 
 // Config contains the runtime settings needed by the API server.
@@ -129,6 +132,9 @@ func parseBytes(raw string) (int64, error) {
 	if parsed <= 0 {
 		return 0, fmt.Errorf("byte value must be positive")
 	}
+	if parsed > maxConfiguredUploadBytes {
+		return 0, fmt.Errorf("byte value is too large")
+	}
 	return parsed, nil
 }
 
@@ -146,8 +152,7 @@ func parseUnitBytes(rawNumber string, multiplier int64) (int64, error) {
 	if bytes.Cmp(big.NewRat(1, 1)) < 0 {
 		return 0, fmt.Errorf("byte value must be at least one byte")
 	}
-	const maxInt64 = int64(1<<63 - 1)
-	if bytes.Cmp(big.NewRat(maxInt64, 1)) > 0 {
+	if bytes.Cmp(big.NewRat(maxConfiguredUploadBytes, 1)) > 0 {
 		return 0, fmt.Errorf("byte value is too large")
 	}
 

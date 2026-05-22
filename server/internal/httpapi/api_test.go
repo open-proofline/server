@@ -214,6 +214,19 @@ func TestRejectUploadTooLargeRemovesTempFile(t *testing.T) {
 	assertTempDirEmpty(t, app)
 }
 
+func TestHugeConfiguredUploadLimitDoesNotOverflowRequestLimit(t *testing.T) {
+	app := newTestAppWithMaxUploadBytes(t, int64(1<<63-1))
+	incidentID := createIncident(t, app, `{}`)
+	payload := []byte("encrypted audio data")
+
+	response, body := uploadChunk(t, app, incidentID, 1, "audio", payload, sha256Hex(payload))
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusCreated {
+		t.Fatalf("expected upload status 201, got %d: %s", response.StatusCode, body)
+	}
+}
+
 func TestRejectUploadToMissingIncident(t *testing.T) {
 	app := newTestApp(t)
 	payload := []byte("encrypted audio data")

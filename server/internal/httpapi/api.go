@@ -13,6 +13,7 @@ const (
 	jsonBodyLimit         = int64(64 * 1024)
 	fieldLimit            = int64(64 * 1024)
 	multipartOverhead     = int64(1024 * 1024)
+	maxSafeUploadBytes    = int64(1<<63 - 1 - multipartOverhead)
 )
 
 // Options configures API construction.
@@ -50,6 +51,9 @@ func newAPI(repo *incidents.Repository, store *storage.Store, opts Options) *API
 	maxUploadBytes := opts.MaxUploadBytes
 	if maxUploadBytes <= 0 {
 		maxUploadBytes = defaultMaxUploadBytes
+	}
+	if maxUploadBytes > maxSafeUploadBytes {
+		maxUploadBytes = maxSafeUploadBytes
 	}
 	logger := opts.Logger
 	if logger == nil {

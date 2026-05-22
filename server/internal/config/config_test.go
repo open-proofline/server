@@ -119,7 +119,8 @@ func TestParseBytesRejectsUnsafeUnitValues(t *testing.T) {
 	tests := map[string]string{
 		"0B":                    "positive",
 		"0.0001B":               "at least one byte",
-		"9223372036854775808B":  "too large",
+		"9223372036853727232":   "too large",
+		"9223372036853727232B":  "too large",
 		"9999999999999999999GB": "too large",
 		"NaNMB":                 "invalid byte value",
 		"InfMB":                 "invalid byte value",
