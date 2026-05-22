@@ -144,7 +144,12 @@ func (r *Repository) ListStreamChunks(ctx context.Context, incidentID, streamID 
 // validated the stream's chunks and files.
 func (r *Repository) CompleteMediaStream(ctx context.Context, incidentID, streamID string, expectedChunkCount int) (MediaStream, error) {
 	now := time.Now().UTC()
-	result, err := r.db.ExecContext(ctx, `
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return MediaStream{}, fmt.Errorf("begin complete media stream: %w", err)
+	}
+
+	result, err := tx.ExecContext(ctx, `
 		UPDATE media_streams
 		SET status = ?, expected_chunk_count = ?, updated_at = ?, completed_at = ?,
 			failed_at = NULL, failure_reason = NULL
@@ -158,19 +163,76 @@ func (r *Repository) CompleteMediaStream(ctx context.Context, incidentID, stream
 		StreamStatusOpen,
 	)
 	if err != nil {
+		_ = tx.Rollback()
 		return MediaStream{}, fmt.Errorf("complete media stream: %w", err)
 	}
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
+		_ = tx.Rollback()
 		return MediaStream{}, fmt.Errorf("complete media stream rows affected: %w", err)
 	}
 	if rowsAffected == 0 {
+		_ = tx.Rollback()
 		if _, err := r.GetMediaStream(ctx, incidentID, streamID); errors.Is(err, ErrNotFound) {
 			return MediaStream{}, ErrNotFound
 		}
 		return MediaStream{}, ErrInvalidState
 	}
+	var mediaType string
+	err = tx.QueryRowContext(ctx, `
+		SELECT media_type
+		FROM media_streams
+		WHERE incident_id = ? AND id = ?`,
+		incidentID,
+		streamID,
+	).Scan(&mediaType)
+	if err != nil {
+		_ = tx.Rollback()
+		return MediaStream{}, fmt.Errorf("read completed stream media type: %w", err)
+	}
+	if err := validateCompleteStreamChunkRows(ctx, tx, incidentID, streamID, mediaType, expectedChunkCount); err != nil {
+		_ = tx.Rollback()
+		return MediaStream{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return MediaStream{}, fmt.Errorf("commit complete media stream: %w", err)
+	}
 	return r.GetMediaStream(ctx, incidentID, streamID)
+}
+
+func validateCompleteStreamChunkRows(ctx context.Context, tx *sql.Tx, incidentID, streamID, mediaType string, expectedChunkCount int) error {
+	rows, err := tx.QueryContext(ctx, `
+		SELECT chunk_index, media_type
+		FROM chunks
+		WHERE incident_id = ? AND stream_id = ?
+		ORDER BY chunk_index ASC`,
+		incidentID,
+		streamID,
+	)
+	if err != nil {
+		return fmt.Errorf("list completion chunks: %w", err)
+	}
+	defer rows.Close()
+
+	count := 0
+	for rows.Next() {
+		count++
+		var chunkIndex int
+		var chunkMediaType string
+		if err := rows.Scan(&chunkIndex, &chunkMediaType); err != nil {
+			return fmt.Errorf("scan completion chunk: %w", err)
+		}
+		if chunkIndex != count || chunkMediaType != mediaType {
+			return ErrInvalidState
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate completion chunks: %w", err)
+	}
+	if count != expectedChunkCount {
+		return ErrInvalidState
+	}
+	return nil
 }
 
 // FailMediaStream marks an open stream failed while preserving uploaded chunks.

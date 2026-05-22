@@ -114,6 +114,25 @@ func (a *API) uploadChunk(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, "duplicate_chunk", "chunk_index already exists for this incident and media type")
 		return
 	}
+	if errors.Is(err, incidents.ErrIncidentClosed) {
+		_ = a.store.Remove(storedPath)
+		writeError(w, http.StatusConflict, "incident_closed", "incident is closed")
+		return
+	}
+	if errors.Is(err, incidents.ErrInvalidState) {
+		_ = a.store.Remove(storedPath)
+		writeError(w, http.StatusConflict, "stream_not_open", "media stream is not open")
+		return
+	}
+	if errors.Is(err, incidents.ErrNotFound) {
+		_ = a.store.Remove(storedPath)
+		if upload.streamID != "" {
+			writeError(w, http.StatusNotFound, "stream_not_found", "media stream was not found")
+			return
+		}
+		writeError(w, http.StatusNotFound, "incident_not_found", "incident was not found")
+		return
+	}
 	if err != nil {
 		_ = a.store.Remove(storedPath)
 		a.internalError(w, "insert chunk metadata", err)

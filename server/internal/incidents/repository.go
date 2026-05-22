@@ -20,6 +20,9 @@ var (
 	// ErrInvalidState indicates that a requested state transition is not
 	// allowed for the current stream state.
 	ErrInvalidState = errors.New("invalid state")
+	// ErrIncidentClosed indicates that a chunk insert raced with an incident
+	// close and the incident no longer accepts uploads.
+	ErrIncidentClosed = errors.New("incident closed")
 )
 
 // Repository stores incident, chunk, and checkin metadata in SQLite.
@@ -177,7 +180,16 @@ func (r *Repository) CreateChunk(ctx context.Context, params CreateChunkParams) 
 		CreatedAt:        time.Now().UTC(),
 	}
 
-	_, err = r.db.ExecContext(ctx, `
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return Chunk{}, fmt.Errorf("begin create chunk: %w", err)
+	}
+	if err := validateChunkInsertState(ctx, tx, params); err != nil {
+		_ = tx.Rollback()
+		return Chunk{}, err
+	}
+
+	_, err = tx.ExecContext(ctx, `
 		INSERT INTO chunks (
 			id, incident_id, stream_id, chunk_index, media_type, started_at, ended_at,
 			original_filename, stored_path, byte_size, sha256_hex, created_at
@@ -197,6 +209,7 @@ func (r *Repository) CreateChunk(ctx context.Context, params CreateChunkParams) 
 		formatDBTime(chunk.CreatedAt),
 	)
 	if err != nil {
+		_ = tx.Rollback()
 		// The schema's unique constraint is the final duplicate guard. This
 		// matters if two uploads race past the HTTP preflight check.
 		if isConstraint(err) {
@@ -204,8 +217,53 @@ func (r *Repository) CreateChunk(ctx context.Context, params CreateChunkParams) 
 		}
 		return Chunk{}, fmt.Errorf("insert chunk: %w", err)
 	}
+	if err := tx.Commit(); err != nil {
+		return Chunk{}, fmt.Errorf("commit create chunk: %w", err)
+	}
 
 	return chunk, nil
+}
+
+func validateChunkInsertState(ctx context.Context, tx *sql.Tx, params CreateChunkParams) error {
+	var incidentStatus string
+	err := tx.QueryRowContext(ctx, `
+		SELECT status
+		FROM incidents
+		WHERE id = ?`,
+		params.IncidentID,
+	).Scan(&incidentStatus)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("read incident status: %w", err)
+	}
+	if incidentStatus != StatusOpen {
+		return ErrIncidentClosed
+	}
+	if params.StreamID == "" {
+		return nil
+	}
+
+	var streamStatus string
+	var streamMediaType string
+	err = tx.QueryRowContext(ctx, `
+		SELECT status, media_type
+		FROM media_streams
+		WHERE incident_id = ? AND id = ?`,
+		params.IncidentID,
+		params.StreamID,
+	).Scan(&streamStatus, &streamMediaType)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("read media stream state: %w", err)
+	}
+	if streamStatus != StreamStatusOpen || streamMediaType != params.MediaType {
+		return ErrInvalidState
+	}
+	return nil
 }
 
 // ListChunks returns chunk metadata for an incident without loading file bytes.
