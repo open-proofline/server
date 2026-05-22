@@ -1,6 +1,6 @@
 # Safety Recorder Backend v0.1
 
-![CI](https://github.com/thesilky/safety-recorder/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/thesilkky/safety-recorder/actions/workflows/ci.yml/badge.svg)
 
 Safety Recorder is a private personal-safety recording system.
 
