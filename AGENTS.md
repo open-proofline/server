@@ -14,6 +14,7 @@
 - ZIP bundle download routes must not expose filesystem paths or accept client-provided stored paths.
 - Generated ZIP entry names must be controlled by the server.
 - Completed evidence bundles are encrypted chunk bundles, not decrypted/playable media exports.
+- Use stable, documented crypto libraries only. Do not implement cryptographic primitives. Do not create custom AEAD, block modes, padding, MAC, KDF, or random generator logic.
 - Preserve the current deployment model: private API behind localhost/LAN/WireGuard/firewall; public emergency viewer behind HTTPS/reverse proxy when exposed.
 - Separate bind addresses are a deployment boundary, not a complete security model.
 
