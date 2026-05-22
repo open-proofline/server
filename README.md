@@ -1,7 +1,7 @@
 # Safety Recorder
 
 [![CI](https://github.com/TheSilkky/safety-recorder/actions/workflows/ci.yml/badge.svg)](https://github.com/TheSilkky/safety-recorder/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/TheSilkky/safety-recorder?sort=semver)](https://github.com/TheSilkky/safety-recorder/releases)
+[![Latest Tag](https://img.shields.io/github/v/tag/TheSilkky/safety-recorder?sort=semver)](https://github.com/TheSilkky/safety-recorder/tags)
 [![License: AGPL-3.0-only](https://img.shields.io/badge/license-AGPL--3.0--only-blue.svg)](LICENSE)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/TheSilkky/safety-recorder?filename=server%2Fgo.mod)](server/go.mod)
 [![Status: Experimental](https://img.shields.io/badge/status-experimental-orange.svg)](#security-warning)
