@@ -1,16 +1,16 @@
 # Code Map
 
-Safety Recorder currently contains the Go backend for a private personal-safety recording system. This backend receives already-encrypted recording chunks, records metadata in SQLite, and serves a scoped read-only emergency viewer.
+Safety Recorder currently contains the Go backend for a private personal-safety recording system. This backend receives already-encrypted recording chunks, groups them into media streams, records metadata in SQLite, and serves a scoped read-only emergency viewer with encrypted evidence bundle downloads.
 
 ## Package Layout
 
 - `.github/workflows/ci.yml`: runs Go tests on pull requests and pushes, builds a Linux amd64 binary artifact, builds the Docker image, and publishes it to GitHub Container Registry on `main` and `v*` tag pushes.
 - `server/cmd/api`: starts one private API HTTP server per private bind address and one public emergency viewer HTTP server per public bind address, loads config, opens SQLite, creates storage, wires shared handlers, and handles graceful shutdown.
-- `server/cmd/simclient`: simulates the future iOS client by creating an incident, creating an emergency viewer token, uploading fake encrypted chunks, sending periodic checkins, and optionally testing hash-failure retry behavior.
+- `server/cmd/simclient`: simulates the future iOS client by creating an incident, creating an emergency viewer token, creating a media stream, uploading fake encrypted chunks, completing the stream, sending periodic checkins, and optionally testing hash-failure retry and bundle download behavior.
 - `server/internal/config`: reads environment variables such as private/public bind address lists, legacy singular bind addresses, data directory, database path, and max upload size.
 - `server/internal/db`: opens SQLite, enables foreign keys and WAL mode, and applies embedded migrations.
-- `server/internal/httpapi`: owns separate private/public muxes, JSON responses, request logging, recovery, request validation, upload handling, and the emergency viewer.
-- `server/internal/incidents`: defines incident/chunk/checkin models and writes metadata to SQLite.
+- `server/internal/httpapi`: owns separate private/public muxes, JSON responses, request logging, recovery, request validation, upload handling, stream state handlers, ZIP bundle streaming, and the emergency viewer.
+- `server/internal/incidents`: defines incident/stream/chunk/checkin models and writes metadata to SQLite.
 - `server/internal/storage`: manages local disk blob storage, including temp uploads, hashing while streaming, and immutable final paths.
 - `server/migrations`: embeds the SQLite schema.
 
@@ -34,6 +34,10 @@ It uses no-overwrite behavior, so an existing chunk file is treated as a conflic
 
 SQLite metadata is written after the file is safely committed, through `server/internal/incidents.Repository.CreateChunk`. The schema also has a unique constraint on `incident_id + media_type + chunk_index`.
 
+New clients can create a media stream with `POST /v1/incidents/{incident_id}/streams` and include the returned `stream_id` during chunk upload. Existing chunks without `stream_id` remain valid and readable as legacy chunk metadata, but they are not included in completed-stream evidence bundles.
+
+Stream completion is handled by `server/internal/httpapi.completeMediaStream`. Before a stream moves from `open` to `complete`, the handler verifies that chunks `1..expected_chunk_count` exist contiguously for that stream and that each stored blob can be opened from local storage. Failed streams preserve uploaded chunks but are not offered as normal downloads.
+
 ## Emergency Viewer Flow
 
 Emergency tokens are created on the private API server by `POST /v1/incidents/{incident_id}/emergency-tokens`. The raw token is returned once, while `server/internal/incidents.Repository.CreateEmergencyToken` stores only a SHA-256 hash in SQLite.
@@ -41,6 +45,8 @@ Emergency tokens are created on the private API server by `POST /v1/incidents/{i
 `GET /e/{token}` is mounted only on the public emergency viewer server. It renders `server/internal/httpapi/web/templates/emergency.html` with `html/template`. CSS and JavaScript are embedded from `server/internal/httpapi/web/static`. `GET /e/{token}/data` returns the same read-only summary as JSON for polling.
 
 Token lookup checks the hash, expiry, and revocation state before incident metadata is loaded. Invalid, expired, and revoked tokens all return the same public error. Emergency responses use `Referrer-Policy: no-referrer` and `Cache-Control: no-store`.
+
+Completed stream bundle downloads are served by `server/internal/httpapi/bundles.go`. Bundles are generated on demand as ZIP responses and are not cached on disk. ZIP entry names are server-controlled, manifests are generated from database metadata, and chunk bytes are streamed from storage one file at a time. The first bundle format contains encrypted chunks and JSON manifests only; it does not decrypt, merge, or export playable media.
 
 ## Before Public Exposure
 
@@ -55,4 +61,4 @@ The separate ports are a deployment boundary, not a complete security model. Do 
 
 ## Out Of Scope Today
 
-The repository does not currently include the iOS app, local recording, local encryption implementation, push notifications, SMS, Messenger integration, user accounts, or a public admin dashboard.
+The repository does not currently include the iOS app, local recording, local encryption implementation, client-side decryption, playable media export, push notifications, SMS, Messenger integration, user accounts, or a public admin dashboard.

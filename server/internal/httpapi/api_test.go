@@ -1,6 +1,7 @@
 package httpapi_test
 
 import (
+	"archive/zip"
 	"bytes"
 	"context"
 	"crypto/sha256"
@@ -15,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -282,6 +284,323 @@ func TestListIncidentWithChunksAndCheckins(t *testing.T) {
 	}
 }
 
+func TestCreateMediaStream(t *testing.T) {
+	app := newTestApp(t)
+	incidentID := createIncident(t, app, `{}`)
+
+	stream := createMediaStream(t, app, incidentID, incidents.MediaTypeAudio, "main audio recording")
+
+	if stream.ID == "" {
+		t.Fatal("expected stream id")
+	}
+	if stream.IncidentID != incidentID || stream.MediaType != incidents.MediaTypeAudio || stream.Status != incidents.StreamStatusOpen {
+		t.Fatalf("unexpected stream: %+v", stream)
+	}
+	if stream.Label != "main audio recording" {
+		t.Fatalf("expected stream label to round trip, got %q", stream.Label)
+	}
+}
+
+func TestRejectInvalidMediaStreamType(t *testing.T) {
+	app := newTestApp(t)
+	incidentID := createIncident(t, app, `{}`)
+
+	response, body := post(t, app, "/v1/incidents/"+incidentID+"/streams", "application/json", bytes.NewBufferString(`{"media_type":"screen"}`))
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected invalid media type status 400, got %d: %s", response.StatusCode, body)
+	}
+	assertErrorCode(t, body, "invalid_media_type")
+}
+
+func TestUploadChunkWithValidStreamID(t *testing.T) {
+	app := newTestApp(t)
+	incidentID := createIncident(t, app, `{}`)
+	stream := createMediaStream(t, app, incidentID, incidents.MediaTypeAudio, "audio")
+	payload := []byte("encrypted audio data")
+
+	response, body := uploadChunkWithStream(t, app, incidentID, stream.ID, 1, "audio", payload, sha256Hex(payload))
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusCreated {
+		t.Fatalf("expected stream upload status 201, got %d: %s", response.StatusCode, body)
+	}
+	var chunk incidents.Chunk
+	if err := json.Unmarshal(body, &chunk); err != nil {
+		t.Fatalf("decode chunk: %v", err)
+	}
+	if chunk.StreamID != stream.ID {
+		t.Fatalf("expected chunk stream_id %s, got %q", stream.ID, chunk.StreamID)
+	}
+}
+
+func TestRejectChunkUploadWhereStreamBelongsToAnotherIncident(t *testing.T) {
+	app := newTestApp(t)
+	firstIncidentID := createIncident(t, app, `{}`)
+	secondIncidentID := createIncident(t, app, `{}`)
+	stream := createMediaStream(t, app, firstIncidentID, incidents.MediaTypeAudio, "audio")
+	payload := []byte("encrypted audio data")
+
+	response, body := uploadChunkWithStream(t, app, secondIncidentID, stream.ID, 1, "audio", payload, sha256Hex(payload))
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusNotFound {
+		t.Fatalf("expected wrong-incident stream status 404, got %d: %s", response.StatusCode, body)
+	}
+	assertErrorCode(t, body, "stream_not_found")
+}
+
+func TestRejectChunkUploadWhereStreamMediaTypeDoesNotMatch(t *testing.T) {
+	app := newTestApp(t)
+	incidentID := createIncident(t, app, `{}`)
+	stream := createMediaStream(t, app, incidentID, incidents.MediaTypeAudio, "audio")
+	payload := []byte("encrypted video data")
+
+	response, body := uploadChunkWithStream(t, app, incidentID, stream.ID, 1, "video", payload, sha256Hex(payload))
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected media mismatch status 400, got %d: %s", response.StatusCode, body)
+	}
+	assertErrorCode(t, body, "stream_media_type_mismatch")
+}
+
+func TestCompleteStreamWithContiguousChunks(t *testing.T) {
+	app := newTestApp(t)
+	incidentID, stream := createIncidentStreamWithChunks(t, app, 2)
+
+	updated := completeMediaStream(t, app, incidentID, stream.ID, 2)
+
+	if updated.Status != incidents.StreamStatusComplete {
+		t.Fatalf("expected complete stream, got %+v", updated)
+	}
+	if updated.ExpectedChunkCount == nil || *updated.ExpectedChunkCount != 2 {
+		t.Fatalf("expected expected_chunk_count 2, got %+v", updated.ExpectedChunkCount)
+	}
+	if updated.CompletedAt == nil {
+		t.Fatal("expected completed_at to be set")
+	}
+}
+
+func TestRejectStreamCompletionWithMissingChunk(t *testing.T) {
+	app := newTestApp(t)
+	incidentID, stream := createIncidentStreamWithChunks(t, app, 1)
+
+	response, body := post(t, app, "/v1/incidents/"+incidentID+"/streams/"+stream.ID+"/complete", "application/json", bytes.NewBufferString(`{"expected_chunk_count":2}`))
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusConflict {
+		t.Fatalf("expected incomplete stream status 409, got %d: %s", response.StatusCode, body)
+	}
+	assertErrorCode(t, body, "stream_chunks_incomplete")
+}
+
+func TestRejectDuplicateStreamCompletion(t *testing.T) {
+	app := newTestApp(t)
+	incidentID, stream := createIncidentStreamWithChunks(t, app, 1)
+	completeMediaStream(t, app, incidentID, stream.ID, 1)
+
+	response, body := post(t, app, "/v1/incidents/"+incidentID+"/streams/"+stream.ID+"/complete", "application/json", bytes.NewBufferString(`{"expected_chunk_count":1}`))
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusConflict {
+		t.Fatalf("expected duplicate completion status 409, got %d: %s", response.StatusCode, body)
+	}
+	assertErrorCode(t, body, "stream_already_complete")
+}
+
+func TestRejectChunkUploadToCompletedStream(t *testing.T) {
+	app := newTestApp(t)
+	incidentID, stream := createIncidentStreamWithChunks(t, app, 1)
+	completeMediaStream(t, app, incidentID, stream.ID, 1)
+	payload := []byte("late encrypted audio data")
+
+	response, body := uploadChunkWithStream(t, app, incidentID, stream.ID, 2, "audio", payload, sha256Hex(payload))
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusConflict {
+		t.Fatalf("expected completed stream upload status 409, got %d: %s", response.StatusCode, body)
+	}
+	assertErrorCode(t, body, "stream_not_open")
+}
+
+func TestFailStream(t *testing.T) {
+	app := newTestApp(t)
+	incidentID := createIncident(t, app, `{}`)
+	stream := createMediaStream(t, app, incidentID, incidents.MediaTypeAudio, "audio")
+
+	response, body := post(t, app, "/v1/incidents/"+incidentID+"/streams/"+stream.ID+"/fail", "application/json", bytes.NewBufferString(`{"failure_reason":"client stopped recording unexpectedly"}`))
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("expected fail stream status 200, got %d: %s", response.StatusCode, body)
+	}
+	var result struct {
+		Stream incidents.MediaStream `json:"stream"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		t.Fatalf("decode fail stream response: %v", err)
+	}
+	if result.Stream.Status != incidents.StreamStatusFailed || result.Stream.FailedAt == nil {
+		t.Fatalf("expected failed stream, got %+v", result.Stream)
+	}
+}
+
+func TestRejectDownloadOfOpenAndFailedStreams(t *testing.T) {
+	app := newTestApp(t)
+	incidentID := createIncident(t, app, `{}`)
+	openStream := createMediaStream(t, app, incidentID, incidents.MediaTypeAudio, "open audio")
+	failedStream := createMediaStream(t, app, incidentID, incidents.MediaTypeVideo, "failed video")
+
+	response, body := post(t, app, "/v1/incidents/"+incidentID+"/streams/"+failedStream.ID+"/fail", "application/json", bytes.NewBufferString(`{"failure_reason":"stopped"}`))
+	response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("expected fail stream status 200, got %d: %s", response.StatusCode, body)
+	}
+
+	for _, stream := range []incidents.MediaStream{openStream, failedStream} {
+		response, body := get(t, app, "/v1/incidents/"+incidentID+"/streams/"+stream.ID+"/download")
+		response.Body.Close()
+		if response.StatusCode != http.StatusConflict {
+			t.Fatalf("expected download status 409 for %s stream, got %d: %s", stream.Status, response.StatusCode, body)
+		}
+		assertErrorCode(t, body, "stream_not_complete")
+	}
+}
+
+func TestDownloadCompletedStreamBundle(t *testing.T) {
+	app := newTestApp(t)
+	incidentID, stream := createIncidentStreamWithChunks(t, app, 2)
+	completeMediaStream(t, app, incidentID, stream.ID, 2)
+
+	response, body := get(t, app, "/v1/incidents/"+incidentID+"/streams/"+stream.ID+"/download")
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("expected stream bundle status 200, got %d: %s", response.StatusCode, body)
+	}
+	assertBundleHeaders(t, response)
+	entries := readZipEntries(t, body)
+	assertZipEntry(t, entries, "manifest.json")
+	assertZipEntry(t, entries, "chunks/audio_000001.enc")
+	assertZipEntry(t, entries, "chunks/audio_000002.enc")
+
+	var manifest struct {
+		IncidentID string `json:"incident_id"`
+		StreamID   string `json:"stream_id"`
+		MediaType  string `json:"media_type"`
+		Status     string `json:"status"`
+		ChunkCount int    `json:"chunk_count"`
+		Chunks     []struct {
+			ChunkIndex int    `json:"chunk_index"`
+			SHA256Hex  string `json:"sha256_hex"`
+		} `json:"chunks"`
+	}
+	if err := json.Unmarshal(entries["manifest.json"], &manifest); err != nil {
+		t.Fatalf("decode stream manifest: %v", err)
+	}
+	if manifest.IncidentID != incidentID || manifest.StreamID != stream.ID || manifest.Status != incidents.StreamStatusComplete || manifest.ChunkCount != 2 {
+		t.Fatalf("unexpected stream manifest: %+v", manifest)
+	}
+	if manifest.Chunks[0].SHA256Hex != sha256Hex(entries["chunks/audio_000001.enc"]) {
+		t.Fatalf("first manifest hash does not match zip chunk bytes")
+	}
+	if manifest.Chunks[1].SHA256Hex != sha256Hex(entries["chunks/audio_000002.enc"]) {
+		t.Fatalf("second manifest hash does not match zip chunk bytes")
+	}
+}
+
+func TestEmergencyTokenCanDownloadCompletedStreamBundle(t *testing.T) {
+	app := newTestApp(t)
+	incidentID, stream := createIncidentStreamWithChunks(t, app, 1)
+	completeMediaStream(t, app, incidentID, stream.ID, 1)
+	token := createEmergencyToken(t, app, incidentID, "trusted contact", nil)
+
+	response, body := getPublic(t, app, "/e/"+token.Token+"/streams/"+stream.ID+"/download")
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("expected emergency stream download status 200, got %d: %s", response.StatusCode, body)
+	}
+	assertBundleHeaders(t, response)
+	entries := readZipEntries(t, body)
+	assertZipEntry(t, entries, "manifest.json")
+	assertZipEntry(t, entries, "chunks/audio_000001.enc")
+}
+
+func TestInvalidExpiredRevokedEmergencyTokenCannotDownloadBundle(t *testing.T) {
+	app := newTestApp(t)
+	incidentID, stream := createIncidentStreamWithChunks(t, app, 1)
+	completeMediaStream(t, app, incidentID, stream.ID, 1)
+
+	expiredAt := time.Now().UTC().Add(-time.Minute)
+	expired := createEmergencyToken(t, app, incidentID, "expired", &expiredAt)
+	revoked := createEmergencyToken(t, app, incidentID, "revoked", nil)
+	response, body := post(t, app, "/v1/emergency-tokens/"+revoked.TokenID+"/revoke", "application/json", bytes.NewBufferString(`{}`))
+	response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("expected revoke status 200, got %d: %s", response.StatusCode, body)
+	}
+
+	for _, rawToken := range []string{"invalid-token", expired.Token, revoked.Token} {
+		response, body := getPublic(t, app, "/e/"+rawToken+"/streams/"+stream.ID+"/download")
+		response.Body.Close()
+		if response.StatusCode != http.StatusNotFound {
+			t.Fatalf("expected token rejection status 404, got %d: %s", response.StatusCode, body)
+		}
+		assertErrorCode(t, body, "emergency_token_invalid")
+	}
+}
+
+func TestEmergencyViewerShowsDownloadButtonsOnlyForCompletedStreams(t *testing.T) {
+	app := newTestApp(t)
+	incidentID, completed := createIncidentStreamWithChunks(t, app, 1)
+	completeMediaStream(t, app, incidentID, completed.ID, 1)
+	failed := createMediaStream(t, app, incidentID, incidents.MediaTypeVideo, "failed video")
+	response, body := post(t, app, "/v1/incidents/"+incidentID+"/streams/"+failed.ID+"/fail", "application/json", bytes.NewBufferString(`{"failure_reason":"stopped"}`))
+	response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("expected fail stream status 200, got %d: %s", response.StatusCode, body)
+	}
+	token := createEmergencyToken(t, app, incidentID, "trusted contact", nil)
+
+	response, body = getPublic(t, app, "/e/"+token.Token)
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("expected emergency page status 200, got %d: %s", response.StatusCode, body)
+	}
+	if !bytes.Contains(body, []byte("Download encrypted bundle")) {
+		t.Fatalf("expected completed stream download button: %s", body)
+	}
+	if !bytes.Contains(body, []byte(completed.Label)) {
+		t.Fatalf("expected completed stream label: %s", body)
+	}
+	if bytes.Contains(body, []byte(failed.Label)) {
+		t.Fatalf("failed stream should not have a completed download row: %s", body)
+	}
+}
+
+func TestEmergencyTokenCanDownloadIncidentBundle(t *testing.T) {
+	app := newTestApp(t)
+	incidentID, stream := createIncidentStreamWithChunks(t, app, 1)
+	completeMediaStream(t, app, incidentID, stream.ID, 1)
+	token := createEmergencyToken(t, app, incidentID, "trusted contact", nil)
+
+	response, body := getPublic(t, app, "/e/"+token.Token+"/incident/download")
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("expected emergency incident download status 200, got %d: %s", response.StatusCode, body)
+	}
+	assertBundleHeaders(t, response)
+	entries := readZipEntries(t, body)
+	assertZipEntry(t, entries, "manifest.json")
+	assertZipEntry(t, entries, "streams/"+stream.ID+"/manifest.json")
+	assertZipEntry(t, entries, "streams/"+stream.ID+"/chunks/audio_000001.enc")
+}
+
 func TestCreateEmergencyToken(t *testing.T) {
 	app := newTestApp(t)
 	incidentID := createIncident(t, app, `{}`)
@@ -350,6 +669,13 @@ func TestPublicServerDoesNotMountPrivateRoutes(t *testing.T) {
 		{http.MethodPost, "/v1/incidents/inc_missing/chunks"},
 		{http.MethodGet, "/v1/incidents/inc_missing/chunks"},
 		{http.MethodGet, "/v1/incidents/inc_missing/chunks/audio/0"},
+		{http.MethodGet, "/v1/incidents/inc_missing/download"},
+		{http.MethodPost, "/v1/incidents/inc_missing/streams"},
+		{http.MethodGet, "/v1/incidents/inc_missing/streams"},
+		{http.MethodGet, "/v1/incidents/inc_missing/streams/str_missing"},
+		{http.MethodPost, "/v1/incidents/inc_missing/streams/str_missing/complete"},
+		{http.MethodPost, "/v1/incidents/inc_missing/streams/str_missing/fail"},
+		{http.MethodGet, "/v1/incidents/inc_missing/streams/str_missing/download"},
 		{http.MethodPost, "/v1/incidents/inc_missing/checkins"},
 		{http.MethodPost, "/v1/incidents/inc_missing/close"},
 		{http.MethodPost, "/v1/incidents/inc_missing/emergency-tokens"},
@@ -370,7 +696,12 @@ func TestPrivateServerDoesNotMountPublicEmergencyRoutes(t *testing.T) {
 	incidentID := createIncident(t, app, `{}`)
 	token := createEmergencyToken(t, app, incidentID, "trusted contact", nil)
 
-	for _, target := range []string{"/e/" + token.Token, "/e/" + token.Token + "/data"} {
+	for _, target := range []string{
+		"/e/" + token.Token,
+		"/e/" + token.Token + "/data",
+		"/e/" + token.Token + "/streams/str_missing/download",
+		"/e/" + token.Token + "/incident/download",
+	} {
 		response, body := get(t, app, target)
 		response.Body.Close()
 		if response.StatusCode != http.StatusNotFound {
@@ -684,11 +1015,88 @@ func getIncidentDetail(t *testing.T, app *testApp, incidentID string) incidents.
 	return detail
 }
 
+func createMediaStream(t *testing.T, app *testApp, incidentID, mediaType, label string) incidents.MediaStream {
+	t.Helper()
+
+	requestBody, err := json.Marshal(struct {
+		MediaType string `json:"media_type"`
+		Label     string `json:"label"`
+	}{
+		MediaType: mediaType,
+		Label:     label,
+	})
+	if err != nil {
+		t.Fatalf("marshal media stream request: %v", err)
+	}
+	response, body := post(t, app, "/v1/incidents/"+incidentID+"/streams", "application/json", bytes.NewReader(requestBody))
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusCreated {
+		t.Fatalf("expected create media stream status 201, got %d: %s", response.StatusCode, body)
+	}
+
+	var result struct {
+		Stream incidents.MediaStream `json:"stream"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		t.Fatalf("decode create stream response: %v", err)
+	}
+	return result.Stream
+}
+
+func completeMediaStream(t *testing.T, app *testApp, incidentID, streamID string, expectedChunkCount int) incidents.MediaStream {
+	t.Helper()
+
+	requestBody, err := json.Marshal(struct {
+		ExpectedChunkCount int `json:"expected_chunk_count"`
+	}{ExpectedChunkCount: expectedChunkCount})
+	if err != nil {
+		t.Fatalf("marshal complete stream request: %v", err)
+	}
+	response, body := post(t, app, "/v1/incidents/"+incidentID+"/streams/"+streamID+"/complete", "application/json", bytes.NewReader(requestBody))
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("expected complete media stream status 200, got %d: %s", response.StatusCode, body)
+	}
+
+	var result struct {
+		Stream incidents.MediaStream `json:"stream"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		t.Fatalf("decode complete stream response: %v", err)
+	}
+	return result.Stream
+}
+
+func createIncidentStreamWithChunks(t *testing.T, app *testApp, chunkCount int) (string, incidents.MediaStream) {
+	t.Helper()
+
+	incidentID := createIncident(t, app, `{}`)
+	stream := createMediaStream(t, app, incidentID, incidents.MediaTypeAudio, "audio recording")
+	for index := 1; index <= chunkCount; index++ {
+		payload := []byte("encrypted audio data " + strconv.Itoa(index))
+		response, body := uploadChunkWithStream(t, app, incidentID, stream.ID, index, incidents.MediaTypeAudio, payload, sha256Hex(payload))
+		response.Body.Close()
+		if response.StatusCode != http.StatusCreated {
+			t.Fatalf("expected stream chunk upload status 201, got %d: %s", response.StatusCode, body)
+		}
+	}
+	return incidentID, stream
+}
+
 func uploadChunk(t *testing.T, app *testApp, incidentID string, index int, mediaType string, payload []byte, hash string) (*http.Response, []byte) {
+	t.Helper()
+
+	return uploadChunkWithStream(t, app, incidentID, "", index, mediaType, payload, hash)
+}
+
+func uploadChunkWithStream(t *testing.T, app *testApp, incidentID string, streamID string, index int, mediaType string, payload []byte, hash string) (*http.Response, []byte) {
 	t.Helper()
 
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
+	if streamID != "" {
+		must(t, writer.WriteField("stream_id", streamID))
+	}
 	must(t, writer.WriteField("chunk_index", strconv.Itoa(index)))
 	must(t, writer.WriteField("media_type", mediaType))
 	startedAt := time.Date(2026, 5, 21, 10, 0, 0, 0, time.UTC)
@@ -779,6 +1187,21 @@ func assertNoStore(t *testing.T, response *http.Response) {
 	}
 }
 
+func assertBundleHeaders(t *testing.T, response *http.Response) {
+	t.Helper()
+
+	if response.Header.Get("Content-Type") != "application/zip" {
+		t.Fatalf("expected application/zip, got %q", response.Header.Get("Content-Type"))
+	}
+	if !strings.HasPrefix(response.Header.Get("Content-Disposition"), `attachment; filename="incident_`) {
+		t.Fatalf("expected attachment content disposition, got %q", response.Header.Get("Content-Disposition"))
+	}
+	if response.Header.Get("X-Content-Type-Options") != "nosniff" {
+		t.Fatalf("expected nosniff, got %q", response.Header.Get("X-Content-Type-Options"))
+	}
+	assertEmergencyPrivacyHeaders(t, response)
+}
+
 func assertErrorCode(t *testing.T, body []byte, expected string) {
 	t.Helper()
 
@@ -792,6 +1215,39 @@ func assertErrorCode(t *testing.T, body []byte, expected string) {
 	}
 	if response.Error.Code != expected {
 		t.Fatalf("expected error code %q, got %q", expected, response.Error.Code)
+	}
+}
+
+func readZipEntries(t *testing.T, body []byte) map[string][]byte {
+	t.Helper()
+
+	reader, err := zip.NewReader(bytes.NewReader(body), int64(len(body)))
+	if err != nil {
+		t.Fatalf("open zip response: %v", err)
+	}
+	entries := make(map[string][]byte)
+	for _, file := range reader.File {
+		handle, err := file.Open()
+		if err != nil {
+			t.Fatalf("open zip entry %s: %v", file.Name, err)
+		}
+		entryBody, err := io.ReadAll(handle)
+		if closeErr := handle.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+		if err != nil {
+			t.Fatalf("read zip entry %s: %v", file.Name, err)
+		}
+		entries[file.Name] = entryBody
+	}
+	return entries
+}
+
+func assertZipEntry(t *testing.T, entries map[string][]byte, name string) {
+	t.Helper()
+
+	if _, ok := entries[name]; !ok {
+		t.Fatalf("expected zip entry %q, got entries %+v", name, entries)
 	}
 }
 

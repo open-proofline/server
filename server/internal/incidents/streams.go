@@ -1,0 +1,214 @@
+package incidents
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"time"
+)
+
+// CreateMediaStream inserts a new open stream for one incident.
+func (r *Repository) CreateMediaStream(ctx context.Context, incidentID, mediaType, label string) (MediaStream, error) {
+	now := time.Now().UTC()
+	id, err := newID("str")
+	if err != nil {
+		return MediaStream{}, err
+	}
+	stream := MediaStream{
+		ID:         id,
+		IncidentID: incidentID,
+		MediaType:  mediaType,
+		Label:      label,
+		Status:     StreamStatusOpen,
+		CreatedAt:  now,
+		UpdatedAt:  now,
+	}
+
+	_, err = r.db.ExecContext(ctx, `
+		INSERT INTO media_streams (
+			id, incident_id, media_type, label, status, created_at, updated_at
+		)
+		VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		stream.ID,
+		stream.IncidentID,
+		stream.MediaType,
+		nullableString(stream.Label),
+		stream.Status,
+		formatDBTime(stream.CreatedAt),
+		formatDBTime(stream.UpdatedAt),
+	)
+	if err != nil {
+		if isConstraint(err) {
+			return MediaStream{}, ErrNotFound
+		}
+		return MediaStream{}, fmt.Errorf("insert media stream: %w", err)
+	}
+	return stream, nil
+}
+
+// ListMediaStreams returns streams for an incident ordered by creation time.
+func (r *Repository) ListMediaStreams(ctx context.Context, incidentID string) ([]MediaStream, error) {
+	rows, err := r.db.QueryContext(ctx, mediaStreamSelect(`
+		WHERE incident_id = ?
+		ORDER BY created_at ASC, id ASC`), incidentID)
+	if err != nil {
+		return nil, fmt.Errorf("list media streams: %w", err)
+	}
+	defer rows.Close()
+
+	streams := []MediaStream{}
+	for rows.Next() {
+		stream, err := scanMediaStream(rows)
+		if err != nil {
+			return nil, err
+		}
+		streams = append(streams, stream)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate media streams: %w", err)
+	}
+	return streams, nil
+}
+
+// ListCompletedMediaStreams returns completed streams for an incident.
+func (r *Repository) ListCompletedMediaStreams(ctx context.Context, incidentID string) ([]MediaStream, error) {
+	rows, err := r.db.QueryContext(ctx, mediaStreamSelect(`
+		WHERE incident_id = ? AND status = ?
+		ORDER BY completed_at ASC, id ASC`), incidentID, StreamStatusComplete)
+	if err != nil {
+		return nil, fmt.Errorf("list completed media streams: %w", err)
+	}
+	defer rows.Close()
+
+	streams := []MediaStream{}
+	for rows.Next() {
+		stream, err := scanMediaStream(rows)
+		if err != nil {
+			return nil, err
+		}
+		streams = append(streams, stream)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate completed media streams: %w", err)
+	}
+	return streams, nil
+}
+
+// GetMediaStream returns one stream by incident and stream ID.
+func (r *Repository) GetMediaStream(ctx context.Context, incidentID, streamID string) (MediaStream, error) {
+	row := r.db.QueryRowContext(ctx, mediaStreamSelect(`
+		WHERE incident_id = ? AND id = ?`), incidentID, streamID)
+
+	stream, err := scanMediaStream(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return MediaStream{}, ErrNotFound
+	}
+	if err != nil {
+		return MediaStream{}, fmt.Errorf("get media stream: %w", err)
+	}
+	return stream, nil
+}
+
+// ListStreamChunks returns chunks attached to one stream, ordered by index.
+func (r *Repository) ListStreamChunks(ctx context.Context, incidentID, streamID string) ([]Chunk, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, incident_id, stream_id, chunk_index, media_type, started_at, ended_at,
+			original_filename, stored_path, byte_size, sha256_hex, created_at
+		FROM chunks
+		WHERE incident_id = ? AND stream_id = ?
+		ORDER BY chunk_index ASC`,
+		incidentID,
+		streamID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list stream chunks: %w", err)
+	}
+	defer rows.Close()
+
+	chunks := []Chunk{}
+	for rows.Next() {
+		chunk, err := scanChunk(rows)
+		if err != nil {
+			return nil, err
+		}
+		chunks = append(chunks, chunk)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate stream chunks: %w", err)
+	}
+	return chunks, nil
+}
+
+// CompleteMediaStream marks an open stream complete after callers have
+// validated the stream's chunks and files.
+func (r *Repository) CompleteMediaStream(ctx context.Context, incidentID, streamID string, expectedChunkCount int) (MediaStream, error) {
+	now := time.Now().UTC()
+	result, err := r.db.ExecContext(ctx, `
+		UPDATE media_streams
+		SET status = ?, expected_chunk_count = ?, updated_at = ?, completed_at = ?,
+			failed_at = NULL, failure_reason = NULL
+		WHERE incident_id = ? AND id = ? AND status = ?`,
+		StreamStatusComplete,
+		expectedChunkCount,
+		formatDBTime(now),
+		formatDBTime(now),
+		incidentID,
+		streamID,
+		StreamStatusOpen,
+	)
+	if err != nil {
+		return MediaStream{}, fmt.Errorf("complete media stream: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return MediaStream{}, fmt.Errorf("complete media stream rows affected: %w", err)
+	}
+	if rowsAffected == 0 {
+		if _, err := r.GetMediaStream(ctx, incidentID, streamID); errors.Is(err, ErrNotFound) {
+			return MediaStream{}, ErrNotFound
+		}
+		return MediaStream{}, ErrInvalidState
+	}
+	return r.GetMediaStream(ctx, incidentID, streamID)
+}
+
+// FailMediaStream marks an open stream failed while preserving uploaded chunks.
+func (r *Repository) FailMediaStream(ctx context.Context, incidentID, streamID, reason string) (MediaStream, error) {
+	now := time.Now().UTC()
+	result, err := r.db.ExecContext(ctx, `
+		UPDATE media_streams
+		SET status = ?, updated_at = ?, failed_at = ?, failure_reason = ?,
+			completed_at = NULL
+		WHERE incident_id = ? AND id = ? AND status = ?`,
+		StreamStatusFailed,
+		formatDBTime(now),
+		formatDBTime(now),
+		nullableString(reason),
+		incidentID,
+		streamID,
+		StreamStatusOpen,
+	)
+	if err != nil {
+		return MediaStream{}, fmt.Errorf("fail media stream: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return MediaStream{}, fmt.Errorf("fail media stream rows affected: %w", err)
+	}
+	if rowsAffected == 0 {
+		if _, err := r.GetMediaStream(ctx, incidentID, streamID); errors.Is(err, ErrNotFound) {
+			return MediaStream{}, ErrNotFound
+		}
+		return MediaStream{}, ErrInvalidState
+	}
+	return r.GetMediaStream(ctx, incidentID, streamID)
+}
+
+func mediaStreamSelect(where string) string {
+	return `
+		SELECT id, incident_id, media_type, label, status, expected_chunk_count,
+			created_at, updated_at, completed_at, failed_at, failure_reason
+		FROM media_streams
+	` + where
+}

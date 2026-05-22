@@ -2,6 +2,8 @@
 
 This is the current backend-only v0.2.1 HTTP surface. The API binary starts private API listeners and public emergency viewer listeners on one or more configured bind addresses. The `/v1` routes are private and unauthenticated. The emergency viewer routes are token-gated and read-only. The planned iOS recording client is not part of this repository yet.
 
+Media bundle downloads are encrypted chunk bundles. The backend does not decrypt, merge, or produce playable media.
+
 Default bind addresses:
 
 - private API server: `127.0.0.1:8080`
@@ -65,6 +67,7 @@ Response `200`:
     "status": "open",
     "client_label": "iphone"
   },
+  "streams": [],
   "chunks": [],
   "checkins": []
 }
@@ -87,6 +90,7 @@ Uploads one already-encrypted chunk as `multipart/form-data`.
 Fields:
 
 - `file`: encrypted chunk bytes
+- `stream_id`: optional media stream ID for new clients
 - `chunk_index`: non-negative integer
 - `media_type`: `audio`, `video`, `location`, or `metadata`
 - `started_at`: RFC3339 timestamp
@@ -100,6 +104,7 @@ Response `201`:
 {
   "id": "chk_...",
   "incident_id": "inc_...",
+  "stream_id": "str_...",
   "chunk_index": 1,
   "media_type": "audio",
   "started_at": "2026-05-21T10:00:00Z",
@@ -112,6 +117,12 @@ Response `201`:
 }
 ```
 
+When `stream_id` is provided, the stream must exist, belong to the same incident, be open, and have the same `media_type` as the uploaded chunk. Uploads to completed or failed streams return `409 stream_not_open`.
+
+`stream_id` remains optional for backwards compatibility with existing chunks and clients. Unstreamed chunks are still stored and listed, but they are not included in completed-stream bundle downloads.
+
+The current chunk identity remains `(incident_id, media_type, chunk_index)`, so clients should keep chunk indexes unique per incident and media type even when using streams.
+
 Duplicate `(incident_id, media_type, chunk_index)` uploads return `409 duplicate_chunk`. Hash mismatches return `400 hash_mismatch` and do not commit a final file.
 
 ### `GET /v1/incidents/{incident_id}/chunks`
@@ -121,6 +132,151 @@ Lists chunk metadata for one incident.
 ### `GET /v1/incidents/{incident_id}/chunks/{media_type}/{chunk_index}`
 
 Returns encrypted chunk bytes as `application/octet-stream`. This route is private/dev-only and is not used by the emergency viewer.
+
+## Media Streams
+
+Media stream routes are mounted only on the private API server.
+
+### `POST /v1/incidents/{incident_id}/streams`
+
+Creates an open media stream for an incident.
+
+Request:
+
+```json
+{
+  "media_type": "audio",
+  "label": "main audio recording"
+}
+```
+
+Response `201`:
+
+```json
+{
+  "stream": {
+    "id": "str_...",
+    "incident_id": "inc_...",
+    "media_type": "audio",
+    "label": "main audio recording",
+    "status": "open",
+    "created_at": "2026-05-21T10:00:00Z",
+    "updated_at": "2026-05-21T10:00:00Z"
+  }
+}
+```
+
+Invalid media types return `400 invalid_media_type`.
+
+### `GET /v1/incidents/{incident_id}/streams`
+
+Lists media streams for an incident.
+
+Response `200`:
+
+```json
+{
+  "streams": []
+}
+```
+
+### `GET /v1/incidents/{incident_id}/streams/{stream_id}`
+
+Returns one stream as:
+
+```json
+{
+  "stream": {
+    "id": "str_...",
+    "incident_id": "inc_...",
+    "media_type": "audio",
+    "status": "open",
+    "created_at": "2026-05-21T10:00:00Z",
+    "updated_at": "2026-05-21T10:00:00Z"
+  }
+}
+```
+
+### `POST /v1/incidents/{incident_id}/streams/{stream_id}/complete`
+
+Marks an open stream complete after verifying chunks `1..expected_chunk_count` exist contiguously and each stored file is readable.
+
+Request:
+
+```json
+{
+  "expected_chunk_count": 12
+}
+```
+
+Response `200`:
+
+```json
+{
+  "stream": {
+    "id": "str_...",
+    "incident_id": "inc_...",
+    "media_type": "audio",
+    "status": "complete",
+    "expected_chunk_count": 12,
+    "completed_at": "2026-05-21T10:02:00Z",
+    "created_at": "2026-05-21T10:00:00Z",
+    "updated_at": "2026-05-21T10:02:00Z"
+  }
+}
+```
+
+Missing or non-contiguous chunks return `409 stream_chunks_incomplete` or `409 stream_chunks_not_contiguous`. Completing an already complete or failed stream returns `409`.
+
+### `POST /v1/incidents/{incident_id}/streams/{stream_id}/fail`
+
+Marks an open stream failed while preserving uploaded chunks.
+
+Request:
+
+```json
+{
+  "failure_reason": "client stopped recording unexpectedly"
+}
+```
+
+Response `200` is the updated stream object with `status: "failed"` and `failed_at` set.
+
+### `GET /v1/incidents/{incident_id}/streams/{stream_id}/download`
+
+Downloads a completed stream as a ZIP bundle. Open or failed streams return `409 stream_not_complete`.
+
+Successful responses include:
+
+```http
+Content-Type: application/zip
+Content-Disposition: attachment; filename="incident_inc_..._audio_str_....zip"
+X-Content-Type-Options: nosniff
+Cache-Control: no-store
+Referrer-Policy: no-referrer
+```
+
+ZIP contents:
+
+```text
+manifest.json
+chunks/audio_000001.enc
+chunks/audio_000002.enc
+```
+
+The manifest is generated from trusted database metadata and includes incident ID, stream ID, media type, status, chunk count, total bytes, and chunk SHA-256 metadata. Server filesystem paths are not included.
+
+### `GET /v1/incidents/{incident_id}/download`
+
+Downloads a ZIP bundle containing all completed streams for an incident:
+
+```text
+manifest.json
+streams/{stream_id}/manifest.json
+streams/{stream_id}/chunks/audio_000001.enc
+```
+
+Open, failed, and legacy unstreamed chunks are omitted from this initial bundle format.
 
 ## Checkins
 
@@ -233,9 +389,19 @@ Response `200`:
       "chunk_count": 0
     }
   ],
+  "streams": [],
+  "completed_streams": [],
   "warning": "If you are concerned about immediate safety, call emergency services now.",
   "generated_at": "2026-05-21T10:00:12Z"
 }
 ```
 
 Emergency Viewer responses include `Referrer-Policy: no-referrer` and `Cache-Control: no-store`. Invalid, expired, and revoked tokens all return `404 emergency_token_invalid`.
+
+### `GET /e/{token}/streams/{stream_id}/download`
+
+Downloads a completed stream bundle for the token's incident. The route is read-only and never accepts a client-provided file path. Invalid, expired, and revoked tokens return `404 emergency_token_invalid`.
+
+### `GET /e/{token}/incident/download`
+
+Downloads all completed streams for the token's incident as one encrypted evidence ZIP. Failed/open streams and legacy unstreamed chunks are omitted.

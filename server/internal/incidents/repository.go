@@ -17,6 +17,9 @@ var (
 	ErrNotFound = errors.New("not found")
 	// ErrDuplicate indicates that SQLite rejected a duplicate chunk identity.
 	ErrDuplicate = errors.New("duplicate")
+	// ErrInvalidState indicates that a requested state transition is not
+	// allowed for the current stream state.
+	ErrInvalidState = errors.New("invalid state")
 )
 
 // Repository stores incident, chunk, and checkin metadata in SQLite.
@@ -85,6 +88,10 @@ func (r *Repository) GetIncidentDetail(ctx context.Context, id string) (Incident
 	if err != nil {
 		return IncidentDetail{}, err
 	}
+	streams, err := r.ListMediaStreams(ctx, id)
+	if err != nil {
+		return IncidentDetail{}, err
+	}
 	chunks, err := r.ListChunks(ctx, id)
 	if err != nil {
 		return IncidentDetail{}, err
@@ -96,6 +103,7 @@ func (r *Repository) GetIncidentDetail(ctx context.Context, id string) (Incident
 
 	return IncidentDetail{
 		Incident: incident,
+		Streams:  streams,
 		Chunks:   chunks,
 		Checkins: checkins,
 	}, nil
@@ -157,6 +165,7 @@ func (r *Repository) CreateChunk(ctx context.Context, params CreateChunkParams) 
 	chunk := Chunk{
 		ID:               id,
 		IncidentID:       params.IncidentID,
+		StreamID:         params.StreamID,
 		ChunkIndex:       params.ChunkIndex,
 		MediaType:        params.MediaType,
 		StartedAt:        params.StartedAt,
@@ -170,12 +179,13 @@ func (r *Repository) CreateChunk(ctx context.Context, params CreateChunkParams) 
 
 	_, err = r.db.ExecContext(ctx, `
 		INSERT INTO chunks (
-			id, incident_id, chunk_index, media_type, started_at, ended_at,
+			id, incident_id, stream_id, chunk_index, media_type, started_at, ended_at,
 			original_filename, stored_path, byte_size, sha256_hex, created_at
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		chunk.ID,
 		chunk.IncidentID,
+		nullableString(chunk.StreamID),
 		chunk.ChunkIndex,
 		chunk.MediaType,
 		formatDBTime(chunk.StartedAt),
@@ -201,7 +211,7 @@ func (r *Repository) CreateChunk(ctx context.Context, params CreateChunkParams) 
 // ListChunks returns chunk metadata for an incident without loading file bytes.
 func (r *Repository) ListChunks(ctx context.Context, incidentID string) ([]Chunk, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, incident_id, chunk_index, media_type, started_at, ended_at,
+		SELECT id, incident_id, stream_id, chunk_index, media_type, started_at, ended_at,
 			original_filename, stored_path, byte_size, sha256_hex, created_at
 		FROM chunks
 		WHERE incident_id = ?
@@ -230,7 +240,7 @@ func (r *Repository) ListChunks(ctx context.Context, incidentID string) ([]Chunk
 // GetChunkByKey returns one chunk by incident, media type, and chunk index.
 func (r *Repository) GetChunkByKey(ctx context.Context, incidentID, mediaType string, chunkIndex int) (Chunk, error) {
 	row := r.db.QueryRowContext(ctx, `
-		SELECT id, incident_id, chunk_index, media_type, started_at, ended_at,
+		SELECT id, incident_id, stream_id, chunk_index, media_type, started_at, ended_at,
 			original_filename, stored_path, byte_size, sha256_hex, created_at
 		FROM chunks
 		WHERE incident_id = ? AND media_type = ? AND chunk_index = ?`,

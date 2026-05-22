@@ -73,5 +73,52 @@ func Migrate(ctx context.Context, conn *sql.DB) error {
 		}
 	}
 
+	if err := ensureChunkStreamColumn(ctx, conn); err != nil {
+		return err
+	}
+
 	return nil
+}
+
+func ensureChunkStreamColumn(ctx context.Context, conn *sql.DB) error {
+	hasStreamID, err := tableHasColumn(ctx, conn, "chunks", "stream_id")
+	if err != nil {
+		return err
+	}
+	if !hasStreamID {
+		if _, err := conn.ExecContext(ctx, "ALTER TABLE chunks ADD COLUMN stream_id TEXT"); err != nil {
+			return fmt.Errorf("add chunks.stream_id: %w", err)
+		}
+	}
+	if _, err := conn.ExecContext(ctx, "CREATE INDEX IF NOT EXISTS idx_chunks_stream_id ON chunks(stream_id)"); err != nil {
+		return fmt.Errorf("create chunks stream index: %w", err)
+	}
+	return nil
+}
+
+func tableHasColumn(ctx context.Context, conn *sql.DB, tableName, columnName string) (bool, error) {
+	rows, err := conn.QueryContext(ctx, "PRAGMA table_info("+tableName+")")
+	if err != nil {
+		return false, fmt.Errorf("inspect %s columns: %w", tableName, err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var cid int
+		var name string
+		var dataType string
+		var notNull int
+		var defaultValue any
+		var primaryKey int
+		if err := rows.Scan(&cid, &name, &dataType, &notNull, &defaultValue, &primaryKey); err != nil {
+			return false, fmt.Errorf("scan %s column: %w", tableName, err)
+		}
+		if name == columnName {
+			return true, nil
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return false, fmt.Errorf("iterate %s columns: %w", tableName, err)
+	}
+	return false, nil
 }

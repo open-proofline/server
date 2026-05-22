@@ -18,6 +18,7 @@ import (
 
 type chunkUpload struct {
 	temp             *storage.TempUpload
+	streamID         string
 	chunkIndex       int
 	mediaType        string
 	startedAt        time.Time
@@ -171,6 +172,7 @@ func parseChunkFields(w http.ResponseWriter, fields map[string]string, partFilen
 	}
 
 	return chunkUpload{
+		streamID:         requiredField(fields, "stream_id"),
 		chunkIndex:       chunkIndex,
 		mediaType:        mediaType,
 		startedAt:        startedAt.UTC(),

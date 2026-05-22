@@ -39,10 +39,12 @@ func scanChunk(s scanner) (Chunk, error) {
 	var startedAt string
 	var endedAt string
 	var createdAt string
+	var streamID sql.NullString
 	var originalFilename sql.NullString
 	if err := s.Scan(
 		&chunk.ID,
 		&chunk.IncidentID,
+		&streamID,
 		&chunk.ChunkIndex,
 		&chunk.MediaType,
 		&startedAt,
@@ -70,10 +72,66 @@ func scanChunk(s scanner) (Chunk, error) {
 	chunk.StartedAt = parsedStartedAt
 	chunk.EndedAt = parsedEndedAt
 	chunk.CreatedAt = parsedCreatedAt
+	if streamID.Valid {
+		chunk.StreamID = streamID.String
+	}
 	if originalFilename.Valid {
 		chunk.OriginalFilename = originalFilename.String
 	}
 	return chunk, nil
+}
+
+func scanMediaStream(s scanner) (MediaStream, error) {
+	var stream MediaStream
+	var label sql.NullString
+	var expectedChunkCount sql.NullInt64
+	var createdAt string
+	var updatedAt string
+	var completedAt sql.NullString
+	var failedAt sql.NullString
+	var failureReason sql.NullString
+	if err := s.Scan(
+		&stream.ID,
+		&stream.IncidentID,
+		&stream.MediaType,
+		&label,
+		&stream.Status,
+		&expectedChunkCount,
+		&createdAt,
+		&updatedAt,
+		&completedAt,
+		&failedAt,
+		&failureReason,
+	); err != nil {
+		return MediaStream{}, err
+	}
+	parsedCreatedAt, err := parseDBTime(createdAt)
+	if err != nil {
+		return MediaStream{}, err
+	}
+	parsedUpdatedAt, err := parseDBTime(updatedAt)
+	if err != nil {
+		return MediaStream{}, err
+	}
+	stream.CreatedAt = parsedCreatedAt
+	stream.UpdatedAt = parsedUpdatedAt
+	if label.Valid {
+		stream.Label = label.String
+	}
+	if expectedChunkCount.Valid {
+		count := int(expectedChunkCount.Int64)
+		stream.ExpectedChunkCount = &count
+	}
+	if stream.CompletedAt, err = nullableDBTime(completedAt); err != nil {
+		return MediaStream{}, err
+	}
+	if stream.FailedAt, err = nullableDBTime(failedAt); err != nil {
+		return MediaStream{}, err
+	}
+	if failureReason.Valid {
+		stream.FailureReason = failureReason.String
+	}
+	return stream, nil
 }
 
 func scanCheckin(s scanner) (Checkin, error) {

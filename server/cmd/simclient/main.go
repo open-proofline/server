@@ -40,6 +40,8 @@ type config struct {
 	mediaType            string
 	chunkSize            int64
 	closeIncident        bool
+	completeStream       bool
+	downloadBundle       bool
 	simulateFailureEvery int
 }
 
@@ -63,6 +65,26 @@ type createEmergencyTokenResponse struct {
 	ExpiresAt  *time.Time `json:"expires_at,omitempty"`
 }
 
+type createMediaStreamResponse struct {
+	Stream mediaStream `json:"stream"`
+}
+
+type mediaStreamResponse struct {
+	Stream mediaStream `json:"stream"`
+}
+
+type mediaStream struct {
+	ID                 string     `json:"id"`
+	IncidentID         string     `json:"incident_id"`
+	MediaType          string     `json:"media_type"`
+	Label              string     `json:"label,omitempty"`
+	Status             string     `json:"status"`
+	ExpectedChunkCount *int       `json:"expected_chunk_count,omitempty"`
+	CreatedAt          time.Time  `json:"created_at"`
+	UpdatedAt          time.Time  `json:"updated_at"`
+	CompletedAt        *time.Time `json:"completed_at,omitempty"`
+}
+
 type apiErrorResponse struct {
 	Error struct {
 		Code    string `json:"code"`
@@ -72,6 +94,7 @@ type apiErrorResponse struct {
 
 type chunkUpload struct {
 	incidentID string
+	streamID   string
 	chunkIndex int
 	mediaType  string
 	startedAt  time.Time
@@ -114,9 +137,16 @@ func run(ctx context.Context, out io.Writer, args []string) error {
 	fmt.Fprintf(out, "Incident: %s\n", incidentID)
 	fmt.Fprintf(out, "Emergency viewer: %s\n\n", buildViewerURL(sim.viewerBase, token))
 
+	fmt.Fprintf(out, "Creating %s media stream...\n", cfg.mediaType)
+	streamID, err := sim.createMediaStream(ctx, incidentID, cfg.mediaType)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(out, "Stream: %s\n\n", streamID)
+
 	startedAt := time.Now().UTC()
 	for i := 1; i <= cfg.chunks; i++ {
-		chunk, err := newChunkUpload(incidentID, i, cfg.mediaType, cfg.chunkSize, startedAt)
+		chunk, err := newChunkUpload(incidentID, streamID, i, cfg.mediaType, cfg.chunkSize, startedAt)
 		if err != nil {
 			return err
 		}
@@ -154,6 +184,22 @@ func run(ctx context.Context, out io.Writer, args []string) error {
 		}
 	}
 
+	if cfg.completeStream && cfg.chunks > 0 {
+		fmt.Fprintln(out, "Completing stream...")
+		if err := sim.completeMediaStream(ctx, incidentID, streamID, cfg.chunks); err != nil {
+			return err
+		}
+		fmt.Fprintln(out, "Stream complete.")
+	}
+
+	if cfg.downloadBundle {
+		fmt.Fprintln(out, "Testing emergency stream bundle download...")
+		if err := sim.downloadStreamBundle(ctx, token, streamID); err != nil {
+			return err
+		}
+		fmt.Fprintln(out, "Bundle download succeeded.")
+	}
+
 	if cfg.closeIncident {
 		fmt.Fprintln(out, "Closing incident...")
 		if err := sim.closeIncident(ctx, incidentID); err != nil {
@@ -178,6 +224,8 @@ func parseConfig(args []string) (config, error) {
 	fs.StringVar(&cfg.mediaType, "media-type", defaultMediaType, "Media type to upload")
 	fs.StringVar(&chunkSizeRaw, "chunk-size", defaultChunkSize, "Size of each fake encrypted chunk")
 	fs.BoolVar(&cfg.closeIncident, "close", false, "Close the incident when complete")
+	fs.BoolVar(&cfg.completeStream, "complete-stream", true, "Mark the uploaded media stream complete")
+	fs.BoolVar(&cfg.downloadBundle, "download-bundle", false, "Download the completed stream bundle through the emergency viewer")
 	fs.IntVar(&cfg.simulateFailureEvery, "simulate-failure-every", 0, "Every Nth chunk should intentionally fail hash verification before retrying")
 
 	if err := fs.Parse(args); err != nil {
@@ -201,6 +249,12 @@ func parseConfig(args []string) (config, error) {
 	}
 	if cfg.simulateFailureEvery < 0 {
 		return config{}, fmt.Errorf("--simulate-failure-every must be non-negative")
+	}
+	if cfg.downloadBundle && !cfg.completeStream {
+		return config{}, fmt.Errorf("--download-bundle requires --complete-stream")
+	}
+	if cfg.downloadBundle && cfg.chunks == 0 {
+		return config{}, fmt.Errorf("--download-bundle requires at least one chunk")
 	}
 
 	cfg.chunkSize = chunkSize
@@ -237,6 +291,22 @@ func (c client) createEmergencyToken(ctx context.Context, incidentID string) (st
 	return response.Token, nil
 }
 
+func (c client) createMediaStream(ctx context.Context, incidentID, mediaType string) (string, error) {
+	request := map[string]string{
+		"media_type": mediaType,
+		"label":      mediaType + " recording",
+	}
+	var response createMediaStreamResponse
+	path := "/v1/incidents/" + url.PathEscape(incidentID) + "/streams"
+	if err := c.postJSON(ctx, path, request, http.StatusCreated, &response); err != nil {
+		return "", fmt.Errorf("create media stream: %w", err)
+	}
+	if response.Stream.ID == "" {
+		return "", fmt.Errorf("create media stream: empty stream id in response")
+	}
+	return response.Stream.ID, nil
+}
+
 func (c client) createCheckin(ctx context.Context, incidentID string, chunkIndex int) error {
 	battery := 100 - chunkIndex
 	if battery < 1 {
@@ -256,10 +326,50 @@ func (c client) createCheckin(ctx context.Context, incidentID string, chunkIndex
 	return nil
 }
 
+func (c client) completeMediaStream(ctx context.Context, incidentID, streamID string, expectedChunkCount int) error {
+	request := map[string]int{"expected_chunk_count": expectedChunkCount}
+	var response mediaStreamResponse
+	path := "/v1/incidents/" + url.PathEscape(incidentID) + "/streams/" + url.PathEscape(streamID) + "/complete"
+	if err := c.postJSON(ctx, path, request, http.StatusOK, &response); err != nil {
+		return fmt.Errorf("complete media stream: %w", err)
+	}
+	if response.Stream.Status != "complete" {
+		return fmt.Errorf("complete media stream: expected complete status, got %q", response.Stream.Status)
+	}
+	return nil
+}
+
 func (c client) closeIncident(ctx context.Context, incidentID string) error {
 	path := "/v1/incidents/" + url.PathEscape(incidentID) + "/close"
 	if err := c.postJSON(ctx, path, map[string]any{}, http.StatusOK, nil); err != nil {
 		return fmt.Errorf("close incident: %w", err)
+	}
+	return nil
+}
+
+func (c client) downloadStreamBundle(ctx context.Context, token, streamID string) error {
+	path := "/e/" + url.PathEscape(token) + "/streams/" + url.PathEscape(streamID) + "/download"
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, joinURL(c.viewerBase, path), nil)
+	if err != nil {
+		return err
+	}
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		responseBody, readErr := io.ReadAll(io.LimitReader(response.Body, 64*1024))
+		if readErr != nil {
+			return readErr
+		}
+		return fmt.Errorf("download bundle: expected status %d, got %d: %s", http.StatusOK, response.StatusCode, strings.TrimSpace(string(responseBody)))
+	}
+	if response.Header.Get("Content-Type") != "application/zip" {
+		return fmt.Errorf("download bundle: expected application/zip, got %q", response.Header.Get("Content-Type"))
+	}
+	if _, err := io.Copy(io.Discard, response.Body); err != nil {
+		return fmt.Errorf("download bundle body: %w", err)
 	}
 	return nil
 }
@@ -342,6 +452,9 @@ func (c client) postChunk(ctx context.Context, upload chunkUpload) (int, []byte,
 		"sha256_hex":        upload.sha256Hex,
 		"original_filename": upload.filename,
 	}
+	if upload.streamID != "" {
+		fields["stream_id"] = upload.streamID
+	}
 	for name, value := range fields {
 		if err := writer.WriteField(name, value); err != nil {
 			return 0, nil, err
@@ -371,7 +484,7 @@ func (c client) postChunk(ctx context.Context, upload chunkUpload) (int, []byte,
 	return response.StatusCode, responseBody, nil
 }
 
-func newChunkUpload(incidentID string, chunkIndex int, mediaType string, size int64, startedAt time.Time) (chunkUpload, error) {
+func newChunkUpload(incidentID, streamID string, chunkIndex int, mediaType string, size int64, startedAt time.Time) (chunkUpload, error) {
 	if size > int64(int(^uint(0)>>1)) {
 		return chunkUpload{}, fmt.Errorf("chunk size is too large for this platform")
 	}
@@ -383,6 +496,7 @@ func newChunkUpload(incidentID string, chunkIndex int, mediaType string, size in
 	chunkStartedAt := startedAt.Add(time.Duration(chunkIndex-1) * chunkDuration)
 	return chunkUpload{
 		incidentID: incidentID,
+		streamID:   streamID,
 		chunkIndex: chunkIndex,
 		mediaType:  mediaType,
 		startedAt:  chunkStartedAt,

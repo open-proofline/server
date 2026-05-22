@@ -43,12 +43,27 @@ type emergencyMediaSummary struct {
 	LatestChunk *emergencyChunkSummary `json:"latest_chunk,omitempty"`
 }
 
+type emergencyStreamSummary struct {
+	ID                 string     `json:"id"`
+	MediaType          string     `json:"media_type"`
+	Label              string     `json:"label,omitempty"`
+	Status             string     `json:"status"`
+	ExpectedChunkCount *int       `json:"expected_chunk_count,omitempty"`
+	CompletedAt        *time.Time `json:"completed_at,omitempty"`
+	FailedAt           *time.Time `json:"failed_at,omitempty"`
+	FailureReason      string     `json:"failure_reason,omitempty"`
+	ChunkCount         int        `json:"chunk_count"`
+	TotalBytes         int64      `json:"total_bytes"`
+}
+
 type emergencyViewData struct {
 	Incident               emergencyIncidentSummary          `json:"incident"`
 	LatestCheckin          *emergencyCheckinSummary          `json:"latest_checkin,omitempty"`
 	ChunkCountByMediaType  map[string]int                    `json:"chunk_count_by_media_type"`
 	LatestChunkByMediaType map[string]*emergencyChunkSummary `json:"latest_chunk_by_media_type"`
 	Media                  []emergencyMediaSummary           `json:"media"`
+	Streams                []emergencyStreamSummary          `json:"streams"`
+	CompletedStreams       []emergencyStreamSummary          `json:"completed_streams"`
 	Warning                string                            `json:"warning"`
 	GeneratedAt            time.Time                         `json:"generated_at"`
 }
@@ -160,13 +175,16 @@ func setNoStore(w http.ResponseWriter) {
 // loadEmergencyData collapses invalid, expired, and revoked tokens into one
 // public error so callers cannot distinguish token state.
 func (a *API) loadEmergencyData(w http.ResponseWriter, r *http.Request) (emergencyViewData, bool) {
-	data, err := a.buildEmergencyData(r.Context(), r.PathValue("token"))
-	if errors.Is(err, incidents.ErrNotFound) {
-		writeError(w, http.StatusNotFound, "emergency_token_invalid", "emergency token is invalid, expired, or revoked")
+	token, ok := a.loadEmergencyToken(w, r)
+	if !ok {
 		return emergencyViewData{}, false
 	}
+	data, err := a.buildEmergencyData(r.Context(), token)
 	if err != nil {
 		a.internalError(w, "load emergency data", err)
+		return emergencyViewData{}, false
+	}
+	if !a.recordEmergencyTokenUse(w, r, token.ID) {
 		return emergencyViewData{}, false
 	}
 	return data, true
@@ -174,20 +192,34 @@ func (a *API) loadEmergencyData(w http.ResponseWriter, r *http.Request) (emergen
 
 // buildEmergencyData validates the raw token before loading incident metadata
 // and records last-used only after a successful read.
-func (a *API) buildEmergencyData(ctx context.Context, rawToken string) (emergencyViewData, error) {
-	token, err := a.repo.LookupEmergencyToken(ctx, rawToken)
-	if err != nil {
-		return emergencyViewData{}, err
-	}
+func (a *API) buildEmergencyData(ctx context.Context, token incidents.EmergencyToken) (emergencyViewData, error) {
 	detail, err := a.repo.GetIncidentDetail(ctx, token.IncidentID)
 	if err != nil {
 		return emergencyViewData{}, err
 	}
-	if err := a.repo.UpdateEmergencyTokenLastUsed(ctx, token.ID); err != nil {
-		return emergencyViewData{}, err
-	}
-
 	return summarizeEmergencyData(detail), nil
+}
+
+func (a *API) loadEmergencyToken(w http.ResponseWriter, r *http.Request) (incidents.EmergencyToken, bool) {
+	setEmergencyPrivacyHeaders(w)
+	token, err := a.repo.LookupEmergencyToken(r.Context(), r.PathValue("token"))
+	if errors.Is(err, incidents.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "emergency_token_invalid", "emergency token is invalid, expired, or revoked")
+		return incidents.EmergencyToken{}, false
+	}
+	if err != nil {
+		a.internalError(w, "lookup emergency token", err)
+		return incidents.EmergencyToken{}, false
+	}
+	return token, true
+}
+
+func (a *API) recordEmergencyTokenUse(w http.ResponseWriter, r *http.Request, tokenID string) bool {
+	if err := a.repo.UpdateEmergencyTokenLastUsed(r.Context(), tokenID); err != nil {
+		a.internalError(w, "update emergency token last used", err)
+		return false
+	}
+	return true
 }
 
 // summarizeEmergencyData prepares viewer-safe incident data without exposing
@@ -195,8 +227,14 @@ func (a *API) buildEmergencyData(ctx context.Context, rawToken string) (emergenc
 func summarizeEmergencyData(detail incidents.IncidentDetail) emergencyViewData {
 	chunkCounts := make(map[string]int)
 	latestChunks := make(map[string]*emergencyChunkSummary)
+	streamChunkCounts := make(map[string]int)
+	streamByteCounts := make(map[string]int64)
 	for _, chunk := range detail.Chunks {
 		chunkCounts[chunk.MediaType]++
+		if chunk.StreamID != "" {
+			streamChunkCounts[chunk.StreamID]++
+			streamByteCounts[chunk.StreamID] += chunk.ByteSize
+		}
 		summary := summarizeChunk(chunk)
 		current := latestChunks[chunk.MediaType]
 		if current == nil || summary.ChunkIndex > current.ChunkIndex {
@@ -217,6 +255,27 @@ func summarizeEmergencyData(detail incidents.IncidentDetail) emergencyViewData {
 			ChunkCount:  chunkCounts[mediaType],
 			LatestChunk: latestChunks[mediaType],
 		})
+	}
+
+	streams := make([]emergencyStreamSummary, 0, len(detail.Streams))
+	completedStreams := []emergencyStreamSummary{}
+	for _, stream := range detail.Streams {
+		summary := emergencyStreamSummary{
+			ID:                 stream.ID,
+			MediaType:          stream.MediaType,
+			Label:              stream.Label,
+			Status:             stream.Status,
+			ExpectedChunkCount: stream.ExpectedChunkCount,
+			CompletedAt:        stream.CompletedAt,
+			FailedAt:           stream.FailedAt,
+			FailureReason:      stream.FailureReason,
+			ChunkCount:         streamChunkCounts[stream.ID],
+			TotalBytes:         streamByteCounts[stream.ID],
+		}
+		streams = append(streams, summary)
+		if stream.Status == incidents.StreamStatusComplete {
+			completedStreams = append(completedStreams, summary)
+		}
 	}
 
 	var latestCheckin *emergencyCheckinSummary
@@ -244,6 +303,8 @@ func summarizeEmergencyData(detail incidents.IncidentDetail) emergencyViewData {
 		ChunkCountByMediaType:  chunkCounts,
 		LatestChunkByMediaType: latestChunks,
 		Media:                  media,
+		Streams:                streams,
+		CompletedStreams:       completedStreams,
 		Warning:                emergencyWarning,
 		GeneratedAt:            time.Now().UTC(),
 	}

@@ -39,6 +39,26 @@
     </section>
 
     <section>
+      <h2>Completed Recordings</h2>
+      {{if .CompletedStreams}}
+      <div class="stream-list">
+        {{range .CompletedStreams}}
+        <div class="stream-item">
+          <div>
+            <div class="value">{{if .Label}}{{.Label}}{{else}}{{.MediaType}} recording{{end}}</div>
+            <div class="muted">{{.ChunkCount}} chunks · {{formatBytes .TotalBytes}} · completed {{if .CompletedAt}}{{relativeTime .CompletedAt}}{{else}}recently{{end}}</div>
+          </div>
+          <a class="button" href="#" data-stream-download="{{.ID}}">Download encrypted bundle</a>
+        </div>
+        {{end}}
+      </div>
+      <p><a class="button secondary" href="#" data-incident-download>Download all completed bundles</a></p>
+      {{else}}
+      <p class="muted">No completed recordings yet.</p>
+      {{end}}
+    </section>
+
+    <section>
       <h2>Chunks</h2>
       <table>
         <thead><tr><th>Media</th><th>Count</th><th>Latest chunk</th><th>Latest received</th></tr></thead>

@@ -9,6 +9,14 @@ const (
 	// uploads are rejected by the HTTP layer.
 	StatusClosed = "closed"
 
+	// StreamStatusOpen means chunks can still be uploaded to a media stream.
+	StreamStatusOpen = "open"
+	// StreamStatusComplete means a media stream has a verified contiguous set
+	// of chunks and can be downloaded as an encrypted evidence bundle.
+	StreamStatusComplete = "complete"
+	// StreamStatusFailed means recording stopped without a complete stream.
+	StreamStatusFailed = "failed"
+
 	// MediaTypeAudio identifies encrypted audio chunks.
 	MediaTypeAudio = "audio"
 	// MediaTypeVideo identifies encrypted video chunks.
@@ -29,10 +37,26 @@ type Incident struct {
 	Notes       string    `json:"notes,omitempty"`
 }
 
+// MediaStream groups encrypted chunks that belong to one recording stream.
+type MediaStream struct {
+	ID                 string     `json:"id"`
+	IncidentID         string     `json:"incident_id"`
+	MediaType          string     `json:"media_type"`
+	Label              string     `json:"label,omitempty"`
+	Status             string     `json:"status"`
+	ExpectedChunkCount *int       `json:"expected_chunk_count,omitempty"`
+	CreatedAt          time.Time  `json:"created_at"`
+	UpdatedAt          time.Time  `json:"updated_at"`
+	CompletedAt        *time.Time `json:"completed_at,omitempty"`
+	FailedAt           *time.Time `json:"failed_at,omitempty"`
+	FailureReason      string     `json:"failure_reason,omitempty"`
+}
+
 // Chunk records metadata for an accepted encrypted upload.
 type Chunk struct {
 	ID               string    `json:"id"`
 	IncidentID       string    `json:"incident_id"`
+	StreamID         string    `json:"stream_id,omitempty"`
 	ChunkIndex       int       `json:"chunk_index"`
 	MediaType        string    `json:"media_type"`
 	StartedAt        time.Time `json:"started_at"`
@@ -58,15 +82,17 @@ type Checkin struct {
 
 // IncidentDetail combines one incident with its chunk and checkin metadata.
 type IncidentDetail struct {
-	Incident Incident  `json:"incident"`
-	Chunks   []Chunk   `json:"chunks"`
-	Checkins []Checkin `json:"checkins"`
+	Incident Incident      `json:"incident"`
+	Streams  []MediaStream `json:"streams"`
+	Chunks   []Chunk       `json:"chunks"`
+	Checkins []Checkin     `json:"checkins"`
 }
 
 // CreateChunkParams contains metadata saved after a chunk file has been safely
 // written and hash-verified.
 type CreateChunkParams struct {
 	IncidentID       string
+	StreamID         string
 	ChunkIndex       int
 	MediaType        string
 	StartedAt        time.Time

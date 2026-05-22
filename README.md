@@ -15,11 +15,15 @@ v0.2.1 implements the backend ingest and emergency read-only viewing layer:
 - verify uploaded chunks using SHA-256
 - store chunks immutably on local disk
 - store incident, chunk, and check-in metadata in SQLite
+- group chunks into media streams that can be marked complete or failed
+- download completed encrypted stream and incident evidence bundles
 - create scoped emergency viewer tokens
-- serve a simple read-only emergency incident page
+- serve a simple read-only emergency incident page with completed-stream download buttons
 - run a small CLI simulator for incident upload/check-in flows
 
-The backend does **not** currently implement recording, client-side encryption, an iOS app, push notifications, SMS, Messenger integration, user accounts, or a public admin dashboard.
+Evidence bundles are ZIP files containing encrypted chunks plus JSON manifests. They are not decrypted, playable, or merged media exports.
+
+The backend does **not** currently implement recording, client-side encryption, decryption, playable media export, an iOS app, push notifications, SMS, Messenger integration, user accounts, or a public admin dashboard.
 
 ## Intended future design
 
@@ -105,7 +109,13 @@ Run the backend, then in another terminal from the `server` directory:
 go run ./cmd/simclient --chunks 12 --interval 5s
 ```
 
-Open the printed emergency viewer URL to watch incident metadata update.
+Open the printed emergency viewer URL to watch incident metadata update. The simulator now creates a media stream, uploads chunks with `stream_id`, and completes the stream by default.
+
+To also test encrypted bundle download through the emergency viewer:
+
+```bash
+go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle
+```
 
 To test upload failure/retry behavior:
 
@@ -164,21 +174,55 @@ curl -sS -X POST http://127.0.0.1:8080/v1/incidents \
   -d '{"client_label":"iphone","notes":"test incident"}'
 ```
 
+## Create A Media Stream
+
+New clients should create a media stream before uploading chunks and include the returned `stream.id` as `stream_id` on each chunk upload.
+
+```bash
+INCIDENT_ID="inc_replace_me"
+
+curl -sS -X POST "http://127.0.0.1:8080/v1/incidents/${INCIDENT_ID}/streams" \
+  -H 'Content-Type: application/json' \
+  -d '{"media_type":"audio","label":"main audio recording"}'
+```
+
 ## Upload A Chunk
 
 ```bash
 printf 'encrypted bytes go here' > /tmp/chunk.enc
 SHA256_HEX="$(sha256sum /tmp/chunk.enc | awk '{print $1}')"
 INCIDENT_ID="inc_replace_me"
+STREAM_ID="str_replace_me"
 
 curl -sS -X POST "http://127.0.0.1:8080/v1/incidents/${INCIDENT_ID}/chunks" \
   -F "file=@/tmp/chunk.enc" \
+  -F "stream_id=${STREAM_ID}" \
   -F "chunk_index=1" \
   -F "media_type=audio" \
   -F "started_at=2026-05-21T10:00:00Z" \
   -F "ended_at=2026-05-21T10:00:10Z" \
   -F "sha256_hex=${SHA256_HEX}" \
   -F "original_filename=chunk.enc"
+```
+
+`stream_id` is optional for backwards compatibility. Chunks without a stream remain stored and listed as legacy chunk metadata, but they are not included in completed-stream bundle downloads.
+
+The current chunk identity remains `(incident_id, media_type, chunk_index)`, so clients should keep chunk indexes unique per incident and media type even when using streams.
+
+## Complete A Stream
+
+When all chunks for a stream are uploaded, mark the stream complete. The backend verifies chunks `1..expected_chunk_count` exist contiguously and that their stored files are readable before enabling downloads.
+
+```bash
+curl -sS -X POST "http://127.0.0.1:8080/v1/incidents/${INCIDENT_ID}/streams/${STREAM_ID}/complete" \
+  -H 'Content-Type: application/json' \
+  -d '{"expected_chunk_count":1}'
+```
+
+Download the encrypted ZIP bundle from the private API:
+
+```bash
+curl -OJ "http://127.0.0.1:8080/v1/incidents/${INCIDENT_ID}/streams/${STREAM_ID}/download"
 ```
 
 ## Emergency Viewer
@@ -195,7 +239,7 @@ curl -sS -X POST "http://127.0.0.1:8080/v1/incidents/${INCIDENT_ID}/emergency-to
   -d '{"label":"trusted contact","expires_at":"2030-01-01T00:00:00Z"}'
 ```
 
-Open the emergency page:
+Open the emergency page. Completed streams show encrypted bundle download buttons:
 
 ```text
 http://127.0.0.1:8081/e/{token_from_create_response}
@@ -215,9 +259,16 @@ Private API server:
 
 - `POST /v1/incidents`
 - `GET /v1/incidents/{incident_id}`
+- `GET /v1/incidents/{incident_id}/download`
 - `POST /v1/incidents/{incident_id}/chunks`
 - `GET /v1/incidents/{incident_id}/chunks`
 - `GET /v1/incidents/{incident_id}/chunks/{media_type}/{chunk_index}`
+- `POST /v1/incidents/{incident_id}/streams`
+- `GET /v1/incidents/{incident_id}/streams`
+- `GET /v1/incidents/{incident_id}/streams/{stream_id}`
+- `POST /v1/incidents/{incident_id}/streams/{stream_id}/complete`
+- `POST /v1/incidents/{incident_id}/streams/{stream_id}/fail`
+- `GET /v1/incidents/{incident_id}/streams/{stream_id}/download`
 - `POST /v1/incidents/{incident_id}/checkins`
 - `POST /v1/incidents/{incident_id}/close`
 - `POST /v1/incidents/{incident_id}/emergency-tokens`
@@ -227,6 +278,8 @@ Public emergency viewer server:
 
 - `GET /e/{token}`
 - `GET /e/{token}/data`
+- `GET /e/{token}/streams/{stream_id}/download`
+- `GET /e/{token}/incident/download`
 
 See [docs/api.md](docs/api.md) for request and response examples.
 See [docs/threat-model.md](docs/threat-model.md) for current security assumptions and limitations.
@@ -236,6 +289,8 @@ See [docs/threat-model.md](docs/threat-model.md) for current security assumption
 - WireGuard-only bind/firewall
 - iOS client
 - client-side encryption
+- client-side decryption and key sharing
+- playable media export
 - dead-man switch
 - reverse proxy/TLS hardening for the emergency viewer
 - public deployment hardening and `/v1` access control

@@ -38,6 +38,25 @@ func TestBuildViewerURL(t *testing.T) {
 	}
 }
 
+func TestParseConfigStreamFlags(t *testing.T) {
+	cfg, err := parseConfig([]string{"--chunks", "2", "--interval", "0", "--download-bundle"})
+	if err != nil {
+		t.Fatalf("parseConfig returned error: %v", err)
+	}
+	if !cfg.completeStream {
+		t.Fatal("expected complete-stream to default true")
+	}
+	if !cfg.downloadBundle {
+		t.Fatal("expected download-bundle flag to be set")
+	}
+}
+
+func TestParseConfigRejectsDownloadWithoutCompleteStream(t *testing.T) {
+	if _, err := parseConfig([]string{"--download-bundle", "--complete-stream=false"}); err == nil {
+		t.Fatal("expected --download-bundle without --complete-stream to fail")
+	}
+}
+
 func TestBadHashFor(t *testing.T) {
 	hash := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	bad := badHashFor(hash)

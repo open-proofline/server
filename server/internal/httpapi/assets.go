@@ -17,6 +17,7 @@ var emergencyWebFS embed.FS
 var emergencyPageTemplate = template.Must(template.New("emergency.html").Funcs(template.FuncMap{
 	"humanTime":    humanTime,
 	"relativeTime": relativeTime,
+	"formatBytes":  formatBytes,
 }).ParseFS(emergencyWebFS, "web/templates/emergency.html"))
 
 // emergencyStaticHandler serves embedded CSS and JavaScript through the
@@ -88,4 +89,25 @@ func plural(value int, unit string) string {
 		return fmt.Sprintf("1 %s", unit)
 	}
 	return fmt.Sprintf("%d %ss", value, unit)
+}
+
+func formatBytes(value int64) string {
+	const unit = 1024
+	if value < unit {
+		return fmt.Sprintf("%d B", value)
+	}
+	divisor := int64(unit)
+	unitName := "KiB"
+	for value/divisor >= unit {
+		divisor *= unit
+		switch unitName {
+		case "KiB":
+			unitName = "MiB"
+		case "MiB":
+			unitName = "GiB"
+		default:
+			return fmt.Sprintf("%.1f %s", float64(value)/float64(divisor), unitName)
+		}
+	}
+	return fmt.Sprintf("%.1f %s", float64(value)/float64(divisor), unitName)
 }

@@ -5,7 +5,8 @@ This document describes the current backend-only v0.2.1 security posture. It is 
 ## Assets
 
 - Already-encrypted uploaded chunk files under `SAFE_DATA_DIR`
-- Incident, chunk, checkin, and emergency-token metadata in SQLite
+- Incident, media stream, chunk, checkin, and emergency-token metadata in SQLite
+- On-demand encrypted evidence ZIP bundles generated from completed streams
 - Raw emergency tokens returned once at creation time
 - Emergency viewer URLs containing bearer tokens
 - Future client-side recordings and encryption keys are out of scope for this repository today.
@@ -14,8 +15,8 @@ This document describes the current backend-only v0.2.1 security posture. It is 
 
 - The private API server binds separately from the public emergency viewer server. By default it listens on `127.0.0.1:8080`, and it can listen on multiple addresses through `SAFE_PRIVATE_BIND_ADDRS`.
 - The public emergency viewer server binds separately from the private API server. By default it listens on `127.0.0.1:8081`, and it can listen on multiple addresses through `SAFE_PUBLIC_BIND_ADDRS`.
-- `/v1` routes are private/admin routes. They can create incidents, upload chunks, close incidents, create emergency tokens, revoke tokens, and read encrypted bytes. They are mounted only on the private API server.
-- `/e/{token}` and `/e/{token}/data` are public-shaped read-only routes gated by an emergency token. They are mounted only on the public emergency viewer server.
+- `/v1` routes are private/admin routes. They can create incidents, create streams, upload chunks, complete/fail streams, close incidents, create emergency tokens, revoke tokens, and read encrypted bytes. They are mounted only on the private API server.
+- `/e/{token}`, `/e/{token}/data`, and emergency bundle download routes are public-shaped read-only routes gated by an emergency token. They are mounted only on the public emergency viewer server.
 - Static assets under `/static/` are embedded and token-neutral.
 
 ## Current Controls
@@ -24,9 +25,11 @@ This document describes the current backend-only v0.2.1 security posture. It is 
 - Uploaded bytes are committed only after hash verification.
 - Final chunk storage uses no-overwrite hard links.
 - SQLite enforces media type, chunk index, byte size, SHA-256 shape, foreign keys, and unique chunk identity.
+- Media streams must be open before new chunks can be attached, and stream completion verifies contiguous chunks plus readable stored files.
 - Emergency tokens use 256 bits from `crypto/rand`; only SHA-256 token hashes are stored.
 - Expired, revoked, and invalid emergency tokens return the same public error.
-- Emergency summaries do not expose `stored_path` or encrypted file bytes.
+- Emergency summaries do not expose `stored_path`. Emergency bundle downloads expose only encrypted chunk bytes and generated manifests for completed streams.
+- ZIP bundle entry names are server-controlled and generated from metadata; clients do not provide stored paths for download.
 - Emergency responses use `Referrer-Policy: no-referrer` and `Cache-Control: no-store`.
 - Request logging records method, redacted route pattern, status, byte count, and duration. It does not log request bodies, uploaded bytes, Authorization headers, or raw emergency tokens.
 - Templates use Go `html/template` escaping.
@@ -42,6 +45,7 @@ This document describes the current backend-only v0.2.1 security posture. It is 
 - No default emergency-token expiry policy; callers choose `expires_at`.
 - No retention, backup, secure deletion, or disk encryption policy.
 - No malware/content scanning; uploaded bytes are assumed to be client-encrypted blobs.
+- Bundle downloads are encrypted chunk bundles, not decrypted or playable media exports.
 - No multi-user authorization model.
 - Emergency links are bearer tokens and must be shared carefully.
 

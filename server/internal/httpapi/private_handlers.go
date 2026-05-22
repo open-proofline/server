@@ -73,6 +73,9 @@ func (a *API) uploadChunk(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "hash_mismatch", "computed SHA-256 did not match provided hash")
 		return
 	}
+	if !a.validateChunkStream(w, r, incidentID, upload) {
+		return
+	}
 
 	exists, err := a.repo.ChunkExists(r.Context(), incidentID, upload.mediaType, upload.chunkIndex)
 	if err != nil {
@@ -96,6 +99,7 @@ func (a *API) uploadChunk(w http.ResponseWriter, r *http.Request) {
 
 	chunk, err := a.repo.CreateChunk(r.Context(), incidents.CreateChunkParams{
 		IncidentID:       incidentID,
+		StreamID:         upload.streamID,
 		ChunkIndex:       upload.chunkIndex,
 		MediaType:        upload.mediaType,
 		StartedAt:        upload.startedAt,
@@ -117,6 +121,31 @@ func (a *API) uploadChunk(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusCreated, chunk)
+}
+
+func (a *API) validateChunkStream(w http.ResponseWriter, r *http.Request, incidentID string, upload chunkUpload) bool {
+	if upload.streamID == "" {
+		return true
+	}
+
+	stream, err := a.repo.GetMediaStream(r.Context(), incidentID, upload.streamID)
+	if errors.Is(err, incidents.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "stream_not_found", "media stream was not found")
+		return false
+	}
+	if err != nil {
+		a.internalError(w, "get media stream", err)
+		return false
+	}
+	if stream.Status != incidents.StreamStatusOpen {
+		writeError(w, http.StatusConflict, "stream_not_open", "media stream is not open")
+		return false
+	}
+	if stream.MediaType != upload.mediaType {
+		writeError(w, http.StatusBadRequest, "stream_media_type_mismatch", "stream media_type does not match chunk media_type")
+		return false
+	}
+	return true
 }
 
 func (a *API) listChunks(w http.ResponseWriter, r *http.Request) {
