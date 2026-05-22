@@ -1,128 +1,15 @@
 package main
 
 import (
-	"archive/zip"
-	"bytes"
 	"context"
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
-	"errors"
-	"flag"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net/http"
-	"net/url"
 	"os"
-	"strconv"
-	"strings"
 	"time"
 
 	"safety-recorder/server/internal/envelope"
 )
-
-const (
-	defaultAPIBase       = "http://localhost:8080"
-	defaultViewerBase    = "http://localhost:8081"
-	defaultChunks        = 12
-	defaultInterval      = 5 * time.Second
-	defaultMediaType     = "audio"
-	defaultChunkSize     = "64KiB"
-	defaultCheckinEvery  = 3
-	clientRequestTimeout = 30 * time.Second
-	chunkDuration        = 10 * time.Second
-)
-
-type config struct {
-	apiBase              string
-	viewerBase           string
-	chunks               int
-	interval             time.Duration
-	mediaType            string
-	chunkSize            int64
-	closeIncident        bool
-	completeStream       bool
-	downloadBundle       bool
-	encrypt              bool
-	keyFile              string
-	verifyBundleDecrypt  bool
-	simulateFailureEvery int
-}
-
-type client struct {
-	httpClient *http.Client
-	apiBase    string
-	viewerBase string
-}
-
-type createIncidentResponse struct {
-	IncidentID string `json:"incident_id"`
-	Status     string `json:"status"`
-}
-
-type createEmergencyTokenResponse struct {
-	TokenID    string     `json:"token_id"`
-	IncidentID string     `json:"incident_id"`
-	Token      string     `json:"token"`
-	Label      string     `json:"label,omitempty"`
-	CreatedAt  time.Time  `json:"created_at"`
-	ExpiresAt  *time.Time `json:"expires_at,omitempty"`
-}
-
-type createMediaStreamResponse struct {
-	Stream mediaStream `json:"stream"`
-}
-
-type mediaStreamResponse struct {
-	Stream mediaStream `json:"stream"`
-}
-
-type mediaStream struct {
-	ID                 string     `json:"id"`
-	IncidentID         string     `json:"incident_id"`
-	MediaType          string     `json:"media_type"`
-	Label              string     `json:"label,omitempty"`
-	Status             string     `json:"status"`
-	ExpectedChunkCount *int       `json:"expected_chunk_count,omitempty"`
-	CreatedAt          time.Time  `json:"created_at"`
-	UpdatedAt          time.Time  `json:"updated_at"`
-	CompletedAt        *time.Time `json:"completed_at,omitempty"`
-}
-
-type apiErrorResponse struct {
-	Error struct {
-		Code    string `json:"code"`
-		Message string `json:"message"`
-	} `json:"error"`
-}
-
-type chunkUpload struct {
-	incidentID string
-	streamID   string
-	chunkIndex int
-	mediaType  string
-	startedAt  time.Time
-	endedAt    time.Time
-	filename   string
-	body       []byte
-	sha256Hex  string
-}
-
-type streamBundleManifest struct {
-	IncidentID string                `json:"incident_id"`
-	StreamID   string                `json:"stream_id"`
-	MediaType  string                `json:"media_type"`
-	ChunkCount int                   `json:"chunk_count"`
-	Chunks     []bundleChunkManifest `json:"chunks"`
-}
-
-type bundleChunkManifest struct {
-	ChunkIndex int    `json:"chunk_index"`
-	MediaType  string `json:"media_type"`
-	SHA256Hex  string `json:"sha256_hex"`
-}
 
 func main() {
 	if err := run(context.Background(), os.Stdout, os.Args[1:]); err != nil {
@@ -137,21 +24,9 @@ func run(ctx context.Context, out io.Writer, args []string) error {
 		return err
 	}
 
-	var encryptionKey envelope.Key
-	if cfg.encrypt {
-		encryptionKey, err = loadOrCreateSimulatorKey(cfg.keyFile)
-		if err != nil {
-			return err
-		}
-		fmt.Fprintln(out, "Encryption: enabled")
-		fmt.Fprintf(out, "Key ID: %s\n", encryptionKey.KeyID)
-		if cfg.keyFile != "" {
-			fmt.Fprintf(out, "Key file: %s\n", cfg.keyFile)
-		}
-		fmt.Fprintln(out)
-	} else {
-		fmt.Fprintln(out, "Encryption: disabled. Uploading raw fake chunk bytes for development compatibility only.")
-		fmt.Fprintln(out)
+	encryptionKey, err := prepareEncryption(out, cfg)
+	if err != nil {
+		return err
 	}
 
 	sim := client{
@@ -181,49 +56,8 @@ func run(ctx context.Context, out io.Writer, args []string) error {
 	}
 	fmt.Fprintf(out, "Stream: %s\n\n", streamID)
 
-	startedAt := time.Now().UTC()
-	for i := 1; i <= cfg.chunks; i++ {
-		var chunk chunkUpload
-		if cfg.encrypt {
-			chunk, err = newEncryptedChunkUpload(encryptionKey, incidentID, streamID, i, cfg.mediaType, cfg.chunkSize, startedAt)
-		} else {
-			chunk, err = newChunkUpload(incidentID, streamID, i, cfg.mediaType, cfg.chunkSize, startedAt)
-		}
-		if err != nil {
-			return err
-		}
-
-		if shouldSimulateFailure(i, cfg.simulateFailureEvery) {
-			fmt.Fprintf(out, "Uploading %s%s chunk %d/%d with intentionally bad hash...\n", encryptionLogPrefix(cfg.encrypt), cfg.mediaType, i, cfg.chunks)
-			failed := chunk
-			failed.sha256Hex = badHashFor(chunk.sha256Hex)
-			if err := sim.expectHashMismatch(ctx, failed); err != nil {
-				return err
-			}
-			fmt.Fprintln(out, "Server rejected chunk as expected.")
-
-			fmt.Fprintf(out, "Retrying %s%s chunk %d/%d with correct hash...\n", encryptionLogPrefix(cfg.encrypt), cfg.mediaType, i, cfg.chunks)
-			if err := sim.uploadChunk(ctx, chunk); err != nil {
-				return err
-			}
-			fmt.Fprintln(out, "Retry succeeded.")
-		} else {
-			fmt.Fprintf(out, "Uploading %s%s chunk %d/%d...\n", encryptionLogPrefix(cfg.encrypt), cfg.mediaType, i, cfg.chunks)
-			if err := sim.uploadChunk(ctx, chunk); err != nil {
-				return err
-			}
-		}
-
-		if shouldSendCheckin(i) {
-			fmt.Fprintln(out, "Sending checkin...")
-			if err := sim.createCheckin(ctx, incidentID, i); err != nil {
-				return err
-			}
-		}
-
-		if i < cfg.chunks && cfg.interval > 0 {
-			time.Sleep(cfg.interval)
-		}
+	if err := uploadChunks(ctx, out, sim, cfg, incidentID, streamID, encryptionKey); err != nil {
+		return err
 	}
 
 	if cfg.completeStream && cfg.chunks > 0 {
@@ -235,20 +69,8 @@ func run(ctx context.Context, out io.Writer, args []string) error {
 	}
 
 	if cfg.downloadBundle {
-		fmt.Fprintln(out, "Testing emergency stream bundle download...")
-		bundleBytes, err := sim.downloadStreamBundle(ctx, token, streamID)
-		if err != nil {
+		if err := downloadAndVerifyBundle(ctx, out, sim, cfg, token, incidentID, streamID, encryptionKey); err != nil {
 			return err
-		}
-		fmt.Fprintln(out, "Downloaded bundle.")
-		if cfg.encrypt && cfg.verifyBundleDecrypt {
-			verified, err := verifyStreamBundleDecryption(bundleBytes, encryptionKey, incidentID, streamID, cfg.mediaType)
-			if err != nil {
-				return err
-			}
-			fmt.Fprintf(out, "Verified decrypt of %d encrypted chunks.\n", verified)
-		} else {
-			fmt.Fprintln(out, "Bundle download succeeded.")
 		}
 	}
 
@@ -264,532 +86,94 @@ func run(ctx context.Context, out io.Writer, args []string) error {
 	return nil
 }
 
-func parseConfig(args []string) (config, error) {
-	fs := flag.NewFlagSet("simclient", flag.ContinueOnError)
+func prepareEncryption(out io.Writer, cfg config) (envelope.Key, error) {
+	if !cfg.encrypt {
+		fmt.Fprintln(out, "Encryption: disabled. Uploading raw fake chunk bytes for development compatibility only.")
+		fmt.Fprintln(out)
+		return envelope.Key{}, nil
+	}
 
-	var chunkSizeRaw string
-	cfg := config{}
-	fs.StringVar(&cfg.apiBase, "api", defaultAPIBase, "Private API base URL")
-	fs.StringVar(&cfg.viewerBase, "viewer", defaultViewerBase, "Emergency viewer base URL")
-	fs.IntVar(&cfg.chunks, "chunks", defaultChunks, "Number of chunks to upload")
-	fs.DurationVar(&cfg.interval, "interval", defaultInterval, "Delay between chunk uploads")
-	fs.StringVar(&cfg.mediaType, "media-type", defaultMediaType, "Media type to upload")
-	fs.StringVar(&chunkSizeRaw, "chunk-size", defaultChunkSize, "Size of each fake encrypted chunk")
-	fs.BoolVar(&cfg.closeIncident, "close", false, "Close the incident when complete")
-	fs.BoolVar(&cfg.completeStream, "complete-stream", true, "Mark the uploaded media stream complete")
-	fs.BoolVar(&cfg.downloadBundle, "download-bundle", false, "Download the completed stream bundle through the emergency viewer")
-	fs.BoolVar(&cfg.encrypt, "encrypt", true, "Encrypt simulated chunk bytes before upload")
-	fs.StringVar(&cfg.keyFile, "key-file", "", "Optional simulator encryption key file")
-	fs.BoolVar(&cfg.verifyBundleDecrypt, "verify-bundle-decryption", true, "Decrypt downloaded stream bundles locally when encryption is enabled")
-	fs.IntVar(&cfg.simulateFailureEvery, "simulate-failure-every", 0, "Every Nth chunk should intentionally fail hash verification before retrying")
-
-	if err := fs.Parse(args); err != nil {
-		return config{}, err
-	}
-	if cfg.chunks < 0 {
-		return config{}, fmt.Errorf("--chunks must be non-negative")
-	}
-	if cfg.interval < 0 {
-		return config{}, fmt.Errorf("--interval must be non-negative")
-	}
-	if !validMediaType(cfg.mediaType) {
-		return config{}, fmt.Errorf("--media-type must be audio, video, location, or metadata")
-	}
-	chunkSize, err := parseByteSize(chunkSizeRaw)
+	encryptionKey, err := loadOrCreateSimulatorKey(cfg.keyFile)
 	if err != nil {
-		return config{}, fmt.Errorf("--chunk-size: %w", err)
+		return envelope.Key{}, err
 	}
-	if chunkSize <= 0 {
-		return config{}, fmt.Errorf("--chunk-size must be greater than zero")
+	fmt.Fprintln(out, "Encryption: enabled")
+	fmt.Fprintf(out, "Key ID: %s\n", encryptionKey.KeyID)
+	if cfg.keyFile != "" {
+		fmt.Fprintf(out, "Key file: %s\n", cfg.keyFile)
 	}
-	if cfg.simulateFailureEvery < 0 {
-		return config{}, fmt.Errorf("--simulate-failure-every must be non-negative")
-	}
-	if cfg.downloadBundle && !cfg.completeStream {
-		return config{}, fmt.Errorf("--download-bundle requires --complete-stream")
-	}
-	if cfg.downloadBundle && cfg.chunks == 0 {
-		return config{}, fmt.Errorf("--download-bundle requires at least one chunk")
-	}
-
-	cfg.chunkSize = chunkSize
-	cfg.apiBase = cleanBaseURL(cfg.apiBase)
-	cfg.viewerBase = cleanBaseURL(cfg.viewerBase)
-	return cfg, nil
+	fmt.Fprintln(out)
+	return encryptionKey, nil
 }
 
-func (c client) createIncident(ctx context.Context) (string, error) {
-	request := map[string]string{
-		"client_label": "simclient",
-		"notes":        "simulated incident",
-	}
-	var response createIncidentResponse
-	if err := c.postJSON(ctx, "/v1/incidents", request, http.StatusCreated, &response); err != nil {
-		return "", fmt.Errorf("create incident: %w", err)
-	}
-	if response.IncidentID == "" {
-		return "", fmt.Errorf("create incident: empty incident_id in response")
-	}
-	return response.IncidentID, nil
-}
-
-func (c client) createEmergencyToken(ctx context.Context, incidentID string) (string, error) {
-	request := map[string]string{"label": "simclient"}
-	var response createEmergencyTokenResponse
-	path := "/v1/incidents/" + url.PathEscape(incidentID) + "/emergency-tokens"
-	if err := c.postJSON(ctx, path, request, http.StatusCreated, &response); err != nil {
-		return "", fmt.Errorf("create emergency token: %w", err)
-	}
-	if response.Token == "" {
-		return "", fmt.Errorf("create emergency token: empty token in response")
-	}
-	return response.Token, nil
-}
-
-func (c client) createMediaStream(ctx context.Context, incidentID, mediaType string) (string, error) {
-	request := map[string]string{
-		"media_type": mediaType,
-		"label":      mediaType + " recording",
-	}
-	var response createMediaStreamResponse
-	path := "/v1/incidents/" + url.PathEscape(incidentID) + "/streams"
-	if err := c.postJSON(ctx, path, request, http.StatusCreated, &response); err != nil {
-		return "", fmt.Errorf("create media stream: %w", err)
-	}
-	if response.Stream.ID == "" {
-		return "", fmt.Errorf("create media stream: empty stream id in response")
-	}
-	return response.Stream.ID, nil
-}
-
-func (c client) createCheckin(ctx context.Context, incidentID string, chunkIndex int) error {
-	battery := 100 - chunkIndex
-	if battery < 1 {
-		battery = 1
-	}
-	request := map[string]any{
-		"device_battery_percent": battery,
-		"device_network":         "simulated",
-		"latitude":               37.7749,
-		"longitude":              -122.4194,
-		"accuracy_meters":        15,
-	}
-	path := "/v1/incidents/" + url.PathEscape(incidentID) + "/checkins"
-	if err := c.postJSON(ctx, path, request, http.StatusCreated, nil); err != nil {
-		return fmt.Errorf("create checkin: %w", err)
-	}
-	return nil
-}
-
-func (c client) completeMediaStream(ctx context.Context, incidentID, streamID string, expectedChunkCount int) error {
-	request := map[string]int{"expected_chunk_count": expectedChunkCount}
-	var response mediaStreamResponse
-	path := "/v1/incidents/" + url.PathEscape(incidentID) + "/streams/" + url.PathEscape(streamID) + "/complete"
-	if err := c.postJSON(ctx, path, request, http.StatusOK, &response); err != nil {
-		return fmt.Errorf("complete media stream: %w", err)
-	}
-	if response.Stream.Status != "complete" {
-		return fmt.Errorf("complete media stream: expected complete status, got %q", response.Stream.Status)
-	}
-	return nil
-}
-
-func (c client) closeIncident(ctx context.Context, incidentID string) error {
-	path := "/v1/incidents/" + url.PathEscape(incidentID) + "/close"
-	if err := c.postJSON(ctx, path, map[string]any{}, http.StatusOK, nil); err != nil {
-		return fmt.Errorf("close incident: %w", err)
-	}
-	return nil
-}
-
-func (c client) downloadStreamBundle(ctx context.Context, token, streamID string) ([]byte, error) {
-	path := "/e/" + url.PathEscape(token) + "/streams/" + url.PathEscape(streamID) + "/download"
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, joinURL(c.viewerBase, path), nil)
-	if err != nil {
-		return nil, err
-	}
-	response, err := c.httpClient.Do(request)
-	if err != nil {
-		return nil, err
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		responseBody, readErr := io.ReadAll(io.LimitReader(response.Body, 64*1024))
-		if readErr != nil {
-			return nil, readErr
+func uploadChunks(ctx context.Context, out io.Writer, sim client, cfg config, incidentID, streamID string, key envelope.Key) error {
+	startedAt := time.Now().UTC()
+	for i := 1; i <= cfg.chunks; i++ {
+		chunk, err := createUploadChunk(cfg, key, incidentID, streamID, i, startedAt)
+		if err != nil {
+			return err
 		}
-		return nil, fmt.Errorf("download bundle: expected status %d, got %d: %s", http.StatusOK, response.StatusCode, strings.TrimSpace(string(responseBody)))
-	}
-	if response.Header.Get("Content-Type") != "application/zip" {
-		return nil, fmt.Errorf("download bundle: expected application/zip, got %q", response.Header.Get("Content-Type"))
-	}
-	body, err := io.ReadAll(response.Body)
-	if err != nil {
-		return nil, fmt.Errorf("download bundle body: %w", err)
-	}
-	return body, nil
-}
-
-func (c client) uploadChunk(ctx context.Context, upload chunkUpload) error {
-	status, body, err := c.postChunk(ctx, upload)
-	if err != nil {
-		return err
-	}
-	if status != http.StatusCreated {
-		return fmt.Errorf("upload chunk: expected status %d, got %d: %s", http.StatusCreated, status, strings.TrimSpace(string(body)))
+		if err := uploadChunkWithOptionalHashFailure(ctx, out, sim, cfg, chunk, i); err != nil {
+			return err
+		}
+		if shouldSendCheckin(i) {
+			fmt.Fprintln(out, "Sending checkin...")
+			if err := sim.createCheckin(ctx, incidentID, i); err != nil {
+				return err
+			}
+		}
+		if i < cfg.chunks && cfg.interval > 0 {
+			time.Sleep(cfg.interval)
+		}
 	}
 	return nil
 }
 
-func (c client) expectHashMismatch(ctx context.Context, upload chunkUpload) error {
-	status, body, err := c.postChunk(ctx, upload)
-	if err != nil {
+func createUploadChunk(cfg config, key envelope.Key, incidentID, streamID string, chunkIndex int, startedAt time.Time) (chunkUpload, error) {
+	if cfg.encrypt {
+		return newEncryptedChunkUpload(key, incidentID, streamID, chunkIndex, cfg.mediaType, cfg.chunkSize, startedAt)
+	}
+	return newChunkUpload(incidentID, streamID, chunkIndex, cfg.mediaType, cfg.chunkSize, startedAt)
+}
+
+func uploadChunkWithOptionalHashFailure(ctx context.Context, out io.Writer, sim client, cfg config, chunk chunkUpload, chunkIndex int) error {
+	if !shouldSimulateFailure(chunkIndex, cfg.simulateFailureEvery) {
+		fmt.Fprintf(out, "Uploading %s%s chunk %d/%d...\n", encryptionLogPrefix(cfg.encrypt), cfg.mediaType, chunkIndex, cfg.chunks)
+		return sim.uploadChunk(ctx, chunk)
+	}
+
+	fmt.Fprintf(out, "Uploading %s%s chunk %d/%d with intentionally bad hash...\n", encryptionLogPrefix(cfg.encrypt), cfg.mediaType, chunkIndex, cfg.chunks)
+	failed := chunk
+	failed.sha256Hex = badHashFor(chunk.sha256Hex)
+	if err := sim.expectHashMismatch(ctx, failed); err != nil {
 		return err
 	}
-	if status != http.StatusBadRequest {
-		return fmt.Errorf("expected hash mismatch status %d, got %d: %s", http.StatusBadRequest, status, strings.TrimSpace(string(body)))
+	fmt.Fprintln(out, "Server rejected chunk as expected.")
+
+	fmt.Fprintf(out, "Retrying %s%s chunk %d/%d with correct hash...\n", encryptionLogPrefix(cfg.encrypt), cfg.mediaType, chunkIndex, cfg.chunks)
+	if err := sim.uploadChunk(ctx, chunk); err != nil {
+		return err
 	}
-	code := errorCode(body)
-	if code != "hash_mismatch" {
-		return fmt.Errorf("expected hash_mismatch error code, got %q: %s", code, strings.TrimSpace(string(body)))
-	}
+	fmt.Fprintln(out, "Retry succeeded.")
 	return nil
 }
 
-func (c client) postJSON(ctx context.Context, path string, payload any, wantStatus int, target any) error {
-	body, err := json.Marshal(payload)
+func downloadAndVerifyBundle(ctx context.Context, out io.Writer, sim client, cfg config, token, incidentID, streamID string, key envelope.Key) error {
+	fmt.Fprintln(out, "Testing emergency stream bundle download...")
+	bundleBytes, err := sim.downloadStreamBundle(ctx, token, streamID)
 	if err != nil {
 		return err
 	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, joinURL(c.apiBase, path), bytes.NewReader(body))
-	if err != nil {
-		return err
-	}
-	request.Header.Set("Content-Type", "application/json")
-
-	response, err := c.httpClient.Do(request)
-	if err != nil {
-		return err
-	}
-	defer response.Body.Close()
-
-	responseBody, err := io.ReadAll(io.LimitReader(response.Body, 64*1024))
-	if err != nil {
-		return err
-	}
-	if response.StatusCode != wantStatus {
-		return fmt.Errorf("expected status %d, got %d: %s", wantStatus, response.StatusCode, strings.TrimSpace(string(responseBody)))
-	}
-	if target == nil {
+	fmt.Fprintln(out, "Downloaded bundle.")
+	if !cfg.encrypt || !cfg.verifyBundleDecrypt {
+		fmt.Fprintln(out, "Bundle download succeeded.")
 		return nil
 	}
-	if err := json.Unmarshal(responseBody, target); err != nil {
-		return fmt.Errorf("decode response: %w", err)
+
+	verified, err := verifyStreamBundleDecryption(bundleBytes, key, incidentID, streamID, cfg.mediaType)
+	if err != nil {
+		return err
 	}
+	fmt.Fprintf(out, "Verified decrypt of %d encrypted chunks.\n", verified)
 	return nil
-}
-
-func (c client) postChunk(ctx context.Context, upload chunkUpload) (int, []byte, error) {
-	var body bytes.Buffer
-	writer := multipart.NewWriter(&body)
-
-	filePart, err := writer.CreateFormFile("file", upload.filename)
-	if err != nil {
-		return 0, nil, err
-	}
-	if _, err := filePart.Write(upload.body); err != nil {
-		return 0, nil, err
-	}
-	fields := map[string]string{
-		"chunk_index":       strconv.Itoa(upload.chunkIndex),
-		"media_type":        upload.mediaType,
-		"started_at":        upload.startedAt.Format(time.RFC3339Nano),
-		"ended_at":          upload.endedAt.Format(time.RFC3339Nano),
-		"sha256_hex":        upload.sha256Hex,
-		"original_filename": upload.filename,
-	}
-	if upload.streamID != "" {
-		fields["stream_id"] = upload.streamID
-	}
-	for name, value := range fields {
-		if err := writer.WriteField(name, value); err != nil {
-			return 0, nil, err
-		}
-	}
-	if err := writer.Close(); err != nil {
-		return 0, nil, err
-	}
-
-	path := "/v1/incidents/" + url.PathEscape(upload.incidentID) + "/chunks"
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, joinURL(c.apiBase, path), &body)
-	if err != nil {
-		return 0, nil, err
-	}
-	request.Header.Set("Content-Type", writer.FormDataContentType())
-
-	response, err := c.httpClient.Do(request)
-	if err != nil {
-		return 0, nil, err
-	}
-	defer response.Body.Close()
-
-	responseBody, err := io.ReadAll(io.LimitReader(response.Body, 64*1024))
-	if err != nil {
-		return response.StatusCode, nil, err
-	}
-	return response.StatusCode, responseBody, nil
-}
-
-func newChunkUpload(incidentID, streamID string, chunkIndex int, mediaType string, size int64, startedAt time.Time) (chunkUpload, error) {
-	body, err := randomChunkBytes(size)
-	if err != nil {
-		return chunkUpload{}, err
-	}
-	return buildChunkUpload(incidentID, streamID, chunkIndex, mediaType, startedAt, body), nil
-}
-
-func newEncryptedChunkUpload(key envelope.Key, incidentID, streamID string, chunkIndex int, mediaType string, size int64, startedAt time.Time) (chunkUpload, error) {
-	plaintext, err := randomChunkBytes(size)
-	if err != nil {
-		return chunkUpload{}, err
-	}
-	body, err := envelope.EncryptChunk(key, chunkContext(incidentID, streamID, mediaType, chunkIndex), plaintext)
-	if err != nil {
-		return chunkUpload{}, fmt.Errorf("encrypt chunk: %w", err)
-	}
-	return buildChunkUpload(incidentID, streamID, chunkIndex, mediaType, startedAt, body), nil
-}
-
-func randomChunkBytes(size int64) ([]byte, error) {
-	if size > int64(int(^uint(0)>>1)) {
-		return nil, fmt.Errorf("chunk size is too large for this platform")
-	}
-	body := make([]byte, int(size))
-	if _, err := rand.Read(body); err != nil {
-		return nil, fmt.Errorf("generate fake chunk bytes: %w", err)
-	}
-	return body, nil
-}
-
-func buildChunkUpload(incidentID, streamID string, chunkIndex int, mediaType string, startedAt time.Time, body []byte) chunkUpload {
-	sum := sha256.Sum256(body)
-	chunkStartedAt := startedAt.Add(time.Duration(chunkIndex-1) * chunkDuration)
-	return chunkUpload{
-		incidentID: incidentID,
-		streamID:   streamID,
-		chunkIndex: chunkIndex,
-		mediaType:  mediaType,
-		startedAt:  chunkStartedAt,
-		endedAt:    chunkStartedAt.Add(chunkDuration),
-		filename:   fmt.Sprintf("%s_%06d.enc", mediaType, chunkIndex),
-		body:       body,
-		sha256Hex:  hex.EncodeToString(sum[:]),
-	}
-}
-
-func parseByteSize(raw string) (int64, error) {
-	value := strings.TrimSpace(raw)
-	if value == "" {
-		return 0, errors.New("empty size")
-	}
-
-	digitsEnd := 0
-	for digitsEnd < len(value) && value[digitsEnd] >= '0' && value[digitsEnd] <= '9' {
-		digitsEnd++
-	}
-	if digitsEnd == 0 {
-		return 0, fmt.Errorf("missing numeric value")
-	}
-
-	amount, err := strconv.ParseInt(value[:digitsEnd], 10, 64)
-	if err != nil {
-		return 0, err
-	}
-	unit := strings.ToLower(strings.TrimSpace(value[digitsEnd:]))
-	multiplier, ok := byteSizeMultipliers()[unit]
-	if !ok {
-		return 0, fmt.Errorf("unsupported unit %q", value[digitsEnd:])
-	}
-	if amount > 0 && multiplier > 0 && amount > (1<<63-1)/multiplier {
-		return 0, fmt.Errorf("size overflows int64")
-	}
-	return amount * multiplier, nil
-}
-
-func byteSizeMultipliers() map[string]int64 {
-	return map[string]int64{
-		"":    1,
-		"b":   1,
-		"k":   1000,
-		"kb":  1000,
-		"kib": 1024,
-		"m":   1000 * 1000,
-		"mb":  1000 * 1000,
-		"mib": 1024 * 1024,
-		"g":   1000 * 1000 * 1000,
-		"gb":  1000 * 1000 * 1000,
-		"gib": 1024 * 1024 * 1024,
-	}
-}
-
-func loadOrCreateSimulatorKey(path string) (envelope.Key, error) {
-	if path == "" {
-		key, err := envelope.GenerateKey()
-		if err != nil {
-			return envelope.Key{}, fmt.Errorf("generate ephemeral encryption key: %w", err)
-		}
-		return key, nil
-	}
-
-	key, err := envelope.LoadKeyFile(path)
-	if err == nil {
-		return key, nil
-	}
-	if !errors.Is(err, os.ErrNotExist) {
-		return envelope.Key{}, fmt.Errorf("load key file: %w", err)
-	}
-	key, err = envelope.GenerateKey()
-	if err != nil {
-		return envelope.Key{}, fmt.Errorf("generate encryption key: %w", err)
-	}
-	if err := envelope.SaveKeyFile(path, key); err != nil {
-		return envelope.Key{}, fmt.Errorf("save key file: %w", err)
-	}
-	return key, nil
-}
-
-func verifyStreamBundleDecryption(bundleBytes []byte, key envelope.Key, incidentID, streamID, mediaType string) (int, error) {
-	reader, err := zip.NewReader(bytes.NewReader(bundleBytes), int64(len(bundleBytes)))
-	if err != nil {
-		return 0, fmt.Errorf("open bundle zip: %w", err)
-	}
-	entries := make(map[string][]byte, len(reader.File))
-	for _, file := range reader.File {
-		handle, err := file.Open()
-		if err != nil {
-			return 0, fmt.Errorf("open bundle entry %s: %w", file.Name, err)
-		}
-		body, readErr := io.ReadAll(handle)
-		closeErr := handle.Close()
-		if readErr != nil {
-			return 0, fmt.Errorf("read bundle entry %s: %w", file.Name, readErr)
-		}
-		if closeErr != nil {
-			return 0, fmt.Errorf("close bundle entry %s: %w", file.Name, closeErr)
-		}
-		entries[file.Name] = body
-	}
-
-	manifestBody, ok := entries["manifest.json"]
-	if !ok {
-		return 0, fmt.Errorf("bundle manifest.json is missing")
-	}
-	var manifest streamBundleManifest
-	if err := json.Unmarshal(manifestBody, &manifest); err != nil {
-		return 0, fmt.Errorf("decode bundle manifest: %w", err)
-	}
-	if manifest.IncidentID != incidentID {
-		return 0, fmt.Errorf("bundle incident_id %q does not match %q", manifest.IncidentID, incidentID)
-	}
-	if manifest.StreamID != streamID {
-		return 0, fmt.Errorf("bundle stream_id %q does not match %q", manifest.StreamID, streamID)
-	}
-	if manifest.MediaType != mediaType {
-		return 0, fmt.Errorf("bundle media_type %q does not match %q", manifest.MediaType, mediaType)
-	}
-
-	verified := 0
-	for _, chunk := range manifest.Chunks {
-		chunkMediaType := chunk.MediaType
-		if chunkMediaType == "" {
-			chunkMediaType = manifest.MediaType
-		}
-		entryName := fmt.Sprintf("chunks/%s_%06d.enc", chunkMediaType, chunk.ChunkIndex)
-		ciphertext, ok := entries[entryName]
-		if !ok {
-			return 0, fmt.Errorf("bundle chunk entry %s is missing", entryName)
-		}
-		if chunk.SHA256Hex != "" && sha256Hex(ciphertext) != chunk.SHA256Hex {
-			return 0, fmt.Errorf("bundle chunk entry %s hash mismatch", entryName)
-		}
-		if _, err := envelope.DecryptChunk(key, chunkContext(manifest.IncidentID, manifest.StreamID, chunkMediaType, chunk.ChunkIndex), ciphertext); err != nil {
-			return 0, fmt.Errorf("decrypt bundle chunk %s: %w", entryName, err)
-		}
-		verified++
-	}
-	if verified == 0 {
-		return 0, fmt.Errorf("bundle has no encrypted chunks to verify")
-	}
-	if manifest.ChunkCount != 0 && verified != manifest.ChunkCount {
-		return 0, fmt.Errorf("verified %d chunks, manifest expected %d", verified, manifest.ChunkCount)
-	}
-	return verified, nil
-}
-
-func chunkContext(incidentID, streamID, mediaType string, chunkIndex int) envelope.ChunkContext {
-	return envelope.ChunkContext{
-		IncidentID: incidentID,
-		StreamID:   streamID,
-		MediaType:  mediaType,
-		ChunkIndex: chunkIndex,
-	}
-}
-
-func sha256Hex(payload []byte) string {
-	sum := sha256.Sum256(payload)
-	return hex.EncodeToString(sum[:])
-}
-
-func buildViewerURL(viewerBase, token string) string {
-	return joinURL(cleanBaseURL(viewerBase), "/e/"+url.PathEscape(token))
-}
-
-func joinURL(base, path string) string {
-	return strings.TrimRight(base, "/") + "/" + strings.TrimLeft(path, "/")
-}
-
-func cleanBaseURL(value string) string {
-	return strings.TrimRight(strings.TrimSpace(value), "/")
-}
-
-func shouldSimulateFailure(chunkIndex, every int) bool {
-	return every > 0 && chunkIndex%every == 0
-}
-
-func shouldSendCheckin(chunkIndex int) bool {
-	return chunkIndex == 1 || chunkIndex%defaultCheckinEvery == 0
-}
-
-func encryptionLogPrefix(enabled bool) string {
-	if enabled {
-		return "encrypted "
-	}
-	return ""
-}
-
-func badHashFor(hash string) string {
-	if len(hash) != 64 {
-		return strings.Repeat("0", 64)
-	}
-	if hash[0] == '0' {
-		return "1" + hash[1:]
-	}
-	return "0" + hash[1:]
-}
-
-func errorCode(body []byte) string {
-	var apiError apiErrorResponse
-	if err := json.Unmarshal(body, &apiError); err != nil {
-		return ""
-	}
-	return apiError.Error.Code
-}
-
-func validMediaType(mediaType string) bool {
-	switch mediaType {
-	case "audio", "video", "location", "metadata":
-		return true
-	default:
-		return false
-	}
 }
