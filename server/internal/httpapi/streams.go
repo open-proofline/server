@@ -145,17 +145,6 @@ func (a *API) failMediaStream(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]incidents.MediaStream{"stream": updated})
 }
 
-func (a *API) ensureIncidentExists(w http.ResponseWriter, r *http.Request, incidentID string) bool {
-	if _, err := a.repo.GetIncident(r.Context(), incidentID); errors.Is(err, incidents.ErrNotFound) {
-		writeError(w, http.StatusNotFound, "incident_not_found", "incident was not found")
-		return false
-	} else if err != nil {
-		a.internalError(w, "get incident", err)
-		return false
-	}
-	return true
-}
-
 func (a *API) loadMediaStream(w http.ResponseWriter, r *http.Request) (incidents.MediaStream, bool) {
 	incidentID := r.PathValue("incident_id")
 	if !a.ensureIncidentExists(w, r, incidentID) {
