@@ -1,6 +1,21 @@
 # Codex Prompts
 
+## Reusable prompts
+
 Reusable prompts live in `codex/prompts/`.
+
+Use reusable prompts in this rough order:
+
+1. `00-project-context-check.md`
+2. `10-readability-maintenance.md`
+3. `20-code-review.md`
+4. `30-security-review.md`
+5. `40-documentation-update.md`
+6. `50-mdn-web-security-header-review.md`, for web-facing changes
+7. `60-simulator-maintenance.md`, for API/client-flow changes
+8. `90-release-check.md`, before tagging
+
+Historical prompts are reference material only and are not part of the normal flow.
 
 Historical one-off prompts live in `codex/archive/`, `codex/features/`, and `codex/refactors/`. Do not re-run historical prompts without checking them against the current project `README.md` and `AGENTS.md`.
 
