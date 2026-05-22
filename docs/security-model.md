@@ -46,16 +46,17 @@ Bundle manifests may include a non-secret client-side encryption hint. They do n
 
 Request logging records method, redacted route pattern, status, byte count, and duration. It does not log request bodies, uploaded bytes, Authorization headers, or raw emergency tokens.
 
-Emergency viewer responses use:
+The Go app sets these headers on public emergency viewer pages, JSON responses, static assets, and ZIP downloads:
 
 - `Content-Security-Policy`
 - `X-Content-Type-Options: nosniff`
 - `Referrer-Policy: no-referrer`
 - `Permissions-Policy: geolocation=(), microphone=(), camera=()`
 - `X-Frame-Options: DENY`
-- `Cache-Control: no-store` for token-protected content and downloads
 
-HSTS is not enabled by default in the Go app because local development uses plain HTTP. Add HSTS at the HTTPS deployment edge after TLS is established.
+Token-protected emergency pages, JSON responses, errors, and ZIP downloads also use `Cache-Control: no-store`. Private API JSON responses use `Content-Type: application/json`, `X-Content-Type-Options: nosniff`, and `Cache-Control: no-store`.
+
+HSTS is not enabled by default in the Go app because local development uses plain HTTP and HSTS should only be sent over HTTPS. Set `Strict-Transport-Security` at the production HTTPS reverse proxy after TLS is established for the public hostname. After deployment, test the public emergency viewer with the MDN HTTP Observatory.
 
 ## Known Security Gaps
 

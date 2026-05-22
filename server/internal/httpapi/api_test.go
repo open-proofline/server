@@ -99,6 +99,19 @@ func TestPrivateAPIJSONSecurityHeaders(t *testing.T) {
 	assertPrivateJSONSecurityHeaders(t, response)
 }
 
+func TestPrivateAPIErrorSecurityHeaders(t *testing.T) {
+	app := newTestApp(t)
+
+	response, body := get(t, app, "/v1/incidents/inc_missing")
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusNotFound {
+		t.Fatalf("expected missing incident status 404, got %d: %s", response.StatusCode, body)
+	}
+	assertPrivateJSONSecurityHeaders(t, response)
+	assertErrorCode(t, body, "incident_not_found")
+}
+
 func TestGetIncidentReturnsEmptyArrays(t *testing.T) {
 	app := newTestApp(t)
 	incidentID := createIncident(t, app, `{}`)
@@ -828,6 +841,7 @@ func TestValidEmergencyTokenCanReadIncidentData(t *testing.T) {
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("expected emergency page status 200, got %d: %s", response.StatusCode, body)
 	}
+	assertContentTypePrefix(t, response, "text/html")
 	assertEmergencyPrivacyHeaders(t, response)
 	if !bytes.Contains(body, []byte(`name="referrer" content="no-referrer"`)) {
 		t.Fatalf("expected no-referrer meta tag in response: %s", body)
@@ -866,7 +880,9 @@ func TestEmergencyStaticAssetsAreServed(t *testing.T) {
 	if !bytes.Contains(body, []byte(".warning")) {
 		t.Fatalf("expected stylesheet content, got: %s", body)
 	}
+	assertContentTypePrefix(t, response, "text/css")
 	assertPublicBrowserSecurityHeaders(t, response)
+	assertNoStrictTransportSecurity(t, response)
 
 	response, body = getPublic(t, app, "/static/scripts.js")
 	defer response.Body.Close()
@@ -876,7 +892,9 @@ func TestEmergencyStaticAssetsAreServed(t *testing.T) {
 	if !bytes.Contains(body, []byte("setInterval")) {
 		t.Fatalf("expected script content, got: %s", body)
 	}
+	assertContentTypeContains(t, response, "javascript")
 	assertPublicBrowserSecurityHeaders(t, response)
+	assertNoStrictTransportSecurity(t, response)
 }
 
 func TestExpiredEmergencyTokenIsRejected(t *testing.T) {
@@ -1351,6 +1369,24 @@ func assertPrivateJSONSecurityHeaders(t *testing.T, response *http.Response) {
 	assertNoStore(t, response)
 }
 
+func assertContentTypePrefix(t *testing.T, response *http.Response, prefix string) {
+	t.Helper()
+
+	contentType := response.Header.Get("Content-Type")
+	if !strings.HasPrefix(contentType, prefix) {
+		t.Fatalf("expected Content-Type prefix %q, got %q", prefix, contentType)
+	}
+}
+
+func assertContentTypeContains(t *testing.T, response *http.Response, value string) {
+	t.Helper()
+
+	contentType := response.Header.Get("Content-Type")
+	if !strings.Contains(contentType, value) {
+		t.Fatalf("expected Content-Type containing %q, got %q", value, contentType)
+	}
+}
+
 func assertNoSniff(t *testing.T, response *http.Response) {
 	t.Helper()
 
@@ -1364,6 +1400,14 @@ func assertNoStore(t *testing.T, response *http.Response) {
 
 	if response.Header.Get("Cache-Control") != "no-store" {
 		t.Fatalf("expected no-store cache policy, got %q", response.Header.Get("Cache-Control"))
+	}
+}
+
+func assertNoStrictTransportSecurity(t *testing.T, response *http.Response) {
+	t.Helper()
+
+	if value := response.Header.Get("Strict-Transport-Security"); value != "" {
+		t.Fatalf("expected no app-level Strict-Transport-Security header in local/dev HTTP mode, got %q", value)
 	}
 }
 
