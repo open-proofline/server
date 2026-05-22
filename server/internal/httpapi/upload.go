@@ -172,6 +172,8 @@ func parseChunkFields(w http.ResponseWriter, fields map[string]string, partFilen
 	}
 
 	streamID := requiredField(fields, "stream_id")
+	// Legacy unstreamed uploads may use index 0. Streams start at 1 so
+	// completion checks can require contiguous chunks without a zero slot.
 	if streamID != "" && chunkIndex <= 0 {
 		writeError(w, http.StatusBadRequest, "invalid_chunk_index", "chunk_index must be positive when stream_id is provided")
 		return chunkUpload{}, false
