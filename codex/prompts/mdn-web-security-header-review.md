@@ -8,7 +8,7 @@ Do not change endpoint behaviour unless required to fix a security bug.
 
 ## Goal
 
-Ensure the web server's security headers and browser-facing behaviour are consistent with MDN-documented best practices for a small server-rendered emergency viewer.
+Ensure the web server's security headers and browser-facing behaviour are MDN-aligned for a small server-rendered emergency viewer.
 
 Use MDN guidance conceptually for:
 
@@ -20,7 +20,7 @@ Use MDN guidance conceptually for:
 - X-Frame-Options or CSP `frame-ancestors`
 - Cache-Control for token-protected emergency pages/downloads
 
-## Important project context
+## Project context
 
 The app has two server surfaces:
 
@@ -40,7 +40,8 @@ Check:
 
 - public emergency HTML responses
 - public emergency JSON responses
-- ZIP bundle download responses
+- stream ZIP download responses
+- incident ZIP download responses
 - private API JSON responses
 - 404/error responses
 - static CSS responses, if present
@@ -106,7 +107,8 @@ Add or update tests to verify security headers for:
 
 - emergency viewer HTML
 - emergency viewer JSON data endpoint
-- stream/incident ZIP download responses
+- stream ZIP download responses
+- incident ZIP download responses
 - private API JSON responses where appropriate
 - 404/error responses
 
