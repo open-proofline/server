@@ -146,6 +146,16 @@ AI assistance does not replace human responsibility. The maintainer remains resp
 
 Use of Codex does not imply endorsement, audit, certification, or maintenance by OpenAI.
 
+## Backlog workflow
+
+Use `80-backlog-scan-issue-drafts.md` to generate reviewed issue drafts under `.backlog-drafts/`.
+
+Review those drafts manually before creating GitHub issues.
+
+Only after review, use `85-create-github-issues-from-drafts.md` to generate a script that creates GitHub issues with `gh issue create`.
+
+Do not let Codex create GitHub issues directly during the initial scan.
+
 ## Security
 
 Emergency viewer links are bearer-token URLs and should be treated as secrets. Public deployment still needs TLS, rate limiting, log review, retention policy, proxy hardening, and operational testing. Do not expose `/v1` publicly as-is.

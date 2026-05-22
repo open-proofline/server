@@ -20,6 +20,9 @@
 - Treat Codex prompts as scoped change requests, not open-ended permission to expand the project.
 - Do not implement newly discovered future work during an unrelated task; document it as an issue/backlog item instead.
 - For larger changes, start from a clean working tree or an explicit checkpoint commit.
+- Backlog scanning should create draft Markdown files first, not GitHub issues directly.
+- Do not create public GitHub issues from backlog drafts until the maintainer has reviewed them.
+- Never put raw tokens, secrets, private deployment details, exploit details, or user safety data into public issue drafts.
 
 ## Current project shape
 
