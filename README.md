@@ -93,6 +93,8 @@ Configuration is read from environment variables:
 
 `SAFE_PRIVATE_BIND_ADDRS` and `SAFE_PUBLIC_BIND_ADDRS` are comma-separated `host:port` lists. Empty entries are rejected, so values like `,` or `127.0.0.1:8080,,10.66.0.1:8080` fail configuration loading. The older singular variables `SAFE_PRIVATE_BIND_ADDR` and `SAFE_PUBLIC_BIND_ADDR` are still supported when the matching plural variable is unset; plural variables take precedence.
 
+`SAFE_MAX_UPLOAD_BYTES` accepts a positive byte count or a binary unit suffix: `B`, `K`/`KB`, `M`/`MB`, or `G`/`GB`. Fractional unit values are allowed when they resolve to at least one byte, for example `0.5KB`. Non-positive, sub-byte, invalid, and oversized values are rejected during startup.
+
 Example:
 
 ```bash

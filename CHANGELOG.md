@@ -8,6 +8,7 @@
 - Updated the emergency viewer to show completed-stream download buttons.
 - Updated the simulator to create and complete streams and optionally verify bundle download.
 - Hardened emergency viewer and API response security headers.
+- Hardened `SAFE_MAX_UPLOAD_BYTES` parsing and upload-limit overflow handling.
 
 ## v0.2.1
 

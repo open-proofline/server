@@ -22,6 +22,7 @@ This document describes the current backend-only v0.2.1 security posture. It is 
 ## Current Controls
 
 - Uploads stream to `data/tmp` while computing SHA-256 and enforcing `SAFE_MAX_UPLOAD_BYTES`.
+- Upload-limit configuration rejects non-positive, sub-byte, invalid, and oversized values before request-size limits are applied.
 - Uploaded bytes are committed only after hash verification.
 - Final chunk storage uses no-overwrite hard links.
 - SQLite enforces media type, chunk index, byte size, SHA-256 shape, foreign keys, and unique chunk identity.
