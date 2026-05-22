@@ -10,6 +10,7 @@ server/
   cmd/simclient    simulator CLI
   internal/config  environment configuration
   internal/db      SQLite setup and migrations
+  internal/envelope client-side chunk encryption envelope helpers
   internal/httpapi HTTP handlers, muxes, middleware, bundles, web assets
   internal/incidents incident, stream, chunk, checkin, and token repository code
   internal/storage local immutable blob storage

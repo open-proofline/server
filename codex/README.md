@@ -36,12 +36,13 @@ Historical one-off prompts live in `codex/archive/`, `codex/features/`, and `cod
 
 Use these reusable prompts first:
 
-- `codex/prompts/code-review.md`
-- `codex/prompts/security-review.md`
-- `codex/prompts/documentation-update.md`
-- `codex/prompts/readability-maintenance.md`
-- `codex/prompts/mdn-web-security-header-review.md`
-- `codex/prompts/simulator-maintenance.md`
+- `codex/prompts/00-project-context-check.md`
+- `codex/prompts/10-readability-maintenance.md`
+- `codex/prompts/20-code-review.md`
+- `codex/prompts/30-security-review.md`
+- `codex/prompts/40-documentation-update.md`
+- `codex/prompts/50-mdn-web-security-header-review.md`
+- `codex/prompts/60-simulator-maintenance.md`
 
 Use historical prompts only as reference material.
 

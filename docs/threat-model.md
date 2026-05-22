@@ -1,6 +1,6 @@
 # Threat Model
 
-This document describes the current backend-only v0.3.0 security posture. It is intentionally conservative and does not claim production readiness.
+This document describes the current backend-only security posture. It is intentionally conservative and does not claim production readiness.
 
 ## Assets
 
@@ -57,7 +57,7 @@ This document describes the current backend-only v0.3.0 security posture. It is 
 
 ## Deployment Guidance
 
-For local/private v0.3.0 use, bind the private API server to localhost or a private network and restrict access with WireGuard, firewall rules, or a reverse proxy. If any part is exposed publicly, expose only the emergency viewer server unless `/v1` has an additional authenticated control plane in front of it. Inside Docker containers, bind to container addresses such as `0.0.0.0:8080` and restrict host exposure with port publishing, firewall rules, WireGuard, or reverse proxy configuration.
+For local/private use, bind the private API server to localhost or a private network and restrict access with WireGuard, firewall rules, or a reverse proxy. If any part is exposed publicly, expose only the emergency viewer server unless `/v1` has an additional authenticated control plane in front of it. Inside Docker containers, bind to container addresses such as `0.0.0.0:8080` and restrict host exposure with port publishing, firewall rules, WireGuard, or reverse proxy configuration.
 
 Use TLS at the edge for any network access. Keep reverse-proxy logs from recording raw `/e/{token}` paths.
 

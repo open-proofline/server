@@ -1,6 +1,6 @@
 # API
 
-This is the current backend-only v0.3.0 HTTP surface. The API binary starts private API listeners and public emergency viewer listeners on one or more configured bind addresses. The `/v1` routes are private and unauthenticated. The emergency viewer routes are token-gated and read-only. The planned iOS recording client is not part of this repository yet.
+This is the current backend-only HTTP surface. The API binary starts private API listeners and public emergency viewer listeners on one or more configured bind addresses. The `/v1` routes are private and unauthenticated. The emergency viewer routes are token-gated and read-only. The planned iOS recording client is not part of this repository yet.
 
 Media bundle downloads are encrypted chunk bundles. The backend does not decrypt, merge, or produce playable media. The simulator's current encrypted uploads use the envelope documented in [encryption.md](encryption.md), but the API treats uploaded bytes as opaque ciphertext.
 
