@@ -6,8 +6,8 @@ Safety Recorder is a private personal-safety recording backend. It is not produc
 
 | Version | Supported |
 |---|---|
-| 3.x | Yes |
-| < 3 | No |
+| 0.4.x | Yes |
+| < 0.4 | No |
 
 ## Reporting a Vulnerability
 

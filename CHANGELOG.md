@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-## v3.1.0 - 2026-05-23
+## v0.4.0 - 2026-05-23
 
 - Added documented v1 client-side chunk encryption envelope using AES-256-GCM for simulator/test flows.
 - Updated the simulator to encrypt fake chunks by default, support local key files, and decrypt-verify downloaded stream bundles.
