@@ -17,16 +17,25 @@ const (
 
 // Config contains the runtime settings needed by the API server.
 type Config struct {
-	PrivateBindAddr string
-	PublicBindAddr  string
-	DataDir         string
-	DBPath          string
-	MaxUploadBytes  int64
+	PrivateBindAddrs []string
+	PublicBindAddrs  []string
+	DataDir          string
+	DBPath           string
+	MaxUploadBytes   int64
 }
 
 // Load reads configuration from environment variables and applies v0.2.0
 // defaults for unset values.
 func Load() (Config, error) {
+	privateBindAddrs, err := bindAddrsFromEnv("SAFE_PRIVATE_BIND_ADDRS", "SAFE_PRIVATE_BIND_ADDR", defaultPrivateBindAddr)
+	if err != nil {
+		return Config{}, err
+	}
+	publicBindAddrs, err := bindAddrsFromEnv("SAFE_PUBLIC_BIND_ADDRS", "SAFE_PUBLIC_BIND_ADDR", defaultPublicBindAddr)
+	if err != nil {
+		return Config{}, err
+	}
+
 	maxUploadBytes := defaultMaxUploadBytes
 	if raw := os.Getenv("SAFE_MAX_UPLOAD_BYTES"); raw != "" {
 		parsed, err := parseBytes(raw)
@@ -37,12 +46,46 @@ func Load() (Config, error) {
 	}
 
 	return Config{
-		PrivateBindAddr: envOrDefault("SAFE_PRIVATE_BIND_ADDR", defaultPrivateBindAddr),
-		PublicBindAddr:  envOrDefault("SAFE_PUBLIC_BIND_ADDR", defaultPublicBindAddr),
-		DataDir:         envOrDefault("SAFE_DATA_DIR", defaultDataDir),
-		DBPath:          envOrDefault("SAFE_DB_PATH", defaultDBPath),
-		MaxUploadBytes:  maxUploadBytes,
+		PrivateBindAddrs: privateBindAddrs,
+		PublicBindAddrs:  publicBindAddrs,
+		DataDir:          envOrDefault("SAFE_DATA_DIR", defaultDataDir),
+		DBPath:           envOrDefault("SAFE_DB_PATH", defaultDBPath),
+		MaxUploadBytes:   maxUploadBytes,
 	}, nil
+}
+
+func bindAddrsFromEnv(pluralName, singularName, fallback string) ([]string, error) {
+	if raw, ok := os.LookupEnv(pluralName); ok {
+		addrs, err := parseBindAddrs(raw)
+		if err != nil {
+			return nil, fmt.Errorf("parse %s: %w", pluralName, err)
+		}
+		return addrs, nil
+	}
+	if raw, ok := os.LookupEnv(singularName); ok {
+		addrs, err := parseBindAddrs(raw)
+		if err != nil {
+			return nil, fmt.Errorf("parse %s: %w", singularName, err)
+		}
+		return addrs, nil
+	}
+	return []string{fallback}, nil
+}
+
+func parseBindAddrs(raw string) ([]string, error) {
+	parts := strings.Split(raw, ",")
+	addrs := make([]string, 0, len(parts))
+	for index, part := range parts {
+		addr := strings.TrimSpace(part)
+		if addr == "" {
+			return nil, fmt.Errorf("bind address list contains empty entry at position %d", index+1)
+		}
+		addrs = append(addrs, addr)
+	}
+	if len(addrs) == 0 {
+		return nil, fmt.Errorf("bind address list must contain at least one address")
+	}
+	return addrs, nil
 }
 
 func envOrDefault(name, fallback string) string {

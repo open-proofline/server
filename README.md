@@ -28,16 +28,16 @@ The planned system is:
 ```text
 iOS app
   → WireGuard/private network
-      → private backend write API on `SAFE_PRIVATE_BIND_ADDR`
+      → private backend write API on `SAFE_PRIVATE_BIND_ADDRS`
 
 trusted contact
   → HTTPS emergency viewer link
-      → public emergency viewer on `SAFE_PUBLIC_BIND_ADDR`
+      → public emergency viewer on `SAFE_PUBLIC_BIND_ADDRS`
 ```
 
 ## Security Warning
 
-The v0.2.0 API binary starts two HTTP servers: a private `/v1` write/admin API and a public-shaped emergency viewer. Separate ports are a deployment boundary, not a complete security model. The private server has no public user authentication, no user accounts, no OAuth, and no JWT protection, so it must stay behind localhost, WireGuard, a firewall, or a strict reverse proxy.
+The v0.2.0 API binary starts separate listener groups: private `/v1` write/admin listeners and public-shaped emergency viewer listeners. Separate bind addresses are a deployment boundary, not a complete security model. The private server has no public user authentication, no user accounts, no OAuth, and no JWT protection, so it must stay behind localhost, WireGuard, a firewall, or a strict reverse proxy.
 
 Do not treat this as production-ready public infrastructure. Public deployment still needs TLS, rate limiting, access control for `/v1`, operational logging review, retention policy, and proxy hardening.
 
@@ -81,11 +81,21 @@ Configuration is read from environment variables:
 
 | Variable | Default |
 |---|---|
-| `SAFE_PRIVATE_BIND_ADDR` | `127.0.0.1:8080` |
-| `SAFE_PUBLIC_BIND_ADDR` | `127.0.0.1:8081` |
+| `SAFE_PRIVATE_BIND_ADDRS` | `127.0.0.1:8080` |
+| `SAFE_PUBLIC_BIND_ADDRS` | `127.0.0.1:8081` |
 | `SAFE_DATA_DIR` | `./data` |
 | `SAFE_DB_PATH` | `./data/safety.db` |
 | `SAFE_MAX_UPLOAD_BYTES` | `250MB` |
+
+`SAFE_PRIVATE_BIND_ADDRS` and `SAFE_PUBLIC_BIND_ADDRS` are comma-separated `host:port` lists. Empty entries are rejected, so values like `,` or `127.0.0.1:8080,,10.66.0.1:8080` fail configuration loading. The older singular variables `SAFE_PRIVATE_BIND_ADDR` and `SAFE_PUBLIC_BIND_ADDR` are still supported when the matching plural variable is unset; plural variables take precedence.
+
+Example:
+
+```bash
+SAFE_PRIVATE_BIND_ADDRS=127.0.0.1:8080,10.66.0.1:8080 \
+SAFE_PUBLIC_BIND_ADDRS=127.0.0.1:8081 \
+go run ./cmd/api
+```
 
 ## Simulate An Incident
 
@@ -125,13 +135,13 @@ The container defaults are:
 
 | Variable | Container default |
 |---|---|
-| `SAFE_PRIVATE_BIND_ADDR` | `0.0.0.0:8080` |
-| `SAFE_PUBLIC_BIND_ADDR` | `0.0.0.0:8081` |
+| `SAFE_PRIVATE_BIND_ADDRS` | `0.0.0.0:8080` |
+| `SAFE_PUBLIC_BIND_ADDRS` | `0.0.0.0:8081` |
 | `SAFE_DATA_DIR` | `/data` |
 | `SAFE_DB_PATH` | `/data/safety.db` |
 | `SAFE_MAX_UPLOAD_BYTES` | `250MB` |
 
-The example `docker run` command publishes both ports on localhost. Keep the private API port behind WireGuard, a firewall, or an equivalent private boundary.
+Inside containers, binding directly to host IP addresses may not work unless using host networking. Bind inside the container, usually to `0.0.0.0`, then restrict exposure with Docker port publishing, firewall rules, WireGuard, or a reverse proxy. The example `docker run` command publishes both ports on localhost. Keep the private API port behind WireGuard, a firewall, or an equivalent private boundary.
 
 ## Data Directory Layout
 

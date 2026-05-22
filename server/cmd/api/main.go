@@ -48,46 +48,70 @@ func run(logger *slog.Logger) error {
 
 	repo := incidents.NewRepository(conn)
 	apiOptions := httpapi.Options{MaxUploadBytes: cfg.MaxUploadBytes, Logger: logger}
-	privateServer := &http.Server{
-		Addr:              cfg.PrivateBindAddr,
-		Handler:           httpapi.NewPrivate(repo, blobStore, apiOptions),
-		ReadHeaderTimeout: 10 * time.Second,
-	}
-	publicServer := &http.Server{
-		Addr:              cfg.PublicBindAddr,
-		Handler:           httpapi.NewPublic(repo, blobStore, apiOptions),
-		ReadHeaderTimeout: 10 * time.Second,
-	}
+	privateHandler := httpapi.NewPrivate(repo, blobStore, apiOptions)
+	publicHandler := httpapi.NewPublic(repo, blobStore, apiOptions)
+	servers := newHTTPServers(cfg, privateHandler, publicHandler)
 
-	errCh := make(chan error, 2)
-	startServer(errCh, logger, "private api", privateServer)
-	startServer(errCh, logger, "public emergency viewer", publicServer)
+	errCh := make(chan error, len(servers))
+	for _, server := range servers {
+		startServer(errCh, logger, server)
+	}
 
 	select {
 	case <-ctx.Done():
-		return shutdownServers([]*http.Server{privateServer, publicServer})
+		return shutdownServers(servers)
 	case err := <-errCh:
-		_ = shutdownServers([]*http.Server{privateServer, publicServer})
+		_ = shutdownServers(servers)
 		return err
 	}
 }
 
-func startServer(errCh chan<- error, logger *slog.Logger, name string, server *http.Server) {
+type namedServer struct {
+	name   string
+	server *http.Server
+}
+
+func newHTTPServers(cfg config.Config, privateHandler, publicHandler http.Handler) []namedServer {
+	servers := make([]namedServer, 0, len(cfg.PrivateBindAddrs)+len(cfg.PublicBindAddrs))
+	for _, addr := range cfg.PrivateBindAddrs {
+		servers = append(servers, namedServer{
+			name: "private api",
+			server: &http.Server{
+				Addr:              addr,
+				Handler:           privateHandler,
+				ReadHeaderTimeout: 10 * time.Second,
+			},
+		})
+	}
+	for _, addr := range cfg.PublicBindAddrs {
+		servers = append(servers, namedServer{
+			name: "public emergency viewer",
+			server: &http.Server{
+				Addr:              addr,
+				Handler:           publicHandler,
+				ReadHeaderTimeout: 10 * time.Second,
+			},
+		})
+	}
+	return servers
+}
+
+func startServer(errCh chan<- error, logger *slog.Logger, named namedServer) {
 	go func() {
-		logger.Info("starting "+name+" server", "addr", server.Addr)
-		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			errCh <- fmt.Errorf("%s server: %w", name, err)
+		logger.Info("starting "+named.name+" server", "addr", named.server.Addr)
+		if err := named.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errCh <- fmt.Errorf("%s server %s: %w", named.name, named.server.Addr, err)
 		}
 	}()
 }
 
-func shutdownServers(servers []*http.Server) error {
+func shutdownServers(servers []namedServer) error {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	var shutdownErr error
-	for _, server := range servers {
-		if err := server.Shutdown(shutdownCtx); err != nil && shutdownErr == nil {
+	for _, named := range servers {
+		if err := named.server.Shutdown(shutdownCtx); err != nil && shutdownErr == nil {
 			shutdownErr = err
 		}
 	}

@@ -5,9 +5,9 @@ Safety Recorder currently contains the Go backend for a private personal-safety 
 ## Package Layout
 
 - `.github/workflows/ci.yml`: runs Go tests on pull requests and pushes, builds a Linux amd64 binary artifact, builds the Docker image, and publishes it to GitHub Container Registry on `main` and `v*` tag pushes.
-- `server/cmd/api`: starts the private API and public emergency viewer HTTP servers, loads config, opens SQLite, creates storage, wires handlers, and handles graceful shutdown.
+- `server/cmd/api`: starts one private API HTTP server per private bind address and one public emergency viewer HTTP server per public bind address, loads config, opens SQLite, creates storage, wires shared handlers, and handles graceful shutdown.
 - `server/cmd/simclient`: simulates the future iOS client by creating an incident, creating an emergency viewer token, uploading fake encrypted chunks, sending periodic checkins, and optionally testing hash-failure retry behavior.
-- `server/internal/config`: reads environment variables such as private/public bind addresses, data directory, database path, and max upload size.
+- `server/internal/config`: reads environment variables such as private/public bind address lists, legacy singular bind addresses, data directory, database path, and max upload size.
 - `server/internal/db`: opens SQLite, enables foreign keys and WAL mode, and applies embedded migrations.
 - `server/internal/httpapi`: owns separate private/public muxes, JSON responses, request logging, recovery, request validation, upload handling, and the emergency viewer.
 - `server/internal/incidents`: defines incident/chunk/checkin models and writes metadata to SQLite.

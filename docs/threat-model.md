@@ -12,8 +12,8 @@ This document describes the current backend-only v0.2.0 security posture. It is 
 
 ## Trust Boundaries
 
-- The private API server binds separately from the public emergency viewer server. By default it listens on `127.0.0.1:8080`.
-- The public emergency viewer server binds separately from the private API server. By default it listens on `127.0.0.1:8081`.
+- The private API server binds separately from the public emergency viewer server. By default it listens on `127.0.0.1:8080`, and it can listen on multiple addresses through `SAFE_PRIVATE_BIND_ADDRS`.
+- The public emergency viewer server binds separately from the private API server. By default it listens on `127.0.0.1:8081`, and it can listen on multiple addresses through `SAFE_PUBLIC_BIND_ADDRS`.
 - `/v1` routes are private/admin routes. They can create incidents, upload chunks, close incidents, create emergency tokens, revoke tokens, and read encrypted bytes. They are mounted only on the private API server.
 - `/e/{token}` and `/e/{token}/data` are public-shaped read-only routes gated by an emergency token. They are mounted only on the public emergency viewer server.
 - Static assets under `/static/` are embedded and token-neutral.
@@ -47,7 +47,7 @@ This document describes the current backend-only v0.2.0 security posture. It is 
 
 ## Deployment Guidance
 
-For local/private v0.2.0 use, bind the private API server to localhost or a private network and restrict access with WireGuard, firewall rules, or a reverse proxy. If any part is exposed publicly, expose only the emergency viewer server unless `/v1` has an additional authenticated control plane in front of it.
+For local/private v0.2.0 use, bind the private API server to localhost or a private network and restrict access with WireGuard, firewall rules, or a reverse proxy. If any part is exposed publicly, expose only the emergency viewer server unless `/v1` has an additional authenticated control plane in front of it. Inside Docker containers, bind to container addresses such as `0.0.0.0:8080` and restrict host exposure with port publishing, firewall rules, WireGuard, or reverse proxy configuration.
 
 Use TLS at the edge for any network access. Keep reverse-proxy logs from recording raw `/e/{token}` paths.
 
