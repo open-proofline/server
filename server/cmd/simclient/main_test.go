@@ -1,6 +1,11 @@
 package main
 
-import "testing"
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"testing"
+	"time"
+)
 
 func TestParseByteSize(t *testing.T) {
 	tests := map[string]int64{
@@ -51,9 +56,71 @@ func TestParseConfigStreamFlags(t *testing.T) {
 	}
 }
 
+func TestParseConfigCleansBasesAndChunkSize(t *testing.T) {
+	cfg, err := parseConfig([]string{
+		"--api", "http://private.example/",
+		"--viewer", "http://public.example/",
+		"--chunk-size", "2KiB",
+	})
+	if err != nil {
+		t.Fatalf("parseConfig returned error: %v", err)
+	}
+	if cfg.apiBase != "http://private.example" {
+		t.Fatalf("apiBase = %q", cfg.apiBase)
+	}
+	if cfg.viewerBase != "http://public.example" {
+		t.Fatalf("viewerBase = %q", cfg.viewerBase)
+	}
+	if cfg.chunkSize != 2048 {
+		t.Fatalf("chunkSize = %d", cfg.chunkSize)
+	}
+}
+
 func TestParseConfigRejectsDownloadWithoutCompleteStream(t *testing.T) {
 	if _, err := parseConfig([]string{"--download-bundle", "--complete-stream=false"}); err == nil {
 		t.Fatal("expected --download-bundle without --complete-stream to fail")
+	}
+}
+
+func TestParseConfigRejectsDownloadWithoutChunks(t *testing.T) {
+	if _, err := parseConfig([]string{"--chunks", "0", "--download-bundle"}); err == nil {
+		t.Fatal("expected --download-bundle without chunks to fail")
+	}
+}
+
+func TestParseConfigRejectsInvalidValues(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{
+			name: "negative chunks",
+			args: []string{"--chunks", "-1"},
+		},
+		{
+			name: "negative interval",
+			args: []string{"--interval", "-1s"},
+		},
+		{
+			name: "invalid media type",
+			args: []string{"--media-type", "screen"},
+		},
+		{
+			name: "zero chunk size",
+			args: []string{"--chunk-size", "0"},
+		},
+		{
+			name: "negative failure interval",
+			args: []string{"--simulate-failure-every", "-1"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, err := parseConfig(tt.args); err == nil {
+				t.Fatal("expected error")
+			}
+		})
 	}
 }
 
@@ -77,5 +144,62 @@ func TestShouldSimulateFailure(t *testing.T) {
 	}
 	if shouldSimulateFailure(4, 0) {
 		t.Fatal("did not expect failure when disabled")
+	}
+}
+
+func TestShouldSendCheckin(t *testing.T) {
+	tests := []struct {
+		index int
+		want  bool
+	}{
+		{index: 1, want: true},
+		{index: 2, want: false},
+		{index: 3, want: true},
+		{index: 4, want: false},
+		{index: 6, want: true},
+	}
+
+	for _, tt := range tests {
+		if got := shouldSendCheckin(tt.index); got != tt.want {
+			t.Fatalf("shouldSendCheckin(%d) = %v, want %v", tt.index, got, tt.want)
+		}
+	}
+}
+
+func TestNewChunkUploadIncludesStreamAndHashMetadata(t *testing.T) {
+	startedAt := time.Date(2026, 5, 22, 10, 0, 0, 0, time.UTC)
+	upload, err := newChunkUpload("incident-test", "stream-test", 2, "audio", 16, startedAt)
+	if err != nil {
+		t.Fatalf("newChunkUpload returned error: %v", err)
+	}
+
+	if upload.incidentID != "incident-test" {
+		t.Fatalf("incidentID = %q", upload.incidentID)
+	}
+	if upload.streamID != "stream-test" {
+		t.Fatalf("streamID = %q", upload.streamID)
+	}
+	if upload.mediaType != "audio" {
+		t.Fatalf("mediaType = %q", upload.mediaType)
+	}
+	if upload.chunkIndex != 2 {
+		t.Fatalf("chunkIndex = %d", upload.chunkIndex)
+	}
+	if upload.filename != "audio_000002.enc" {
+		t.Fatalf("filename = %q", upload.filename)
+	}
+	if len(upload.body) != 16 {
+		t.Fatalf("body length = %d", len(upload.body))
+	}
+	if upload.startedAt != startedAt.Add(chunkDuration) {
+		t.Fatalf("startedAt = %s", upload.startedAt)
+	}
+	if upload.endedAt != upload.startedAt.Add(chunkDuration) {
+		t.Fatalf("endedAt = %s, startedAt = %s", upload.endedAt, upload.startedAt)
+	}
+
+	sum := sha256.Sum256(upload.body)
+	if upload.sha256Hex != hex.EncodeToString(sum[:]) {
+		t.Fatalf("sha256Hex = %q", upload.sha256Hex)
 	}
 }
