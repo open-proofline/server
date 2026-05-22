@@ -45,6 +45,16 @@ The v0.3.0 API binary starts separate listener groups: private `/v1` write/admin
 
 Do not treat this as production-ready public infrastructure. Public deployment still needs TLS, rate limiting, access control for `/v1`, operational logging review, retention policy, and proxy hardening.
 
+## License
+
+This project is licensed under the GNU Affero General Public License v3.0 only (`AGPL-3.0-only`). See [LICENSE](LICENSE).
+
+## Security
+
+Please see [SECURITY.md](SECURITY.md) for supported versions and vulnerability reporting guidance.
+
+Do not report security vulnerabilities through public GitHub issues.
+
 ## Requirements
 
 - Go 1.26.3

@@ -11,6 +11,8 @@
 - Updated the simulator to create and complete streams and optionally verify bundle download.
 - Hardened emergency viewer and API response security headers.
 - Hardened `SAFE_MAX_UPLOAD_BYTES` parsing and upload-limit overflow handling.
+- Added AGPL-3.0-only license.
+- Added repository security policy.
 - Documented current security assumptions, private/public listener separation, Docker/GHCR publishing, and evidence-bundle limitations.
 - Known limitation: evidence bundles remain encrypted chunk bundles, not decrypted or playable media exports, and the backend is not production-ready public infrastructure.
 

@@ -41,6 +41,9 @@ Check:
 - `go vet` passes, if practical
 - `README.md` version/scope is accurate
 - `CHANGELOG.md` includes the release
+- `LICENSE` exists and matches the documented SPDX identifier
+- `SECURITY.md` exists
+- `README.md` links to `LICENSE` and `SECURITY.md`
 - `docs/api.md` matches implemented routes
 - `docs/code-map.md` matches package layout
 - `docs/threat-model.md` or `docs/security-model.md` matches current security assumptions
@@ -81,6 +84,7 @@ Confirm:
 - emergency responses use `Referrer-Policy: no-referrer`
 - emergency responses use `X-Content-Type-Options: nosniff`
 - HSTS is not enabled by default for localhost/dev HTTP unless explicitly gated by config
+- security policy does not promise production readiness
 - documentation does not claim production readiness
 
 ## Commands

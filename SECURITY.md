@@ -1,0 +1,72 @@
+# Security Policy
+
+Safety Recorder is a private personal-safety recording backend. It is not production-ready public infrastructure. The private `/v1` API has no public authentication and must stay behind localhost, WireGuard, a firewall, or an equivalent private boundary.
+
+## Supported Versions
+
+| Version | Supported |
+|---|---|
+| 0.3.x | Yes |
+| < 0.3 | No |
+
+## Reporting a Vulnerability
+
+Please do not report security vulnerabilities through public GitHub issues.
+
+For now, report vulnerabilities privately to the repository maintainer.
+
+Before this repository is made public or deployed for real-world use, configure one of:
+
+- GitHub private vulnerability reporting, or
+- a dedicated security contact email.
+
+Include:
+
+- a description of the vulnerability
+- affected version or commit
+- steps to reproduce
+- expected impact
+- any suggested fix, if known
+
+## Vulnerability Handling Expectations
+
+The maintainer will review private reports, ask follow-up questions when needed, and prioritize fixes according to severity and exploitability. Security fixes should stay narrowly scoped, include tests or verification where practical, and avoid changing deployment assumptions without explicit documentation.
+
+Because this project is not yet public-production-ready, response timelines are best-effort until a formal security contact and disclosure process are configured.
+
+## Security Scope
+
+Reports are in scope when they affect the current backend, documentation, or deployment guidance, including:
+
+- private `/v1` route exposure
+- public emergency viewer read-only access
+- emergency token leakage
+- raw token logging
+- request body logging
+- uploaded file byte logging
+- Authorization header logging
+- upload size limits
+- SHA-256 verification
+- immutable chunk storage
+- media stream completion validation
+- ZIP bundle path traversal
+- ZIP entry name safety
+- filesystem path disclosure
+- Docker bind exposure
+- reverse proxy/TLS deployment
+- evidence retention/deletion policy
+
+## Out-of-Scope Reports
+
+The following are generally out of scope unless they demonstrate a concrete vulnerability in this repository:
+
+- missing features already documented as absent, such as user accounts, OAuth, JWT, SMS, push notifications, or a public admin dashboard
+- lack of production hardening already documented as a known limitation, without a new exploit path
+- reports requiring public exposure of the private `/v1` API contrary to documented deployment guidance
+- denial-of-service reports based only on unrealistic local access or unbounded physical access
+- findings in future clients, recording implementations, or key-sharing systems that are not in this repository
+- social engineering, phishing, or attacks against third-party hosting accounts
+
+## Public Disclosure Guidance
+
+Please allow time for private triage and remediation before public disclosure. Do not publish raw emergency tokens, request bodies, uploaded bytes, private deployment details, or proof-of-concept material that could expose a user's safety data.
