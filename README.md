@@ -227,7 +227,7 @@ curl -OJ "http://127.0.0.1:8080/v1/incidents/${INCIDENT_ID}/streams/${STREAM_ID}
 
 ## Emergency Viewer
 
-Emergency viewer tokens are scoped to one incident, stored only as SHA-256 hashes, and can expire or be revoked. The raw token is returned only when created. Emergency responses set `Referrer-Policy: no-referrer` and `Cache-Control: no-store`.
+Emergency viewer tokens are scoped to one incident, stored only as SHA-256 hashes, and can expire or be revoked. The raw token is returned only when created. Emergency responses use strict browser security headers and `Cache-Control: no-store` for token-protected content.
 
 Create a token:
 
@@ -251,6 +251,27 @@ Revoke a token:
 TOKEN_ID="etk_replace_me"
 
 curl -sS -X POST "http://127.0.0.1:8080/v1/emergency-tokens/${TOKEN_ID}/revoke"
+```
+
+## Web Security Headers
+
+The Go app sets browser-facing headers for the emergency viewer:
+
+- `Content-Security-Policy: default-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'; object-src 'none'`
+- `X-Content-Type-Options: nosniff`
+- `Referrer-Policy: no-referrer`
+- `Permissions-Policy: geolocation=(), microphone=(), camera=()`
+- `X-Frame-Options: DENY`
+- `Cache-Control: no-store` on token-protected pages, JSON, errors, private JSON, private chunk reads, and bundle downloads
+
+ZIP bundle downloads also set `Content-Type: application/zip` and `Content-Disposition: attachment`.
+
+The app does not enable `Strict-Transport-Security` by default because local development is plain HTTP. Enable HSTS only at the HTTPS reverse proxy or deployment edge after TLS is working for the production hostname. Production public exposure should also add TLS, rate limiting, reverse-proxy log redaction for `/e/{token}` paths, and private `/v1` access controls.
+
+After deploying the public emergency viewer over HTTPS, test the exposed origin with the MDN HTTP Observatory:
+
+```text
+https://developer.mozilla.org/en-US/observatory
 ```
 
 ## API Summary

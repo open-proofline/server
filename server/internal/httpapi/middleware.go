@@ -53,6 +53,13 @@ func (a *API) loggingMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+func (a *API) publicSecurityMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		setPublicBrowserSecurityHeaders(w)
+		next.ServeHTTP(w, r)
+	})
+}
+
 func safeLogPath(r *http.Request) string {
 	if r.Pattern != "" && r.Pattern != "/" {
 		return r.Pattern

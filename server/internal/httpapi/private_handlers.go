@@ -200,6 +200,8 @@ func (a *API) getChunkBytes(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
+	setNoSniff(w)
+	setNoStore(w)
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Length", strconv.FormatInt(chunk.ByteSize, 10))
 	http.ServeContent(w, r, path.Base(chunk.StoredPath), chunk.CreatedAt, file)

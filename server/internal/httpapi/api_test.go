@@ -86,6 +86,18 @@ func TestCreateIncident(t *testing.T) {
 	}
 }
 
+func TestPrivateAPIJSONSecurityHeaders(t *testing.T) {
+	app := newTestApp(t)
+
+	response, body := post(t, app, "/v1/incidents", "application/json", bytes.NewBufferString(`{}`))
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusCreated {
+		t.Fatalf("expected create incident status 201, got %d: %s", response.StatusCode, body)
+	}
+	assertPrivateJSONSecurityHeaders(t, response)
+}
+
 func TestGetIncidentReturnsEmptyArrays(t *testing.T) {
 	app := newTestApp(t)
 	incidentID := createIncident(t, app, `{}`)
@@ -130,6 +142,14 @@ func TestUploadValidChunk(t *testing.T) {
 	if !bytes.Equal(stored, payload) {
 		t.Fatalf("stored payload mismatch")
 	}
+
+	response, body = get(t, app, "/v1/incidents/"+incidentID+"/chunks/audio/1")
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("expected chunk bytes status 200, got %d: %s", response.StatusCode, body)
+	}
+	assertNoSniff(t, response)
+	assertNoStore(t, response)
 }
 
 func TestRejectDuplicateChunkIndex(t *testing.T) {
@@ -691,6 +711,20 @@ func TestPublicServerDoesNotMountPrivateRoutes(t *testing.T) {
 	}
 }
 
+func TestPublicNotFoundUsesSecurityHeaders(t *testing.T) {
+	app := newTestApp(t)
+
+	response, body := getPublic(t, app, "/missing")
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusNotFound {
+		t.Fatalf("expected public 404 status, got %d: %s", response.StatusCode, body)
+	}
+	assertPublicBrowserSecurityHeaders(t, response)
+	assertNoStore(t, response)
+	assertErrorCode(t, body, "not_found")
+}
+
 func TestPrivateServerDoesNotMountPublicEmergencyRoutes(t *testing.T) {
 	app := newTestApp(t)
 	incidentID := createIncident(t, app, `{}`)
@@ -759,6 +793,7 @@ func TestEmergencyStaticAssetsAreServed(t *testing.T) {
 	if !bytes.Contains(body, []byte(".warning")) {
 		t.Fatalf("expected stylesheet content, got: %s", body)
 	}
+	assertPublicBrowserSecurityHeaders(t, response)
 
 	response, body = getPublic(t, app, "/static/scripts.js")
 	defer response.Body.Close()
@@ -768,6 +803,7 @@ func TestEmergencyStaticAssetsAreServed(t *testing.T) {
 	if !bytes.Contains(body, []byte("setInterval")) {
 		t.Fatalf("expected script content, got: %s", body)
 	}
+	assertPublicBrowserSecurityHeaders(t, response)
 }
 
 func TestExpiredEmergencyTokenIsRejected(t *testing.T) {
@@ -1173,10 +1209,47 @@ func stringsOf(value string, count int) string {
 func assertEmergencyPrivacyHeaders(t *testing.T, response *http.Response) {
 	t.Helper()
 
+	assertPublicBrowserSecurityHeaders(t, response)
+	assertNoStore(t, response)
+}
+
+func assertPublicBrowserSecurityHeaders(t *testing.T, response *http.Response) {
+	t.Helper()
+
+	assertNoSniff(t, response)
 	if response.Header.Get("Referrer-Policy") != "no-referrer" {
 		t.Fatalf("expected no-referrer policy, got %q", response.Header.Get("Referrer-Policy"))
 	}
+	csp := response.Header.Get("Content-Security-Policy")
+	for _, directive := range []string{"default-src 'self'", "base-uri 'none'", "frame-ancestors 'none'", "form-action 'self'", "object-src 'none'"} {
+		if !strings.Contains(csp, directive) {
+			t.Fatalf("expected CSP directive %q in %q", directive, csp)
+		}
+	}
+	if response.Header.Get("Permissions-Policy") != "geolocation=(), microphone=(), camera=()" {
+		t.Fatalf("expected restricted permissions policy, got %q", response.Header.Get("Permissions-Policy"))
+	}
+	if response.Header.Get("X-Frame-Options") != "DENY" {
+		t.Fatalf("expected X-Frame-Options DENY, got %q", response.Header.Get("X-Frame-Options"))
+	}
+}
+
+func assertPrivateJSONSecurityHeaders(t *testing.T, response *http.Response) {
+	t.Helper()
+
+	if response.Header.Get("Content-Type") != "application/json" {
+		t.Fatalf("expected application/json, got %q", response.Header.Get("Content-Type"))
+	}
+	assertNoSniff(t, response)
 	assertNoStore(t, response)
+}
+
+func assertNoSniff(t *testing.T, response *http.Response) {
+	t.Helper()
+
+	if response.Header.Get("X-Content-Type-Options") != "nosniff" {
+		t.Fatalf("expected nosniff, got %q", response.Header.Get("X-Content-Type-Options"))
+	}
 }
 
 func assertNoStore(t *testing.T, response *http.Response) {
@@ -1195,9 +1268,6 @@ func assertBundleHeaders(t *testing.T, response *http.Response) {
 	}
 	if !strings.HasPrefix(response.Header.Get("Content-Disposition"), `attachment; filename="incident_`) {
 		t.Fatalf("expected attachment content disposition, got %q", response.Header.Get("Content-Disposition"))
-	}
-	if response.Header.Get("X-Content-Type-Options") != "nosniff" {
-		t.Fatalf("expected nosniff, got %q", response.Header.Get("X-Content-Type-Options"))
 	}
 	assertEmergencyPrivacyHeaders(t, response)
 }

@@ -44,7 +44,7 @@ Emergency tokens are created on the private API server by `POST /v1/incidents/{i
 
 `GET /e/{token}` is mounted only on the public emergency viewer server. It renders `server/internal/httpapi/web/templates/emergency.html` with `html/template`. CSS and JavaScript are embedded from `server/internal/httpapi/web/static`. `GET /e/{token}/data` returns the same read-only summary as JSON for polling.
 
-Token lookup checks the hash, expiry, and revocation state before incident metadata is loaded. Invalid, expired, and revoked tokens all return the same public error. Emergency responses use `Referrer-Policy: no-referrer` and `Cache-Control: no-store`.
+Token lookup checks the hash, expiry, and revocation state before incident metadata is loaded. Invalid, expired, and revoked tokens all return the same public error. Emergency responses use `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`, a strict `Content-Security-Policy`, restrictive `Permissions-Policy`, and `Cache-Control: no-store` for token-protected responses.
 
 Completed stream bundle downloads are served by `server/internal/httpapi/bundles.go`. Bundles are generated on demand as ZIP responses and are not cached on disk. ZIP entry names are server-controlled, manifests are generated from database metadata, and chunk bytes are streamed from storage one file at a time. The first bundle format contains encrypted chunks and JSON manifests only; it does not decrypt, merge, or export playable media.
 

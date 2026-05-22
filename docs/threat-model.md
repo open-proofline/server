@@ -30,7 +30,8 @@ This document describes the current backend-only v0.2.1 security posture. It is 
 - Expired, revoked, and invalid emergency tokens return the same public error.
 - Emergency summaries do not expose `stored_path`. Emergency bundle downloads expose only encrypted chunk bytes and generated manifests for completed streams.
 - ZIP bundle entry names are server-controlled and generated from metadata; clients do not provide stored paths for download.
-- Emergency responses use `Referrer-Policy: no-referrer` and `Cache-Control: no-store`.
+- Emergency/public viewer responses use a strict same-origin `Content-Security-Policy` with `frame-ancestors 'none'`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, and a restrictive camera/microphone/geolocation `Permissions-Policy`.
+- Token-protected pages, JSON, errors, private JSON, private chunk reads, and bundle downloads use `Cache-Control: no-store`.
 - Request logging records method, redacted route pattern, status, byte count, and duration. It does not log request bodies, uploaded bytes, Authorization headers, or raw emergency tokens.
 - Templates use Go `html/template` escaping.
 - Storage rejects absolute paths, `..`, slash-containing path segments, and backslash traversal.
@@ -54,6 +55,8 @@ This document describes the current backend-only v0.2.1 security posture. It is 
 For local/private v0.2.1 use, bind the private API server to localhost or a private network and restrict access with WireGuard, firewall rules, or a reverse proxy. If any part is exposed publicly, expose only the emergency viewer server unless `/v1` has an additional authenticated control plane in front of it. Inside Docker containers, bind to container addresses such as `0.0.0.0:8080` and restrict host exposure with port publishing, firewall rules, WireGuard, or reverse proxy configuration.
 
 Use TLS at the edge for any network access. Keep reverse-proxy logs from recording raw `/e/{token}` paths.
+
+The Go app does not set `Strict-Transport-Security` by default because local development uses plain HTTP and MDN guidance expects HSTS only over HTTPS. Enable HSTS at the production HTTPS reverse proxy after the public hostname is consistently available over TLS.
 
 ## Next Security Steps
 

@@ -38,7 +38,7 @@ func (a *API) publicRoutes() http.Handler {
 	mux.Handle("GET /static/", emergencyStaticHandler())
 	mux.HandleFunc("/", a.notFound)
 
-	return a.loggingMiddleware(a.recoveryMiddleware(mux))
+	return a.loggingMiddleware(a.recoveryMiddleware(a.publicSecurityMiddleware(mux)))
 }
 
 func (a *API) notFound(w http.ResponseWriter, r *http.Request) {

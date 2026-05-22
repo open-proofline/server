@@ -164,12 +164,8 @@ func (a *API) emergencyData(w http.ResponseWriter, r *http.Request) {
 }
 
 func setEmergencyPrivacyHeaders(w http.ResponseWriter) {
-	w.Header().Set("Referrer-Policy", "no-referrer")
+	setPublicBrowserSecurityHeaders(w)
 	setNoStore(w)
-}
-
-func setNoStore(w http.ResponseWriter) {
-	w.Header().Set("Cache-Control", "no-store")
 }
 
 // loadEmergencyData collapses invalid, expired, and revoked tokens into one

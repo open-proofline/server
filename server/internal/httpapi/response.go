@@ -7,6 +7,11 @@ import (
 	"net/http"
 )
 
+const (
+	contentSecurityPolicy = "default-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'; object-src 'none'"
+	permissionsPolicy     = "geolocation=(), microphone=(), camera=()"
+)
+
 func decodeJSON(w http.ResponseWriter, r *http.Request, target any) bool {
 	// Non-upload JSON bodies are intentionally small metadata requests.
 	r.Body = http.MaxBytesReader(w, r.Body, jsonBodyLimit)
@@ -33,6 +38,8 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, target any) bool {
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {
+	setNoSniff(w)
+	setNoStore(w)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(value)
@@ -55,4 +62,20 @@ func (a *API) internalError(w http.ResponseWriter, operation string, err error) 
 func isMaxBytesError(err error) bool {
 	var maxBytesError *http.MaxBytesError
 	return errors.As(err, &maxBytesError)
+}
+
+func setNoSniff(w http.ResponseWriter) {
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+}
+
+func setNoStore(w http.ResponseWriter) {
+	w.Header().Set("Cache-Control", "no-store")
+}
+
+func setPublicBrowserSecurityHeaders(w http.ResponseWriter) {
+	setNoSniff(w)
+	w.Header().Set("Content-Security-Policy", contentSecurityPolicy)
+	w.Header().Set("Permissions-Policy", permissionsPolicy)
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	w.Header().Set("X-Frame-Options", "DENY")
 }

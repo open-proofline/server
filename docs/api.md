@@ -251,9 +251,12 @@ Successful responses include:
 ```http
 Content-Type: application/zip
 Content-Disposition: attachment; filename="incident_inc_..._audio_str_....zip"
+Content-Security-Policy: default-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'; object-src 'none'
 X-Content-Type-Options: nosniff
 Cache-Control: no-store
 Referrer-Policy: no-referrer
+Permissions-Policy: geolocation=(), microphone=(), camera=()
+X-Frame-Options: DENY
 ```
 
 ZIP contents:
@@ -396,7 +399,9 @@ Response `200`:
 }
 ```
 
-Emergency Viewer responses include `Referrer-Policy: no-referrer` and `Cache-Control: no-store`. Invalid, expired, and revoked tokens all return `404 emergency_token_invalid`.
+Emergency viewer responses include `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`, `Permissions-Policy: geolocation=(), microphone=(), camera=()`, `X-Frame-Options: DENY`, and a strict `Content-Security-Policy` with `frame-ancestors 'none'`. Token-protected pages, JSON, errors, and downloads include `Cache-Control: no-store`. Invalid, expired, and revoked tokens all return `404 emergency_token_invalid`.
+
+The Go app does not set `Strict-Transport-Security` in local/dev HTTP mode. Set HSTS at the HTTPS reverse proxy or deployment edge for production hostnames.
 
 ### `GET /e/{token}/streams/{stream_id}/download`
 

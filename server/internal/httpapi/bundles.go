@@ -379,10 +379,9 @@ func makeIncidentBundleManifest(detail incidents.IncidentDetail, bundles []strea
 }
 
 func setBundleHeaders(w http.ResponseWriter, filename string) {
+	setPublicBrowserSecurityHeaders(w)
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Content-Disposition", `attachment; filename="`+filename+`"`)
-	w.Header().Set("X-Content-Type-Options", "nosniff")
-	w.Header().Set("Referrer-Policy", "no-referrer")
 	setNoStore(w)
 }
 
