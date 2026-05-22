@@ -8,6 +8,8 @@ This repository uses OpenAI Codex as an AI-assisted development tool. Codex may 
 
 The maintainer remains responsible for correctness, security, licensing, releases, deployment decisions, and real-world use. Use of Codex does not imply endorsement, audit, certification, or maintenance by OpenAI.
 
+For rollback points, scoped prompts, review steps, and backlog handling, see [codex-change-control.md](codex-change-control.md).
+
 ## Repository Layout
 
 ```text
@@ -52,6 +54,10 @@ When editing docs, keep these claims aligned:
 - release notes in [../CHANGELOG.md](../CHANGELOG.md)
 
 Do not claim production readiness unless deployment hardening has actually been implemented.
+
+## Backlog Discipline
+
+New ideas discovered during unrelated work should become issues or backlog items unless they are required to finish the current task. Capture the context, acceptance criteria, tests, docs impact, and out-of-scope items instead of expanding the active diff.
 
 ## Release Checklist
 

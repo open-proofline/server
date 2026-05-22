@@ -17,6 +17,9 @@
 - Use stable, documented crypto libraries only. Do not implement cryptographic primitives. Do not create custom AEAD, block modes, padding, MAC, KDF, or random generator logic.
 - Preserve the current deployment model: private API behind localhost/LAN/WireGuard/firewall; public emergency viewer behind HTTPS/reverse proxy when exposed.
 - Separate bind addresses are a deployment boundary, not a complete security model.
+- Treat Codex prompts as scoped change requests, not open-ended permission to expand the project.
+- Do not implement newly discovered future work during an unrelated task; document it as an issue/backlog item instead.
+- For larger changes, start from a clean working tree or an explicit checkpoint commit.
 
 ## Current project shape
 
