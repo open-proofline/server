@@ -131,6 +131,7 @@ Container defaults bind to `0.0.0.0` inside the container. Restrict host exposur
 - [Simulator](docs/simulator.md)
 - [Development](docs/development.md)
 - [Code map](docs/code-map.md)
+- [Technical review reports](docs/reports/README.md)
 
 ## AI-Assisted Development
 

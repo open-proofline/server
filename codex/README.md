@@ -124,6 +124,7 @@ Use prompts in this rough order:
 ### Release workflow
 
 21. `90-release-check.md`
+22. `95-validate-deep-research-report.md`, for Phase 2 validation of public technical review reports
 
 ## Current project constraints
 
@@ -187,6 +188,15 @@ Use `36-update-codex-key-custody-guardrails.md` when updating prompt wording, do
 Use `37-browser-decryption-design-spike.md` for browser-side emergency viewer decryption design.
 
 Use `38-break-glass-and-dead-mans-switch-key-access-design.md` for server escrow, dead-man-switch, or break-glass key access design.
+
+## Technical review report workflow
+
+Use `docs/reports/prompts/phase-1-deep-research-technical-review.md` outside
+Codex to draft a source-cited public technical review report.
+
+Use `95-validate-deep-research-report.md` in Codex to verify repository claims,
+remove draft-only material, pin repository citations, check public-safety
+constraints, and produce a cleaned report under `docs/reports/`.
 
 ## Validation
 
