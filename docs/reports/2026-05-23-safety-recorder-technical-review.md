@@ -1,8 +1,8 @@
 # Technical Review of Safety Recorder v0.4.x
 
-**Repository:** `TheSilkky/safety-recorder`  
-**Reviewed commit SHA:** `89a07ff0616fe5ad13437f1b2eec93e091ec3ef6`  
-**Review date:** 2026-05-23  
+**Repository:** `TheSilkky/safety-recorder`
+**Reviewed commit SHA:** `89a07ff0616fe5ad13437f1b2eec93e091ec3ef6`
+**Review date:** 2026-05-23
 **Report status:** Final public report after maintainer Phase 2 validation; accepted findings were mapped to follow-up issues.
 
 **Citation format note:** This report uses portable citation keys only. Repository citations are pinned to reviewed commit `89a07ff0616fe5ad13437f1b2eec93e091ec3ef6`; external citations resolve to canonical documentation URLs. No ChatGPT-internal citation tokens are used.
