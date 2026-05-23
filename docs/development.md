@@ -75,11 +75,16 @@ Current ruleset requirements:
 - require the latest `main` to pass before merge
 - require the `Go tests`, `Build Linux binary`, and `Build Docker image` CI jobs
 - allow merge, squash, and rebase merge methods
-- configure no bypass actors
+- allow repository admins to bypass only through pull requests
 
 These settings are implemented as a repository ruleset, not classic branch
 protection. If the ruleset changes, update this section to match the exported
 ruleset.
+
+The admin bypass is for maintainer-authored changes when no independent
+write-access reviewer is available. Use it only after required checks pass and
+the maintainer has reviewed the diff. Routine collaborator changes should still
+receive a qualifying approval.
 
 The CI workflow runs on pull requests, all branch pushes, and `v*` tags. Pushes
 to `main` and `v*` tags also publish Docker image tags to GHCR when package
