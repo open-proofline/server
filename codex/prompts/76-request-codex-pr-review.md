@@ -28,7 +28,8 @@ Focus on:
 - private/public listener separation
 - raw token / request body / uploaded byte / Authorization header logging
 - plaintext/key logging
-- backend decryption, server-side key access, or key custody changes accidentally introduced
+- backend decryption, server-side key access, or key custody changes accidentally introduced or introduced without explicit design scope
+- whether explicit key custody/decryption changes update threat model, security model, encryption docs, tests, and operational guidance
 - ZIP bundle path safety, if relevant
 - encryption/key handling, if relevant
 - documentation accuracy
@@ -57,7 +58,7 @@ Then review for:
 6. consistency with README.md and AGENTS.md
 7. whether it satisfies the linked issue acceptance criteria
 8. whether it should remain draft
-9. whether it changes key custody/decryption assumptions
+9. whether it changes key custody/decryption assumptions, and whether those changes are explicitly designed and documented
 
 Do not modify files unless explicitly requested.
 

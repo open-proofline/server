@@ -18,6 +18,7 @@ Before making changes, read current source-of-truth files as relevant:
 - `CHANGELOG.md`
 - `SECURITY.md`
 - `docs/README.md`
+- `docs/key-custody.md`, if present
 - relevant files in `docs/`
 - relevant source files
 - relevant tests
@@ -47,7 +48,7 @@ Return:
 3. Private/public listener split
 4. Current security boundaries
 5. Current known exclusions / out-of-scope features
-6. Current key custody / encryption posture
+6. Current key custody / encryption posture, distinguishing implemented ciphertext-only behaviour from future explicit key custody design
 7. Files likely affected by the requested task
 8. Files or areas that must not change
 9. Likely validation commands

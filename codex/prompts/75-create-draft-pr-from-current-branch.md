@@ -104,12 +104,14 @@ The PR body should include:
 - docs updated, if any
 - follow-up work, if any
 - tests skipped and why, if any
+- whether key custody/decryption assumptions changed; if so, link the explicit design and docs updates
 - note that the PR remains draft until maintainer review
 
 ## Constraints
 
 - Do not claim production readiness.
 - Do not add unrelated changes while creating the PR.
+- Do not treat server-side decryption or server-side key storage as permanently forbidden, but confirm any key custody/decryption change is explicit, documented, reviewed, and in scope.
 - Do not create public issue/PR content containing raw tokens, secrets, private deployment details, exploit details, or user safety data.
 
 ## Output
