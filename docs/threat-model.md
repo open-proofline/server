@@ -10,7 +10,7 @@ This document describes the current backend-only security posture. It is intenti
 - Raw emergency tokens returned once at creation time
 - Emergency viewer URLs containing bearer tokens
 - Simulator-only local encryption key files when developers opt into `--key-file`
-- Future iOS recordings, production client-side keys, key sharing, and browser decryption are out of scope for the current implementation. The intended future key custody direction is documented in [key-custody.md](key-custody.md), and browser decryption constraints are documented in [browser-decryption.md](browser-decryption.md).
+- Future iOS recordings, production client-side keys, key sharing, browser decryption, and break-glass key access are out of scope for the current implementation. The intended future key custody direction is documented in [key-custody.md](key-custody.md), browser decryption constraints are documented in [browser-decryption.md](browser-decryption.md), and server-assisted access design is documented in [break-glass-key-access.md](break-glass-key-access.md).
 
 ## Trust Boundaries
 
@@ -54,7 +54,7 @@ This document describes the current backend-only security posture. It is intenti
 - Bundle downloads are encrypted chunk bundles, not decrypted or playable media exports.
 - No multi-user authorization model.
 - Emergency links are bearer tokens and must be shared carefully.
-- No implemented production key-sharing, key recovery, Keychain storage, emergency-contact access, browser decryption, or playable export. The future key custody and emergency access design is documented in [key-custody.md](key-custody.md), with browser decryption design in [browser-decryption.md](browser-decryption.md).
+- No implemented production key-sharing, key recovery, Keychain storage, emergency-contact access, browser decryption, break-glass key access, or playable export. The future key custody and emergency access design is documented in [key-custody.md](key-custody.md), with browser decryption design in [browser-decryption.md](browser-decryption.md) and break-glass design in [break-glass-key-access.md](break-glass-key-access.md).
 
 ## Deployment Guidance
 
@@ -72,4 +72,5 @@ The Go app does not set `Strict-Transport-Security` by default because local dev
 - Define retention, backup, and deletion policy.
 - Prototype the documented hybrid key custody model without weakening the current ciphertext-only backend.
 - Prototype browser decryption only after accepting the browser trust model and malicious-server limitations.
+- Treat server-assisted break-glass access as an optional future mode only after explicit policy, audit, and deployment design.
 - Review deployment logging so raw tokens are not captured outside the Go server.

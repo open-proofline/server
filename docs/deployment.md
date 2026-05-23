@@ -71,6 +71,11 @@ Production-style public exposure still needs:
 - operational monitoring and restore testing
 - review of emergency token sharing, expiry defaults, and revocation workflows
 
+Future server-assisted break-glass or dead-man-switch key access would add
+stronger operator and deployment trust requirements. It should remain disabled
+unless explicitly designed and configured; see
+[break-glass-key-access.md](break-glass-key-access.md).
+
 The Go app does not set `Strict-Transport-Security` by default because local development uses plain HTTP. Enable HSTS at the HTTPS reverse proxy only after TLS is working for the production hostname.
 
 After deploying the public emergency viewer over HTTPS, test the exposed origin with the MDN HTTP Observatory:

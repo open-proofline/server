@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added a break-glass and dead-man-switch key access design document.
 - Added a browser-side emergency viewer decryption design spike.
 - Added a production key custody and emergency access design document covering the future hybrid trusted-contact model.
 - Rejected non-positive chunk indexes for streamed uploads while preserving legacy unstreamed compatibility.

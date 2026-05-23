@@ -515,6 +515,9 @@ include:
 - recovery when the phone and contact keys are unavailable
 - deployments where a trusted operator is explicitly part of the safety model
 
+The focused server-assisted access design is documented in
+[break-glass-key-access.md](break-glass-key-access.md).
+
 Any server escrow mode must be explicit. It should not share code paths or
 configuration defaults that make backend decryption easy to enable by accident.
 Before implementation, the design must define:
@@ -672,7 +675,8 @@ rotation, and revocation before implementing the iOS client.
 Phase 5: emergency access and dead-man-switch key policy.
 
 Define trigger behavior, access policy, audit expectations, notification,
-cancellation, and false-positive/false-negative handling.
+cancellation, and false-positive/false-negative handling. See
+[break-glass-key-access.md](break-glass-key-access.md).
 
 Phase 6: optional server escrow or break-glass implementation.
 
