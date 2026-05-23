@@ -38,8 +38,9 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Codex generated issues / issue review drafts
+# Codex generated issues / issue review drafts / generated review directories
 # Scripts directory should be local and ignored
 .backlog-drafts/
 .issue-review-drafts/
 scripts/
+.*-review/
