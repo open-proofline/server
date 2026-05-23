@@ -1,5 +1,9 @@
 # Codex Prompt: Add Client-Side Encryption Envelope and Simulator Encryption
 
+This prompt is historical/reference-only. Do not re-run it without checking it
+against the current `README.md`, `AGENTS.md`, `SECURITY.md`, docs, and reusable
+prompts.
+
 Add a documented client-side encryption envelope and implement encryption/decryption support in the Go simulator.
 
 This is a crypto-sensitive task.

@@ -1,5 +1,9 @@
 # Codex Prompt: Add SECURITY.md and AGPL-3.0 License
 
+This prompt is historical/reference-only. Do not re-run it without checking it
+against the current `README.md`, `AGENTS.md`, `SECURITY.md`, docs, and reusable
+prompts.
+
 Add a repository security policy and GNU AGPLv3 license metadata.
 
 Do not change application behaviour.

@@ -1,6 +1,6 @@
 # Historical Prompt: Initial Backend v0.1
 
-This prompt is archived.
+This prompt is archived historical/reference-only material.
 
 Do not re-run it against the current project unless you intentionally want to compare history. It predates:
 

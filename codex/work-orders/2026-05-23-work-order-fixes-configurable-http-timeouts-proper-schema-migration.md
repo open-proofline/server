@@ -1,5 +1,9 @@
 # Codex Prompt: Next Work Order 1-2-3
 
+This prompt is historical/reference-only. Do not re-run it without checking it
+against the current `README.md`, `AGENTS.md`, `SECURITY.md`, docs, and reusable
+prompts.
+
 Implement the next three backend hardening items:
 
 1. Fix chunk-index semantics for streamed/encrypted chunks.

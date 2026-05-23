@@ -1,5 +1,9 @@
 # Codex Prompt: Rewrite README and Markdown Docs for GitHub-Ready Project Presentation
 
+This prompt is historical/reference-only. Do not re-run it without checking it
+against the current `README.md`, `AGENTS.md`, `SECURITY.md`, docs, and reusable
+prompts.
+
 Rewrite the repository Markdown documentation to make the project look polished, readable, and GitHub-friendly while preserving technical accuracy.
 
 This is a documentation-only task.

@@ -4,11 +4,30 @@ This directory records the Codex prompt workflow used for AI-assisted developmen
 
 Codex output is treated as maintainer-reviewed work, not as endorsement, audit, certification, security review, or maintenance by OpenAI.
 
-## Prompt categories
+## Directory Structure
 
-Reusable prompts live in `codex/prompts/`.
+Keep the Codex workflow in this structure:
 
-Historical one-off prompts live in:
+```text
+codex/
+  README.md
+  prompts/
+  archive/
+  features/
+  refactors/
+  work-orders/
+```
+
+Do not add extra prompt directories without a clear workflow reason. Generated
+local review artifacts belong outside `codex/`.
+
+## Prompt Categories
+
+Reusable prompts live in `codex/prompts/`. They are scoped workflows that can be
+run again against the current repository after reading current source-of-truth
+docs.
+
+Historical prompts live in:
 
 ```text
 codex/archive/
@@ -17,7 +36,54 @@ codex/refactors/
 codex/work-orders/
 ```
 
-Historical prompts are reference material only. Do not re-run historical prompts without checking them against the current `README.md`, `AGENTS.md`, `SECURITY.md`, and relevant docs.
+Historical prompts are reference material only. Do not re-run historical prompts
+without checking them against the current `README.md`, `AGENTS.md`,
+`SECURITY.md`, relevant docs, and reusable prompts.
+
+## Naming Conventions
+
+Reusable prompts use this filename pattern:
+
+```text
+NN-short-kebab-title.md
+```
+
+Rules:
+
+- two-digit numeric prefix
+- kebab-case title
+- `.md` extension
+- no spaces
+- no date prefix
+- one reusable workflow per file
+
+Historical prompts use this filename pattern:
+
+```text
+YYYY-MM-DD-short-kebab-title.md
+```
+
+Rules:
+
+- date prefix
+- kebab-case title
+- `.md` extension
+- no numeric reusable-workflow prefix
+- each file should be clearly marked historical/reference-only near the top
+
+## Generated Artifacts
+
+Generated local artifacts should not be placed under `codex/`.
+
+Current generated artifact locations:
+
+- `.backlog-drafts/YYYY-MM-DD/` or `.backlog-drafts/current/` for backlog issue drafts
+- `.issue-review-drafts/YYYY-MM-DD/` or `.issue-review-drafts/current/` for open-issue review drafts
+- `scripts/create-backlog-issues.sh` only when explicitly generated from reviewed backlog drafts
+
+Backlog and issue-review drafts must not include raw tokens, secrets, private
+deployment details, exploit details, or user safety data. Public GitHub issues
+must not be created from drafts until the maintainer reviews them.
 
 ## Normal reusable prompt order
 
@@ -31,30 +97,33 @@ Use prompts in this rough order:
 ### Maintenance, review, and design
 
 3. `10-readability-maintenance.md`
-4. `20-code-review.md`
-5. `30-security-review.md`
-6. `35-key-custody-and-emergency-access-design.md`
-7. `36-update-codex-key-custody-guardrails.md`
-8. `37-browser-decryption-design-spike.md`
-9. `38-break-glass-and-dead-mans-switch-key-access-design.md`
-10. `40-documentation-update.md`
-11. `50-mdn-web-security-header-review.md`, for web-facing changes
-12. `60-simulator-maintenance.md`, for API/client-flow changes
+4. `15-codex-structure-and-naming-maintenance.md`
+5. `20-code-review.md`
+6. `30-security-review.md`
+7. `35-key-custody-and-emergency-access-design.md`
+8. `36-update-codex-key-custody-guardrails.md`
+9. `37-browser-decryption-design-spike.md`
+10. `38-break-glass-and-dead-mans-switch-key-access-design.md`
+11. `40-documentation-update.md`
+12. `50-mdn-web-security-header-review.md`, for web-facing changes
+13. `60-simulator-maintenance.md`, for API/client-flow changes
 
 ### Issue and PR workflow
 
-13. `70-work-on-github-issue.md`
-14. `75-create-draft-pr-from-current-branch.md`
-15. `76-request-codex-pr-review.md`
+14. `70-work-on-github-issue.md`
+15. `75-create-draft-pr-from-current-branch.md`
+16. `76-request-codex-pr-review.md`
 
 ### Backlog workflow
 
-16. `80-backlog-scan-issue-drafts.md`
-17. `85-create-github-issues-from-drafts.md`
+17. `80-backlog-scan-issue-drafts.md`
+18. `81-backlog-drafts-structure-and-hygiene.md`
+19. `82-review-open-issues-for-stale-or-fixed.md`
+20. `85-create-github-issues-from-drafts.md`
 
 ### Release workflow
 
-18. `90-release-check.md`
+21. `90-release-check.md`
 
 ## Current project constraints
 
@@ -81,6 +150,33 @@ Core constraints:
 - Backlog scanning creates draft Markdown files first, not GitHub issues directly.
 - Do not create public GitHub issues from backlog drafts until the maintainer has reviewed them.
 - Never put raw tokens, secrets, private deployment details, exploit details, or user safety data into public issue drafts.
+
+## Issue And PR Workflow
+
+Use `70-work-on-github-issue.md` for scoped implementation work tied to one
+GitHub issue.
+
+Use `75-create-draft-pr-from-current-branch.md` when a reviewed local branch
+should become a draft pull request.
+
+Use `76-request-codex-pr-review.md` for a code-review pass over an existing
+pull request.
+
+## Backlog And Issue Review Workflow
+
+Use `80-backlog-scan-issue-drafts.md` to generate timestamped backlog drafts
+under `.backlog-drafts/`.
+
+Use `81-backlog-drafts-structure-and-hygiene.md` to review or clean up backlog
+draft structure. It should not create or close GitHub issues.
+
+Use `82-review-open-issues-for-stale-or-fixed.md` to create local issue review
+drafts under `.issue-review-drafts/`. It should not close GitHub issues unless
+the maintainer explicitly asks for that follow-up action.
+
+Only after manual review, use `85-create-github-issues-from-drafts.md` to
+generate a script for GitHub issue creation. Do not execute that script unless
+explicitly instructed.
 
 ## Key custody prompt use
 

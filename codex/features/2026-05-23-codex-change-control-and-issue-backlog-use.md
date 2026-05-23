@@ -1,5 +1,9 @@
 # Codex Prompt: Add Codex Change-Control and Issue Backlog Workflow
 
+This prompt is historical/reference-only. Do not re-run it without checking it
+against the current `README.md`, `AGENTS.md`, `SECURITY.md`, docs, and reusable
+prompts.
+
 Add documentation and reusable templates for two process guardrails:
 
 1. Codex work should start from a clear rollback/checkpoint point.

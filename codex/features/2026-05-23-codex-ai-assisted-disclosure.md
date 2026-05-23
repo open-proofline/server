@@ -1,5 +1,9 @@
 # Codex Prompt: Add AI-Assisted Development Disclosure
 
+This prompt is historical/reference-only. Do not re-run it without checking it
+against the current `README.md`, `AGENTS.md`, `SECURITY.md`, docs, and reusable
+prompts.
+
 Add a concise AI-assisted development disclosure to the repository documentation.
 
 This is a Markdown-only task.
