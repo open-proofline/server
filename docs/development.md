@@ -60,6 +60,46 @@ Do not claim production readiness unless deployment hardening has actually been 
 
 New ideas discovered during unrelated work should become issues or backlog items unless they are required to finish the current task. Capture the context, acceptance criteria, tests, docs impact, and out-of-scope items instead of expanding the active diff.
 
+## Branch Protection And Required Checks
+
+The default branch is protected by an active GitHub repository ruleset named
+`Protect main`. It targets `~DEFAULT_BRANCH`, currently `main`.
+
+Current ruleset requirements:
+
+- block branch deletion
+- block non-fast-forward pushes
+- require pull requests before merge
+- require one approving review
+- dismiss stale approvals when new commits are pushed
+- require the latest `main` to pass before merge
+- require the `Go tests`, `Build Linux binary`, and `Build Docker image` CI jobs
+- allow merge, squash, and rebase merge methods
+- allow repository admins to bypass only through pull requests
+
+These settings are implemented as a repository ruleset, not classic branch
+protection. If the ruleset changes, update this section to match the exported
+ruleset.
+
+The admin bypass is for maintainer-authored changes when no independent
+write-access reviewer is available. Use it only after required checks pass and
+the maintainer has reviewed the diff. Routine collaborator changes should still
+receive a qualifying approval.
+
+The CI workflow runs on pull requests, all branch pushes, and `v*` tags. Pushes
+to `main` and `v*` tags also publish Docker image tags to GHCR when package
+publishing is available.
+
+Only create `v*` tags after the release checklist is complete and the tagged
+commit has passed CI. If an emergency fix is needed, keep the change narrow,
+preserve review discipline, and document any skipped validation in the release
+or follow-up notes.
+
+Codex-generated changes should be reviewed like any other contribution: inspect
+the diff, confirm the scope matches the issue, run the relevant validation
+commands, and make sure security warnings and private/public listener boundaries
+were not weakened.
+
 ## Release Checklist
 
 Before tagging:
