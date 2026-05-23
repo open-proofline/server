@@ -58,7 +58,7 @@ jobs:
           CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o dist/safety-recorder-linux-amd64 ./cmd/api
 
       - name: Upload binary artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: safety-recorder-linux-amd64
           path: server/dist/safety-recorder-linux-amd64
