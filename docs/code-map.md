@@ -62,4 +62,4 @@ The separate ports are a deployment boundary, not a complete security model. Do 
 
 ## Out Of Scope Today
 
-The repository does not currently include the iOS app, local recording, production client key storage, key sharing, browser/client-side decryption, playable media export, push notifications, SMS, Messenger integration, user accounts, or a public admin dashboard.
+The repository does not currently include the iOS app, local recording, production client key storage, key sharing, browser/client-side decryption, server-assisted break-glass key access, playable media export, push notifications, SMS, Messenger integration, user accounts, or a public admin dashboard.

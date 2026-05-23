@@ -50,6 +50,7 @@ When editing docs, keep these claims aligned:
 - current version and scope in [../README.md](../README.md)
 - route details in [api.md](api.md)
 - security assumptions in [security-model.md](security-model.md) and [threat-model.md](threat-model.md)
+- future key custody/decryption designs in [key-custody.md](key-custody.md), [browser-decryption.md](browser-decryption.md), and [break-glass-key-access.md](break-glass-key-access.md)
 - package layout in [code-map.md](code-map.md)
 - release notes in [../CHANGELOG.md](../CHANGELOG.md)
 

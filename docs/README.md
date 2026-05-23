@@ -24,7 +24,7 @@ This directory contains the detailed project documentation for Safety Recorder. 
 
 ## Current Scope
 
-Safety Recorder currently contains the Go backend only. It receives already-encrypted chunks, stores metadata in SQLite, stores encrypted blobs on local disk, groups chunks into media streams, and exposes a token-scoped read-only emergency viewer. The Go simulator can produce the documented v1 client-side encryption envelope for development and test flows. Future production key custody is documented in [key-custody.md](key-custody.md).
+Safety Recorder currently contains the Go backend only. It receives already-encrypted chunks, stores metadata in SQLite, stores encrypted blobs on local disk, groups chunks into media streams, and exposes a token-scoped read-only emergency viewer. The Go simulator can produce the documented v1 client-side encryption envelope for development and test flows. Future production key custody is documented in [key-custody.md](key-custody.md), with browser decryption and break-glass follow-up designs in [browser-decryption.md](browser-decryption.md) and [break-glass-key-access.md](break-glass-key-access.md).
 
 Evidence bundles are encrypted chunk bundles with JSON manifests. They are not decrypted, playable, or merged media exports.
 

@@ -40,7 +40,7 @@ The simulator encrypts fake chunks by default with the documented v1 AES-256-GCM
 - No iOS app
 - No recording implementation
 - No production client-side encryption implementation
-- No backend/browser decryption, key sharing, or playable media export
+- No backend/browser decryption, key sharing, server escrow, break-glass key access, or playable media export
 - No push notifications, SMS, or Messenger integration
 - No user accounts, OAuth, JWT, or public admin dashboard
 - No built-in TLS, rate limiting, retention policy, or production deployment hardening
@@ -122,6 +122,8 @@ Container defaults bind to `0.0.0.0` inside the container. Restrict host exposur
 - [Configuration](docs/configuration.md)
 - [Encryption](docs/encryption.md)
 - [Key custody and emergency access](docs/key-custody.md)
+- [Browser-side decryption design](docs/browser-decryption.md)
+- [Break-glass key access design](docs/break-glass-key-access.md)
 - [API reference](docs/api.md)
 - [Deployment notes](docs/deployment.md)
 - [Security model](docs/security-model.md)
@@ -168,9 +170,9 @@ Please see [SECURITY.md](SECURITY.md) for supported versions and vulnerability r
 - WireGuard-only bind/firewall deployment guidance
 - iOS client
 - Client-side recording and encryption
-- Production key custody, trusted-contact access, and client-side decryption
+- Production key custody, trusted-contact access, and browser/client-side decryption
+- Optional break-glass/dead-man-switch key access
 - Playable media export
-- Dead-man switch behavior
 - Reverse-proxy/TLS hardening for emergency viewer exposure
 - Explicit `/v1` access-control story before any public control-plane deployment
 
