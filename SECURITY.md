@@ -13,12 +13,13 @@ Safety Recorder is a private personal-safety recording backend. It is not produc
 
 Please do not report security vulnerabilities through public GitHub issues.
 
-For now, report vulnerabilities privately to the repository maintainer.
+Report vulnerabilities privately by email:
 
-Before this repository is made public or deployed for real-world use, configure one of:
+```text
+ellie.melton@proton.me
+```
 
-- GitHub private vulnerability reporting, or
-- a dedicated security contact email.
+GitHub private vulnerability reporting may also be used if it is enabled for this repository.
 
 Include:
 
@@ -32,7 +33,7 @@ Include:
 
 The maintainer will review private reports, ask follow-up questions when needed, and prioritize fixes according to severity and exploitability. Security fixes should stay narrowly scoped, include tests or verification where practical, and avoid changing deployment assumptions without explicit documentation.
 
-Because this project is not yet public-production-ready, response timelines are best-effort until a formal security contact and disclosure process are configured.
+Because this project is not yet public-production-ready, response timelines are best-effort.
 
 ## Security Scope
 
