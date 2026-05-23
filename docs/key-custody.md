@@ -484,7 +484,8 @@ risk, but it raises distribution and platform-support questions.
 
 Browser decryption can make emergency access much easier because contacts can
 use the same emergency viewer URL to inspect and decrypt evidence. It also has
-important limits.
+important limits. A focused browser decryption design spike is available in
+[browser-decryption.md](browser-decryption.md).
 
 URL fragment key delivery can keep key material out of HTTP requests because
 fragments are not sent to the server. That can be useful for recovery links or
@@ -660,7 +661,8 @@ not add production server decryption.
 Phase 3: browser/client-side decrypt prototype.
 
 Prototype emergency viewer decryption with strict CSP, no-store behavior, and a
-clear explanation of malicious-server limitations.
+clear explanation of malicious-server limitations, following the constraints in
+[browser-decryption.md](browser-decryption.md).
 
 Phase 4: iOS Keychain and contact-key planning.
 

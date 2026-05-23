@@ -1,6 +1,6 @@
 # Security Model
 
-This document summarizes the current security assumptions and controls. For a threat-oriented view, see [threat-model.md](threat-model.md). For future production key custody and emergency access design, see [key-custody.md](key-custody.md). For vulnerability reporting, see [../SECURITY.md](../SECURITY.md).
+This document summarizes the current security assumptions and controls. For a threat-oriented view, see [threat-model.md](threat-model.md). For future production key custody and emergency access design, see [key-custody.md](key-custody.md) and [browser-decryption.md](browser-decryption.md). For vulnerability reporting, see [../SECURITY.md](../SECURITY.md).
 
 ## Maturity
 
@@ -68,7 +68,7 @@ HTTP server timeouts are configurable separately for private and public listener
 - No built-in TLS
 - No built-in rate limiting or abuse throttling
 - No default emergency-token expiry policy
-- No implemented production client key storage, key sharing, or emergency-contact key access model; the future design is documented in [key-custody.md](key-custody.md)
+- No implemented production client key storage, key sharing, browser decryption, or emergency-contact key access model; the future designs are documented in [key-custody.md](key-custody.md) and [browser-decryption.md](browser-decryption.md)
 - No retention, backup, secure deletion, or disk encryption policy
 - No malware/content scanning for uploaded encrypted blobs
 - No multi-user authorization model

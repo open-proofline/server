@@ -10,7 +10,7 @@ This document describes the current backend-only security posture. It is intenti
 - Raw emergency tokens returned once at creation time
 - Emergency viewer URLs containing bearer tokens
 - Simulator-only local encryption key files when developers opt into `--key-file`
-- Future iOS recordings, production client-side keys, and key sharing are out of scope for the current implementation. The intended future key custody direction is documented in [key-custody.md](key-custody.md).
+- Future iOS recordings, production client-side keys, key sharing, and browser decryption are out of scope for the current implementation. The intended future key custody direction is documented in [key-custody.md](key-custody.md), and browser decryption constraints are documented in [browser-decryption.md](browser-decryption.md).
 
 ## Trust Boundaries
 
@@ -54,7 +54,7 @@ This document describes the current backend-only security posture. It is intenti
 - Bundle downloads are encrypted chunk bundles, not decrypted or playable media exports.
 - No multi-user authorization model.
 - Emergency links are bearer tokens and must be shared carefully.
-- No implemented production key-sharing, key recovery, Keychain storage, emergency-contact access, browser decryption, or playable export. The future key custody and emergency access design is documented in [key-custody.md](key-custody.md).
+- No implemented production key-sharing, key recovery, Keychain storage, emergency-contact access, browser decryption, or playable export. The future key custody and emergency access design is documented in [key-custody.md](key-custody.md), with browser decryption design in [browser-decryption.md](browser-decryption.md).
 
 ## Deployment Guidance
 
@@ -71,4 +71,5 @@ The Go app does not set `Strict-Transport-Security` by default because local dev
 - Decide default emergency-token expiry and revocation workflows.
 - Define retention, backup, and deletion policy.
 - Prototype the documented hybrid key custody model without weakening the current ciphertext-only backend.
+- Prototype browser decryption only after accepting the browser trust model and malicious-server limitations.
 - Review deployment logging so raw tokens are not captured outside the Go server.

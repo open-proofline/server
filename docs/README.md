@@ -11,6 +11,7 @@ This directory contains the detailed project documentation for Safety Recorder. 
 | [Configuration](configuration.md) | Environment variables, bind addresses, upload limits, and data layout. |
 | [Encryption](encryption.md) | Client-side chunk envelope, simulator key file, and local bundle verification. |
 | [Key custody and emergency access](key-custody.md) | Future production key custody, trusted-contact access, and break-glass design. |
+| [Browser-side decryption](browser-decryption.md) | Future emergency viewer decryption options, risks, and phased direction. |
 | [API](api.md) | Current HTTP routes, request examples, response examples, and bundle formats. |
 | [Deployment](deployment.md) | Local, Docker, reverse proxy, TLS, and public exposure notes. |
 | [Security model](security-model.md) | Current controls, browser headers, logging posture, and security assumptions. |
