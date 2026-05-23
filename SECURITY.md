@@ -13,13 +13,7 @@ Safety Recorder is a private personal-safety recording backend. It is not produc
 
 Please do not report security vulnerabilities through public GitHub issues.
 
-Report vulnerabilities privately by email:
-
-```text
-ellie.melton@proton.me
-```
-
-GitHub private vulnerability reporting may also be used if it is enabled for this repository.
+**Report vulnerabilities using GitHub private vulnerability reporting.**
 
 Include:
 
