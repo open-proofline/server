@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added a public technical review report and report-validation prompt workflow.
 - Documented the active branch protection ruleset, required checks, and tag/release expectations.
 - Added a break-glass and dead-man-switch key access design document.
 - Added a browser-side emergency viewer decryption design spike.

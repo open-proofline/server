@@ -24,9 +24,23 @@ server/
   internal/storage local immutable blob storage
   migrations       embedded SQLite schema
 docs/              project documentation
+docs/reports/      public technical review reports and report prompts
 ```
 
 See [code-map.md](code-map.md) for a package-level walkthrough.
+
+## Technical Review Reports
+
+Public technical review reports live in [reports/](reports/). They are
+AI-assisted engineering review artifacts reviewed by the maintainer, not formal
+security audits, penetration tests, compliance certifications, or production
+readiness endorsements.
+
+Use the Phase 1 prompt in
+[reports/prompts/phase-1-deep-research-technical-review.md](reports/prompts/phase-1-deep-research-technical-review.md)
+to create a source-cited draft outside Codex. Use
+[../codex/prompts/95-validate-deep-research-report.md](../codex/prompts/95-validate-deep-research-report.md)
+for the Phase 2 Codex cleanup and public-safety validation pass.
 
 ## Commands
 
