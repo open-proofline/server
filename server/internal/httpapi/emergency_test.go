@@ -147,6 +147,25 @@ func TestCreateEmergencyTokenAppliesDefaultExpiry(t *testing.T) {
 	}
 }
 
+func TestCreateEmergencyTokenPreservesExplicitNullExpiry(t *testing.T) {
+	app := newTestApp(t)
+	incidentID := createIncident(t, app, `{}`)
+
+	response, body := post(t, app, "/v1/incidents/"+incidentID+"/emergency-tokens", "application/json", bytes.NewBufferString(`{"label":"trusted contact","expires_at":null}`))
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusCreated {
+		t.Fatalf("expected create emergency token status 201, got %d: %s", response.StatusCode, body)
+	}
+
+	var token emergencyTokenResponse
+	if err := json.Unmarshal(body, &token); err != nil {
+		t.Fatalf("decode create emergency token response: %v", err)
+	}
+	if token.ExpiresAt != nil {
+		t.Fatalf("expected explicit null expires_at to remain unset, got %s", token.ExpiresAt)
+	}
+}
+
 func TestCreateEmergencyTokenCanDisableDefaultExpiry(t *testing.T) {
 	app := newTestAppWithDefaultEmergencyTokenTTL(t, 0)
 	incidentID := createIncident(t, app, `{}`)
