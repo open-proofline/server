@@ -286,6 +286,8 @@ streams/{stream_id}/chunks/audio_000001.enc
 
 Open, failed, and legacy unstreamed chunks are omitted from this initial bundle format.
 
+If any completed stream cannot be reconstructed, the incident bundle request fails with `409 incident_bundle_inconsistent` rather than returning a partial bundle. The error response does not include server filesystem paths, stored chunk paths, or ZIP entry names.
+
 ## Checkins
 
 Checkin routes are mounted only on the private API server.
@@ -415,3 +417,5 @@ Downloads a completed stream bundle for the token's incident. The route is read-
 ### `GET /e/{token}/incident/download`
 
 Downloads all completed streams for the token's incident as one encrypted evidence ZIP. Failed/open streams and legacy unstreamed chunks are omitted.
+
+If any completed stream cannot be reconstructed, the emergency incident bundle request fails with `409 incident_bundle_inconsistent` rather than returning a partial bundle. Invalid, expired, and revoked tokens still return `404 emergency_token_invalid`.

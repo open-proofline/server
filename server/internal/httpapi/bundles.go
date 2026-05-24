@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 
 	"safety-recorder/server/internal/incidents"
 )
@@ -97,8 +98,9 @@ func (a *API) loadCompletedIncidentBundles(w http.ResponseWriter, r *http.Reques
 	bundles := make([]streamBundleData, 0, len(streams))
 	for _, stream := range streams {
 		bundle, err := a.buildCompletedStreamBundle(r.Context(), incidentID, stream.ID)
-		if errors.Is(err, incidents.ErrInvalidState) || errors.Is(err, incidents.ErrNotFound) {
-			continue
+		if isIncidentBundleInconsistency(err) {
+			writeError(w, http.StatusConflict, "incident_bundle_inconsistent", "completed media stream could not be included in incident bundle")
+			return nil, false
 		}
 		if err != nil {
 			a.internalError(w, "build stream bundle", err)
@@ -107,6 +109,12 @@ func (a *API) loadCompletedIncidentBundles(w http.ResponseWriter, r *http.Reques
 		bundles = append(bundles, bundle)
 	}
 	return bundles, true
+}
+
+func isIncidentBundleInconsistency(err error) bool {
+	return errors.Is(err, incidents.ErrInvalidState) ||
+		errors.Is(err, incidents.ErrNotFound) ||
+		errors.Is(err, os.ErrNotExist)
 }
 
 func (a *API) buildCompletedStreamBundle(ctx context.Context, incidentID, streamID string) (streamBundleData, error) {

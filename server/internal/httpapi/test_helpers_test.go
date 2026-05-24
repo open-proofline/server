@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"mime/multipart"
@@ -227,6 +228,39 @@ func createIncidentStreamWithChunks(t *testing.T, app *testApp, chunkCount int) 
 		}
 	}
 	return incidentID, stream
+}
+
+func removeStoredStreamChunkFile(t *testing.T, app *testApp, incidentID, streamID, mediaType string, chunkIndex int) {
+	t.Helper()
+
+	chunkPath := filepath.Join(app.dataDir, "incidents", incidentID, "streams", streamID, fmt.Sprintf("%s_%06d.enc", mediaType, chunkIndex))
+	if err := os.Remove(chunkPath); err != nil {
+		t.Fatalf("remove stored stream chunk file: %v", err)
+	}
+}
+
+func updateStoredStreamChunkIndex(t *testing.T, app *testApp, incidentID, streamID string, currentIndex, nextIndex int) {
+	t.Helper()
+
+	result, err := app.db.ExecContext(context.Background(), `
+		UPDATE chunks
+		SET chunk_index = ?
+		WHERE incident_id = ? AND stream_id = ? AND chunk_index = ?`,
+		nextIndex,
+		incidentID,
+		streamID,
+		currentIndex,
+	)
+	if err != nil {
+		t.Fatalf("update stored stream chunk index: %v", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		t.Fatalf("stored stream chunk rows affected: %v", err)
+	}
+	if rowsAffected != 1 {
+		t.Fatalf("expected to update 1 stored stream chunk, updated %d", rowsAffected)
+	}
 }
 
 func uploadChunk(t *testing.T, app *testApp, incidentID string, index int, mediaType string, payload []byte, hash string) (*http.Response, []byte) {
