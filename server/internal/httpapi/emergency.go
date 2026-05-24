@@ -221,7 +221,7 @@ func summarizeEmergencyData(detail incidents.IncidentDetail) emergencyViewData {
 		}
 		summary := summarizeChunk(chunk)
 		current := latestChunks[chunk.MediaType]
-		if current == nil || summary.ChunkIndex > current.ChunkIndex {
+		if current == nil || chunkReceivedAfter(summary, *current) {
 			latestChunks[chunk.MediaType] = &summary
 		}
 	}
@@ -306,4 +306,11 @@ func summarizeChunk(chunk incidents.Chunk) emergencyChunkSummary {
 		SHA256Hex:        chunk.SHA256Hex,
 		CreatedAt:        chunk.CreatedAt,
 	}
+}
+
+func chunkReceivedAfter(candidate, current emergencyChunkSummary) bool {
+	if candidate.CreatedAt.Equal(current.CreatedAt) {
+		return candidate.ChunkIndex > current.ChunkIndex
+	}
+	return candidate.CreatedAt.After(current.CreatedAt)
 }

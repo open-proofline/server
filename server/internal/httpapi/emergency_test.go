@@ -485,3 +485,81 @@ func TestEmergencyDataReturnsExpectedReadOnlyJSON(t *testing.T) {
 		t.Fatal("expected emergency warning")
 	}
 }
+
+func TestEmergencyDataLatestChunkUsesReceivedTimeAcrossStreamScopedIndexes(t *testing.T) {
+	app := newTestApp(t)
+	incidentID := createIncident(t, app, `{}`)
+	firstStream := createMediaStream(t, app, incidentID, incidents.MediaTypeAudio, "first audio")
+	secondStream := createMediaStream(t, app, incidentID, incidents.MediaTypeAudio, "second audio")
+	firstPayload := []byte("first stream encrypted audio")
+	firstLaterIndexPayload := []byte("first stream encrypted audio index two")
+	secondPayload := []byte("second stream encrypted audio")
+
+	response, body := uploadChunkWithStream(t, app, incidentID, firstStream.ID, 1, incidents.MediaTypeAudio, firstPayload, sha256Hex(firstPayload))
+	response.Body.Close()
+	if response.StatusCode != http.StatusCreated {
+		t.Fatalf("expected first stream chunk 1 upload status 201, got %d: %s", response.StatusCode, body)
+	}
+	response, body = uploadChunkWithStream(t, app, incidentID, firstStream.ID, 2, incidents.MediaTypeAudio, firstLaterIndexPayload, sha256Hex(firstLaterIndexPayload))
+	response.Body.Close()
+	if response.StatusCode != http.StatusCreated {
+		t.Fatalf("expected first stream chunk 2 upload status 201, got %d: %s", response.StatusCode, body)
+	}
+	response, body = uploadChunkWithStream(t, app, incidentID, secondStream.ID, 1, incidents.MediaTypeAudio, secondPayload, sha256Hex(secondPayload))
+	response.Body.Close()
+	if response.StatusCode != http.StatusCreated {
+		t.Fatalf("expected second stream chunk 1 upload status 201, got %d: %s", response.StatusCode, body)
+	}
+
+	baseTime := time.Date(2026, 5, 21, 10, 0, 0, 0, time.UTC)
+	setChunkCreatedAt(t, app, firstStream.ID, 1, baseTime)
+	setChunkCreatedAt(t, app, firstStream.ID, 2, baseTime.Add(time.Second))
+	setChunkCreatedAt(t, app, secondStream.ID, 1, baseTime.Add(2*time.Second))
+
+	token := createEmergencyToken(t, app, incidentID, "trusted contact", nil)
+	response, body = getPublic(t, app, "/e/"+token.Token+"/data")
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("expected emergency data status 200, got %d: %s", response.StatusCode, body)
+	}
+
+	var data struct {
+		LatestChunkByMediaType map[string]struct {
+			ChunkIndex int    `json:"chunk_index"`
+			ByteSize   int64  `json:"byte_size"`
+			SHA256Hex  string `json:"sha256_hex"`
+		} `json:"latest_chunk_by_media_type"`
+	}
+	if err := json.Unmarshal(body, &data); err != nil {
+		t.Fatalf("decode emergency data: %v", err)
+	}
+	latestAudio := data.LatestChunkByMediaType[incidents.MediaTypeAudio]
+	if latestAudio.ChunkIndex != 1 {
+		t.Fatalf("expected latest audio chunk to use later stream-local index 1, got %+v", latestAudio)
+	}
+	if latestAudio.ByteSize != int64(len(secondPayload)) || latestAudio.SHA256Hex != sha256Hex(secondPayload) {
+		t.Fatalf("expected latest audio chunk to match second stream payload, got %+v", latestAudio)
+	}
+}
+
+func setChunkCreatedAt(t *testing.T, app *testApp, streamID string, chunkIndex int, createdAt time.Time) {
+	t.Helper()
+	result, err := app.db.ExecContext(context.Background(), `
+		UPDATE chunks
+		SET created_at = ?
+		WHERE stream_id = ? AND chunk_index = ?`,
+		createdAt.Format(time.RFC3339Nano),
+		streamID,
+		chunkIndex,
+	)
+	if err != nil {
+		t.Fatalf("update chunk created_at: %v", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		t.Fatalf("read update rows affected: %v", err)
+	}
+	if rowsAffected != 1 {
+		t.Fatalf("expected one updated chunk row, got %d", rowsAffected)
+	}
+}

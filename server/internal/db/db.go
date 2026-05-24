@@ -125,6 +125,7 @@ func migrationSteps() ([]migrationStep, error) {
 	steps = append(steps,
 		compatMigrationStep("004_chunks_stream_id_compat", "add chunks.stream_id column and index when missing", ensureChunkStreamColumn),
 		compatMigrationStep("005_drop_emergency_token_last_used_compat", "drop obsolete emergency_tokens.last_used_at column when present", dropEmergencyTokenLastUsedColumn),
+		compatMigrationStep("006_chunks_stream_identity_compat", "rebuild chunks uniqueness around stream scoped identity", ensureChunkStreamIdentity),
 	)
 	return steps, nil
 }
@@ -213,6 +214,73 @@ func ensureChunkStreamColumn(ctx context.Context, store schemaStore) error {
 	}
 	if _, err := store.ExecContext(ctx, "CREATE INDEX IF NOT EXISTS idx_chunks_stream_id ON chunks(stream_id)"); err != nil {
 		return fmt.Errorf("create chunks stream index: %w", err)
+	}
+	return nil
+}
+
+func ensureChunkStreamIdentity(ctx context.Context, store schemaStore) error {
+	if err := ensureChunkStreamColumn(ctx, store); err != nil {
+		return err
+	}
+	if _, err := store.ExecContext(ctx, "UPDATE chunks SET stream_id = NULL WHERE stream_id = ''"); err != nil {
+		return fmt.Errorf("normalize empty chunk stream ids: %w", err)
+	}
+	if _, err := store.ExecContext(ctx, "DROP TABLE IF EXISTS chunks_stream_identity_migration"); err != nil {
+		return fmt.Errorf("drop stale chunks migration table: %w", err)
+	}
+	if _, err := store.ExecContext(ctx, `
+		CREATE TABLE chunks_stream_identity_migration (
+			id TEXT PRIMARY KEY,
+			incident_id TEXT NOT NULL REFERENCES incidents(id) ON DELETE CASCADE,
+			stream_id TEXT CHECK (stream_id IS NULL OR length(stream_id) > 0),
+			chunk_index INTEGER NOT NULL CHECK (chunk_index >= 0),
+			media_type TEXT NOT NULL CHECK (media_type IN ('audio', 'video', 'location', 'metadata')),
+			started_at TEXT NOT NULL,
+			ended_at TEXT NOT NULL,
+			original_filename TEXT,
+			stored_path TEXT NOT NULL,
+			byte_size INTEGER NOT NULL CHECK (byte_size >= 0),
+			sha256_hex TEXT NOT NULL CHECK (
+				length(sha256_hex) = 64
+				AND sha256_hex GLOB '[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]'
+			),
+			created_at TEXT NOT NULL
+		);`); err != nil {
+		return fmt.Errorf("create stream identity chunks table: %w", err)
+	}
+	if _, err := store.ExecContext(ctx, `
+		INSERT INTO chunks_stream_identity_migration (
+			id, incident_id, stream_id, chunk_index, media_type, started_at, ended_at,
+			original_filename, stored_path, byte_size, sha256_hex, created_at
+		)
+		SELECT id, incident_id, stream_id, chunk_index, media_type, started_at, ended_at,
+			original_filename, stored_path, byte_size, sha256_hex, created_at
+		FROM chunks;`); err != nil {
+		return fmt.Errorf("copy chunks into stream identity table: %w", err)
+	}
+	if _, err := store.ExecContext(ctx, "DROP TABLE chunks"); err != nil {
+		return fmt.Errorf("drop legacy chunks table: %w", err)
+	}
+	if _, err := store.ExecContext(ctx, "ALTER TABLE chunks_stream_identity_migration RENAME TO chunks"); err != nil {
+		return fmt.Errorf("rename stream identity chunks table: %w", err)
+	}
+	if _, err := store.ExecContext(ctx, "CREATE INDEX IF NOT EXISTS idx_chunks_incident_id ON chunks(incident_id)"); err != nil {
+		return fmt.Errorf("create chunks incident index: %w", err)
+	}
+	if _, err := store.ExecContext(ctx, "CREATE INDEX IF NOT EXISTS idx_chunks_stream_id ON chunks(stream_id)"); err != nil {
+		return fmt.Errorf("create chunks stream index: %w", err)
+	}
+	if _, err := store.ExecContext(ctx, `
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_chunks_legacy_identity_unique
+		ON chunks(incident_id, media_type, chunk_index)
+		WHERE stream_id IS NULL`); err != nil {
+		return fmt.Errorf("create legacy chunk identity index: %w", err)
+	}
+	if _, err := store.ExecContext(ctx, `
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_chunks_stream_identity_unique
+		ON chunks(incident_id, stream_id, chunk_index)
+		WHERE stream_id IS NOT NULL`); err != nil {
+		return fmt.Errorf("create stream chunk identity index: %w", err)
 	}
 	return nil
 }

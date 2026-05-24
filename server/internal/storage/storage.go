@@ -92,16 +92,23 @@ func (s *Store) SaveTemp(reader io.Reader, maxBytes int64) (*TempUpload, error) 
 }
 
 // CommitTemp links a verified temp upload into its final immutable chunk path.
-// It never overwrites an existing file.
-func (s *Store) CommitTemp(upload *TempUpload, incidentID, mediaType string, chunkIndex int) (string, error) {
+// It never overwrites an existing file. Streamed chunks are stored below a
+// stream-specific namespace; legacy unstreamed chunks keep their original path.
+func (s *Store) CommitTemp(upload *TempUpload, incidentID, streamID, mediaType string, chunkIndex int) (string, error) {
 	if upload == nil || upload.Path == "" {
 		return "", fmt.Errorf("missing temp upload")
 	}
 	if chunkIndex < 0 || !safePathSegment(incidentID) || !safePathSegment(mediaType) {
 		return "", ErrUnsafePath
 	}
+	if streamID != "" && !safePathSegment(streamID) {
+		return "", ErrUnsafePath
+	}
 
 	relPath := path.Join("incidents", incidentID, fmt.Sprintf("%s_%06d.enc", mediaType, chunkIndex))
+	if streamID != "" {
+		relPath = path.Join("incidents", incidentID, "streams", streamID, fmt.Sprintf("%s_%06d.enc", mediaType, chunkIndex))
+	}
 	finalPath, err := s.fullPath(relPath)
 	if err != nil {
 		return "", err

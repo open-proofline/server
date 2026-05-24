@@ -138,13 +138,31 @@ func (r *Repository) CloseIncident(ctx context.Context, id string) (Incident, er
 }
 
 // ChunkExists reports whether an incident already has a chunk with the same
-// media type and index.
-func (r *Repository) ChunkExists(ctx context.Context, incidentID, mediaType string, chunkIndex int) (bool, error) {
+// stream-scoped or legacy unstreamed identity.
+func (r *Repository) ChunkExists(ctx context.Context, incidentID, streamID, mediaType string, chunkIndex int) (bool, error) {
 	var exists int
+	if streamID != "" {
+		err := r.db.QueryRowContext(ctx, `
+			SELECT 1
+			FROM chunks
+			WHERE incident_id = ? AND stream_id = ? AND chunk_index = ?`,
+			incidentID,
+			streamID,
+			chunkIndex,
+		).Scan(&exists)
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		if err != nil {
+			return false, fmt.Errorf("check stream chunk exists: %w", err)
+		}
+		return true, nil
+	}
+
 	err := r.db.QueryRowContext(ctx, `
 		SELECT 1
 		FROM chunks
-		WHERE incident_id = ? AND media_type = ? AND chunk_index = ?`,
+		WHERE incident_id = ? AND stream_id IS NULL AND media_type = ? AND chunk_index = ?`,
 		incidentID,
 		mediaType,
 		chunkIndex,
@@ -295,13 +313,14 @@ func (r *Repository) ListChunks(ctx context.Context, incidentID string) ([]Chunk
 	return chunks, nil
 }
 
-// GetChunkByKey returns one chunk by incident, media type, and chunk index.
+// GetChunkByKey returns one legacy unstreamed chunk by incident, media type,
+// and chunk index. Streamed chunks are addressed through stream-aware routes.
 func (r *Repository) GetChunkByKey(ctx context.Context, incidentID, mediaType string, chunkIndex int) (Chunk, error) {
 	row := r.db.QueryRowContext(ctx, `
 		SELECT id, incident_id, stream_id, chunk_index, media_type, started_at, ended_at,
 			original_filename, stored_path, byte_size, sha256_hex, created_at
 		FROM chunks
-		WHERE incident_id = ? AND media_type = ? AND chunk_index = ?`,
+		WHERE incident_id = ? AND stream_id IS NULL AND media_type = ? AND chunk_index = ?`,
 		incidentID,
 		mediaType,
 		chunkIndex,

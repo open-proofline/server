@@ -184,6 +184,57 @@ func TestMigrateAllowsExistingChunkStreamIDColumn(t *testing.T) {
 	}
 }
 
+func TestMigrateUsesStreamScopedChunkUniquenessForNewDatabase(t *testing.T) {
+	ctx := context.Background()
+	conn := openMemoryDB(t)
+	defer conn.Close()
+
+	if err := Migrate(ctx, conn); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	insertMigrationTestIncident(t, ctx, conn, "inc_stream_scope")
+	insertMigrationTestStream(t, ctx, conn, "str_audio_one", "inc_stream_scope", "audio")
+	insertMigrationTestStream(t, ctx, conn, "str_audio_two", "inc_stream_scope", "audio")
+
+	insertMigrationTestChunk(t, ctx, conn, "chk_stream_one", "inc_stream_scope", sql.NullString{String: "str_audio_one", Valid: true}, 1, "audio")
+	insertMigrationTestChunk(t, ctx, conn, "chk_stream_two", "inc_stream_scope", sql.NullString{String: "str_audio_two", Valid: true}, 1, "audio")
+	insertMigrationTestChunk(t, ctx, conn, "chk_legacy_audio", "inc_stream_scope", sql.NullString{}, 1, "audio")
+	insertMigrationTestChunk(t, ctx, conn, "chk_legacy_video", "inc_stream_scope", sql.NullString{}, 1, "video")
+
+	if err := insertMigrationTestChunkErr(ctx, conn, "chk_stream_duplicate", "inc_stream_scope", sql.NullString{String: "str_audio_one", Valid: true}, 1, "audio"); err == nil {
+		t.Fatal("expected duplicate streamed chunk identity to fail")
+	}
+	if err := insertMigrationTestChunkErr(ctx, conn, "chk_legacy_duplicate", "inc_stream_scope", sql.NullString{}, 1, "audio"); err == nil {
+		t.Fatal("expected duplicate legacy chunk identity to fail")
+	}
+}
+
+func TestMigratePreservesLegacyChunksAndAddsStreamScopedUniqueness(t *testing.T) {
+	ctx := context.Background()
+	conn := openMemoryDB(t)
+	defer conn.Close()
+
+	createLegacyChunksSchema(t, ctx, conn, false)
+	insertLegacyChunkBeforeStreamIDMigration(t, ctx, conn)
+
+	if err := Migrate(ctx, conn); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	if !hasColumn(t, ctx, conn, "chunks", "stream_id") {
+		t.Fatal("expected chunks.stream_id column")
+	}
+	assertChunkExists(t, ctx, conn, "chk_existing")
+
+	insertMigrationTestStream(t, ctx, conn, "str_existing_one", "inc_existing", "audio")
+	insertMigrationTestStream(t, ctx, conn, "str_existing_two", "inc_existing", "audio")
+	insertMigrationTestChunk(t, ctx, conn, "chk_existing_stream_one", "inc_existing", sql.NullString{String: "str_existing_one", Valid: true}, 1, "audio")
+	insertMigrationTestChunk(t, ctx, conn, "chk_existing_stream_two", "inc_existing", sql.NullString{String: "str_existing_two", Valid: true}, 1, "audio")
+
+	if err := insertMigrationTestChunkErr(ctx, conn, "chk_existing_legacy_duplicate", "inc_existing", sql.NullString{}, 1, "audio"); err == nil {
+		t.Fatal("expected duplicate legacy chunk identity to fail")
+	}
+}
+
 func openMemoryDB(t *testing.T) *sql.DB {
 	t.Helper()
 	conn, err := sql.Open("sqlite3", ":memory:")
@@ -226,6 +277,96 @@ func createLegacyChunksSchema(t *testing.T, ctx context.Context, conn *sql.DB, i
 		);`)
 	if err != nil {
 		t.Fatalf("create legacy chunks schema: %v", err)
+	}
+}
+
+func insertMigrationTestIncident(t *testing.T, ctx context.Context, conn *sql.DB, incidentID string) {
+	t.Helper()
+	if _, err := conn.ExecContext(ctx, `
+		INSERT INTO incidents (id, created_at, updated_at, status)
+		VALUES (?, '2026-05-21T10:00:00Z', '2026-05-21T10:00:00Z', 'open')`, incidentID); err != nil {
+		t.Fatalf("insert incident: %v", err)
+	}
+}
+
+func insertMigrationTestStream(t *testing.T, ctx context.Context, conn *sql.DB, streamID, incidentID, mediaType string) {
+	t.Helper()
+	if _, err := conn.ExecContext(ctx, `
+		INSERT INTO media_streams (id, incident_id, media_type, status, created_at, updated_at)
+		VALUES (?, ?, ?, 'open', '2026-05-21T10:00:00Z', '2026-05-21T10:00:00Z')`, streamID, incidentID, mediaType); err != nil {
+		t.Fatalf("insert media stream: %v", err)
+	}
+}
+
+func insertMigrationTestChunk(t *testing.T, ctx context.Context, conn *sql.DB, chunkID, incidentID string, streamID sql.NullString, chunkIndex int, mediaType string) {
+	t.Helper()
+	if err := insertMigrationTestChunkErr(ctx, conn, chunkID, incidentID, streamID, chunkIndex, mediaType); err != nil {
+		t.Fatalf("insert chunk %s: %v", chunkID, err)
+	}
+}
+
+func insertMigrationTestChunkErr(ctx context.Context, conn *sql.DB, chunkID, incidentID string, streamID sql.NullString, chunkIndex int, mediaType string) error {
+	var streamValue any
+	if streamID.Valid {
+		streamValue = streamID.String
+	}
+	_, err := conn.ExecContext(ctx, `
+		INSERT INTO chunks (
+			id, incident_id, stream_id, chunk_index, media_type, started_at, ended_at,
+			stored_path, byte_size, sha256_hex, created_at
+		)
+		VALUES (
+			?, ?, ?, ?, ?, '2026-05-21T10:00:00Z', '2026-05-21T10:00:01Z',
+			?, 4, ?, '2026-05-21T10:00:02Z'
+		)`,
+		chunkID,
+		incidentID,
+		streamValue,
+		chunkIndex,
+		mediaType,
+		"incidents/"+incidentID+"/"+chunkID+".enc",
+		strings.Repeat("a", 64),
+	)
+	return err
+}
+
+func insertLegacyChunkBeforeStreamIDMigration(t *testing.T, ctx context.Context, conn *sql.DB) {
+	t.Helper()
+	_, err := conn.ExecContext(ctx, `
+		INSERT INTO incidents (id, created_at, updated_at, status)
+		VALUES ('inc_existing', '2026-05-21T10:00:00Z', '2026-05-21T10:00:00Z', 'open');
+		INSERT INTO chunks (
+			id, incident_id, chunk_index, media_type, started_at, ended_at,
+			stored_path, byte_size, sha256_hex, created_at
+		)
+		VALUES (
+			'chk_existing',
+			'inc_existing',
+			1,
+			'audio',
+			'2026-05-21T10:00:00Z',
+			'2026-05-21T10:00:01Z',
+			'incidents/inc_existing/audio_000001.enc',
+			4,
+			?,
+			'2026-05-21T10:00:02Z'
+		);`, strings.Repeat("a", 64))
+	if err != nil {
+		t.Fatalf("insert legacy chunk before migration: %v", err)
+	}
+}
+
+func assertChunkExists(t *testing.T, ctx context.Context, conn *sql.DB, chunkID string) {
+	t.Helper()
+	var count int
+	if err := conn.QueryRowContext(ctx, `
+		SELECT COUNT(*)
+		FROM chunks
+		WHERE id = ?`, chunkID).Scan(&count); err != nil {
+		t.Fatalf("count chunk %s: %v", chunkID, err)
+	}
+	if count != 1 {
+		t.Fatalf("expected chunk %s to exist, got count %d", chunkID, count)
 	}
 }
 

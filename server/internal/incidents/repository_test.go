@@ -70,6 +70,66 @@ func TestCreateChunkRejectsCompletedStream(t *testing.T) {
 	}
 }
 
+func TestCreateChunkUsesStreamScopedDuplicateIdentity(t *testing.T) {
+	ctx := context.Background()
+	repo := newRepository(t, ctx)
+	incident, err := repo.CreateIncident(ctx, "phone", "")
+	if err != nil {
+		t.Fatalf("create incident: %v", err)
+	}
+	firstStream, err := repo.CreateMediaStream(ctx, incident.ID, incidents.MediaTypeAudio, "first audio")
+	if err != nil {
+		t.Fatalf("create first media stream: %v", err)
+	}
+	secondStream, err := repo.CreateMediaStream(ctx, incident.ID, incidents.MediaTypeAudio, "second audio")
+	if err != nil {
+		t.Fatalf("create second media stream: %v", err)
+	}
+
+	if _, err := repo.CreateChunk(ctx, testChunkParams(incident.ID, firstStream.ID, incidents.MediaTypeAudio, 1)); err != nil {
+		t.Fatalf("create first stream chunk: %v", err)
+	}
+	if _, err := repo.CreateChunk(ctx, testChunkParams(incident.ID, secondStream.ID, incidents.MediaTypeAudio, 1)); err != nil {
+		t.Fatalf("create second stream chunk with same index: %v", err)
+	}
+	if _, err := repo.CreateChunk(ctx, testChunkParams(incident.ID, "", incidents.MediaTypeAudio, 1)); err != nil {
+		t.Fatalf("create legacy chunk with same media/index: %v", err)
+	}
+
+	_, err = repo.CreateChunk(ctx, testChunkParams(incident.ID, firstStream.ID, incidents.MediaTypeAudio, 1))
+	if !errors.Is(err, incidents.ErrDuplicate) {
+		t.Fatalf("expected duplicate stream chunk to return ErrDuplicate, got %v", err)
+	}
+}
+
+func TestGetChunkByKeyReturnsLegacyUnstreamedChunk(t *testing.T) {
+	ctx := context.Background()
+	repo := newRepository(t, ctx)
+	incident, err := repo.CreateIncident(ctx, "phone", "")
+	if err != nil {
+		t.Fatalf("create incident: %v", err)
+	}
+	stream, err := repo.CreateMediaStream(ctx, incident.ID, incidents.MediaTypeAudio, "audio")
+	if err != nil {
+		t.Fatalf("create media stream: %v", err)
+	}
+	if _, err := repo.CreateChunk(ctx, testChunkParams(incident.ID, stream.ID, incidents.MediaTypeAudio, 1)); err != nil {
+		t.Fatalf("create stream chunk: %v", err)
+	}
+	legacy, err := repo.CreateChunk(ctx, testChunkParams(incident.ID, "", incidents.MediaTypeAudio, 1))
+	if err != nil {
+		t.Fatalf("create legacy chunk: %v", err)
+	}
+
+	got, err := repo.GetChunkByKey(ctx, incident.ID, incidents.MediaTypeAudio, 1)
+	if err != nil {
+		t.Fatalf("get legacy chunk by key: %v", err)
+	}
+	if got.ID != legacy.ID || got.StreamID != "" {
+		t.Fatalf("expected legacy chunk %+v, got %+v", legacy, got)
+	}
+}
+
 func TestCompleteMediaStreamRejectsUnexpectedChunkRows(t *testing.T) {
 	ctx := context.Background()
 	repo := newRepository(t, ctx)
@@ -117,6 +177,10 @@ func newRepository(t *testing.T, ctx context.Context) *incidents.Repository {
 
 func testChunkParams(incidentID, streamID, mediaType string, chunkIndex int) incidents.CreateChunkParams {
 	startedAt := time.Date(2026, 5, 23, 10, 0, 0, 0, time.UTC)
+	storedPath := fmt.Sprintf("incidents/%s/%s_%06d.enc", incidentID, mediaType, chunkIndex)
+	if streamID != "" {
+		storedPath = fmt.Sprintf("incidents/%s/streams/%s/%s_%06d.enc", incidentID, streamID, mediaType, chunkIndex)
+	}
 	return incidents.CreateChunkParams{
 		IncidentID:       incidentID,
 		StreamID:         streamID,
@@ -125,7 +189,7 @@ func testChunkParams(incidentID, streamID, mediaType string, chunkIndex int) inc
 		StartedAt:        startedAt,
 		EndedAt:          startedAt.Add(time.Second),
 		OriginalFilename: "chunk.enc",
-		StoredPath:       fmt.Sprintf("incidents/%s/%s_%06d.enc", incidentID, mediaType, chunkIndex),
+		StoredPath:       storedPath,
 		ByteSize:         4,
 		SHA256Hex:        strings.Repeat("a", 64),
 	}

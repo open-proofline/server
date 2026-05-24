@@ -110,7 +110,7 @@ Response `201`:
   "started_at": "2026-05-21T10:00:00Z",
   "ended_at": "2026-05-21T10:00:10Z",
   "original_filename": "chunk.enc",
-  "stored_path": "incidents/inc_.../audio_000001.enc",
+  "stored_path": "incidents/inc_.../streams/str_.../audio_000001.enc",
   "byte_size": 23,
   "sha256_hex": "...",
   "created_at": "2026-05-21T10:00:11Z"
@@ -121,9 +121,9 @@ When `stream_id` is provided, the stream must exist, belong to the same incident
 
 New clients should create a media stream and upload chunks with `stream_id`. `stream_id` remains optional for backwards compatibility with existing chunks and clients. Legacy unstreamed chunks may use `chunk_index = 0`; they are still stored and listed, but they are not included in completed-stream bundle downloads.
 
-The current chunk identity remains `(incident_id, media_type, chunk_index)`, so clients should keep chunk indexes unique per incident and media type even when using streams.
+Streamed chunk identity is `(incident_id, stream_id, chunk_index)`, so each stream can use normal stream-local chunk numbering. Legacy unstreamed chunk identity remains `(incident_id, media_type, chunk_index)` for chunks without `stream_id`.
 
-Duplicate `(incident_id, media_type, chunk_index)` uploads return `409 duplicate_chunk`. Hash mismatches return `400 hash_mismatch` and do not commit a final file.
+Duplicate streamed `(incident_id, stream_id, chunk_index)` uploads and duplicate legacy `(incident_id, media_type, chunk_index)` uploads return `409 duplicate_chunk`. Hash mismatches return `400 hash_mismatch` and do not commit a final file.
 
 The repository rechecks incident and stream state when chunk metadata is inserted. If an upload races with incident close or stream completion, the final metadata insert is rejected and the committed blob path is removed.
 
@@ -135,7 +135,7 @@ Lists chunk metadata for one incident.
 
 ### `GET /v1/incidents/{incident_id}/chunks/{media_type}/{chunk_index}`
 
-Returns encrypted chunk bytes as `application/octet-stream`. This route is private/dev-only and is not used by the emergency viewer.
+Returns encrypted bytes for a legacy unstreamed chunk as `application/octet-stream`. This route is private/dev-only and is not used by the emergency viewer. Streamed chunks are read through completed stream bundle downloads rather than this legacy media/index route.
 
 ## Media Streams
 
