@@ -152,6 +152,53 @@ Core constraints:
 - Do not create public GitHub issues from backlog drafts until the maintainer has reviewed them.
 - Never put raw tokens, secrets, private deployment details, exploit details, or user safety data into public issue drafts.
 
+## When To Update Prompts
+
+Treat current code and source-of-truth docs as project truth. Reusable prompts
+are workflow helpers, Deep Research prompts are report-generation and validation
+helpers, and historical prompts are reference-only.
+
+When project scope, architecture, security posture, or workflow changes, update
+implementation or design docs first. Then update `README.md`, `AGENTS.md`,
+`SECURITY.md`, and relevant `docs/` files as needed. Update reusable Codex
+prompts only when their assumptions, guardrails, or repeated workflow steps have
+changed. Update Deep Research prompts when report scope, citation policy, source
+policy, or recurring validation failures change. Leave historical prompts
+untouched unless the maintainer explicitly requests otherwise.
+
+| Project change | Prompt/doc action |
+|---|---|
+| New API routes or listener exposure | Review `AGENTS.md`, `docs/api.md`, security/threat docs, and relevant review prompts. |
+| Private `/v1` exposure or authentication model changes | Update every reusable prompt that references private/public route separation. |
+| Encryption envelope changes | Update `docs/encryption.md`, `60-simulator-maintenance.md`, `30-security-review.md`, and Deep Research review scope. |
+| Key custody, browser decryption, break-glass, or dead-man-switch design changes | Use or update the key-custody prompts and update threat model, security model, encryption docs, and operational guidance. |
+| Bundle, storage, schema, or manifest changes | Update API docs, code-map docs, simulator docs/prompts, and Deep Research scope. |
+| CI/CD, Docker, GHCR, or release workflow changes | Update release/development docs and release/report prompts. |
+| New repeated Codex workflow | Add one reusable `NN-short-kebab-title.md` prompt and list it in this README. |
+| One-off implementation, refactor, or work order | Add a dated historical prompt under `features/`, `refactors/`, or `work-orders/`. |
+| Validated Deep Research report finds a recurring false-positive pattern | Update the Deep Research Phase 1 and/or Codex Phase 2 validation prompts so the same mistake is less likely to recur. |
+
+Key custody guardrails need special care. Preserve the current backend
+ciphertext-only implementation unless the task explicitly concerns key custody,
+emergency access, or decryption design. Do not turn "no server keys ever" into a
+permanent absolute rule, and do not introduce backend decryption, browser
+decryption, raw server-held keys, key escrow, or key-sharing behaviour
+incidentally. Explicit key custody or decryption work must update the threat
+model, security model, encryption docs, tests, and operational guidance before
+or alongside implementation.
+
+For the public-safe report workflow, review Deep Research Phase 1 and Codex
+Phase 2 validation together when report workflow changes. Phase 1 lives in
+`docs/reports/prompts/phase-1-deep-research-technical-review.md`. Codex Phase 2
+validation lives in `codex/prompts/95-validate-deep-research-report.md`. Keep
+portable citation keys, pin repository citations to reviewed commits, do not
+allow ChatGPT internal citation tokens in public reports, and add newly
+discovered recurring false positives to the Phase 2 checklist.
+
+Do not add a reusable prompt for every one-off idea. Add reusable prompts only
+for repeated workflows. One-off prompts belong in dated historical directories,
+and generated local artifacts belong outside `codex/`.
+
 ## Issue And PR Workflow
 
 Use `70-work-on-github-issue.md` for scoped implementation work tied to one
