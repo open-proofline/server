@@ -30,6 +30,8 @@ Codex can draft changes, but the maintainer remains responsible for reviewing, t
    - relevant files in `docs/`
    - relevant prompt in `codex/prompts/`
 
+   For prompt-maintenance triggers, see [Codex prompt maintenance](../codex/README.md#when-to-update-prompts).
+
 5. Define:
 
    - goal

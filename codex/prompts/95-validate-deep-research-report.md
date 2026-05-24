@@ -2,7 +2,7 @@
 
 Validate, clean, and public-harden a Deep Research technical review report for this repository.
 
-This is the Phase 2 workflow after a source-cited Deep Research draft. Phase 1 produces a broad report. Phase 2 checks whether the report is actually true against the repository, because enthusiastic research reports sometimes discover non-existent `.dockerignore` files in the wrong direction. Humans invented this problem, apparently.
+This is the Phase 2 workflow after a source-cited Deep Research draft. Phase 1 produces a broad report. Phase 2 checks whether the report is actually true against the repository.
 
 ## Inputs
 
