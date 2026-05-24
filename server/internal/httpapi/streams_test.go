@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"safety-recorder/server/internal/envelope"
@@ -59,6 +61,82 @@ func TestUploadChunkWithValidStreamID(t *testing.T) {
 	if chunk.StreamID != stream.ID {
 		t.Fatalf("expected chunk stream_id %s, got %q", stream.ID, chunk.StreamID)
 	}
+	wantStoredPath := "incidents/" + incidentID + "/streams/" + stream.ID + "/audio_000001.enc"
+	if chunk.StoredPath != wantStoredPath {
+		t.Fatalf("expected stored path %q, got %q", wantStoredPath, chunk.StoredPath)
+	}
+	stored, err := os.ReadFile(filepath.Join(app.dataDir, "incidents", incidentID, "streams", stream.ID, "audio_000001.enc"))
+	if err != nil {
+		t.Fatalf("read stored stream chunk: %v", err)
+	}
+	if !bytes.Equal(stored, payload) {
+		t.Fatal("stored stream payload mismatch")
+	}
+}
+
+func TestTwoSameMediaStreamsAllowOverlappingChunkIndexes(t *testing.T) {
+	app := newTestApp(t)
+	incidentID := createIncident(t, app, `{}`)
+	firstStream := createMediaStream(t, app, incidentID, incidents.MediaTypeAudio, "first audio")
+	secondStream := createMediaStream(t, app, incidentID, incidents.MediaTypeAudio, "second audio")
+	firstPayload := []byte("first encrypted audio data")
+	secondPayload := []byte("second encrypted audio data")
+	duplicatePayload := []byte("duplicate first stream chunk")
+	legacyPayload := []byte("legacy encrypted audio data")
+
+	response, body := uploadChunkWithStream(t, app, incidentID, firstStream.ID, 1, "audio", firstPayload, sha256Hex(firstPayload))
+	response.Body.Close()
+	if response.StatusCode != http.StatusCreated {
+		t.Fatalf("expected first stream upload status 201, got %d: %s", response.StatusCode, body)
+	}
+	response, body = uploadChunkWithStream(t, app, incidentID, firstStream.ID, 1, "audio", duplicatePayload, sha256Hex(duplicatePayload))
+	response.Body.Close()
+	if response.StatusCode != http.StatusConflict {
+		t.Fatalf("expected duplicate first stream upload status 409, got %d: %s", response.StatusCode, body)
+	}
+	assertErrorCode(t, body, "duplicate_chunk")
+	response, body = uploadChunkWithStream(t, app, incidentID, secondStream.ID, 1, "audio", secondPayload, sha256Hex(secondPayload))
+	response.Body.Close()
+	if response.StatusCode != http.StatusCreated {
+		t.Fatalf("expected second stream upload status 201, got %d: %s", response.StatusCode, body)
+	}
+	response, body = uploadChunk(t, app, incidentID, 1, "audio", legacyPayload, sha256Hex(legacyPayload))
+	response.Body.Close()
+	if response.StatusCode != http.StatusCreated {
+		t.Fatalf("expected legacy upload status 201, got %d: %s", response.StatusCode, body)
+	}
+
+	completeMediaStream(t, app, incidentID, firstStream.ID, 1)
+	completeMediaStream(t, app, incidentID, secondStream.ID, 1)
+
+	response, body = get(t, app, "/v1/incidents/"+incidentID+"/streams/"+firstStream.ID+"/download")
+	response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("expected first stream bundle status 200, got %d: %s", response.StatusCode, body)
+	}
+	firstEntries := readZipEntries(t, body)
+	if !bytes.Equal(firstEntries["chunks/audio_000001.enc"], firstPayload) {
+		t.Fatal("first stream bundle used wrong overlapping chunk")
+	}
+
+	response, body = get(t, app, "/v1/incidents/"+incidentID+"/streams/"+secondStream.ID+"/download")
+	response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("expected second stream bundle status 200, got %d: %s", response.StatusCode, body)
+	}
+	secondEntries := readZipEntries(t, body)
+	if !bytes.Equal(secondEntries["chunks/audio_000001.enc"], secondPayload) {
+		t.Fatal("second stream bundle used wrong overlapping chunk")
+	}
+
+	response, body = get(t, app, "/v1/incidents/"+incidentID+"/chunks/audio/1")
+	response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("expected legacy chunk read status 200, got %d: %s", response.StatusCode, body)
+	}
+	if !bytes.Equal(body, legacyPayload) {
+		t.Fatal("legacy chunk read returned streamed chunk bytes")
+	}
 }
 
 func TestRejectStreamedChunkIndexZero(t *testing.T) {
@@ -77,7 +155,7 @@ func TestRejectStreamedChunkIndexZero(t *testing.T) {
 	if !bytes.Contains(body, []byte("positive when stream_id is provided")) {
 		t.Fatalf("expected stream-specific chunk index message, got: %s", body)
 	}
-	assertNoStoredFile(t, app, incidentID, "audio_000000.enc")
+	assertNoStoredFile(t, app, incidentID, filepath.Join("streams", stream.ID, "audio_000000.enc"))
 	assertTempDirEmpty(t, app)
 }
 

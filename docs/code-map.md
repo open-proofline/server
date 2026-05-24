@@ -28,14 +28,20 @@ Hash verification happens in `server/internal/httpapi.uploadChunk` by comparing 
 After verification, `server/internal/storage.Store.CommitTemp` stores the file under:
 
 ```text
+data/incidents/{incident_id}/streams/{stream_id}/{media_type}_{zero_padded_chunk_index}.enc
+```
+
+Legacy unstreamed chunks keep the older path:
+
+```text
 data/incidents/{incident_id}/{media_type}_{zero_padded_chunk_index}.enc
 ```
 
-It uses no-overwrite behavior, so an existing chunk file is treated as a conflict.
+Storage uses no-overwrite behavior, so an existing chunk file is treated as a conflict.
 
-SQLite metadata is written after the file is safely committed, through `server/internal/incidents.Repository.CreateChunk`. The repository rechecks the incident and stream state before inserting chunk metadata so uploads that race with incident close or stream completion are rejected. The schema also has a unique constraint on `incident_id + media_type + chunk_index`.
+SQLite metadata is written after the file is safely committed, through `server/internal/incidents.Repository.CreateChunk`. The repository rechecks the incident and stream state before inserting chunk metadata so uploads that race with incident close or stream completion are rejected. The schema enforces separate unique identities for streamed and legacy unstreamed chunks.
 
-New clients can create a media stream with `POST /v1/incidents/{incident_id}/streams` and include the returned `stream_id` during chunk upload. Streamed chunk indexes start at `1`. Existing chunks without `stream_id` remain valid and readable as legacy chunk metadata, including older index `0` chunks, but they are not included in completed-stream evidence bundles.
+New clients can create a media stream with `POST /v1/incidents/{incident_id}/streams` and include the returned `stream_id` during chunk upload. Streamed chunk indexes start at `1`, and streamed chunk identity is `incident_id + stream_id + chunk_index`. Existing chunks without `stream_id` remain valid and readable as legacy chunk metadata, including older index `0` chunks; legacy unstreamed identity remains `incident_id + media_type + chunk_index`. Legacy unstreamed chunks are not included in completed-stream evidence bundles.
 
 Stream completion is handled by `server/internal/httpapi.completeMediaStream`. Before a stream moves from `open` to `complete`, the handler verifies that chunks `1..expected_chunk_count` exist contiguously for that stream and that each stored blob can be opened from local storage. `server/internal/incidents.Repository.CompleteMediaStream` then revalidates the chunk rows in the completion transaction before committing the state change. Failed streams preserve uploaded chunks but are not offered as normal downloads.
 

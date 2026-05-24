@@ -11,6 +11,7 @@
 - Hardened chunk upload and stream completion against incident/stream state races.
 - Added explicit schema migration tracking with `schema_migrations`.
 - Added configurable private/public HTTP server timeout settings.
+- Refactored streamed chunk identity and storage paths to be stream-scoped while preserving legacy unstreamed chunk reads.
 
 ## v0.4.0 - 2026-05-23
 

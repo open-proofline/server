@@ -42,19 +42,19 @@ func (a *API) uploadChunk(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	exists, err := a.repo.ChunkExists(r.Context(), incidentID, upload.mediaType, upload.chunkIndex)
+	exists, err := a.repo.ChunkExists(r.Context(), incidentID, upload.streamID, upload.mediaType, upload.chunkIndex)
 	if err != nil {
 		a.internalError(w, "check duplicate chunk", err)
 		return
 	}
 	if exists {
-		writeError(w, http.StatusConflict, "duplicate_chunk", "chunk_index already exists for this incident and media type")
+		writeError(w, http.StatusConflict, "duplicate_chunk", "chunk_index already exists for this chunk identity")
 		return
 	}
 
-	storedPath, err := a.store.CommitTemp(upload.temp, incidentID, upload.mediaType, upload.chunkIndex)
+	storedPath, err := a.store.CommitTemp(upload.temp, incidentID, upload.streamID, upload.mediaType, upload.chunkIndex)
 	if errors.Is(err, storage.ErrAlreadyExists) {
-		writeError(w, http.StatusConflict, "duplicate_chunk", "stored chunk already exists for this incident and media type")
+		writeError(w, http.StatusConflict, "duplicate_chunk", "stored chunk already exists for this chunk identity")
 		return
 	}
 	if err != nil {
@@ -76,7 +76,7 @@ func (a *API) uploadChunk(w http.ResponseWriter, r *http.Request) {
 	})
 	if errors.Is(err, incidents.ErrDuplicate) {
 		_ = a.store.Remove(storedPath)
-		writeError(w, http.StatusConflict, "duplicate_chunk", "chunk_index already exists for this incident and media type")
+		writeError(w, http.StatusConflict, "duplicate_chunk", "chunk_index already exists for this chunk identity")
 		return
 	}
 	if errors.Is(err, incidents.ErrIncidentClosed) {
