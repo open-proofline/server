@@ -613,8 +613,7 @@ Before implementing break-glass access, complete or accept:
 - browser/contact decryption design
 - exact key hierarchy and wrapping scheme
 - retention, backup, and deletion policy
-- default emergency-token expiry policy
-- revocation workflow for tokens, contacts, and wrapped keys
+- emergency-token expiry and revocation workflow for tokens, contacts, and wrapped keys
 - `/v1` access-control story
 - operator authentication story
 - audit log design and retention policy

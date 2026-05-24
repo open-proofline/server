@@ -19,7 +19,7 @@ Private write/admin routes must not be mounted on public emergency viewer listen
 
 ## Token Handling
 
-Emergency viewer tokens are scoped to one incident. The raw token is returned only at creation time; SQLite stores only a SHA-256 hash. Expired, revoked, and invalid tokens return the same public error.
+Emergency viewer tokens are scoped to one incident. The raw token is returned only at creation time; SQLite stores only a SHA-256 hash. Tokens created without an explicit `expires_at` default to a 24-hour lifetime unless `SAFE_DEFAULT_EMERGENCY_TOKEN_TTL` is configured differently. Expired, revoked, and invalid tokens return the same public error.
 
 Emergency URLs contain bearer tokens and should be treated as secrets. Reverse proxies and operational logs should avoid recording raw `/e/{token}` paths.
 
@@ -69,7 +69,6 @@ HTTP server timeouts are configurable separately for private and public listener
 - No public authentication or authorization model for `/v1`
 - No built-in TLS
 - No built-in rate limiting or abuse throttling
-- No default emergency-token expiry policy
 - No implemented production client key storage, key sharing, browser decryption, server-assisted break-glass key access, or emergency-contact key access model; the future designs are documented in [key-custody.md](key-custody.md), [browser-decryption.md](browser-decryption.md), and [break-glass-key-access.md](break-glass-key-access.md)
 - No retention, backup, secure deletion, or disk encryption policy
 - No malware/content scanning for uploaded encrypted blobs

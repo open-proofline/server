@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added a configurable default 24-hour emergency-token expiry for omitted `expires_at` values.
 - Added a public technical review report and report-validation prompt workflow.
 - Documented the active branch protection ruleset, required checks, and tag/release expectations.
 - Added a break-glass and dead-man-switch key access design document.

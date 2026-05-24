@@ -99,7 +99,8 @@ func (a *API) createEmergencyToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, rawToken, err := a.repo.CreateEmergencyToken(r.Context(), incidentID, request.Label, request.ExpiresAt)
+	expiresAt := a.emergencyTokenExpiresAt(request.ExpiresAt)
+	token, rawToken, err := a.repo.CreateEmergencyToken(r.Context(), incidentID, request.Label, expiresAt)
 	if errors.Is(err, incidents.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "incident_not_found", "incident was not found")
 		return
@@ -120,6 +121,14 @@ func (a *API) createEmergencyToken(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:  token.CreatedAt,
 		ExpiresAt:  token.ExpiresAt,
 	})
+}
+
+func (a *API) emergencyTokenExpiresAt(requestExpiresAt *time.Time) *time.Time {
+	if requestExpiresAt != nil || a.defaultEmergencyTokenTTL <= 0 {
+		return requestExpiresAt
+	}
+	expiresAt := time.Now().UTC().Add(a.defaultEmergencyTokenTTL)
+	return &expiresAt
 }
 
 // revokeEmergencyToken is a private route that disables an emergency token
