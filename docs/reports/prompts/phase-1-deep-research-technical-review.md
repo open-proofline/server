@@ -2,7 +2,7 @@
 
 Use this prompt in ChatGPT Deep Research, not in Codex.
 
-This prompt creates the first-pass source-cited technical review report. The output is expected to be validated and cleaned by the Phase 2 Codex workflow before publication, because apparently even carefully cited robots still need adult supervision.
+This prompt creates the first-pass source-cited technical review report. The output is expected to be validated and cleaned by the Phase 2 Codex workflow before publication.
 
 ## Inputs
 
