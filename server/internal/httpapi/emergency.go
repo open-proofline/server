@@ -2,7 +2,9 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -77,6 +79,44 @@ type createEmergencyTokenResponse struct {
 	ExpiresAt  *time.Time `json:"expires_at,omitempty"`
 }
 
+type createEmergencyTokenRequest struct {
+	Label        string     `json:"label"`
+	ExpiresAt    *time.Time `json:"expires_at"`
+	ExpiresAtSet bool       `json:"-"`
+}
+
+func (request *createEmergencyTokenRequest) UnmarshalJSON(data []byte) error {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil {
+		return err
+	}
+	for name := range fields {
+		if name != "label" && name != "expires_at" {
+			return fmt.Errorf("unknown field %q", name)
+		}
+	}
+	if rawLabel, ok := fields["label"]; ok {
+		if err := json.Unmarshal(rawLabel, &request.Label); err != nil {
+			return err
+		}
+	}
+	rawExpiresAt, ok := fields["expires_at"]
+	if !ok {
+		return nil
+	}
+	request.ExpiresAtSet = true
+	if string(rawExpiresAt) == "null" {
+		request.ExpiresAt = nil
+		return nil
+	}
+	var expiresAt time.Time
+	if err := json.Unmarshal(rawExpiresAt, &expiresAt); err != nil {
+		return err
+	}
+	request.ExpiresAt = &expiresAt
+	return nil
+}
+
 const emergencyWarning = "If you are concerned about immediate safety, call emergency services now."
 
 // createEmergencyToken is a private route that mints a read-only emergency
@@ -91,15 +131,13 @@ func (a *API) createEmergencyToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var request struct {
-		Label     string     `json:"label"`
-		ExpiresAt *time.Time `json:"expires_at"`
-	}
+	var request createEmergencyTokenRequest
 	if !decodeJSON(w, r, &request) {
 		return
 	}
 
-	token, rawToken, err := a.repo.CreateEmergencyToken(r.Context(), incidentID, request.Label, request.ExpiresAt)
+	expiresAt := a.emergencyTokenExpiresAt(request.ExpiresAt, request.ExpiresAtSet)
+	token, rawToken, err := a.repo.CreateEmergencyToken(r.Context(), incidentID, request.Label, expiresAt)
 	if errors.Is(err, incidents.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "incident_not_found", "incident was not found")
 		return
@@ -120,6 +158,14 @@ func (a *API) createEmergencyToken(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:  token.CreatedAt,
 		ExpiresAt:  token.ExpiresAt,
 	})
+}
+
+func (a *API) emergencyTokenExpiresAt(requestExpiresAt *time.Time, requestExpiresAtSet bool) *time.Time {
+	if requestExpiresAtSet || a.defaultEmergencyTokenTTL <= 0 {
+		return requestExpiresAt
+	}
+	expiresAt := time.Now().UTC().Add(a.defaultEmergencyTokenTTL)
+	return &expiresAt
 }
 
 // revokeEmergencyToken is a private route that disables an emergency token

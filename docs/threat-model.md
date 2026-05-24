@@ -31,7 +31,7 @@ This document describes the current backend-only security posture. It is intenti
 - SQLite enforces media type, chunk index, byte size, SHA-256 shape, foreign keys, and unique chunk identity.
 - Media streams must be open before new chunks can be attached. The repository rechecks incident and stream state when chunk metadata is inserted.
 - Stream completion verifies contiguous chunks plus readable stored files, and the repository revalidates chunk rows before committing the stream to `complete`.
-- Emergency tokens use 256 bits from `crypto/rand`; only SHA-256 token hashes are stored.
+- Emergency tokens use 256 bits from `crypto/rand`; only SHA-256 token hashes are stored. Tokens created without an explicit `expires_at` default to a 24-hour lifetime unless `SAFE_DEFAULT_EMERGENCY_TOKEN_TTL` is configured differently.
 - Expired, revoked, and invalid emergency tokens return the same public error.
 - Emergency summaries do not expose `stored_path`. Emergency bundle downloads expose only encrypted chunk bytes and generated manifests for completed streams.
 - ZIP bundle entry names are server-controlled and generated from metadata; clients do not provide stored paths for download.
@@ -48,7 +48,6 @@ This document describes the current backend-only security posture. It is intenti
 - `/v1` must not be publicly exposed as-is.
 - No iOS app, local recording, production client key storage, key sharing, push notifications, SMS, Messenger integration, or public admin dashboard.
 - No built-in TLS, rate limiting, abuse throttling, or IP allowlist.
-- No default emergency-token expiry policy; callers choose `expires_at`.
 - No retention, backup, secure deletion, or disk encryption policy.
 - No malware/content scanning; uploaded bytes are assumed to be client-encrypted blobs.
 - Bundle downloads are encrypted chunk bundles, not decrypted or playable media exports.
@@ -68,7 +67,7 @@ The Go app does not set `Strict-Transport-Security` by default because local dev
 
 - Add an explicit access-control story for `/v1`.
 - Add rate limiting for token guesses, uploads, and admin actions.
-- Decide default emergency-token expiry and revocation workflows.
+- Review emergency-token expiry tuning and revocation workflows.
 - Define retention, backup, and deletion policy.
 - Prototype the documented hybrid key custody model without weakening the current ciphertext-only backend.
 - Prototype browser decryption only after accepting the browser trust model and malicious-server limitations.

@@ -50,6 +50,25 @@ func newTestAppWithMaxUploadBytes(t *testing.T, maxUploadBytes int64) *testApp {
 func newTestAppWithMaxUploadBytesAndLogger(t *testing.T, maxUploadBytes int64, logger *slog.Logger) *testApp {
 	t.Helper()
 
+	return newTestAppWithOptions(t, httpapi.Options{
+		MaxUploadBytes: maxUploadBytes,
+		Logger:         logger,
+	})
+}
+
+func newTestAppWithDefaultEmergencyTokenTTL(t *testing.T, ttl time.Duration) *testApp {
+	t.Helper()
+
+	return newTestAppWithOptions(t, httpapi.Options{
+		MaxUploadBytes:           1024 * 1024,
+		DefaultEmergencyTokenTTL: &ttl,
+		Logger:                   slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
+}
+
+func newTestAppWithOptions(t *testing.T, options httpapi.Options) *testApp {
+	t.Helper()
+
 	dataDir := t.TempDir()
 	conn, err := db.Open(context.Background(), filepath.Join(dataDir, "safety.db"))
 	if err != nil {
@@ -64,10 +83,6 @@ func newTestAppWithMaxUploadBytesAndLogger(t *testing.T, maxUploadBytes int64, l
 		t.Fatalf("create storage: %v", err)
 	}
 	repo := incidents.NewRepository(conn)
-	options := httpapi.Options{
-		MaxUploadBytes: maxUploadBytes,
-		Logger:         logger,
-	}
 
 	return &testApp{
 		privateHandler: httpapi.NewPrivate(repo, blobStore, options),

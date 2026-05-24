@@ -318,6 +318,8 @@ Emergency token creation and revocation routes are mounted only on the private A
 
 Creates a read-only emergency token for one incident. The raw token is returned only in this response; SQLite stores only a SHA-256 hash.
 
+`expires_at` is optional. When omitted, the API applies the configured default emergency-token lifetime, which is 24 hours unless `SAFE_DEFAULT_EMERGENCY_TOKEN_TTL` is changed. Explicit `expires_at` values are preserved; send `null` to explicitly create a token that remains valid until revoked. Setting `SAFE_DEFAULT_EMERGENCY_TOKEN_TTL=0` disables the default and lets omitted expiries remain valid until revoked.
+
 Request:
 
 ```json

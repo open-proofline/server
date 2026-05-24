@@ -121,6 +121,60 @@ func TestCreateEmergencyToken(t *testing.T) {
 	if token.Label != "trusted contact" {
 		t.Fatalf("expected label to round trip, got %q", token.Label)
 	}
+	if token.ExpiresAt == nil {
+		t.Fatal("expected explicit expiry to round trip")
+	}
+	if !token.ExpiresAt.Equal(expiresAt) {
+		t.Fatalf("expected explicit expiry %s, got %s", expiresAt, token.ExpiresAt)
+	}
+}
+
+func TestCreateEmergencyTokenAppliesDefaultExpiry(t *testing.T) {
+	app := newTestApp(t)
+	incidentID := createIncident(t, app, `{}`)
+
+	before := time.Now().UTC()
+	token := createEmergencyToken(t, app, incidentID, "trusted contact", nil)
+	after := time.Now().UTC()
+
+	if token.ExpiresAt == nil {
+		t.Fatal("expected omitted expires_at to receive default expiry")
+	}
+	earliest := before.Add(24 * time.Hour)
+	latest := after.Add(24 * time.Hour)
+	if token.ExpiresAt.Before(earliest) || token.ExpiresAt.After(latest) {
+		t.Fatalf("default expiry = %s, want between %s and %s", token.ExpiresAt, earliest, latest)
+	}
+}
+
+func TestCreateEmergencyTokenPreservesExplicitNullExpiry(t *testing.T) {
+	app := newTestApp(t)
+	incidentID := createIncident(t, app, `{}`)
+
+	response, body := post(t, app, "/v1/incidents/"+incidentID+"/emergency-tokens", "application/json", bytes.NewBufferString(`{"label":"trusted contact","expires_at":null}`))
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusCreated {
+		t.Fatalf("expected create emergency token status 201, got %d: %s", response.StatusCode, body)
+	}
+
+	var token emergencyTokenResponse
+	if err := json.Unmarshal(body, &token); err != nil {
+		t.Fatalf("decode create emergency token response: %v", err)
+	}
+	if token.ExpiresAt != nil {
+		t.Fatalf("expected explicit null expires_at to remain unset, got %s", token.ExpiresAt)
+	}
+}
+
+func TestCreateEmergencyTokenCanDisableDefaultExpiry(t *testing.T) {
+	app := newTestAppWithDefaultEmergencyTokenTTL(t, 0)
+	incidentID := createIncident(t, app, `{}`)
+
+	token := createEmergencyToken(t, app, incidentID, "trusted contact", nil)
+
+	if token.ExpiresAt != nil {
+		t.Fatalf("expected omitted expires_at to remain unset when default expiry is disabled, got %s", token.ExpiresAt)
+	}
 }
 
 func TestEmergencyRawTokenIsNotStored(t *testing.T) {

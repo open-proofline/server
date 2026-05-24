@@ -31,7 +31,7 @@ The simulator encrypts fake chunks by default with the documented v1 AES-256-GCM
 - Documented client-side chunk encryption envelope
 - Media streams with `open`, `complete`, and `failed` states
 - Completed encrypted stream and incident ZIP evidence bundle downloads
-- Scoped emergency viewer tokens
+- Scoped emergency viewer tokens with a default 24-hour expiry
 - Simulator CLI for encrypted upload, check-in, stream completion, and bundle download/decrypt-verification flows
 - Docker image build and GitHub Actions / GHCR publishing
 

@@ -10,11 +10,12 @@ import (
 )
 
 const (
-	defaultPrivateBindAddr = "127.0.0.1:8080"
-	defaultPublicBindAddr  = "127.0.0.1:8081"
-	defaultDataDir         = "./data"
-	defaultDBPath          = "./data/safety.db"
-	defaultMaxUploadBytes  = int64(250 * 1024 * 1024)
+	defaultPrivateBindAddr   = "127.0.0.1:8080"
+	defaultPublicBindAddr    = "127.0.0.1:8081"
+	defaultDataDir           = "./data"
+	defaultDBPath            = "./data/safety.db"
+	defaultMaxUploadBytes    = int64(250 * 1024 * 1024)
+	defaultEmergencyTokenTTL = 24 * time.Hour
 	// Leave room for the multipart envelope added by the HTTP upload handler
 	// so configured upload limits cannot overflow request-size arithmetic.
 	maxConfiguredUploadBytes = int64(1<<63 - 1 - 1024*1024)
@@ -32,13 +33,14 @@ const (
 
 // Config contains the runtime settings needed by the API server.
 type Config struct {
-	PrivateBindAddrs []string
-	PublicBindAddrs  []string
-	DataDir          string
-	DBPath           string
-	MaxUploadBytes   int64
-	PrivateTimeouts  HTTPTimeouts
-	PublicTimeouts   HTTPTimeouts
+	PrivateBindAddrs         []string
+	PublicBindAddrs          []string
+	DataDir                  string
+	DBPath                   string
+	MaxUploadBytes           int64
+	DefaultEmergencyTokenTTL time.Duration
+	PrivateTimeouts          HTTPTimeouts
+	PublicTimeouts           HTTPTimeouts
 }
 
 // HTTPTimeouts groups net/http server timeout settings.
@@ -70,6 +72,11 @@ func Load() (Config, error) {
 		maxUploadBytes = parsed
 	}
 
+	emergencyTokenTTL, err := durationFromEnv("SAFE_DEFAULT_EMERGENCY_TOKEN_TTL", defaultEmergencyTokenTTL)
+	if err != nil {
+		return Config{}, err
+	}
+
 	privateTimeouts, err := privateTimeoutsFromEnv()
 	if err != nil {
 		return Config{}, err
@@ -80,13 +87,14 @@ func Load() (Config, error) {
 	}
 
 	return Config{
-		PrivateBindAddrs: privateBindAddrs,
-		PublicBindAddrs:  publicBindAddrs,
-		DataDir:          envOrDefault("SAFE_DATA_DIR", defaultDataDir),
-		DBPath:           envOrDefault("SAFE_DB_PATH", defaultDBPath),
-		MaxUploadBytes:   maxUploadBytes,
-		PrivateTimeouts:  privateTimeouts,
-		PublicTimeouts:   publicTimeouts,
+		PrivateBindAddrs:         privateBindAddrs,
+		PublicBindAddrs:          publicBindAddrs,
+		DataDir:                  envOrDefault("SAFE_DATA_DIR", defaultDataDir),
+		DBPath:                   envOrDefault("SAFE_DB_PATH", defaultDBPath),
+		MaxUploadBytes:           maxUploadBytes,
+		DefaultEmergencyTokenTTL: emergencyTokenTTL,
+		PrivateTimeouts:          privateTimeouts,
+		PublicTimeouts:           publicTimeouts,
 	}, nil
 }
 
