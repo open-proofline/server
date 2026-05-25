@@ -318,6 +318,33 @@ func TestValidEmergencyTokenCanReadIncidentData(t *testing.T) {
 	}
 }
 
+func TestEmergencyViewerIncludesPollingUpdateHooks(t *testing.T) {
+	app := newTestApp(t)
+	incidentID := createIncident(t, app, `{"client_label":"iphone"}`)
+	token := createEmergencyToken(t, app, incidentID, "trusted contact", nil)
+
+	response, body := getPublic(t, app, "/e/"+token.Token)
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("expected emergency page status 200, got %d: %s", response.StatusCode, body)
+	}
+
+	for _, hook := range []string{
+		"data-emergency-view",
+		"data-incident-status",
+		"data-incident-client-label",
+		"data-incident-created",
+		"data-incident-updated",
+		"data-latest-checkin",
+		"data-completed-recordings",
+		"data-media-rows",
+	} {
+		if !bytes.Contains(body, []byte(hook)) {
+			t.Fatalf("expected emergency page to include polling hook %q: %s", hook, body)
+		}
+	}
+}
+
 func TestEmergencyStaticAssetsAreServed(t *testing.T) {
 	app := newTestApp(t)
 
@@ -340,6 +367,23 @@ func TestEmergencyStaticAssetsAreServed(t *testing.T) {
 	}
 	if !bytes.Contains(body, []byte("setInterval")) {
 		t.Fatalf("expected script content, got: %s", body)
+	}
+	for _, snippet := range []string{
+		"function updateEmergencyView(data)",
+		"textContent",
+		"data-latest-checkin",
+		"data-completed-recordings",
+		"data-media-rows",
+		"data-stream-download",
+		"latestPollRequestID",
+		"requestID === latestPollRequestID",
+	} {
+		if !bytes.Contains(body, []byte(snippet)) {
+			t.Fatalf("expected emergency script to include %q: %s", snippet, body)
+		}
+	}
+	if bytes.Contains(body, []byte("innerHTML")) {
+		t.Fatalf("emergency script should not use innerHTML: %s", body)
 	}
 	assertContentTypeContains(t, response, "javascript")
 	assertPublicBrowserSecurityHeaders(t, response)
@@ -537,6 +581,54 @@ func TestEmergencyDataReturnsExpectedReadOnlyJSON(t *testing.T) {
 	}
 	if data.Warning == "" {
 		t.Fatal("expected emergency warning")
+	}
+}
+
+func TestEmergencyDataCompletedStreamsStayDownloadScoped(t *testing.T) {
+	app := newTestApp(t)
+	incidentID, completed := createIncidentStreamWithChunks(t, app, 2)
+	completeMediaStream(t, app, incidentID, completed.ID, 2)
+	failed := createMediaStream(t, app, incidentID, incidents.MediaTypeVideo, "failed video")
+	response, body := post(t, app, "/v1/incidents/"+incidentID+"/streams/"+failed.ID+"/fail", "application/json", bytes.NewBufferString(`{"failure_reason":"stopped"}`))
+	response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("expected fail stream status 200, got %d: %s", response.StatusCode, body)
+	}
+	token := createEmergencyToken(t, app, incidentID, "trusted contact", nil)
+
+	response, body = getPublic(t, app, "/e/"+token.Token+"/data")
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("expected emergency data status 200, got %d: %s", response.StatusCode, body)
+	}
+
+	var data struct {
+		CompletedStreams []struct {
+			ID         string `json:"id"`
+			Label      string `json:"label"`
+			Status     string `json:"status"`
+			ChunkCount int    `json:"chunk_count"`
+			TotalBytes int64  `json:"total_bytes"`
+		} `json:"completed_streams"`
+	}
+	if err := json.Unmarshal(body, &data); err != nil {
+		t.Fatalf("decode emergency data: %v", err)
+	}
+	if len(data.CompletedStreams) != 1 {
+		t.Fatalf("expected one completed stream, got %+v", data.CompletedStreams)
+	}
+	stream := data.CompletedStreams[0]
+	if stream.ID != completed.ID || stream.Label != completed.Label || stream.Status != incidents.StreamStatusComplete {
+		t.Fatalf("unexpected completed stream summary: %+v", stream)
+	}
+	if stream.ChunkCount != 2 {
+		t.Fatalf("expected completed stream chunk count 2, got %+v", stream)
+	}
+	if stream.TotalBytes <= 0 {
+		t.Fatalf("expected completed stream total bytes to be populated, got %+v", stream)
+	}
+	if stream.ID == failed.ID {
+		t.Fatalf("failed stream should not be included as a completed stream: %+v", data.CompletedStreams)
 	}
 }
 

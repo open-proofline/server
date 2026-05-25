@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-  <main>
+  <main data-emergency-view>
     <header>
       <h1>Emergency Incident Viewer</h1>
       <div class="warning">{{.Warning}}</div>
@@ -17,15 +17,16 @@
     <section>
       <h2>Incident</h2>
       <div class="grid">
-        <div class="item"><div class="label">Status</div><div class="value">{{.Incident.Status}}</div></div>
-        <div class="item"><div class="label">Client label</div><div class="value">{{if .Incident.ClientLabel}}{{.Incident.ClientLabel}}{{else}}<span class="muted">Not provided</span>{{end}}</div></div>
-        <div class="item"><div class="label">Created</div><div class="value">{{humanTime .Incident.CreatedAt}}</div></div>
-        <div class="item"><div class="label">Last updated</div><div class="value">{{relativeTime .Incident.UpdatedAt}}</div></div>
+        <div class="item"><div class="label">Status</div><div class="value" data-incident-status>{{.Incident.Status}}</div></div>
+        <div class="item"><div class="label">Client label</div><div class="value" data-incident-client-label>{{if .Incident.ClientLabel}}{{.Incident.ClientLabel}}{{else}}<span class="muted">Not provided</span>{{end}}</div></div>
+        <div class="item"><div class="label">Created</div><div class="value" data-incident-created>{{humanTime .Incident.CreatedAt}}</div></div>
+        <div class="item"><div class="label">Last updated</div><div class="value" data-incident-updated>{{relativeTime .Incident.UpdatedAt}}</div></div>
       </div>
     </section>
 
     <section>
       <h2>Latest Checkin</h2>
+      <div data-latest-checkin>
       {{if .LatestCheckin}}
       <div class="grid">
         <div class="item"><div class="label">Time</div><div class="value">{{relativeTime .LatestCheckin.CreatedAt}}</div></div>
@@ -36,10 +37,12 @@
       {{else}}
       <p class="muted">No checkins recorded.</p>
       {{end}}
+      </div>
     </section>
 
     <section>
       <h2>Completed Recordings</h2>
+      <div data-completed-recordings>
       {{if .CompletedStreams}}
       <div class="stream-list">
         {{range .CompletedStreams}}
@@ -56,13 +59,14 @@
       {{else}}
       <p class="muted">No completed recordings yet.</p>
       {{end}}
+      </div>
     </section>
 
     <section>
       <h2>Chunks</h2>
       <table>
         <thead><tr><th>Media</th><th>Count</th><th>Latest chunk</th><th>Latest received</th></tr></thead>
-        <tbody>
+        <tbody data-media-rows>
         {{range .Media}}
           <tr>
             <td>{{.MediaType}}</td>
