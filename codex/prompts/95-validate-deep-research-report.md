@@ -247,7 +247,7 @@ What this issue must not include.
 - Do not create any public issue draft without `## Branch scope`.
 - Do not put priority only in prose. It must appear under `## Priority`.
 - Do not put GitHub labels only in prose. They must appear under `## Labels`.
-- Every public draft must include at least `- `backlog`` under `## Labels`.
+- Every public draft must include at least `backlog` under `## Labels`.
 - Include one or more type/topic labels that match the issue.
 - Use likely existing labels only: `backlog`, `bug`, `maintenance`, `security`, `docs`, `deployment`, `testing`, `simulator`, `ios`, `ci`, `planning`.
 - Do not invent new labels unless the maintainer explicitly asked for label creation.
