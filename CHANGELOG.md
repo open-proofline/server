@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Aligned Docker base-image digest refresh documentation with the runtime Alpine tag family used by the Dockerfile.
+
 ## v0.5.0-rc.1 - 2026-05-25
 
 - Pinned Docker base images by digest, added Dependabot Docker monitoring, and documented base-image digest refresh review steps.
