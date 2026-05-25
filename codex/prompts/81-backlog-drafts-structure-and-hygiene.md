@@ -1,72 +1,84 @@
-# Codex Prompt: Backlog Drafts Structure, Branch Scope, and Hygiene
+Core rule: public issue drafts must include `## Priority`, `## Type`, `## Labels`,
+and `## Branch scope`. Issue-creation scripts must fail closed when those sections
+are missing and must pass labels to `gh issue create`.
 
-Review `.backlog-drafts/` structure and backlog draft workflow hygiene.
+# Codex Prompt Patch: 81 Backlog Drafts Structure and Hygiene
 
-This is a documentation/process maintenance task.
+Apply this patch to `codex/prompts/81-backlog-drafts-structure-and-hygiene.md`.
 
-Do **not** change application code.
-Do **not** create GitHub issues.
-Do **not** close GitHub issues.
-Do **not** execute issue creation scripts.
-Do **not** delete files unless explicitly requested.
+## Required public issue draft metadata
 
-## Goal
-
-Ensure backlog drafts are clearly treated as generated/reviewable local artifacts, not as the source of truth once GitHub issues exist.
-
-Standardize `.backlog-drafts/` structure, naming, and branch-scoping.
-
-## Standard `.backlog-drafts/` structure
-
-Preferred generated output for branch-scoped drafts:
-
-```text
-.backlog-drafts/
-  YYYY-MM-DD/
-    <branch-slug>/
-      README.md
-      001-short-kebab-title.md
-      002-short-kebab-title.md
-      create-issues-review.md
-      private-notes/
-        README.md
-        001-private-note.md
-```
-
-Fallback if date is unavailable:
-
-```text
-.backlog-drafts/current/<branch-slug>/
-```
-
-## Branch scope metadata
-
-Every public issue draft should include:
+Every public issue draft must include:
 
 ```md
+## Priority
+
+P0 / P1 / P2 / P3
+
+## Type
+
+bug / maintenance / security-hardening / documentation / feature / deployment / ci / testing / planning
+
+## Labels
+
+Suggested GitHub labels:
+
+- `backlog`
+- one or more topic/type labels
+
 ## Branch scope
 
-- Current branch: `<CURRENT_BRANCH>`
-- Current HEAD: `<CURRENT_HEAD>`
-- Target branch, if known: `<TARGET_BRANCH_OR_UNKNOWN>`
-- Reviewed branch/ref, if applicable: `<REVIEWED_BRANCH_OR_REF>`
-- Reviewed commit SHA, if applicable: `<REVIEWED_COMMIT_SHA>`
-- Target release/version, if applicable: `<TARGET_RELEASE_OR_VERSION>`
-- Scope classification: `release-blocker-current-branch` / `follow-up-after-merge` / `revalidate-on-main-or-develop` / `planning-only`
-- Scope note: This draft was generated from the branch above. Revalidate against the target branch before creating or closing public GitHub issues if the branch has moved or has not yet merged.
+...
 ```
+
+Every public issue draft must include `backlog` under `## Labels`.
+
+Private notes do not need GitHub labels, but must never be used for public issue creation.
 
 ## Audit checks
 
-Check whether `.backlog-drafts/` exists, whether new drafts are branch-scoped under `<branch-slug>/`, whether drafts include `## Branch scope`, and whether issue creation scripts select branch-scoped directories.
+Check whether public issue drafts include:
+
+- `## Priority`
+- `## Type`
+- `## Labels`
+- `## Branch scope`
+- backtick-wrapped `backlog` label
+- at least one additional topic/type label
+
+Also check whether issue creation scripts:
+
+- parse labels from `## Labels`
+- pass labels to `gh issue create`
+- exclude drafts when labels are missing
+- exclude drafts when referenced labels do not exist
+- refuse to silently create unlabeled issues
 
 ## Validation
 
-After changes, if any:
+Run this metadata check when auditing drafts:
 
 ```bash
-git diff --stat
-git diff -- .gitignore .backlog-drafts codex docs scripts
-```
+python3 - <<'PY'
+from pathlib import Path
+import sys
 
-If only Markdown and `.gitignore` changed, Go tests are not required.
+bad = []
+required = ["## Priority", "## Type", "## Labels", "## Branch scope"]
+for path in Path(".backlog-drafts").rglob("*.md"):
+    if path.name == "README.md" or "private-notes" in path.parts:
+        continue
+    text = path.read_text(encoding="utf-8")
+    missing = [section for section in required if section not in text]
+    if missing:
+        bad.append((str(path), missing))
+    if "## Labels" in text and "`backlog`" not in text:
+        bad.append((str(path), ["missing `backlog` label"]))
+
+for path, missing in bad:
+    print(path, "missing:", ", ".join(missing))
+
+if bad:
+    sys.exit(1)
+PY
+```

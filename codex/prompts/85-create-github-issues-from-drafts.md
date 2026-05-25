@@ -1,73 +1,166 @@
-# Codex Prompt: Prepare GitHub Issue Creation Commands from Reviewed Branch-Scoped Backlog Drafts
+Core rule: public issue drafts must include `## Priority`, `## Type`, `## Labels`,
+and `## Branch scope`. Issue-creation scripts must fail closed when those sections
+are missing and must pass labels to `gh issue create`.
 
-Read reviewed backlog drafts and generate a script that can create GitHub issues with GitHub CLI.
+# Codex Prompt Patch: 85 Create GitHub Issues From Drafts
 
-Do **not** modify application code.
-Do **not** create GitHub issues directly unless explicitly told to run commands.
-Do **not** execute the generated script.
-Do **not** include sensitive vulnerability details in public issues.
+Apply this patch to `codex/prompts/85-create-github-issues-from-drafts.md`.
 
-## Goal
+## Required draft metadata
 
-Generate a shell script that creates GitHub issues from maintainer-reviewed backlog draft files.
-
-Create:
-
-```text
-scripts/create-backlog-issues.sh
-```
-
-## Draft directory
-
-Backlog drafts should live under a branch-scoped timestamped directory such as:
-
-```text
-.backlog-drafts/YYYY-MM-DD/<branch-slug>/
-```
-
-or:
-
-```text
-.backlog-drafts/current/<branch-slug>/
-```
-
-Before generating the script:
-
-1. Prefer an explicitly provided draft directory.
-2. Otherwise, inspect `.backlog-drafts/` and choose the newest timestamped branch-scoped directory.
-3. If multiple directories exist and the newest or intended branch scope is unclear, stop and ask which draft directory to use.
-4. Do not use `private-notes/` directories for public issue creation.
-
-## Branch scope requirements
-
-Verify every included draft contains:
+Verify every included public draft contains:
 
 ```md
+## Priority
+## Type
+## Labels
 ## Branch scope
 ```
 
-If a draft is missing branch scope, exclude it and list it in the output summary.
+If any required section is missing, exclude the draft and list it in the output summary.
 
-If a draft was generated from a release-prep or feature branch, preserve the `Branch scope` section in the GitHub issue body unless the maintainer explicitly requests removal.
+The `## Labels` section must contain backtick-wrapped GitHub label names as bullet items, for example:
 
-If a draft says it must be revalidated on `main`, `develop`, or another target branch before public issue creation, exclude it unless the maintainer explicitly confirms revalidation is complete.
+```md
+## Labels
 
-## Requirements
+Suggested GitHub labels:
 
-- Use `gh issue create`.
-- Derive title from the first Markdown heading.
-- Use the entire draft body, including `## Branch scope`.
-- Use labels from the `## Labels` section where practical.
-- Do not execute the script.
-- Quote file paths and arguments safely.
-
-## Validation
-
-After generating the script:
-
-```bash
-git diff --stat
-git diff -- scripts/create-backlog-issues.sh .backlog-drafts
+- `backlog`
+- `security`
+- `ci`
 ```
 
-Do not run Go tests unless code was changed.
+Every public draft must include:
+
+```md
+- `backlog`
+```
+
+If a draft is missing `backlog`, exclude it unless the maintainer explicitly approves creating the issue without the backlog label.
+
+## Label handling
+
+The generated script must pass labels to `gh issue create`.
+
+Use one `--label` argument per label.
+
+Example:
+
+```bash
+gh issue create \
+  --repo "$REPO" \
+  --title "$title" \
+  --body-file "$draft" \
+  --label "backlog" \
+  --label "security" \
+  --label "ci"
+```
+
+Before generating the script, list repository labels if GitHub CLI is available:
+
+```bash
+gh label list --repo TheSilkky/safety-recorder --limit 200
+```
+
+If a draft contains a label that does not exist in the repository, exclude that draft and list the missing label in the output summary.
+
+Do not create labels unless the maintainer explicitly asks.
+
+Do not silently create unlabeled issues.
+
+Do not silently drop labels.
+
+## Priority handling
+
+Priority remains in the issue body under `## Priority`.
+
+Do not convert priority to a GitHub label unless the repository has matching priority labels and the maintainer explicitly asks to use them.
+
+If priority is missing, exclude the draft and list it in the output summary.
+
+## Review exclusions
+
+Exclude any draft that:
+
+- is marked sensitive
+- says not to create publicly
+- lives under `private-notes/`
+- is missing `## Priority`
+- is missing `## Type`
+- is missing `## Labels`
+- is missing `## Branch scope`
+- is missing the `backlog` label
+- references a label that does not exist in the repository
+- says `sensitive-do-not-publicly-file`
+- says `revalidate-on-main-or-develop` without a maintainer note that revalidation is complete
+- contains raw tokens
+- contains secrets
+- contains private deployment details
+- contains user safety data
+- contains exploit details that should go through `SECURITY.md`
+
+## Generated script requirements
+
+The script should:
+
+```bash
+set -euo pipefail
+```
+
+It should define:
+
+```bash
+REPO="TheSilkky/safety-recorder"
+DRAFT_DIR="<selected branch-scoped draft dir>"
+```
+
+For each included draft, it should call:
+
+```bash
+gh issue create \
+  --repo "$REPO" \
+  --title "$title" \
+  --body-file "$draft" \
+  --label "backlog" \
+  --label "<other-label>"
+```
+
+Use safe quoting for file paths, titles, and labels.
+
+## Optional helper output
+
+Create or update:
+
+```text
+.backlog-drafts/<selected-directory>/create-issues-review.md
+```
+
+Include:
+
+- selected draft directory
+- branch scope for that directory
+- issue drafts included
+- issue drafts excluded
+- priorities found
+- labels used
+- missing/non-existent labels found
+- command to run the script
+- warning that running twice may create duplicates
+- warning that branch-scoped drafts should be revalidated if the source branch moved
+
+## Output summary
+
+Summarize:
+
+1. selected draft directory
+2. selected draft branch scope
+3. issue drafts included
+4. issue drafts excluded
+5. priorities found
+6. labels used
+7. labels missing from repository, if any
+8. script path
+9. command to run after maintainer review
+10. branch-scope/revalidation warnings
+11. reminder that running twice may create duplicate issues
