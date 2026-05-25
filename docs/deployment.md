@@ -112,7 +112,9 @@ Production-style public exposure still needs:
 - operational monitoring and restore testing
 - review of emergency token sharing, expiry defaults, and revocation workflows
 
-Rate-limiting and abuse-control examples are tracked separately in issue #4.
+The Go app still has no built-in app-level rate limiter. Apply rate limits at
+the deployment edge for now, and tune them for the expected recording,
+polling, and download patterns.
 
 Future server-assisted break-glass or dead-man-switch key access would add
 stronger operator and deployment trust requirements. It should remain disabled
@@ -213,6 +215,184 @@ public internet.
 
 Replace `admin@example.invalid` and `safety-recorder.example.invalid` with deployment-specific values before use.
 
+### Route-Group Rate Limiting
+
+Use different rate limits for different route groups. A single global limiter is
+easy to configure, but it can either be too loose for token guessing or too
+strict for legitimate bundle downloads and chunk uploads.
+
+Suggested route groups:
+
+| Route group | Paths | Guidance |
+|---|---|---|
+| Emergency page lookup | `GET /e/{token}` | Keep relatively strict because each request performs a bearer-token lookup. |
+| Emergency JSON polling | `GET /e/{token}/data` | Allow normal viewer polling, but keep it lower than static assets. |
+| Emergency ZIP downloads | `GET /e/{token}/streams/{stream_id}/download`, `GET /e/{token}/incident/download` | Limit download starts without cutting off long encrypted ZIP responses; coordinate with proxy and app timeouts. |
+| Public static assets | `GET /static/...` | Static assets are token-neutral and can usually tolerate a looser limit. |
+| Private chunk uploads | `POST /v1/incidents/{incident_id}/chunks` | If routed through a private proxy, tune for expected chunk cadence and upload retries. |
+| Private incident, stream, check-in, token, and admin-style actions | Other `/v1/...` routes | Keep behind a private boundary and use limits as an abuse backstop, not as public authentication. |
+
+Rate limiting does not make `/v1` safe to expose publicly. Keep the private API
+on localhost, LAN, WireGuard, firewall rules, or a private reverse-proxy entry
+point even when limits are configured.
+
+Exact limits are deployment-specific. Start with conservative values, watch
+legitimate simulator/client behavior, then adjust. Avoid sending raw
+`/e/{token}` paths to metrics, dashboards, or logs while measuring limiter
+behavior.
+
+### Traefik Rate-Limiting Example
+
+Traefik's `rateLimit` middleware uses `average`, `period`, and `burst` to
+define a token-bucket limit. Review the options for the Traefik version you run,
+especially the source criterion used to group requests behind proxies.
+
+This example extends the file-provider shape above by splitting the public
+emergency viewer into route groups. The numbers are illustrative placeholders,
+not production defaults:
+
+```yaml
+# /etc/traefik/dynamic/safety-recorder.yml
+http:
+  routers:
+    safety-recorder-emergency-downloads:
+      rule: "Host(`safety-recorder.example.invalid`) && Method(`GET`) && PathRegexp(`^/e/[^/]+/(streams/[^/]+/download|incident/download)$`)"
+      entryPoints:
+        - websecure
+      service: safety-recorder-public
+      middlewares:
+        - safety-recorder-rate-downloads
+        - safety-recorder-hsts
+      priority: 120
+      tls:
+        certResolver: letsencrypt
+
+    safety-recorder-emergency-data:
+      rule: "Host(`safety-recorder.example.invalid`) && Method(`GET`) && PathRegexp(`^/e/[^/]+/data$`)"
+      entryPoints:
+        - websecure
+      service: safety-recorder-public
+      middlewares:
+        - safety-recorder-rate-data
+        - safety-recorder-hsts
+      priority: 110
+      tls:
+        certResolver: letsencrypt
+
+    safety-recorder-emergency-page:
+      rule: "Host(`safety-recorder.example.invalid`) && Method(`GET`) && PathRegexp(`^/e/[^/]+$`)"
+      entryPoints:
+        - websecure
+      service: safety-recorder-public
+      middlewares:
+        - safety-recorder-rate-page
+        - safety-recorder-hsts
+      priority: 100
+      tls:
+        certResolver: letsencrypt
+
+    safety-recorder-static:
+      rule: "Host(`safety-recorder.example.invalid`) && Method(`GET`) && PathPrefix(`/static/`)"
+      entryPoints:
+        - websecure
+      service: safety-recorder-public
+      middlewares:
+        - safety-recorder-rate-static
+        - safety-recorder-hsts
+      priority: 90
+      tls:
+        certResolver: letsencrypt
+
+  services:
+    safety-recorder-public:
+      loadBalancer:
+        servers:
+          - url: "http://127.0.0.1:8081"
+
+  middlewares:
+    safety-recorder-rate-page:
+      rateLimit:
+        average: 20
+        period: 1m
+        burst: 10
+
+    safety-recorder-rate-data:
+      rateLimit:
+        average: 60
+        period: 1m
+        burst: 20
+
+    safety-recorder-rate-downloads:
+      rateLimit:
+        average: 6
+        period: 1m
+        burst: 3
+
+    safety-recorder-rate-static:
+      rateLimit:
+        average: 120
+        period: 1m
+        burst: 60
+
+    safety-recorder-hsts:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: false
+        stsPreload: false
+```
+
+If the private API is also routed through Traefik, it should use a private-only
+entry point, private address, or private network. Do not attach private `/v1`
+routers to public entry points. A private-only file-provider shape can split
+uploads from other private actions:
+
+```yaml
+# Private-boundary example only. Do not attach these routers to public entry points.
+http:
+  routers:
+    safety-recorder-private-uploads:
+      rule: "Host(`safety-recorder-private.example.invalid`) && Method(`POST`) && PathRegexp(`^/v1/incidents/[^/]+/chunks$`)"
+      entryPoints:
+        - wireguard
+      service: safety-recorder-private
+      middlewares:
+        - safety-recorder-rate-private-uploads
+      priority: 110
+
+    safety-recorder-private-api:
+      rule: "Host(`safety-recorder-private.example.invalid`) && PathPrefix(`/v1/`)"
+      entryPoints:
+        - wireguard
+      service: safety-recorder-private
+      middlewares:
+        - safety-recorder-rate-private-api
+      priority: 100
+
+  services:
+    safety-recorder-private:
+      loadBalancer:
+        servers:
+          - url: "http://127.0.0.1:8080"
+
+  middlewares:
+    safety-recorder-rate-private-uploads:
+      rateLimit:
+        average: 120
+        period: 1m
+        burst: 60
+
+    safety-recorder-rate-private-api:
+      rateLimit:
+        average: 30
+        period: 1m
+        burst: 15
+```
+
+When Traefik sits behind another proxy or load balancer, review forwarded-header
+trust and the rate-limit source criterion. A misconfigured source can group all
+clients under one proxy IP, or trust client-supplied forwarding headers too
+loosely.
+
 ### Emergency Token Paths In Proxy Logs
 
 Emergency URLs are bearer-token URLs. The Go server logs redacted route patterns
@@ -232,6 +412,7 @@ Avoid logging:
 - request bodies
 - uploaded bytes
 - `Authorization` headers
+- rate-limit keys or metric labels containing raw emergency tokens
 - plaintext, raw keys, or future token-like values
 
 ### Proxy And App Timeout Coordination

@@ -64,11 +64,16 @@ HSTS is not enabled by default in the Go app because local development uses plai
 
 HTTP server timeouts are configurable separately for private and public listener groups. Private read/write timeouts default to disabled for large uploads/downloads; public viewer timeouts are finite by default and should be coordinated with reverse-proxy timeouts.
 
+The Go app does not include an app-level rate limiter. Deployment-edge rate
+limiting guidance is documented in [deployment.md](deployment.md), but those
+proxy controls do not replace private `/v1` access boundaries or future
+application-level authorization.
+
 ## Known Security Gaps
 
 - No public authentication or authorization model for `/v1`
 - No built-in TLS
-- No built-in rate limiting or abuse throttling
+- No built-in app-level rate limiting or abuse throttling
 - No implemented production client key storage, key sharing, browser decryption, server-assisted break-glass key access, or emergency-contact key access model; the future designs are documented in [key-custody.md](key-custody.md), [browser-decryption.md](browser-decryption.md), and [break-glass-key-access.md](break-glass-key-access.md)
 - No retention, backup, secure deletion, or disk encryption policy
 - No malware/content scanning for uploaded encrypted blobs

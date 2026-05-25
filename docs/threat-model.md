@@ -47,7 +47,7 @@ This document describes the current backend-only security posture. It is intenti
 - Separate private/public ports reduce accidental route exposure, but they are not a complete security model.
 - `/v1` must not be publicly exposed as-is.
 - No iOS app, local recording, production client key storage, key sharing, push notifications, SMS, Messenger integration, or public admin dashboard.
-- No built-in TLS, rate limiting, abuse throttling, or IP allowlist.
+- No built-in TLS, app-level rate limiting, abuse throttling, or IP allowlist.
 - No retention, backup, secure deletion, or disk encryption policy.
 - No malware/content scanning; uploaded bytes are assumed to be client-encrypted blobs.
 - Bundle downloads are encrypted chunk bundles, not decrypted or playable media exports.
@@ -59,14 +59,17 @@ This document describes the current backend-only security posture. It is intenti
 
 For local/private use, bind the private API server to localhost or a private network and restrict access with WireGuard, firewall rules, or a reverse proxy. If any part is exposed publicly, expose only the emergency viewer server unless `/v1` has an additional authenticated control plane in front of it. Inside Docker containers, bind to container addresses such as `0.0.0.0:8080` and restrict host exposure with port publishing, firewall rules, WireGuard, or reverse proxy configuration.
 
-Use TLS at the edge for any network access. Keep reverse-proxy logs from recording raw `/e/{token}` paths.
+Use TLS at the edge for any network access. Apply deployment-edge rate limiting
+for public emergency routes and any private reverse-proxy boundary. Keep
+reverse-proxy logs, metrics, dashboards, and rate-limit keys from recording raw
+`/e/{token}` paths.
 
 The Go app does not set `Strict-Transport-Security` by default because local development uses plain HTTP and MDN guidance expects HSTS only over HTTPS. Enable HSTS at the production HTTPS reverse proxy after the public hostname is consistently available over TLS.
 
 ## Next Security Steps
 
 - Add an explicit access-control story for `/v1`.
-- Add rate limiting for token guesses, uploads, and admin actions.
+- Tune deployment-edge rate limits for token guesses, uploads, downloads, and admin actions, and consider app-level rate limiting separately.
 - Review emergency-token expiry tuning and revocation workflows.
 - Define retention, backup, and deletion policy.
 - Prototype the documented hybrid key custody model without weakening the current ciphertext-only backend.
