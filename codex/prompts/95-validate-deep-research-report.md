@@ -346,7 +346,10 @@ checks = {
     "blob main repo URLs": r"github\.com/TheSilkky/safety-recorder/blob/main",
     "claims check": r"(?i)claims check",
     "verify before sending": r"(?i)verify before sending",
-    "production-ready claim": r"(?i)production[- ]ready(?!.*not)",
+    "production-ready claim": (
+        r"(?i)(?<!not )(?<!no )(?<!not yet )"
+        r"(?<!not public-)(?<!not public )\bproduction[- ]ready\b"
+    ),
     "app store approval claim": r"(?i)(app store approved|app store approval|will pass app review)",
 }
 
