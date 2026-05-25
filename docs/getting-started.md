@@ -29,10 +29,11 @@ The backend writes local data under `./data` by default:
 data/
   safety.db
   tmp/
+  incidents/{incident_id}/streams/{stream_id}/{media_type}_{zero_padded_chunk_index}.enc
   incidents/{incident_id}/{media_type}_{zero_padded_chunk_index}.enc
 ```
 
-Uploads are staged in `tmp/`, hashed while streaming, and then hard-linked into the final incident path without overwriting existing chunk files.
+Uploads are staged in `tmp/`, hashed while streaming, and then hard-linked into the final incident path without overwriting existing chunk files. Streamed uploads use the stream-scoped path; the incident-level path remains for legacy unstreamed chunks.
 
 ## Run The Simulator
 
