@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.5.0-rc.1 - 2026-05-25
+
 - Pinned Docker base images by digest, added Dependabot Docker monitoring, and documented base-image digest refresh review steps.
 - Broadened the Docker build-context ignore policy for local-only artifacts under `server/`.
 - Pinned GitHub Actions workflow dependencies to full commit SHAs and documented the review process for action updates.
