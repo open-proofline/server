@@ -344,7 +344,20 @@ http:
 If the private API is also routed through Traefik, it should use a private-only
 entry point, private address, or private network. Do not attach private `/v1`
 routers to public entry points. A private-only file-provider shape can split
-uploads from other private actions:
+uploads from other private actions.
+
+Define the private entry point in Traefik's static configuration first. This
+example uses `wireguard` as a placeholder entry point name and `10.66.0.1` as a
+placeholder private interface address:
+
+```yaml
+# traefik.yml excerpt
+entryPoints:
+  wireguard:
+    address: "10.66.0.1:8443"
+```
+
+Then reference that entry point from the dynamic file-provider configuration:
 
 ```yaml
 # Private-boundary example only. Do not attach these routers to public entry points.
