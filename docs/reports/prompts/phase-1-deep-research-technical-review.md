@@ -1,3 +1,4 @@
+\
 # Phase 1 Deep Research Prompt: Public Technical Review Report
 
 Use this prompt in ChatGPT Deep Research, not in Codex.
@@ -99,7 +100,6 @@ The report reviewed the workflow configuration and source files, but did not ind
 
 Do not put raw tokens, secrets, request bodies, uploaded bytes, plaintext, raw keys, private deployment details, or user-safety data into validation summaries or the public report.
 
-
 ## Repository context
 
 Safety Recorder is an experimental Go backend for private personal-safety recording. It receives already-encrypted recording chunks, stores metadata in SQLite, stores encrypted blobs on local disk, and exposes a token-scoped read-only emergency viewer.
@@ -178,7 +178,6 @@ Avoid relying on:
 
 If a secondary source is used, explain why no primary source was sufficient.
 
-
 ## Source Registry and evidence gate
 
 Before drafting the report body, create a Source Registry. The registry is an evidence-control mechanism, not an appendix generated after the conclusions are written.
@@ -248,7 +247,6 @@ If no external web sources were consulted despite applicable external-source req
 Applicable authoritative external-source checks were not completed for this Phase 1 draft. The affected claims are therefore limited to repository evidence and are marked as not independently verified in the Source Registry.
 ```
 
-
 ## Citation requirements
 
 Use portable citation keys only.
@@ -275,8 +273,20 @@ At the end of the report, include Markdown reference definitions for every citat
 ```
 
 Repository citations must be pinned to `<REVIEWED_COMMIT_SHA>`, not `main`, unless the commit SHA is genuinely unavailable. If the SHA is unavailable, clearly mark the report as a draft and include a warning that repository URLs must be commit-pinned before publication.
+
 If reviewing a release-prep branch, provide both the branch name and the exact commit SHA. The branch name is workflow context; the commit SHA is the citation target. Repository citations must still be pinned to `<REVIEWED_COMMIT_SHA>` so the report remains stable if the branch moves.
 
+## Branch-scoped follow-up guidance
+
+The report may suggest follow-up issues, but it must not treat branch-specific release-candidate findings as if they automatically apply to every branch.
+
+When suggesting follow-up issues, include the reviewed branch/ref and reviewed commit SHA in the finding context. For a release-prep branch such as `release/v0.5.0-prep`, distinguish:
+
+- release blockers for the current branch
+- non-blocking follow-ups that can be filed after the branch merges
+- findings that must be revalidated on `main` or `develop` before public issue creation
+
+Do not recommend creating a public GitHub issue from a branch-specific finding unless the finding is expected to remain valid after the branch is merged or has been revalidated against the target branch.
 
 ## Review scope
 
@@ -358,6 +368,7 @@ For every finding, include:
 - repository evidence citation
 - authoritative external citation for any applicable backend, security, CI/CD, Docker, SQLite, dependency, licence, standards, web-security, Apple/iOS, or Swift claim
 - explicit `not independently verified` wording if the required authoritative external source was not consulted
+- reviewed branch/ref and commit context
 - why it matters
 - minimal actionable fix
 - suggested GitHub issue title
@@ -462,6 +473,7 @@ Before returning the report, check and state whether the draft satisfies:
 - every reference definition is used or intentionally retained
 - Source Registry section is present
 - Source Registry includes repository sources, external authoritative sources, validation evidence, unavailable/not-executed checks, generated artifacts, and connector/tool context
+- suggested follow-up issues include branch/ref and commit context when derived from branch-specific findings
 - the report does not claim repo-only completion when authoritative external-source checks are applicable
 - every applicable Go, SQLite, Docker, GitHub Actions, dependency, licence, web-security, Apple/iOS, or Swift claim is supported by an authoritative external source or marked as not independently verified
 - required external-source categories that were not consulted are explicitly listed with limitations
@@ -494,5 +506,6 @@ Phase 2 handoff:
 - citations that may need cleanup:
 - Source Registry gaps:
 - authoritative external-source categories not consulted:
+- branch-scoped follow-up concerns:
 - possible duplicate or existing issues to check:
 ```
