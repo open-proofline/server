@@ -105,6 +105,28 @@ to `main` and `v*` tags also publish Docker image tags to GHCR when package
 publishing is available. Workflow-level token permissions stay read-only;
 `packages: write` is granted only to the trusted Docker publish job.
 
+## Pinned GitHub Actions
+
+External GitHub Actions in [../.github/workflows/ci.yml](../.github/workflows/ci.yml)
+are pinned to full 40-character commit SHAs. Keep the intended upstream version
+tag in a same-line comment, for example `owner/action@<sha> # v1`, so reviewers
+can see the expected release line and Dependabot can update that version
+documentation.
+
+GitHub documents full-length commit SHA pinning as the immutable release model
+for actions. When updating an action, verify that the SHA belongs to the
+upstream action repository and corresponds to the intended tag or release, not a
+fork. Review the action release notes, changed inputs, changed permissions, and
+the workflow diff before merging.
+
+Dependabot remains enabled for the `github-actions` ecosystem in
+[../.github/dependabot.yml](../.github/dependabot.yml). Prefer reviewing those
+pull requests rather than bypassing maintainer review. For manual updates, use
+`git ls-remote --tags https://github.com/<owner>/<repo>.git 'refs/tags/<tag>' 'refs/tags/<tag>^{}'`
+and pin the peeled commit SHA when the tag is annotated. After any action
+update, confirm the required PR checks still pass and that trusted GHCR
+publication remains limited to `main` and `v*` tag pushes.
+
 Only create `v*` tags after the release checklist is complete and the tagged
 commit has passed CI. If an emergency fix is needed, keep the change narrow,
 preserve review discipline, and document any skipped validation in the release
