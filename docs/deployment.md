@@ -211,6 +211,8 @@ There should be no Traefik router, service, or rule for `127.0.0.1:8080` or
 a private address that only Traefik can reach, and keep that address off the
 public internet.
 
+Replace `admin@example.invalid` and `safety-recorder.example.invalid` with deployment-specific values before use.
+
 ### Emergency Token Paths In Proxy Logs
 
 Emergency URLs are bearer-token URLs. The Go server logs redacted route patterns
