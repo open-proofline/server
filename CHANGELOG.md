@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Pinned Docker base images by digest, added Dependabot Docker monitoring, and documented base-image digest refresh review steps.
 - Broadened the Docker build-context ignore policy for local-only artifacts under `server/`.
 - Pinned GitHub Actions workflow dependencies to full commit SHAs and documented the review process for action updates.
 - Added an iOS local recorder prototype plan covering chunking, encrypted staging, retry behavior, and current stream API mapping.
