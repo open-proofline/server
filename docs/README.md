@@ -10,6 +10,7 @@ This directory contains the detailed project documentation for Safety Recorder. 
 | [Architecture](architecture.md) | System diagrams, listener boundaries, and data flow. |
 | [Configuration](configuration.md) | Environment variables, bind addresses, upload limits, and data layout. |
 | [Encryption](encryption.md) | Client-side chunk envelope, simulator key file, and local bundle verification. |
+| [iOS local recorder prototype](ios-local-recorder-prototype.md) | Future native recorder scope, chunking, encrypted staging, retry, and API mapping. |
 | [Key custody and emergency access](key-custody.md) | Future production key custody, trusted-contact access, and break-glass design. |
 | [Browser-side decryption](browser-decryption.md) | Future emergency viewer decryption options, risks, and phased direction. |
 | [Break-glass key access](break-glass-key-access.md) | Future optional server-assisted emergency key access and dead-man-switch design. |
@@ -26,7 +27,7 @@ This directory contains the detailed project documentation for Safety Recorder. 
 
 ## Current Scope
 
-Safety Recorder currently contains the Go backend only. It receives already-encrypted chunks, stores metadata in SQLite, stores encrypted blobs on local disk, groups chunks into media streams, and exposes a token-scoped read-only emergency viewer. The Go simulator can produce the documented v1 client-side encryption envelope for development and test flows. Future production key custody is documented in [key-custody.md](key-custody.md), with browser decryption and break-glass follow-up designs in [browser-decryption.md](browser-decryption.md) and [break-glass-key-access.md](break-glass-key-access.md).
+Safety Recorder currently contains the Go backend only. It receives already-encrypted chunks, stores metadata in SQLite, stores encrypted blobs on local disk, groups chunks into media streams, and exposes a token-scoped read-only emergency viewer. The Go simulator can produce the documented v1 client-side encryption envelope for development and test flows. The future iOS recorder prototype is planned in [ios-local-recorder-prototype.md](ios-local-recorder-prototype.md). Future production key custody is documented in [key-custody.md](key-custody.md), with browser decryption and break-glass follow-up designs in [browser-decryption.md](browser-decryption.md) and [break-glass-key-access.md](break-glass-key-access.md).
 
 Evidence bundles are encrypted chunk bundles with JSON manifests. They are not decrypted, playable, or merged media exports.
 

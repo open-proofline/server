@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added an iOS local recorder prototype plan covering chunking, encrypted staging, retry behavior, and current stream API mapping.
 - Added a retention, backup, restore, and secure deletion policy design document.
 - Added deployment-edge rate-limiting guidance and Traefik route-group examples.
 - Added deployment examples for localhost-only Docker, WireGuard/private-network `/v1` access, and Traefik HTTPS emergency viewer exposure.
