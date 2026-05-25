@@ -62,7 +62,7 @@ The separate ports are a deployment boundary, not a complete security model. Do 
 - real access control for `/v1` or a strict WireGuard/firewall-only deployment
 - rate limits and abuse controls
 - TLS and reverse-proxy settings for the public emergency viewer, if reachable over a network
-- retention, backup, and secure deletion policy
+- deployment-specific enforcement of the documented [retention, backup, and deletion policy](retention-backup-deletion.md)
 - operational monitoring for failed uploads and storage/DB errors
 - a production review of emergency token sharing, expiry defaults, and revocation operations
 

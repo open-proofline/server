@@ -15,6 +15,7 @@ This directory contains the detailed project documentation for Safety Recorder. 
 | [Break-glass key access](break-glass-key-access.md) | Future optional server-assisted emergency key access and dead-man-switch design. |
 | [API](api.md) | Current HTTP routes, request examples, response examples, and bundle formats. |
 | [Deployment](deployment.md) | Local, Docker, reverse proxy, TLS, and public exposure notes. |
+| [Retention, backup, and deletion](retention-backup-deletion.md) | Operational policy for evidence lifecycle, backups, restores, and deletion limits. |
 | [Security model](security-model.md) | Current controls, browser headers, logging posture, and security assumptions. |
 | [Threat model](threat-model.md) | Assets, trust boundaries, controls, limitations, and next security steps. |
 | [Simulator](simulator.md) | Simulator commands and test flows. |
@@ -28,6 +29,8 @@ This directory contains the detailed project documentation for Safety Recorder. 
 Safety Recorder currently contains the Go backend only. It receives already-encrypted chunks, stores metadata in SQLite, stores encrypted blobs on local disk, groups chunks into media streams, and exposes a token-scoped read-only emergency viewer. The Go simulator can produce the documented v1 client-side encryption envelope for development and test flows. Future production key custody is documented in [key-custody.md](key-custody.md), with browser decryption and break-glass follow-up designs in [browser-decryption.md](browser-decryption.md) and [break-glass-key-access.md](break-glass-key-access.md).
 
 Evidence bundles are encrypted chunk bundles with JSON manifests. They are not decrypted, playable, or merged media exports.
+
+Retention, backup, and deletion policy is documented in [retention-backup-deletion.md](retention-backup-deletion.md), but the backend does not yet implement automatic expiration or incident deletion APIs.
 
 ## Security Reminder
 

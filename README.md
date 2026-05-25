@@ -43,7 +43,7 @@ The simulator encrypts fake chunks by default with the documented v1 AES-256-GCM
 - No backend/browser decryption, key sharing, server escrow, break-glass key access, or playable media export
 - No push notifications, SMS, or Messenger integration
 - No user accounts, OAuth, JWT, or public admin dashboard
-- No built-in TLS, rate limiting, retention policy, or production deployment hardening
+- No built-in TLS, app-level rate limiting, automated retention/deletion enforcement, or production deployment hardening
 
 ## Architecture
 
@@ -126,6 +126,7 @@ Container defaults bind to `0.0.0.0` inside the container. Restrict host exposur
 - [Break-glass key access design](docs/break-glass-key-access.md)
 - [API reference](docs/api.md)
 - [Deployment notes](docs/deployment.md)
+- [Retention, backup, and deletion](docs/retention-backup-deletion.md)
 - [Security model](docs/security-model.md)
 - [Threat model](docs/threat-model.md)
 - [Simulator](docs/simulator.md)
@@ -162,7 +163,7 @@ Do not let Codex create GitHub issues directly during the initial scan.
 
 ## Security
 
-Emergency viewer links are bearer-token URLs and should be treated as secrets. Public deployment still needs TLS, rate limiting, log review, retention policy, proxy hardening, and operational testing. Do not expose `/v1` publicly as-is.
+Emergency viewer links are bearer-token URLs and should be treated as secrets. Public deployment still needs TLS, rate limiting, log review, proxy hardening, operational testing, and deployment-specific retention, backup, and deletion enforcement. Do not expose `/v1` publicly as-is.
 
 Please see [SECURITY.md](SECURITY.md) for supported versions and vulnerability reporting guidance. Do not report security vulnerabilities through public GitHub issues.
 
