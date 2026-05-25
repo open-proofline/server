@@ -9,6 +9,7 @@
 - Added a configurable default 24-hour emergency-token expiry for omitted `expires_at` values.
 - Added a public technical review report and report-validation prompt workflow.
 - Documented the active branch protection ruleset, required checks, and tag/release expectations.
+- Scoped GitHub Actions package write permission to the trusted Docker publish job while keeping workflow defaults read-only.
 - Added a break-glass and dead-man-switch key access design document.
 - Added a browser-side emergency viewer decryption design spike.
 - Added a production key custody and emergency access design document covering the future hybrid trusted-contact model.

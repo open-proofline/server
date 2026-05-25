@@ -457,3 +457,5 @@ The CI workflow:
 - builds a Linux amd64 binary artifact
 - builds the Docker image from `server/Dockerfile`
 - publishes `ghcr.io/thesilkky/safety-recorder` on pushes to `main` and `v*` tags
+- keeps workflow-level token permissions read-only and grants `packages: write`
+  only to the trusted Docker publish job

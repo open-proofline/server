@@ -102,7 +102,8 @@ receive a qualifying approval.
 
 The CI workflow runs on pull requests, all branch pushes, and `v*` tags. Pushes
 to `main` and `v*` tags also publish Docker image tags to GHCR when package
-publishing is available.
+publishing is available. Workflow-level token permissions stay read-only;
+`packages: write` is granted only to the trusted Docker publish job.
 
 Only create `v*` tags after the release checklist is complete and the tagged
 commit has passed CI. If an emergency fix is needed, keep the change narrow,
