@@ -1,4 +1,4 @@
-# Codex Prompt: Prepare GitHub Issue Creation Commands from Reviewed Backlog Drafts
+# Codex Prompt: Prepare GitHub Issue Creation Commands from Reviewed Branch-Scoped Backlog Drafts
 
 Read reviewed backlog drafts and generate a script that can create GitHub issues with GitHub CLI.
 
@@ -6,7 +6,6 @@ Do **not** modify application code.
 Do **not** create GitHub issues directly unless explicitly told to run commands.
 Do **not** execute the generated script.
 Do **not** include sensitive vulnerability details in public issues.
-Do **not** modify workflows, Dockerfiles, SQL migrations, Go code, generated files, binaries, database files, or uploaded blob data.
 
 ## Goal
 
@@ -18,118 +17,49 @@ Create:
 scripts/create-backlog-issues.sh
 ```
 
-## Repository
-
-```text
-TheSilkky/safety-recorder
-```
-
 ## Draft directory
 
-Backlog drafts are normally created by `80-backlog-scan-issue-drafts.md`.
-
-They should live under a timestamped directory such as:
+Backlog drafts should live under a branch-scoped timestamped directory such as:
 
 ```text
-.backlog-drafts/YYYY-MM-DD/
+.backlog-drafts/YYYY-MM-DD/<branch-slug>/
 ```
 
 or:
 
 ```text
-.backlog-drafts/current/
+.backlog-drafts/current/<branch-slug>/
 ```
 
 Before generating the script:
 
-1. Prefer an explicitly provided draft directory, if the maintainer gives one.
-2. Otherwise, inspect `.backlog-drafts/` and choose the newest timestamped directory.
-3. If multiple directories exist and the newest is unclear, stop and ask which draft directory to use.
-4. Do not use `.backlog-drafts/private-notes/` or any `private-notes/` directory for public issue creation.
+1. Prefer an explicitly provided draft directory.
+2. Otherwise, inspect `.backlog-drafts/` and choose the newest timestamped branch-scoped directory.
+3. If multiple directories exist and the newest or intended branch scope is unclear, stop and ask which draft directory to use.
+4. Do not use `private-notes/` directories for public issue creation.
+
+## Branch scope requirements
+
+Verify every included draft contains:
+
+```md
+## Branch scope
+```
+
+If a draft is missing branch scope, exclude it and list it in the output summary.
+
+If a draft was generated from a release-prep or feature branch, preserve the `Branch scope` section in the GitHub issue body unless the maintainer explicitly requests removal.
+
+If a draft says it must be revalidated on `main`, `develop`, or another target branch before public issue creation, exclude it unless the maintainer explicitly confirms revalidation is complete.
 
 ## Requirements
 
 - Use `gh issue create`.
-- For each `NNN-*.md` file in the selected draft directory, derive:
-  - title from the first Markdown heading
-  - body from the entire file
-  - labels from the `## Labels` section
+- Derive title from the first Markdown heading.
+- Use the entire draft body, including `## Branch scope`.
+- Use labels from the `## Labels` section where practical.
 - Do not execute the script.
-- Make the script readable and reviewable.
-- Add comments explaining that labels must exist or GitHub CLI may fail.
-- Exclude drafts marked sensitive/private or not for public creation.
-- Keep the idempotence warning clear: running the script twice may create duplicate issues.
-- Keep output readable.
 - Quote file paths and arguments safely.
-- Put the script under `scripts/`.
-- Create `scripts/` if it does not exist.
-
-## Expected script behaviour
-
-The script should:
-
-1. Stop on errors.
-
-   ```bash
-   set -euo pipefail
-   ```
-
-2. Define the repository once.
-
-   ```bash
-   REPO="TheSilkky/safety-recorder"
-   ```
-
-3. Refuse to run if GitHub CLI is not installed or not authenticated.
-
-4. Print which issue draft is being created.
-
-5. Use `--body-file`.
-
-6. Use labels from the draft where practical.
-
-## Review requirements
-
-Before generating the script, inspect every draft in the selected draft directory.
-
-Exclude any draft that:
-
-- is marked sensitive
-- says not to create publicly
-- lives under `private-notes/`
-- contains raw tokens
-- contains secrets
-- contains private deployment details
-- contains user safety data
-- contains exploit details that should go through `SECURITY.md`
-
-If a draft is excluded, list it in the output summary and explain why.
-
-## Optional helper output
-
-Also create, if useful:
-
-```text
-.backlog-drafts/<selected-directory>/create-issues-review.md
-```
-
-This file should summarize:
-
-- selected draft directory
-- issue drafts included in the script
-- issue drafts excluded
-- labels used
-- command to run the script
-- warning that running twice may create duplicates
-
-## Constraints
-
-Allowed files:
-
-- `scripts/create-backlog-issues.sh`
-- `.backlog-drafts/<selected-directory>/create-issues-review.md`
-
-Do not change anything else unless needed only for a tiny documentation link.
 
 ## Validation
 
@@ -141,17 +71,3 @@ git diff -- scripts/create-backlog-issues.sh .backlog-drafts
 ```
 
 Do not run Go tests unless code was changed.
-
-Do not execute the script.
-
-## Output
-
-Summarize:
-
-1. selected draft directory
-2. issue drafts included
-3. issue drafts excluded
-4. labels used
-5. script path
-6. command to run after maintainer review
-7. reminder that running twice may create duplicate issues

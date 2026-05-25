@@ -2,7 +2,7 @@
 
 Validate, citation-convert, clean, and public-harden a Deep Research technical review report for this repository.
 
-This is the Phase 2 workflow after a source-cited Deep Research draft. Phase 1 produces a broad report and a portable source registry. Phase 2 checks whether the report is actually true against the repository, converts citations into public-safe Markdown, and ensures future-design claims are clearly separated from implemented behavior.
+This is the Phase 2 workflow after a source-cited Deep Research draft. Phase 1 produces a broad report and a portable source registry. Phase 2 checks whether the report is actually true against the repository, converts citations into public-safe Markdown, ensures future-design claims are clearly separated from implemented behavior, and scopes any generated draft issues to the current branch.
 
 ## Inputs
 
@@ -50,7 +50,7 @@ drafts_only
 
 Allowed values:
 
-- `drafts_only`: create or update local issue drafts only
+- `drafts_only`: create or update local branch-scoped issue drafts only
 - `create_issues`: create GitHub issues only if the maintainer explicitly requested it in the current task
 - `none`: do not create issue drafts or GitHub issues
 
@@ -59,13 +59,14 @@ Allowed values:
 - Use the current checked-out branch.
 - If `Reviewed branch or ref` is supplied, verify the current checked-out branch or `HEAD` corresponds to that ref before editing. If the current branch does not match and the maintainer did not explicitly approve using the current checkout, stop and ask for clarification.
 - Treat the branch/ref as workflow context only. Pin repository citations and report metadata to `<REVIEWED_COMMIT_SHA>`, not to a moving branch name.
+- Scope local issue drafts to the current checked-out branch. Do not create branch-ambiguous draft issues from a release-prep or feature branch.
 - Do not create or checkout another branch unless explicitly requested.
 - Do not change application code.
 - Do not change GitHub repository settings.
 - Do not change CI workflow behavior unless explicitly requested.
 - Do not create GitHub issues unless `Issue handling mode` is `create_issues` and the maintainer explicitly asked for issue creation.
-- Keep changes scoped to validating, citation-converting, and cleaning the report.
-- Keep the report public-safe.
+- Keep changes scoped to validating, citation-converting, cleaning the report, and creating branch-scoped draft issues if requested.
+- Keep the report and issue drafts public-safe.
 - Do not include raw tokens, secrets, private deployment details, exploit payloads, user-safety data, raw keys, plaintext media, or private vulnerability details.
 - Do not weaken security warnings.
 - Do not claim production readiness.
@@ -126,22 +127,83 @@ sed -n '1,360p' <REPORT_PATH>
 Before editing, summarize:
 
 1. reviewed branch/ref supplied
-2. reviewed commit SHA in the report
-3. current branch
+2. current branch
+3. reviewed commit SHA in the report
 4. current `HEAD`
-5. whether the maintainer supplied a reviewed commit SHA
-6. target release/version
-7. whether repository citations are pinned to a commit
-8. whether the report includes a portable source registry
-9. whether the report uses portable citation keys in the body
-10. whether internal ChatGPT citation tokens are present
-11. whether the report contains public-safety risks
-12. whether future-planning documents are clearly separated from implemented behavior
-13. whether iOS/Swift/Apple-platform claims cite authoritative Apple or Swift sources
-14. likely files to update
-15. validation commands
+5. whether current branch and reviewed branch/ref match or are intentionally different
+6. whether the maintainer supplied a reviewed commit SHA
+7. target release/version
+8. whether repository citations are pinned to a commit
+9. whether the report includes a portable source registry
+10. whether the report uses portable citation keys in the body
+11. whether internal ChatGPT citation tokens are present
+12. whether the report contains public-safety risks
+13. whether future-planning documents are clearly separated from implemented behavior
+14. whether iOS/Swift/Apple-platform claims cite authoritative Apple or Swift sources
+15. whether issue drafts should be created and what branch scope they should use
+16. likely files to update
+17. validation commands
 
 If the report has no reviewed commit SHA and the maintainer did not explicitly say current `HEAD` is accurate, stop and ask for the reviewed commit SHA. If the maintainer explicitly said current `HEAD` is accurate, use `git rev-parse HEAD` as the reviewed commit SHA and state that assumption in the report.
+
+## Branch-scoped issue draft policy
+
+When `Issue handling mode` is `drafts_only`, issue drafts must be scoped to the current checked-out branch.
+
+Determine:
+
+```bash
+CURRENT_BRANCH="$(git branch --show-current)"
+CURRENT_HEAD="$(git rev-parse HEAD)"
+```
+
+Use a filesystem-safe branch slug for draft output. Replace `/` and other non-alphanumeric separators with `-`.
+
+Examples:
+
+```text
+release/v0.5.0-prep -> release-v0.5.0-prep
+feature/foo -> feature-foo
+```
+
+Create branch-scoped report issue drafts under:
+
+```text
+.backlog-drafts/<YYYY-MM-DD>/<branch-slug>/
+```
+
+If the date is unavailable:
+
+```text
+.backlog-drafts/current/<branch-slug>/
+```
+
+Each draft issue created from the report must include this section near the top:
+
+```md
+## Branch scope
+
+- Current branch: `<CURRENT_BRANCH>`
+- Current HEAD: `<CURRENT_HEAD>`
+- Reviewed branch/ref: `<REVIEWED_BRANCH_OR_REF>`
+- Reviewed commit SHA: `<REVIEWED_COMMIT_SHA>`
+- Target release/version: `<TARGET_RELEASE_OR_VERSION>`
+- Scope note: This draft was generated from a report against the branch above. Revalidate against the target branch before creating or closing public GitHub issues if the branch has moved or has not yet merged.
+```
+
+Branch-specific findings must be classified as one of:
+
+```text
+release-blocker-current-branch
+follow-up-after-merge
+revalidate-on-main-or-develop
+planning-only
+sensitive-do-not-publicly-file
+```
+
+Do not create public GitHub issues directly from branch-scoped drafts unless the maintainer explicitly requests `create_issues` and the draft has been reviewed for current target-branch relevance.
+
+If `Issue handling mode` is `create_issues`, first confirm the intended target branch for the public issue body. Preserve the `Branch scope` section in the issue body unless the maintainer explicitly asks to remove it.
 
 ## Citation conversion workflow
 
@@ -177,241 +239,26 @@ External source definitions must use canonical source URLs, not ChatGPT renderer
 
 Validation source definitions must point to public CI URLs, uploaded validation summaries, or documented maintainer/Codex evidence. Do not include raw tokens, secrets, private deployment details, request bodies, uploaded bytes, plaintext, raw keys, or user-safety data.
 
-## Validation checklist
-
-Check for ChatGPT internal citation tokens:
-
-```bash
-python3 - <<'PY'
-from pathlib import Path
-import re
-
-path = Path("<REPORT_PATH>")
-text = path.read_text(encoding="utf-8")
-
-patterns = {
-    "filecite blocks": "\\ue200filecite\\ue202[^\\ue201]+\\ue201",
-    "cite blocks": "\\ue200cite\\ue202[^\\ue201]+\\ue201",
-    "raw turn refs": r"turn\\d+(?:file|view|search|fetch|open)\\d+",
-    "citation glyphs": "[\\ue200\\ue202\\ue201]",
-    "github blob main": r"github\\.com/TheSilkky/safety-recorder/blob/main",
-}
-
-for name, pat in patterns.items():
-    count = len(re.findall(pat, text))
-    print(f"{name}: {count}")
-PY
-```
-
-Check for draft-only sections that should not appear in a final public report:
-
-```bash
-grep -niE "claims check|verify before sending" "<REPORT_PATH>" || true
-```
-
-Check citation key integrity after edits:
-
-```bash
-python3 - <<'PY'
-from pathlib import Path
-import re
-
-path = Path("<OUTPUT_REPORT_PATH>")
-text = path.read_text(encoding="utf-8")
-
-defs = set(re.findall(r"^\\[([A-Za-z0-9_-]+)\\]:\\s+\\S+", text, flags=re.M))
-uses = set(re.findall(r"(?<!^)\\[([A-Za-z0-9_-]+)\\]", text, flags=re.M))
-
-citation_uses = {u for u in uses if u.startswith(("R-", "S-", "I-", "V-"))}
-
-missing = sorted(citation_uses - defs)
-unused = sorted(defs - citation_uses)
-
-print("missing definitions:", missing)
-print("unused definitions:", unused)
-PY
-```
-
-## Repository-claim validation
-
-For every report finding and major claim:
-
-1. Locate the repository evidence.
-2. Confirm the cited file exists.
-3. Confirm the behavior is implemented as described.
-4. Confirm the report distinguishes current implementation from future design/planning.
-5. Confirm the report does not turn documented out-of-scope features into false defects.
-6. If a claim is unsupported, either remove it, downgrade it, or rewrite it as an uncertainty.
-
-Validate future-planning claims separately:
-
-1. Confirm that documents such as `docs/key-custody.md`, `docs/browser-decryption.md`, `docs/break-glass-key-access.md`, and `docs/ios-local-recorder-prototype.md` are described as planning/design docs unless implementation exists.
-2. Confirm iOS recorder claims do not imply an iOS app exists unless `ios/` or Swift/Xcode files exist.
-3. Confirm Swift, AVFoundation/AVFAudio, iOS lifecycle, BackgroundTasks, URLSession background transfer, CryptoKit, Keychain, file protection, and App Store claims cite Apple or Swift primary sources.
-4. Confirm the report does not claim Apple/App Store approval or legal compliance.
-5. Confirm planning recommendations distinguish "prototype can test this" from "production design is solved."
-
-Pay special attention to these common failure modes:
-
-- claiming `server/.dockerignore` is missing when it exists
-- claiming GitHub repository settings were audited when only repository files were reviewed
-- claiming production readiness
-- claiming backend decryption exists when current code remains ciphertext-only
-- claiming absence of iOS/user accounts/OAuth/JWT/SMS/push/browser decryption is a defect when docs mark those out of scope
-- claiming future planning documents are implemented features
-- claiming the iOS recorder prototype exists as code when only `docs/ios-local-recorder-prototype.md` exists
-- claiming Keychain-only prototype storage solves production key custody when docs say the iPhone may be unavailable
-- claiming background execution permits indefinite recording/uploading without testing and Apple-source support
-- claiming background camera/video capture is supported without Apple-source support
-- claiming URLSession background transfers solve all upload/retry requirements without lifecycle caveats
-- claiming App Store acceptance, legal compliance, or safety certification
-- claiming Deep Research ran tests, Docker builds, containers, or simulator smoke tests
-- using external standards as decorative citations when repository code or docs are the real evidence
-- leaving raw Deep Research citation tokens in Markdown
-- leaving repository URLs pinned to `main` instead of the reviewed commit SHA
-- leaving repository URLs pinned to a branch name such as `<REVIEWED_BRANCH_OR_REF>` instead of the reviewed commit SHA
-
-## Editing requirements
-
-Create a cleaned public report.
-
-Required edits:
-
-- Add or verify title metadata:
-  - repository
-  - reviewed branch/ref, if supplied
-  - reviewed commit SHA
-  - target release/version
-  - review date
-  - final report status
-  - citation format note
-  - AI-assisted review disclosure
-  - public-disclosure note
-- Remove `Claims check` sections from the final public report unless explicitly requested.
-- Remove `Verify before sending` sections.
-- Remove ChatGPT-rendered citations and replace them with portable keys.
-- Use neutral report wording, not first-person model wording.
-- Preserve useful findings.
-- Remove unsupported findings.
-- Downgrade or reframe findings when repository evidence contradicts the initial draft.
-- Reframe future-planning issues as planning/source-support gaps unless the reviewed tree implements the feature.
-- Keep all citations portable.
-- Pin all repository links to the reviewed commit SHA.
-- Keep external source links canonical.
-- Ensure every `[R-*]`, `[S-*]`, `[I-*]`, and `[V-*]` citation key has a definition.
-- Keep the report suitable for public `docs/reports/` publication.
-
-Use this status wording unless the maintainer asks otherwise:
-
-```markdown
-**Report status:** Final public report after maintainer Phase 2 validation; accepted findings were mapped to follow-up issues.
-```
-
-Use this citation note unless a better project-specific version is needed:
-
-```markdown
-**Citation format note:** This report uses portable citation keys only. Repository citations are pinned to reviewed commit `<REVIEWED_COMMIT_SHA>`; external citations resolve to canonical documentation URLs. No ChatGPT-internal citation tokens are used.
-```
-
-Use this disclosure unless the maintainer asks otherwise:
-
-```markdown
-**AI-assisted review disclosure:** This report was generated with assistance from OpenAI ChatGPT Deep Research using <MODEL_NAME>, then reviewed and edited by the maintainer. It is not a formal security audit, penetration test, compliance certification, legal review, App Store review, or production-readiness endorsement. Findings should be verified against the reviewed commit, cited sources, and current project scope before being relied on.
-```
-
-## Issue handling
-
-If `Issue handling mode` is `none`, do not create issue drafts or GitHub issues.
-
-If `Issue handling mode` is `drafts_only`, write issue drafts under:
-
-```text
-.backlog-drafts/<YYYY-MM-DD>/
-```
-
-Each draft should include:
-
-- title
-- priority
-- type
-- suggested labels
-- summary
-- context
-- proposed change
-- acceptance criteria
-- tests / validation
-- out of scope
-- notes
-- report finding ID
-
-For iOS or future-planning findings, issue drafts must clearly say whether the work is planning-only, prototype implementation, backend API work, or security/key-custody design. Do not create iOS implementation issues that imply the app already exists.
-
-If `Issue handling mode` is `create_issues`, first check for duplicates:
-
-```bash
-gh issue list --repo TheSilkky/safety-recorder --state open --limit 100
-```
-
-Then create issues only for accepted findings that the maintainer explicitly approved for public issue tracking.
-
-Do not include sensitive vulnerability details, raw tokens, private deployment information, exploit payloads, raw keys, plaintext media, or user-safety data in public issues.
-
-## Validation after editing
-
-Run:
-
-```bash
-python3 - <<'PY'
-from pathlib import Path
-import re
-
-path = Path("<OUTPUT_REPORT_PATH>")
-text = path.read_text(encoding="utf-8")
-
-checks = {
-    "internal filecite tokens": "\\ue200filecite\\ue202[^\\ue201]+\\ue201",
-    "internal cite tokens": "\\ue200cite\\ue202[^\\ue201]+\\ue201",
-    "raw turn refs": r"turn\\d+(?:file|view|search|fetch|open)\\d+",
-    "citation glyphs": "[\\ue200\\ue202\\ue201]",
-    "blob main repo URLs": r"github\\.com/TheSilkky/safety-recorder/blob/main",
-    "claims check": r"(?i)claims check",
-    "verify before sending": r"(?i)verify before sending",
-    "production-ready claim": r"(?i)production[- ]ready(?!.*not)",
-    "app store approval claim": r"(?i)(app store approved|app store approval|will pass app review)",
-}
-
-for name, pat in checks.items():
-    count = len(re.findall(pat, text))
-    print(f"{name}: {count}")
-
-defs = set(re.findall(r"^\\[([A-Za-z0-9_-]+)\\]:\\s+\\S+", text, flags=re.M))
-uses = set(re.findall(r"(?<!^)\\[([A-Za-z0-9_-]+)\\]", text, flags=re.M))
-citation_uses = {u for u in uses if u.startswith(("R-", "S-", "I-", "V-"))}
-print("missing citation definitions:", sorted(citation_uses - defs))
-print("unused citation definitions:", sorted(defs - citation_uses))
-PY
-```
-
-For Markdown-only report edits, Go tests are not required. If code changed accidentally, stop and explain the scope problem.
-
 ## Output
 
-Summarize:
+Create the cleaned report, branch-scoped issue drafts if requested, and summarize:
 
 1. report input path
 2. cleaned report output path
 3. reviewed branch/ref used
-4. reviewed commit SHA used
-5. target release/version used
-6. ChatGPT-rendered citations removed or converted
-7. source registry gaps or corrections
-8. unsupported claims removed or corrected
-9. implementation claims vs future-planning claims corrected
-10. iOS/Swift/Apple-platform claims corrected or source-pinned
-11. findings retained, removed, downgraded, or reframed
-12. issue drafts or GitHub issues created, if any
-13. validation commands run
-14. whether the report is suitable for public `docs/reports/` publication
-15. any manual follow-up required
+4. current branch used for issue draft scope
+5. reviewed commit SHA used
+6. target release/version used
+7. ChatGPT-rendered citations removed or converted
+8. source registry gaps or corrections
+9. unsupported claims removed or corrected
+10. implementation claims vs future-planning claims corrected
+11. iOS/Swift/Apple-platform claims corrected or source-pinned
+12. findings retained, removed, downgraded, or reframed
+13. issue drafts or GitHub issues created, if any
+14. branch-scoped draft directory used, if any
+15. validation commands run
+16. whether the report is suitable for public `docs/reports/` publication
+17. any manual follow-up required
 
 Do not claim the report is a formal audit. Do not claim production readiness. Do not claim legal/App Store approval.

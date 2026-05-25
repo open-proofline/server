@@ -1,4 +1,4 @@
-# Codex Prompt: Backlog Scan and Issue Drafts
+# Codex Prompt: Backlog Scan and Branch-Scoped Issue Drafts
 
 Scan the repository and create reviewed backlog issue drafts.
 
@@ -13,276 +13,59 @@ Do **not** add features.
 
 ## Goal
 
-Review the current repository, current documentation, current issue backlog, and recent merged work.
+Review the current repository, current documentation, current issue backlog, current branch, and recent merged work.
 
-Produce a small set of high-quality backlog issue drafts for future work.
+Produce a small set of high-quality branch-scoped backlog issue drafts for future work.
 
-The drafts should be specific enough that the maintainer can review them and later create GitHub issues manually or with GitHub CLI.
+## Branch scope
 
-## Repository
-
-```text
-TheSilkky/safety-recorder
-```
-
-## Source of truth to inspect
-
-Read current repository files where present:
-
-- `README.md`
-- `AGENTS.md`
-- `CHANGELOG.md`
-- `SECURITY.md`
-- `LICENSE`
-- `docs/README.md`
-- `docs/api.md`
-- `docs/architecture.md`
-- `docs/configuration.md`
-- `docs/deployment.md`
-- `docs/encryption.md`
-- `docs/key-custody.md`, if present
-- `docs/browser-decryption.md`, if present
-- `docs/break-glass-key-access.md`, if present
-- `docs/security-model.md`
-- `docs/threat-model.md`
-- `docs/code-map.md`
-- `docs/development.md`
-- `docs/codex-change-control.md`, if present
-- `server/internal/config`
-- `server/internal/db`
-- `server/internal/httpapi`
-- `server/internal/incidents`
-- `server/internal/storage`
-- `server/internal/envelope`
-- `server/cmd/api`
-- `server/cmd/simclient`
-- `.github/workflows`
-- `.github/ISSUE_TEMPLATE`, if present
-- `codex/prompts`
-
-Also inspect current GitHub issues and PRs if GitHub CLI is available:
+Before scanning, record:
 
 ```bash
-gh issue list --repo TheSilkky/safety-recorder --state all --limit 100
-gh pr list --repo TheSilkky/safety-recorder --state all --limit 50
+git status --short --branch --untracked-files=all
+git branch --show-current
+git rev-parse HEAD
 ```
 
-If GitHub CLI is unavailable, continue using local repo files and mention that issue/PR duplicate detection was limited.
+Use the current checked-out branch as the draft issue scope. Create a filesystem-safe branch slug by replacing `/` and other non-alphanumeric separators with `-`.
 
-## Existing issue duplicate check
-
-Before drafting any issue:
-
-1. Check whether an existing open issue already covers it.
-2. Check whether a closed issue or merged PR recently completed it.
-3. If an existing issue covers it, do not create a duplicate draft.
-4. If an existing issue is close but incomplete, create a draft suggesting an update/comment instead of a duplicate issue.
-5. If uncertain, include a note in the scan index rather than generating a duplicate issue.
-
-## Areas to scan
-
-Look for future work in these categories:
-
-1. Correctness
-2. Security hardening
-3. Deployment hardening
-4. Database/migration maturity
-5. Configuration
-6. Testing gaps
-7. Documentation gaps
-8. Simulator/dev tooling
-9. iOS-client prerequisites
-10. Operational readiness
-11. Release/CI polish
-12. Codex workflow/process improvements
-13. Key custody / emergency access design
-
-## Candidate discovery guidance
-
-Do not blindly recreate the same backlog every run.
-
-Good candidate signals:
-
-- documented known gaps
-- TODO/FIXME comments
-- missing validation compared with docs
-- docs saying “future work”
-- security model gaps
-- threat-model mitigations not implemented
-- key custody or emergency access design gaps
-- code paths with tests missing
-- deployment warnings without examples
-- workflows mentioned in docs but not automated
-- simulator gaps against intended client flow
-- open issues that need splitting/refinement
-- recently merged work that introduced follow-up tasks
-
-Bad candidate signals:
-
-- vague “improve code”
-- duplicate of existing issue
-- feature that contradicts README/AGENTS scope
-- production claims beyond current maturity
-- public issue containing sensitive vulnerability details
-- anything requiring secrets, raw tokens, or private deployment details
-
-## Sensitive findings
-
-If you find a likely security vulnerability that should not be public:
-
-- Do not create a normal public issue draft for it.
-- Create a private note under:
+Create drafts under:
 
 ```text
-.backlog-drafts/YYYY-MM-DD/private-notes/
-```
-
-If the date is not available, use:
-
-```text
-.backlog-drafts/current/private-notes/
-```
-
-- Clearly mark it:
-
-```text
-PRIVATE SECURITY NOTE - DO NOT CREATE PUBLIC ISSUE
-```
-
-- Do not include raw tokens, secrets, user safety data, private deployment details, or exploit payloads.
-- Refer to `SECURITY.md` for reporting/handling.
-
-## Output directory
-
-Create a timestamped draft directory:
-
-```text
-.backlog-drafts/YYYY-MM-DD/
-```
-
-If the date is not easily available, use:
-
-```text
-.backlog-drafts/current/
-```
-
-Inside it, create one Markdown file per proposed issue.
-
-Filename format:
-
-```text
-NNN-short-kebab-title.md
-```
-
-Also create:
-
-```text
-.backlog-drafts/YYYY-MM-DD/README.md
+.backlog-drafts/YYYY-MM-DD/<branch-slug>/
 ```
 
 or:
 
 ```text
-.backlog-drafts/current/README.md
+.backlog-drafts/current/<branch-slug>/
 ```
 
-The index should list drafted issues grouped by priority/category and include skipped duplicates.
-
-## Number of issues
-
-Prefer quality over volume.
-
-Default target:
-
-```text
-5 to 12 high-quality issue drafts
-```
-
-If fewer than 5 good issues exist, create fewer and say why.
-
-If more than 12 exist, include only the highest-value drafts and list lower-priority candidates in the index as “future scan candidates.”
-
-## Issue draft format
-
-Each issue draft must use this structure:
+Every issue draft must include:
 
 ```md
-# <Issue title>
+## Branch scope
 
-## Priority
-
-P0 / P1 / P2 / P3
-
-## Type
-
-bug / maintenance / security-hardening / documentation / feature / deployment / ci / testing / planning
-
-## Labels
-
-Suggested labels:
-
-- `backlog`
-- one or more of: `bug`, `maintenance`, `security`, `docs`, `deployment`, `testing`, `simulator`, `ios`, `ci`, `planning`
-
-## Summary
-
-One or two sentences.
-
-## Context
-
-Why this matters and what repo files/docs support it.
-
-Mention existing related issues or PRs if relevant.
-
-## Proposed change
-
-What should change.
-
-## Acceptance criteria
-
-- [ ] ...
-- [ ] ...
-- [ ] ...
-
-## Tests / validation
-
-- [ ] `cd server && go test ./...`, if code changes
-- [ ] `cd server && go vet ./...`, if code changes or CI/testing changes
-- [ ] simulator smoke test, if relevant
-- [ ] docs updated, if relevant
-
-## Out of scope
-
-What this issue must not include.
-
-## Notes
-
-Any references to files, docs, related issues, related PRs, or future work.
+- Current branch: `<CURRENT_BRANCH>`
+- Current HEAD: `<CURRENT_HEAD>`
+- Target branch, if known: `<TARGET_BRANCH_OR_UNKNOWN>`
+- Scope classification: `release-blocker-current-branch` / `follow-up-after-merge` / `revalidate-on-main-or-develop` / `planning-only`
+- Scope note: This draft was generated from the branch above. Revalidate against the target branch before creating or closing public GitHub issues if the branch has moved or has not yet merged.
 ```
 
-## Priority guide
+## Source of truth to inspect
 
-Use:
+Read current repository files where present, including `README.md`, `AGENTS.md`, `CHANGELOG.md`, `SECURITY.md`, `docs/`, `server/`, `.github/`, and `codex/prompts`.
 
-```text
-P0 = urgent correctness/security issue that should be handled before further feature work
-P1 = important before real-world/private deployment or before iOS work
-P2 = useful near-term improvement
-P3 = polish, documentation, cleanup, or governance
-```
-
-Do not overuse P0.
+Also inspect current GitHub issues and PRs if GitHub CLI is available.
 
 ## Requirements
 
 - Keep issues specific and actionable.
-- Do not create huge umbrella issues unless they are clearly planning/docs issues.
-- Do not include secrets, raw tokens, private deployment info, or user safety data.
-- Do not include exploit details in public issue drafts.
-- Do not include issue drafts for work already completed by current code.
+- Do not include secrets, raw tokens, private deployment info, exploit details, or user safety data.
 - Do not include issue drafts already covered by open issues.
-- Do not add jokes or informal commentary to issue drafts.
 - Do not claim the project is production-ready.
+- Include branch scope in every issue draft.
 - Keep all output as Markdown.
 
 ## Validation
@@ -294,20 +77,27 @@ git diff --stat
 git diff -- .backlog-drafts
 ```
 
+Check branch scope:
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+import sys
+
+bad = []
+for path in Path(".backlog-drafts").rglob("*.md"):
+    if path.name == "README.md" or "private-notes" in path.parts:
+        continue
+    text = path.read_text(encoding="utf-8")
+    if "## Branch scope" not in text:
+        bad.append(str(path))
+
+print("drafts missing branch scope:", bad)
+if bad:
+    sys.exit(1)
+PY
+```
+
 Do not run Go tests unless code was changed.
 
 If any files outside `.backlog-drafts/` changed, stop and explain why.
-
-## Output
-
-Summarize:
-
-1. draft directory created
-2. number of issue drafts created
-3. priority breakdown
-4. categories covered
-5. existing issues/PRs checked
-6. duplicates skipped
-7. issues that should be reviewed before public creation
-8. sensitive/private notes created, if any
-9. suggested next command for creating GitHub issues manually
