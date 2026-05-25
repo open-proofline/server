@@ -375,6 +375,8 @@ func TestEmergencyStaticAssetsAreServed(t *testing.T) {
 		"data-completed-recordings",
 		"data-media-rows",
 		"data-stream-download",
+		"latestPollRequestID",
+		"requestID === latestPollRequestID",
 	} {
 		if !bytes.Contains(body, []byte(snippet)) {
 			t.Fatalf("expected emergency script to include %q: %s", snippet, body)

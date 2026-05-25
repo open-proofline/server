@@ -314,13 +314,18 @@
     });
   }
 
+  var latestPollRequestID = 0;
+
   function poll() {
+    latestPollRequestID += 1;
+    var requestID = latestPollRequestID;
+
     fetch(dataPath(), { cache: "no-store" })
       .then(function (response) {
         return response.ok ? response.json() : null;
       })
       .then(function (data) {
-        if (data) {
+        if (data && requestID === latestPollRequestID) {
           updateEmergencyView(data);
         }
       })
