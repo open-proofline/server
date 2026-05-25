@@ -108,7 +108,8 @@ Production-style public exposure still needs:
 - rate limiting and abuse controls
 - reverse-proxy log redaction for `/e/{token}` paths
 - private `/v1` access controls
-- retention, backup, and deletion policy
+- deployment-specific retention, backup, and deletion enforcement based on
+  [retention-backup-deletion.md](retention-backup-deletion.md)
 - operational monitoring and restore testing
 - review of emergency token sharing, expiry defaults, and revocation workflows
 

@@ -48,7 +48,7 @@ This document describes the current backend-only security posture. It is intenti
 - `/v1` must not be publicly exposed as-is.
 - No iOS app, local recording, production client key storage, key sharing, push notifications, SMS, Messenger integration, or public admin dashboard.
 - No built-in TLS, app-level rate limiting, abuse throttling, or IP allowlist.
-- No retention, backup, secure deletion, or disk encryption policy.
+- Retention, backup, restore, and deletion policy is documented in [retention-backup-deletion.md](retention-backup-deletion.md), but the backend does not yet implement automatic expiration, incident deletion APIs, or built-in disk encryption.
 - No malware/content scanning; uploaded bytes are assumed to be client-encrypted blobs.
 - Bundle downloads are encrypted chunk bundles, not decrypted or playable media exports.
 - No multi-user authorization model.
@@ -71,7 +71,7 @@ The Go app does not set `Strict-Transport-Security` by default because local dev
 - Add an explicit access-control story for `/v1`.
 - Tune deployment-edge rate limits for token guesses, uploads, downloads, and admin actions, and consider app-level rate limiting separately.
 - Review emergency-token expiry tuning and revocation workflows.
-- Define retention, backup, and deletion policy.
+- Implement documented retention, backup, restore, and deletion operations.
 - Prototype the documented hybrid key custody model without weakening the current ciphertext-only backend.
 - Prototype browser decryption only after accepting the browser trust model and malicious-server limitations.
 - Treat server-assisted break-glass access as an optional future mode only after explicit policy, audit, and deployment design.

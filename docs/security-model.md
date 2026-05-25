@@ -69,12 +69,24 @@ limiting guidance is documented in [deployment.md](deployment.md), but those
 proxy controls do not replace private `/v1` access boundaries or future
 application-level authorization.
 
+## Retention, Backups, And Deletion
+
+Retention, backup, restore, secure deletion limits, and disk encryption posture
+are documented in [retention-backup-deletion.md](retention-backup-deletion.md).
+The current backend preserves accepted evidence by default and does not
+automatically expire incidents or expose incident deletion APIs.
+
+Normal file removal is not treated as guaranteed secure erasure. Deployments
+that store real safety evidence should use encrypted disks or volumes for
+SQLite, encrypted blobs, logs, and backups, then rely on explicit backup expiry
+and encryption-key retirement for stronger deletion outcomes.
+
 ## Known Security Gaps
 
 - No public authentication or authorization model for `/v1`
 - No built-in TLS
 - No built-in app-level rate limiting or abuse throttling
 - No implemented production client key storage, key sharing, browser decryption, server-assisted break-glass key access, or emergency-contact key access model; the future designs are documented in [key-custody.md](key-custody.md), [browser-decryption.md](browser-decryption.md), and [break-glass-key-access.md](break-glass-key-access.md)
-- No retention, backup, secure deletion, or disk encryption policy
+- No automated retention/deletion enforcement or built-in disk encryption; the operational policy is documented in [retention-backup-deletion.md](retention-backup-deletion.md)
 - No malware/content scanning for uploaded encrypted blobs
 - No multi-user authorization model

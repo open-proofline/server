@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added a retention, backup, restore, and secure deletion policy design document.
 - Added deployment-edge rate-limiting guidance and Traefik route-group examples.
 - Added deployment examples for localhost-only Docker, WireGuard/private-network `/v1` access, and Traefik HTTPS emergency viewer exposure.
 - Added a configurable default 24-hour emergency-token expiry for omitted `expires_at` values.
