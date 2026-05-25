@@ -127,6 +127,33 @@ and pin the peeled commit SHA when the tag is annotated. After any action
 update, confirm the required PR checks still pass and that trusted GHCR
 publication remains limited to `main` and `v*` tag pushes.
 
+## Pinned Docker Base Images
+
+Base images in [../server/Dockerfile](../server/Dockerfile) are pinned with
+`tag@sha256:<digest>` references. Keep the human-readable tag before the digest
+so reviewers can see the intended release family while builds stay tied to an
+immutable manifest.
+
+When refreshing a Docker base-image digest, inspect the current manifest for the
+intended tag:
+
+```bash
+docker buildx imagetools inspect docker.io/library/golang:1.26-alpine
+docker buildx imagetools inspect docker.io/library/alpine:3.22
+```
+
+Dependabot is enabled for the `docker` ecosystem in
+[../.github/dependabot.yml](../.github/dependabot.yml) and monitors the
+Dockerfile under `server/`. Prefer reviewing Dependabot pull requests for
+routine base-image refreshes.
+
+Update only the digest for the same intended tag unless the issue, Dependabot
+pull request, or release explicitly calls for a version-family change. Review
+the upstream image tag, version, architecture coverage, release notes or
+changelog where available, and the Dockerfile diff before merging. After a
+digest update, run the Docker build locally when practical and confirm the
+required CI Docker build still passes.
+
 Only create `v*` tags after the release checklist is complete and the tagged
 commit has passed CI. If an emergency fix is needed, keep the change narrow,
 preserve review discipline, and document any skipped validation in the release
@@ -147,6 +174,7 @@ Before tagging:
 - verify README badges and links
 - verify `LICENSE` and `SECURITY.md`
 - verify Docker/GHCR notes
+- verify Docker base-image digest pins still match the intended tag families
 - verify private/public route separation is documented
 - verify raw tokens, request bodies, uploaded bytes, and Authorization headers are not logged
 - verify no local DBs, uploaded blobs, generated binaries, `.env` files, or temporary files are committed
