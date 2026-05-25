@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added release binary and GHCR image artifact attestations to the CI workflow.
 - Verified SQLite WAL startup by checking the returned journal mode and failing when WAL cannot be enabled.
 - Aligned Docker base-image digest refresh documentation with the runtime Alpine tag family used by the Dockerfile.
 
