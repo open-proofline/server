@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Automated creating a minimal GitHub Release when needed and uploading the Linux amd64 binary as a Release asset for `v*` tag workflows.
+
 ## v0.5.0-rc.2 - 2026-05-26
 
 - Added release binary and GHCR image artifact attestations to the CI workflow.
