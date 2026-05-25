@@ -347,14 +347,14 @@ routers to public entry points. A private-only file-provider shape can split
 uploads from other private actions.
 
 Define the private entry point in Traefik's static configuration first. This
-example uses `wireguard` as a placeholder entry point name and `10.66.0.1` as a
-placeholder private interface address:
+example uses `wireguard` as a placeholder entry point name and `10.66.0.1:80`
+as a placeholder private HTTP interface address:
 
 ```yaml
 # traefik.yml excerpt
 entryPoints:
   wireguard:
-    address: "10.66.0.1:8443"
+    address: "10.66.0.1:80"
 ```
 
 Then reference that entry point from the dynamic file-provider configuration:
