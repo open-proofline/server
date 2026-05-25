@@ -1,4 +1,3 @@
-\
 # Phase 1 Deep Research Prompt: Public Technical Review Report
 
 Use this prompt in ChatGPT Deep Research, not in Codex.

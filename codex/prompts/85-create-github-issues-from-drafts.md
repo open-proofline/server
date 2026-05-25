@@ -1,10 +1,52 @@
-Core rule: public issue drafts must include `## Priority`, `## Type`, `## Labels`,
-and `## Branch scope`. Issue-creation scripts must fail closed when those sections
-are missing and must pass labels to `gh issue create`.
+# Codex Prompt: Prepare GitHub Issue Creation Commands from Reviewed Branch-Scoped Backlog Drafts
 
-# Codex Prompt Patch: 85 Create GitHub Issues From Drafts
+Read reviewed backlog drafts and generate a script that can create GitHub issues with GitHub CLI.
 
-Apply this patch to `codex/prompts/85-create-github-issues-from-drafts.md`.
+Do **not** modify application code.
+Do **not** create GitHub issues directly unless explicitly told to run commands.
+Do **not** execute the generated script.
+Do **not** include sensitive vulnerability details in public issues.
+Do **not** modify workflows, Dockerfiles, SQL migrations, Go code, generated files, binaries, database files, or uploaded blob data.
+
+## Goal
+
+Generate a shell script that creates GitHub issues from maintainer-reviewed backlog draft files, preserving priority in the issue body and applying GitHub labels from each draft.
+
+Create:
+
+```text
+scripts/create-backlog-issues.sh
+```
+
+## Repository
+
+```text
+TheSilkky/safety-recorder
+```
+
+## Draft directory
+
+Backlog drafts are normally created by `80-backlog-scan-issue-drafts.md` or `95-validate-deep-research-report.md`.
+
+They should live under a branch-scoped timestamped directory such as:
+
+```text
+.backlog-drafts/YYYY-MM-DD/<branch-slug>/
+```
+
+or:
+
+```text
+.backlog-drafts/current/<branch-slug>/
+```
+
+Before generating the script:
+
+1. Prefer an explicitly provided draft directory, if the maintainer gives one.
+2. Otherwise, inspect `.backlog-drafts/` and choose the newest timestamped branch-scoped directory.
+3. If multiple directories exist and the newest or intended branch scope is unclear, stop and ask which draft directory to use.
+4. Do not use `.backlog-drafts/private-notes/` or any `private-notes/` directory for public issue creation.
+5. Read the selected directory `README.md` and every `NNN-*.md` draft before generating a script.
 
 ## Required draft metadata
 
@@ -79,7 +121,65 @@ Do not convert priority to a GitHub label unless the repository has matching pri
 
 If priority is missing, exclude the draft and list it in the output summary.
 
+## Branch scope requirements
+
+Verify every included draft contains:
+
+```md
+## Branch scope
+```
+
+If a draft is missing branch scope, exclude it and list it in the output summary.
+
+If a draft was generated from a release-prep or feature branch, preserve the `Branch scope` section in the GitHub issue body unless the maintainer explicitly requests removal.
+
+If a draft says it must be revalidated on `main`, `develop`, or another target branch before public issue creation, exclude it unless the maintainer explicitly confirms revalidation is complete.
+
+## Requirements
+
+- Use `gh issue create`.
+- Derive title from the first Markdown heading.
+- Use the entire draft body, including `## Priority`, `## Labels`, and `## Branch scope`.
+- Use labels from the `## Labels` section.
+- Do not execute the script.
+- Quote file paths and arguments safely.
+- Exclude drafts marked sensitive/private or not for public creation.
+- Exclude drafts missing priority, type, labels, or branch scope.
+- Exclude drafts missing the `backlog` label.
+- Exclude drafts with non-existent labels unless the maintainer explicitly approves a label creation step.
+- Warn that running the script twice may create duplicate issues.
+
+## Expected script behaviour
+
+The script should:
+
+1. Stop on errors.
+
+   ```bash
+   set -euo pipefail
+   ```
+
+2. Define the repository once.
+
+   ```bash
+   REPO="TheSilkky/safety-recorder"
+   ```
+
+3. Define the selected branch-scoped draft directory.
+
+4. Refuse to run if GitHub CLI is not installed or not authenticated.
+
+5. Print which issue draft is being created.
+
+6. Use `--body-file`.
+
+7. Include `--label` arguments derived from each draft.
+
+8. Print a warning before creating issues that branch-scoped drafts should have been reviewed for current target-branch relevance.
+
 ## Review exclusions
+
+Before generating the script, inspect every draft in the selected draft directory.
 
 Exclude any draft that:
 
@@ -100,22 +200,11 @@ Exclude any draft that:
 - contains user safety data
 - contains exploit details that should go through `SECURITY.md`
 
+If a draft is excluded, list it in the output summary and explain why.
+
 ## Generated script requirements
 
-The script should:
-
-```bash
-set -euo pipefail
-```
-
-It should define:
-
-```bash
-REPO="TheSilkky/safety-recorder"
-DRAFT_DIR="<selected branch-scoped draft dir>"
-```
-
-For each included draft, it should call:
+The script should call `gh issue create` like:
 
 ```bash
 gh issue create \
@@ -130,26 +219,48 @@ Use safe quoting for file paths, titles, and labels.
 
 ## Optional helper output
 
-Create or update:
+Also create, if useful:
 
 ```text
 .backlog-drafts/<selected-directory>/create-issues-review.md
 ```
 
-Include:
+This file should summarize:
 
 - selected draft directory
 - branch scope for that directory
-- issue drafts included
+- issue drafts included in the script
 - issue drafts excluded
-- priorities found
+- priority values found
 - labels used
 - missing/non-existent labels found
 - command to run the script
 - warning that running twice may create duplicates
 - warning that branch-scoped drafts should be revalidated if the source branch moved
 
-## Output summary
+## Constraints
+
+Allowed files:
+
+- `scripts/create-backlog-issues.sh`
+- `.backlog-drafts/<selected-directory>/create-issues-review.md`
+
+Do not change anything else unless needed only for a tiny documentation link.
+
+## Validation
+
+After generating the script:
+
+```bash
+git diff --stat
+git diff -- scripts/create-backlog-issues.sh .backlog-drafts
+```
+
+Do not run Go tests unless code was changed.
+
+Do not execute the script.
+
+## Output
 
 Summarize:
 
