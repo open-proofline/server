@@ -1,11 +1,54 @@
+# Local Codex/admin metadata.
 .codex/
 .agents/
+
+# Local runtime data and upload scratch space.
 data/
 tmp/
 *.db
 *.db-*
 *.sqlite
 *.sqlite-*
+*.sqlite3
+*.sqlite3-*
+
+# Local environment overrides. Example/template files should remain explicit
+# source files if they are ever added.
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+
+# Local simulator encryption keys and generated evidence bundles.
+*.key.json
+*.zip
+
+# Build artifacts, local binaries, test binaries, and profiler output.
+bin/
+dist/
+api
+safety-recorder
+safety-recorder-backend
 *.test
+*.prof
+*.coverprofile
 coverage.out
+
+# OS and editor noise.
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Local issue/review drafts and helper scripts.
+.backlog-drafts/
+.issue-review-drafts/
+scripts/
+.*-review/
+
+# The Dockerfile is supplied explicitly to the builder and should not be
+# available to COPY instructions from the application context.
 Dockerfile

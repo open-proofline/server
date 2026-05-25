@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Broadened the Docker build-context ignore policy for local-only artifacts under `server/`.
 - Pinned GitHub Actions workflow dependencies to full commit SHAs and documented the review process for action updates.
 - Added an iOS local recorder prototype plan covering chunking, encrypted staging, retry behavior, and current stream API mapping.
 - Added a retention, backup, restore, and secure deletion policy design document.
