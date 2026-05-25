@@ -247,9 +247,11 @@ Traefik's `rateLimit` middleware uses `average`, `period`, and `burst` to
 define a token-bucket limit. Review the options for the Traefik version you run,
 especially the source criterion used to group requests behind proxies.
 
-This example extends the file-provider shape above by splitting the public
-emergency viewer into route groups. The numbers are illustrative placeholders,
-not production defaults:
+This example replaces the single broad public emergency-viewer router from the
+basic example above with grouped routers for the same public service. Do not
+append these routers alongside the broad router unless you have deliberately
+reviewed the resulting priorities and middleware order. The numbers are
+illustrative placeholders, not production defaults:
 
 ```yaml
 # /etc/traefik/dynamic/safety-recorder.yml
