@@ -39,11 +39,9 @@ func Open(ctx context.Context, dbPath string) (*sql.DB, error) {
 		_ = conn.Close()
 		return nil, fmt.Errorf("enable foreign keys: %w", err)
 	}
-	// WAL keeps the single local database responsive for concurrent reads while
-	// uploads are inserting metadata.
-	if _, err := conn.ExecContext(ctx, "PRAGMA journal_mode = WAL"); err != nil {
+	if err := enableWALMode(ctx, conn); err != nil {
 		_ = conn.Close()
-		return nil, fmt.Errorf("enable wal mode: %w", err)
+		return nil, err
 	}
 	if err := Migrate(ctx, conn); err != nil {
 		_ = conn.Close()
@@ -51,6 +49,23 @@ func Open(ctx context.Context, dbPath string) (*sql.DB, error) {
 	}
 
 	return conn, nil
+}
+
+// WAL keeps the single local database responsive for concurrent reads while
+// uploads are inserting metadata.
+func enableWALMode(ctx context.Context, conn *sql.DB) error {
+	var journalMode string
+	if err := conn.QueryRowContext(ctx, "PRAGMA journal_mode = WAL").Scan(&journalMode); err != nil {
+		return fmt.Errorf("enable wal mode: %w", err)
+	}
+	if !isWALJournalMode(journalMode) {
+		return fmt.Errorf("enable wal mode: sqlite returned journal mode %q", journalMode)
+	}
+	return nil
+}
+
+func isWALJournalMode(journalMode string) bool {
+	return strings.EqualFold(strings.TrimSpace(journalMode), "wal")
 }
 
 const createSchemaMigrationsSQL = `

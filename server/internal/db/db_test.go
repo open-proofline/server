@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -70,16 +71,72 @@ func TestMigrateRejectsRecordedChecksumMismatch(t *testing.T) {
 	}
 }
 
-func TestOpenMemoryCreatesMigrationTable(t *testing.T) {
+func TestOpenCreatesMigrationTableAndEnablesWAL(t *testing.T) {
 	ctx := context.Background()
-	conn, err := Open(ctx, ":memory:")
+	conn, err := Open(ctx, filepath.Join(t.TempDir(), "safety.db"))
 	if err != nil {
-		t.Fatalf("Open :memory:: %v", err)
+		t.Fatalf("Open: %v", err)
 	}
 	defer conn.Close()
 
 	if !hasTable(t, ctx, conn, "schema_migrations") {
 		t.Fatal("expected schema_migrations table")
+	}
+	assertJournalMode(t, ctx, conn, "wal")
+}
+
+func TestOpenFailsWhenWALModeIsNotEnabled(t *testing.T) {
+	ctx := context.Background()
+
+	conn, err := Open(ctx, ":memory:")
+	if err == nil {
+		conn.Close()
+		t.Fatal("expected :memory: database to fail WAL verification")
+	}
+	if !strings.Contains(err.Error(), `enable wal mode: sqlite returned journal mode "memory"`) {
+		t.Fatalf("expected explicit WAL journal mode error, got %v", err)
+	}
+}
+
+func TestIsWALJournalMode(t *testing.T) {
+	tests := []struct {
+		name        string
+		journalMode string
+		want        bool
+	}{
+		{
+			name:        "wal",
+			journalMode: "wal",
+			want:        true,
+		},
+		{
+			name:        "mixed case",
+			journalMode: "WAL",
+			want:        true,
+		},
+		{
+			name:        "trimmed",
+			journalMode: " wal ",
+			want:        true,
+		},
+		{
+			name:        "delete",
+			journalMode: "delete",
+			want:        false,
+		},
+		{
+			name:        "memory",
+			journalMode: "memory",
+			want:        false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := isWALJournalMode(test.journalMode); got != test.want {
+				t.Fatalf("isWALJournalMode(%q) = %v, want %v", test.journalMode, got, test.want)
+			}
+		})
 	}
 }
 
@@ -387,6 +444,17 @@ func hasTable(t *testing.T, ctx context.Context, conn *sql.DB, tableName string)
 	}
 	t.Fatalf("query table %s: %v", tableName, err)
 	return false
+}
+
+func assertJournalMode(t *testing.T, ctx context.Context, conn *sql.DB, want string) {
+	t.Helper()
+	var journalMode string
+	if err := conn.QueryRowContext(ctx, "PRAGMA journal_mode").Scan(&journalMode); err != nil {
+		t.Fatalf("query journal mode: %v", err)
+	}
+	if !strings.EqualFold(journalMode, want) {
+		t.Fatalf("journal mode = %q, want %q", journalMode, want)
+	}
 }
 
 func appliedMigrationIDs(t *testing.T, ctx context.Context, conn *sql.DB) []string {
