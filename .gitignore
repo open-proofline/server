@@ -42,5 +42,6 @@ Thumbs.db
 # Scripts directory should be local and ignored
 .backlog-drafts/
 .issue-review-drafts/
+.deep-research-drafts/
 scripts/
 .*-review/

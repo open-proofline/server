@@ -46,6 +46,7 @@ Thumbs.db
 # Local issue/review drafts and helper scripts.
 .backlog-drafts/
 .issue-review-drafts/
+.deep-research-drafts/
 scripts/
 .*-review/
 

@@ -1,8 +1,8 @@
 # Codex Prompt: Validate Deep Research Technical Review Report
 
-Validate, clean, and public-harden a Deep Research technical review report for this repository.
+Validate, citation-convert, clean, and public-harden a Deep Research technical review report for this repository.
 
-This is the Phase 2 workflow after a source-cited Deep Research draft. Phase 1 produces a broad report. Phase 2 checks whether the report is actually true against the repository and whether future-design claims are clearly separated from implemented behavior.
+This is the Phase 2 workflow after a source-cited Deep Research draft. Phase 1 produces a broad report and a portable source registry. Phase 2 checks whether the report is actually true against the repository, converts citations into public-safe Markdown, and ensures future-design claims are clearly separated from implemented behavior.
 
 ## Inputs
 
@@ -39,7 +39,7 @@ Target release / version:
 Output report path:
 
 ```text
-docs/reports/<YYYY-MM-DD>-safety-recorder-technical-review.md
+docs/reports/<YYYY-MM-DD>-safety-recorder-<TARGET_RELEASE_OR_VERSION>-technical-review.md
 ```
 
 Issue handling mode:
@@ -59,13 +59,12 @@ Allowed values:
 - Use the current checked-out branch.
 - If `Reviewed branch or ref` is supplied, verify the current checked-out branch or `HEAD` corresponds to that ref before editing. If the current branch does not match and the maintainer did not explicitly approve using the current checkout, stop and ask for clarification.
 - Treat the branch/ref as workflow context only. Pin repository citations and report metadata to `<REVIEWED_COMMIT_SHA>`, not to a moving branch name.
-
 - Do not create or checkout another branch unless explicitly requested.
 - Do not change application code.
 - Do not change GitHub repository settings.
 - Do not change CI workflow behavior unless explicitly requested.
 - Do not create GitHub issues unless `Issue handling mode` is `create_issues` and the maintainer explicitly asked for issue creation.
-- Keep changes scoped to validating and cleaning the report.
+- Keep changes scoped to validating, citation-converting, and cleaning the report.
 - Keep the report public-safe.
 - Do not include raw tokens, secrets, private deployment details, exploit payloads, user-safety data, raw keys, plaintext media, or private vulnerability details.
 - Do not weaken security warnings.
@@ -121,7 +120,7 @@ find . -maxdepth 4 \( -name '*.swift' -o -name 'Package.swift' -o -name '*.xcode
 Read the report:
 
 ```bash
-sed -n '1,320p' <REPORT_PATH>
+sed -n '1,360p' <REPORT_PATH>
 ```
 
 Before editing, summarize:
@@ -132,16 +131,51 @@ Before editing, summarize:
 4. current `HEAD`
 5. whether the maintainer supplied a reviewed commit SHA
 6. target release/version
-5. whether repository citations are pinned to a commit
-6. whether the report uses portable citation keys
-7. whether internal ChatGPT citation tokens are present
-8. whether the report contains public-safety risks
-9. whether future-planning documents are clearly separated from implemented behavior
-10. whether iOS/Swift/Apple-platform claims cite authoritative Apple or Swift sources
-11. likely files to update
-12. validation commands
+7. whether repository citations are pinned to a commit
+8. whether the report includes a portable source registry
+9. whether the report uses portable citation keys in the body
+10. whether internal ChatGPT citation tokens are present
+11. whether the report contains public-safety risks
+12. whether future-planning documents are clearly separated from implemented behavior
+13. whether iOS/Swift/Apple-platform claims cite authoritative Apple or Swift sources
+14. likely files to update
+15. validation commands
 
 If the report has no reviewed commit SHA and the maintainer did not explicitly say current `HEAD` is accurate, stop and ask for the reviewed commit SHA. If the maintainer explicitly said current `HEAD` is accurate, use `git rev-parse HEAD` as the reviewed commit SHA and state that assumption in the report.
+
+## Citation conversion workflow
+
+Deep Research may produce ChatGPT-rendered citations such as `cite...`, `filecite...`, raw `turn...` references, or other UI-only source markers.
+
+The final public report must not contain any of those internal citations.
+
+Use the Phase 1 portable source registry as the primary mapping source for citation conversion.
+
+If the source registry is missing, incomplete, or cannot support a claim:
+
+1. Locate a portable repository URL pinned to `<REVIEWED_COMMIT_SHA>` or a canonical external URL.
+2. Add a stable citation key to the source registry or reference definitions.
+3. Replace the internal citation with the portable key.
+4. If no portable source can be found, remove or downgrade the claim.
+
+Use these key families:
+
+- `R-*` for repository sources pinned to `<REVIEWED_COMMIT_SHA>`
+- `S-*` for external authoritative sources
+- `I-*` for issue, PR, or report-follow-up references
+- `V-*` for validation evidence
+
+Repository source definitions must use this form:
+
+```markdown
+[R-README]: https://github.com/TheSilkky/safety-recorder/blob/<REVIEWED_COMMIT_SHA>/README.md
+```
+
+Do not use `blob/main` or branch names in final repository citation URLs.
+
+External source definitions must use canonical source URLs, not ChatGPT renderer IDs.
+
+Validation source definitions must point to public CI URLs, uploaded validation summaries, or documented maintainer/Codex evidence. Do not include raw tokens, secrets, private deployment details, request bodies, uploaded bytes, plaintext, raw keys, or user-safety data.
 
 ## Validation checklist
 
@@ -158,20 +192,15 @@ text = path.read_text(encoding="utf-8")
 patterns = {
     "filecite blocks": "\\ue200filecite\\ue202[^\\ue201]+\\ue201",
     "cite blocks": "\\ue200cite\\ue202[^\\ue201]+\\ue201",
-    "raw turn refs": r"turn\d+(?:file|view|search|fetch|open)\d+",
+    "raw turn refs": r"turn\\d+(?:file|view|search|fetch|open)\\d+",
     "citation glyphs": "[\\ue200\\ue202\\ue201]",
+    "github blob main": r"github\\.com/TheSilkky/safety-recorder/blob/main",
 }
 
 for name, pat in patterns.items():
     count = len(re.findall(pat, text))
     print(f"{name}: {count}")
 PY
-```
-
-Check for unpinned repository links:
-
-```bash
-grep -n "github.com/TheSilkky/safety-recorder/blob/main" "<REPORT_PATH>" || true
 ```
 
 Check for draft-only sections that should not appear in a final public report:
@@ -190,11 +219,10 @@ import re
 path = Path("<OUTPUT_REPORT_PATH>")
 text = path.read_text(encoding="utf-8")
 
-defs = set(re.findall(r"^\[([A-Za-z0-9_-]+)\]:\s+\S+", text, flags=re.M))
-uses = set(re.findall(r"(?<!^)\[([A-Za-z0-9_-]+)\]", text, flags=re.M))
+defs = set(re.findall(r"^\\[([A-Za-z0-9_-]+)\\]:\\s+\\S+", text, flags=re.M))
+uses = set(re.findall(r"(?<!^)\\[([A-Za-z0-9_-]+)\\]", text, flags=re.M))
 
-# Ignore ordinary markdown links whose labels are not citation keys if needed.
-citation_uses = {u for u in uses if u.startswith(("R-", "S-", "I-"))}
+citation_uses = {u for u in uses if u.startswith(("R-", "S-", "I-", "V-"))}
 
 missing = sorted(citation_uses - defs)
 unused = sorted(defs - citation_uses)
@@ -237,6 +265,7 @@ Pay special attention to these common failure modes:
 - claiming background camera/video capture is supported without Apple-source support
 - claiming URLSession background transfers solve all upload/retry requirements without lifecycle caveats
 - claiming App Store acceptance, legal compliance, or safety certification
+- claiming Deep Research ran tests, Docker builds, containers, or simulator smoke tests
 - using external standards as decorative citations when repository code or docs are the real evidence
 - leaving raw Deep Research citation tokens in Markdown
 - leaving repository URLs pinned to `main` instead of the reviewed commit SHA
@@ -260,6 +289,7 @@ Required edits:
   - public-disclosure note
 - Remove `Claims check` sections from the final public report unless explicitly requested.
 - Remove `Verify before sending` sections.
+- Remove ChatGPT-rendered citations and replace them with portable keys.
 - Use neutral report wording, not first-person model wording.
 - Preserve useful findings.
 - Remove unsupported findings.
@@ -268,7 +298,7 @@ Required edits:
 - Keep all citations portable.
 - Pin all repository links to the reviewed commit SHA.
 - Keep external source links canonical.
-- Ensure every `[R-*]`, `[S-*]`, and `[I-*]` citation key has a definition.
+- Ensure every `[R-*]`, `[S-*]`, `[I-*]`, and `[V-*]` citation key has a definition.
 - Keep the report suitable for public `docs/reports/` publication.
 
 Use this status wording unless the maintainer asks otherwise:
@@ -341,15 +371,12 @@ text = path.read_text(encoding="utf-8")
 checks = {
     "internal filecite tokens": "\\ue200filecite\\ue202[^\\ue201]+\\ue201",
     "internal cite tokens": "\\ue200cite\\ue202[^\\ue201]+\\ue201",
-    "raw turn refs": r"turn\d+(?:file|view|search|fetch|open)\d+",
+    "raw turn refs": r"turn\\d+(?:file|view|search|fetch|open)\\d+",
     "citation glyphs": "[\\ue200\\ue202\\ue201]",
-    "blob main repo URLs": r"github\.com/TheSilkky/safety-recorder/blob/main",
+    "blob main repo URLs": r"github\\.com/TheSilkky/safety-recorder/blob/main",
     "claims check": r"(?i)claims check",
     "verify before sending": r"(?i)verify before sending",
-    "production-ready claim": (
-        r"(?i)(?<!not )(?<!no )(?<!not yet )"
-        r"(?<!not public-)(?<!not public )\bproduction[- ]ready\b"
-    ),
+    "production-ready claim": r"(?i)production[- ]ready(?!.*not)",
     "app store approval claim": r"(?i)(app store approved|app store approval|will pass app review)",
 }
 
@@ -357,9 +384,9 @@ for name, pat in checks.items():
     count = len(re.findall(pat, text))
     print(f"{name}: {count}")
 
-defs = set(re.findall(r"^\[([A-Za-z0-9_-]+)\]:\s+\S+", text, flags=re.M))
-uses = set(re.findall(r"(?<!^)\[([A-Za-z0-9_-]+)\]", text, flags=re.M))
-citation_uses = {u for u in uses if u.startswith(("R-", "S-", "I-"))}
+defs = set(re.findall(r"^\\[([A-Za-z0-9_-]+)\\]:\\s+\\S+", text, flags=re.M))
+uses = set(re.findall(r"(?<!^)\\[([A-Za-z0-9_-]+)\\]", text, flags=re.M))
+citation_uses = {u for u in uses if u.startswith(("R-", "S-", "I-", "V-"))}
 print("missing citation definitions:", sorted(citation_uses - defs))
 print("unused citation definitions:", sorted(defs - citation_uses))
 PY
@@ -376,13 +403,15 @@ Summarize:
 3. reviewed branch/ref used
 4. reviewed commit SHA used
 5. target release/version used
-5. unsupported claims removed or corrected
-6. implementation claims vs future-planning claims corrected
-7. iOS/Swift/Apple-platform claims corrected or source-pinned
-8. findings retained, removed, downgraded, or reframed
-9. issue drafts or GitHub issues created, if any
-10. validation commands run
-11. whether the report is suitable for public `docs/reports/` publication
-12. any manual follow-up required
+6. ChatGPT-rendered citations removed or converted
+7. source registry gaps or corrections
+8. unsupported claims removed or corrected
+9. implementation claims vs future-planning claims corrected
+10. iOS/Swift/Apple-platform claims corrected or source-pinned
+11. findings retained, removed, downgraded, or reframed
+12. issue drafts or GitHub issues created, if any
+13. validation commands run
+14. whether the report is suitable for public `docs/reports/` publication
+15. any manual follow-up required
 
 Do not claim the report is a formal audit. Do not claim production readiness. Do not claim legal/App Store approval.

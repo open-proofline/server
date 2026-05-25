@@ -2,7 +2,9 @@
 
 Use this prompt in ChatGPT Deep Research, not in Codex.
 
-This prompt creates the first-pass source-cited technical review report. The output is expected to be validated and cleaned by the Phase 2 Codex workflow before publication.
+This prompt creates the first-pass source-cited technical review report. The output is expected to be validated, citation-converted, and cleaned by the Phase 2 Codex workflow before publication.
+
+Deep Research may use ChatGPT-rendered citations in its normal UI output. Those rendered citations are not suitable for publication. This prompt therefore requires a portable source registry that Phase 2 can use to convert the draft into public-safe Markdown citations.
 
 ## Inputs
 
@@ -39,7 +41,7 @@ Review date:
 Target report path, if known:
 
 ```text
-docs/reports/<YYYY-MM-DD>-safety-recorder-technical-review.md
+docs/reports/<YYYY-MM-DD>-safety-recorder-<TARGET_RELEASE_OR_VERSION>-technical-review.md
 ```
 
 Model / tool disclosure:
@@ -47,58 +49,6 @@ Model / tool disclosure:
 ```text
 OpenAI ChatGPT Deep Research using <MODEL_NAME>
 ```
-
-## Test and validation evidence policy
-
-Deep Research cannot run repository tests, containers, Docker builds, local shell commands, or simulator smoke tests.
-
-Do not claim that Deep Research personally ran tests, built containers, executed Go commands, started the API server, ran the simulator, inspected live GitHub repository settings, or validated a Docker image by executing it.
-
-Use only supplied validation evidence, public CI results, uploaded logs, maintainer-supplied summaries, Codex-supplied command output, or repository workflow files when discussing test/build status.
-
-If no validation evidence is supplied for a command, state that the command was not independently verified by this report.
-
-When validation evidence is supplied, distinguish clearly between:
-
-- repository workflow configuration
-- public GitHub Actions / CI run results
-- maintainer-supplied local command output
-- Codex-supplied command output
-- uploaded validation summaries
-- inferred expectations from source files or workflow definitions
-
-Do not treat maintainer-supplied logs as proof beyond what they actually show. Do not infer that unobserved commands passed merely because related commands passed.
-
-Recommended evidence to request or use when available:
-
-- exact reviewed branch/ref
-- exact reviewed commit SHA
-- GitHub Actions run URLs for the reviewed commit
-- local or Codex output for `cd server && gofmt -w .`
-- local or Codex output for `cd server && go test ./...`
-- local or Codex output for `cd server && go vet ./...`
-- local or CI output for `docker build -t safety-recorder-backend ./server`
-- local or Codex output for the simulator smoke test:
-
-```bash
-cd server
-go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle
-```
-
-If validation evidence is available, use wording like:
-
-```markdown
-Validation evidence supplied for the reviewed commit indicates that `<COMMAND>` passed in `<ENVIRONMENT>`. This report did not independently execute that command.
-```
-
-If validation evidence is unavailable, use wording like:
-
-```markdown
-The report reviewed the workflow configuration and source files, but did not independently execute `<COMMAND>` and no validation log was supplied for that command.
-```
-
-Do not put raw tokens, secrets, request bodies, uploaded bytes, plaintext, raw keys, private deployment details, or user-safety data into validation summaries or the public report.
-
 
 ## Repository context
 
@@ -174,34 +124,126 @@ Avoid relying on:
 
 If a secondary source is used, explain why no primary source was sufficient.
 
-## Citation requirements
+## Test and validation evidence policy
 
-Use portable citation keys only.
+Deep Research cannot run repository tests, containers, Docker builds, local shell commands, or simulator smoke tests.
 
-Do not use ChatGPT internal citation tokens such as renderer-only `filecite` / `cite` blocks or raw `turnXfileY`, `turnXviewY`, `turnXsearchY`, `turnXfetchY`, or `turnXopenY` references.
+Do not claim that Deep Research personally ran tests, built containers, executed Go commands, started the API server, ran the simulator, inspected live GitHub repository settings, or validated a Docker image by executing it.
 
-Use this citation style:
+Use only supplied validation evidence, public CI results, uploaded logs, maintainer-supplied summaries, Codex-supplied command output, or repository workflow files when discussing test/build status.
+
+If no validation evidence is supplied for a command, state that the command was not independently verified by this report.
+
+When validation evidence is supplied, distinguish clearly between:
+
+- repository workflow configuration
+- public GitHub Actions / CI run results
+- maintainer-supplied local command output
+- Codex-supplied command output
+- uploaded validation summaries
+- inferred expectations from source files or workflow definitions
+
+Do not treat maintainer-supplied logs as proof beyond what they actually show. Do not infer that unobserved commands passed merely because related commands passed.
+
+Recommended evidence to request or use when available:
+
+- exact reviewed branch/ref
+- exact reviewed commit SHA
+- GitHub Actions run URLs for the reviewed commit
+- local or Codex output for `cd server && gofmt -w .`
+- local or Codex output for `cd server && go test ./...`
+- local or Codex output for `cd server && go vet ./...`
+- local or CI output for `docker build -t safety-recorder-backend ./server`
+- local or Codex output for the simulator smoke test:
+
+```bash
+cd server
+go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle
+```
+
+If validation evidence is available, use wording like:
 
 ```markdown
-Repository fact. [R-README] [R-CI]
+Validation evidence supplied for the reviewed commit indicates that `<COMMAND>` passed in `<ENVIRONMENT>`. This report did not independently execute that command.
+```
+
+If validation evidence is unavailable, use wording like:
+
+```markdown
+The report reviewed the workflow configuration and source files, but did not independently execute `<COMMAND>` and no validation log was supplied for that command.
+```
+
+Do not put raw tokens, secrets, request bodies, uploaded bytes, plaintext, raw keys, private deployment details, or user-safety data into validation summaries or the public report.
+
+## Citation and source registry requirements
+
+Deep Research may insert ChatGPT-rendered citations in the UI. Those citations are not suitable for publication and must not be treated as final Markdown citations.
+
+The Phase 1 draft should use portable citation keys in the report body wherever possible, but the critical requirement is to include a complete portable source registry so Phase 2 can convert any renderer citations into public-safe Markdown references.
+
+Use these portable key families:
+
+- `R-*` for repository sources pinned to `<REVIEWED_COMMIT_SHA>`
+- `S-*` for external authoritative sources
+- `I-*` for issue, PR, or report-follow-up references
+- `V-*` for validation evidence, such as CI runs, maintainer-supplied logs, or Codex command output
+
+Preferred citation style in the report body:
+
+```markdown
+Repository fact. [R-README] [R-API]
 
 External-source fact. [S-GITHUB-ACTIONS-SECURE]
 
 Apple-platform planning fact. [S-APPLE-AVFOUNDATION] [S-SWIFT-DOCS]
+
+Validation evidence claim. [V-GITHUB-ACTIONS-RUN] [V-LOCAL-TESTS]
 ```
 
-At the end of the report, include Markdown reference definitions for every citation key:
+If ChatGPT-rendered citations appear in the output despite this instruction, do not rely on them as the only source record. Make sure every source used by those rendered citations also appears in the portable source registry.
+
+### Mandatory portable source registry
+
+Include a plain Markdown source registry near the end of the report before reference definitions.
+
+The source registry must include every source relied on for report claims, including sources that also appear through ChatGPT-rendered citations.
+
+Use this table shape:
+
+```markdown
+## Portable source registry
+
+| Key | Type | Title | URL | Notes |
+|---|---|---|---|---|
+| R-README | repository | README.md | https://github.com/TheSilkky/safety-recorder/blob/<REVIEWED_COMMIT_SHA>/README.md | Project scope and security warning. |
+| R-API | repository | docs/api.md | https://github.com/TheSilkky/safety-recorder/blob/<REVIEWED_COMMIT_SHA>/docs/api.md | Current HTTP route documentation. |
+| S-APPLE-AVFOUNDATION | external | AVFoundation documentation | https://developer.apple.com/documentation/avfoundation | Apple media framework reference. |
+| V-GITHUB-ACTIONS-RUN | validation | GitHub Actions run for reviewed commit | <URL> | CI evidence supplied for reviewed commit. |
+```
+
+Repository source URLs must be pinned to `<REVIEWED_COMMIT_SHA>`, not `main` and not a branch name.
+
+If reviewing a release-prep branch, provide both the branch name and the exact commit SHA. The branch name is workflow context; the commit SHA is the citation target.
+
+If a source cannot be represented as a portable URL or repository link, include enough title/source metadata for Phase 2 to locate it, and mark the registry row note with `needs Phase 2 source cleanup`.
+
+### Markdown reference definitions
+
+At the end of the report, include Markdown reference definitions for every portable citation key that appears in the report body:
 
 ```markdown
 [R-README]: https://github.com/TheSilkky/safety-recorder/blob/<REVIEWED_COMMIT_SHA>/README.md
 [S-GITHUB-ACTIONS-SECURE]: https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions
 [S-APPLE-AVFOUNDATION]: https://developer.apple.com/documentation/avfoundation
 [S-SWIFT-DOCS]: https://www.swift.org/documentation/
+[V-GITHUB-ACTIONS-RUN]: <PUBLIC_OR_UPLOADED_VALIDATION_EVIDENCE_URL>
 ```
 
-Repository citations must be pinned to `<REVIEWED_COMMIT_SHA>`, not `main`, unless the commit SHA is genuinely unavailable. If the SHA is unavailable, clearly mark the report as a draft and include a warning that repository URLs must be commit-pinned before publication.
-If reviewing a release-prep branch, provide both the branch name and the exact commit SHA. The branch name is workflow context; the commit SHA is the citation target. Repository citations must still be pinned to `<REVIEWED_COMMIT_SHA>` so the report remains stable if the branch moves.
+If the report body contains ChatGPT-rendered citations, also include a note in the Phase 2 handoff:
 
+```text
+- ChatGPT-rendered citations may remain in the draft; use the portable source registry for Phase 2 citation conversion.
+```
 
 ## Review scope
 
@@ -309,7 +351,7 @@ Use this structure:
 **Review date:** `<YYYY-MM-DD>`
 **Report status:** Phase 1 draft pending maintainer/Codex validation.
 
-**Citation format note:** ...
+**Citation format note:** This Phase 1 draft includes a portable source registry for Phase 2 citation conversion. Repository source URLs in the registry are pinned to reviewed commit `<REVIEWED_COMMIT_SHA>`.
 **AI-assisted review disclosure:** ...
 **Public-disclosure note:** ...
 
@@ -318,12 +360,6 @@ Use this structure:
 ## Scope and methodology
 
 ### AI assistance and review limitations
-
-## Portable source bibliography
-
-### Repository sources
-
-### External authoritative sources
 
 ## Repository architecture summary
 
@@ -338,6 +374,8 @@ Use this structure:
 ## Suggested GitHub issues for follow-up
 
 ## Explicit non-findings and limitations
+
+## Portable source registry
 
 ## Appendix: mapping findings to authoritative guidance
 
@@ -364,27 +402,30 @@ Include this near the top:
 
 Before returning the report, check and state whether the draft satisfies:
 
-- no ChatGPT internal citation tokens
-- no `blob/main` repository URLs when a reviewed commit SHA was supplied
-- all repository citations are pinned to `<REVIEWED_COMMIT_SHA>`
+- portable source registry is present
+- every source used for a report claim appears in the portable source registry
+- repository source registry URLs are pinned to `<REVIEWED_COMMIT_SHA>`
 - reviewed branch/ref is named separately from the commit SHA when supplied
-- every bracket citation key has a reference definition
-- every reference definition is used or intentionally retained
+- no `blob/main` repository URLs are used as final repository source URLs when a reviewed commit SHA was supplied
 - no raw tokens, secrets, private deployment details, exploit payloads, user-safety data, raw keys, plaintext media, or private vulnerability details
 - no production-readiness claim
 - no formal audit/certification claim
-- no claim that Deep Research executed tests or containers unless actual execution evidence is from Codex/CI/local logs and is attributed correctly
 - no legal/App Store approval claim
+- no claim that Deep Research executed tests or containers unless actual execution evidence is from Codex/CI/local logs and is attributed correctly
 - current implementation and future design/planning are clearly separated
 - future iOS/key-custody/browser-decryption planning documents are not described as implemented features unless implementation exists
 - no “Claims check” section
 - no “Verify before sending” section
 
+If ChatGPT-rendered citations remain in the report body, state that they must be converted in Phase 2 using the portable source registry.
+
 ## Output
 
 Return the full Markdown report.
 
-Then include a short Phase 2 handoff summary:
+The final public report will be produced by Phase 2 Codex validation, not directly from this Phase 1 draft.
+
+After the report, include only this short Phase 2 handoff summary:
 
 ```text
 Phase 2 handoff:
@@ -396,6 +437,8 @@ Phase 2 handoff:
 - highest-confidence findings:
 - future-planning claims that need maintainer verification:
 - iOS/Swift/Apple-platform claims that need source verification:
+- ChatGPT-rendered citations present: yes/no
+- source registry completeness concerns:
 - citations that may need cleanup:
 - possible duplicate or existing issues to check:
 ```
