@@ -2,6 +2,34 @@
 
 ## Unreleased
 
+## v0.5.0 - 2026-05-26
+
+- Automated creating a minimal GitHub Release when needed and uploading the Linux amd64 binary as a Release asset for `v*` tag workflows.
+- Added release binary and GHCR image artifact attestations to the CI workflow.
+- Verified SQLite WAL startup by checking the returned journal mode and failing when WAL cannot be enabled.
+- Aligned Docker base-image digest refresh documentation with the runtime Alpine tag family used by the Dockerfile.
+- Pinned Docker base images by digest, added Dependabot Docker monitoring, and documented base-image digest refresh review steps.
+- Broadened the Docker build-context ignore policy for local-only artifacts under `server/`.
+- Pinned GitHub Actions workflow dependencies to full commit SHAs and documented the review process for action updates.
+- Added an iOS local recorder prototype plan covering chunking, encrypted staging, retry behavior, and current stream API mapping.
+- Added a retention, backup, restore, and secure deletion policy design document.
+- Added deployment-edge rate-limiting guidance and Traefik route-group examples.
+- Added deployment examples for localhost-only Docker, WireGuard/private-network `/v1` access, and Traefik HTTPS emergency viewer exposure.
+- Added a configurable default 24-hour emergency-token expiry for omitted `expires_at` values.
+- Added a public technical review report and report-validation prompt workflow.
+- Documented the active branch protection ruleset, required checks, and tag/release expectations.
+- Scoped GitHub Actions package write permission to the trusted Docker publish job while keeping workflow defaults read-only.
+- Added break-glass, browser-decryption, and production key-custody design documents.
+- Hardened streamed chunk identity, upload race handling, stream completion, schema migration tracking, and server timeout configuration.
+
+## v0.5.0-rc.2 - 2026-05-26
+
+- Added release binary and GHCR image artifact attestations to the CI workflow.
+- Verified SQLite WAL startup by checking the returned journal mode and failing when WAL cannot be enabled.
+- Aligned Docker base-image digest refresh documentation with the runtime Alpine tag family used by the Dockerfile.
+
+## v0.5.0-rc.1 - 2026-05-25
+
 - Pinned Docker base images by digest, added Dependabot Docker monitoring, and documented base-image digest refresh review steps.
 - Broadened the Docker build-context ignore policy for local-only artifacts under `server/`.
 - Pinned GitHub Actions workflow dependencies to full commit SHAs and documented the review process for action updates.

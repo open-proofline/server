@@ -48,6 +48,57 @@ Model / tool disclosure:
 OpenAI ChatGPT Deep Research using <MODEL_NAME>
 ```
 
+## Test and validation evidence policy
+
+Deep Research cannot run repository tests, containers, Docker builds, local shell commands, or simulator smoke tests.
+
+Do not claim that Deep Research personally ran tests, built containers, executed Go commands, started the API server, ran the simulator, inspected live GitHub repository settings, or validated a Docker image by executing it.
+
+Use only supplied validation evidence, public CI results, uploaded logs, maintainer-supplied summaries, Codex-supplied command output, or repository workflow files when discussing test/build status.
+
+If no validation evidence is supplied for a command, state that the command was not independently verified by this report.
+
+When validation evidence is supplied, distinguish clearly between:
+
+- repository workflow configuration
+- public GitHub Actions / CI run results
+- maintainer-supplied local command output
+- Codex-supplied command output
+- uploaded validation summaries
+- inferred expectations from source files or workflow definitions
+
+Do not treat maintainer-supplied logs as proof beyond what they actually show. Do not infer that unobserved commands passed merely because related commands passed.
+
+Recommended evidence to request or use when available:
+
+- exact reviewed branch/ref
+- exact reviewed commit SHA
+- GitHub Actions run URLs for the reviewed commit
+- local or Codex output for `cd server && gofmt -w .`
+- local or Codex output for `cd server && go test ./...`
+- local or Codex output for `cd server && go vet ./...`
+- local or CI output for `docker build -t safety-recorder-backend ./server`
+- local or Codex output for the simulator smoke test:
+
+```bash
+cd server
+go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle
+```
+
+If validation evidence is available, use wording like:
+
+```markdown
+Validation evidence supplied for the reviewed commit indicates that `<COMMAND>` passed in `<ENVIRONMENT>`. This report did not independently execute that command.
+```
+
+If validation evidence is unavailable, use wording like:
+
+```markdown
+The report reviewed the workflow configuration and source files, but did not independently execute `<COMMAND>` and no validation log was supplied for that command.
+```
+
+Do not put raw tokens, secrets, request bodies, uploaded bytes, plaintext, raw keys, private deployment details, or user-safety data into validation summaries or the public report.
+
 ## Repository context
 
 Safety Recorder is an experimental Go backend for private personal-safety recording. It receives already-encrypted recording chunks, stores metadata in SQLite, stores encrypted blobs on local disk, and exposes a token-scoped read-only emergency viewer.
@@ -66,6 +117,10 @@ Core project boundaries:
 ## Source policy
 
 Use authoritative sources only.
+
+Repository evidence is the anchor for claims about the reviewed tree, but this is **not** a repository-only review. Repository-first means repository claims must be grounded in the reviewed commit; it does not excuse skipping authoritative external sources for language, platform, security, CI/CD, Docker, SQLite, dependency, licence, or standards claims.
+
+The draft is incomplete if authoritative external sources required by this prompt are not consulted. Do not describe the review as "repo-only", "repo-only by design", or "completed to a responsible standard from repository evidence alone" when the prompt requires external source checks. If web search, browser access, or external-source retrieval is unavailable, state that limitation in the Source Registry and mark affected claims as **not independently verified** instead of treating repository-only evidence as sufficient.
 
 Prioritize repository evidence first:
 
@@ -122,6 +177,75 @@ Avoid relying on:
 
 If a secondary source is used, explain why no primary source was sufficient.
 
+## Source Registry and evidence gate
+
+Before drafting the report body, create a Source Registry. The registry is an evidence-control mechanism, not an appendix generated after the conclusions are written.
+
+The report must include a dedicated `## Source Registry` section with these subsections:
+
+```markdown
+## Source Registry
+
+### Repository sources inspected
+
+### External authoritative sources consulted
+
+### Validation and execution evidence
+
+### Sources, checks, and commands not available or not executed
+
+### Generated artifacts and report outputs
+```
+
+Every registry entry must include:
+
+- source ID / citation key
+- source type: repository file, external authoritative source, validation evidence, unavailable check, generated artifact, or connector/tool context
+- location: repository path, pinned GitHub URL, external URL, uploaded evidence name, command name, or artifact path
+- commit/ref/date: reviewed commit SHA for repository files; access date or publication/version date for external sources where available; evidence date for validation logs
+- purpose in the review
+- status: inspected, consulted, supplied, generated, unavailable, not executed, or not applicable
+- limitations: what the source does not prove
+- related finding IDs or report sections where applicable
+
+Minimum Source Registry requirements:
+
+- List every repository file materially relied on, pinned to `<REVIEWED_COMMIT_SHA>`.
+- List every authoritative external source materially relied on.
+- List required authoritative external source categories that were not consulted and explain why.
+- List validation commands that were actually supported by supplied evidence.
+- List validation commands that were not independently executed or not supported by supplied evidence.
+- List generated report outputs, including the target report path if supplied.
+- List the active review connector/tool context, including whether web search was available.
+
+Required external-source coverage:
+
+- For Go standard-library, module, toolchain, HTTP server, `database/sql`, `net/http`, or crypto implementation claims, consult and cite `go.dev` or `pkg.go.dev`.
+- For AES-GCM, nonce/randomness, authenticated encryption, or cryptographic strength claims, consult and cite NIST, Go official docs, or another primary standards/source document from the allowed source families.
+- For SQLite WAL, foreign keys, migration, transaction, locking, backup, or restore claims, consult and cite `sqlite.org`.
+- For GitHub Actions security, permissions, SHA pinning, Dependabot, provenance, OIDC, workflow hardening, or CI/CD claims, consult and cite `docs.github.com`.
+- For Docker image pinning, digest semantics, multi-stage builds, runtime image behaviour, or container build/publish claims, consult and cite `docs.docker.com`.
+- For dependency vulnerability/advisory claims, consult and cite OSV, the Go vulnerability database, GitHub Advisory Database, or another primary advisory source.
+- For licence/SPDX/AGPL claims, consult and cite the repository licence plus SPDX, GNU/FSF, or another authoritative licence source.
+- For web-security headers, caching, token-in-URL handling, logging-sensitive-data, rate limiting, or browser-facing security claims, consult and cite OWASP, relevant RFCs, GitHub/Docker docs, Traefik docs for Traefik-specific reverse-proxy examples, or other allowed primary sources.
+- For future Apple/iOS/Swift planning claims, consult and cite Apple Developer or Swift primary documentation as described in the Source policy.
+
+Do not cite broad homepages when a specific documentation page is available.
+
+If a required external source category is not applicable because the report makes no claim in that category, state `not applicable` in the Source Registry. If it is applicable but not consulted, state `not consulted`, explain why, and downgrade related claims to `not independently verified`.
+
+The report must not contain this type of statement unless it is strictly true and all required-source omissions are documented:
+
+```text
+No additional web sources were consulted.
+```
+
+If no external web sources were consulted despite applicable external-source requirements, use this wording instead:
+
+```markdown
+Applicable authoritative external-source checks were not completed for this Phase 1 draft. The affected claims are therefore limited to repository evidence and are marked as not independently verified in the Source Registry.
+```
+
 ## Citation requirements
 
 Use portable citation keys only.
@@ -148,8 +272,20 @@ At the end of the report, include Markdown reference definitions for every citat
 ```
 
 Repository citations must be pinned to `<REVIEWED_COMMIT_SHA>`, not `main`, unless the commit SHA is genuinely unavailable. If the SHA is unavailable, clearly mark the report as a draft and include a warning that repository URLs must be commit-pinned before publication.
+
 If reviewing a release-prep branch, provide both the branch name and the exact commit SHA. The branch name is workflow context; the commit SHA is the citation target. Repository citations must still be pinned to `<REVIEWED_COMMIT_SHA>` so the report remains stable if the branch moves.
 
+## Branch-scoped follow-up guidance
+
+The report may suggest follow-up issues, but it must not treat branch-specific release-candidate findings as if they automatically apply to every branch.
+
+When suggesting follow-up issues, include the reviewed branch/ref and reviewed commit SHA in the finding context. For a release-prep branch such as `release/v0.5.0-prep`, distinguish:
+
+- release blockers for the current branch
+- non-blocking follow-ups that can be filed after the branch merges
+- findings that must be revalidated on `main` or `develop` before public issue creation
+
+Do not recommend creating a public GitHub issue from a branch-specific finding unless the finding is expected to remain valid after the branch is merged or has been revalidated against the target branch.
 
 ## Review scope
 
@@ -229,7 +365,9 @@ For every finding, include:
 - current implementation vs future design
 - affected files and functions, or affected planning documents
 - repository evidence citation
-- authoritative external citation, if applicable
+- authoritative external citation for any applicable backend, security, CI/CD, Docker, SQLite, dependency, licence, standards, web-security, Apple/iOS, or Swift claim
+- explicit `not independently verified` wording if the required authoritative external source was not consulted
+- reviewed branch/ref and commit context
 - why it matters
 - minimal actionable fix
 - suggested GitHub issue title
@@ -267,11 +405,25 @@ Use this structure:
 
 ### AI assistance and review limitations
 
+## Source Registry
+
+### Repository sources inspected
+
+### External authoritative sources consulted
+
+### Validation and execution evidence
+
+### Sources, checks, and commands not available or not executed
+
+### Generated artifacts and report outputs
+
 ## Portable source bibliography
 
 ### Repository sources
 
 ### External authoritative sources
+
+### Validation evidence sources
 
 ## Repository architecture summary
 
@@ -318,9 +470,16 @@ Before returning the report, check and state whether the draft satisfies:
 - reviewed branch/ref is named separately from the commit SHA when supplied
 - every bracket citation key has a reference definition
 - every reference definition is used or intentionally retained
+- Source Registry section is present
+- Source Registry includes repository sources, external authoritative sources, validation evidence, unavailable/not-executed checks, generated artifacts, and connector/tool context
+- suggested follow-up issues include branch/ref and commit context when derived from branch-specific findings
+- the report does not claim repo-only completion when authoritative external-source checks are applicable
+- every applicable Go, SQLite, Docker, GitHub Actions, dependency, licence, web-security, Apple/iOS, or Swift claim is supported by an authoritative external source or marked as not independently verified
+- required external-source categories that were not consulted are explicitly listed with limitations
 - no raw tokens, secrets, private deployment details, exploit payloads, user-safety data, raw keys, plaintext media, or private vulnerability details
 - no production-readiness claim
 - no formal audit/certification claim
+- no claim that Deep Research executed tests or containers unless actual execution evidence is from Codex/CI/local logs and is attributed correctly
 - no legal/App Store approval claim
 - current implementation and future design/planning are clearly separated
 - future iOS/key-custody/browser-decryption planning documents are not described as implemented features unless implementation exists
@@ -335,6 +494,8 @@ Then include a short Phase 2 handoff summary:
 
 ```text
 Phase 2 handoff:
+- validation evidence supplied:
+- commands not independently verified:
 - reviewed branch/ref:
 - reviewed commit SHA:
 - target release/version:
@@ -342,5 +503,8 @@ Phase 2 handoff:
 - future-planning claims that need maintainer verification:
 - iOS/Swift/Apple-platform claims that need source verification:
 - citations that may need cleanup:
+- Source Registry gaps:
+- authoritative external-source categories not consulted:
+- branch-scoped follow-up concerns:
 - possible duplicate or existing issues to check:
 ```

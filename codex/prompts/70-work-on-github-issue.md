@@ -12,12 +12,30 @@ Repository:
 TheSilkky/safety-recorder
 ```
 
+Target base branch for the eventual PR:
+
+```text
+<TARGET_BASE_BRANCH>
+```
+
+Examples:
+
+```text
+main
+develop
+release/v0.5.0-prep
+```
+
+If no target base branch is supplied, infer it from the maintainer's explicit task wording or the current release workflow. If it is still unclear, stop and ask before making changes.
+
 ## Rules
 
 - Use the current checked-out branch.
 - Do not create or checkout another branch.
 - Do not create a pull request unless explicitly requested.
 - Keep the change scoped to the issue.
+- Treat `Target base branch` as the branch the work is intended to merge into.
+- Revalidate issue scope against the target base branch when the issue was generated from a release-prep or feature branch.
 - Do not add unrelated features.
 - Do not change public API behaviour unless the issue requires it.
 - Do not weaken security warnings.
@@ -45,6 +63,16 @@ TheSilkky/safety-recorder
 
 ## First steps
 
+Check the current branch, target base branch, and repository state:
+
+```bash
+git status --short --branch --untracked-files=all
+git branch --show-current
+git rev-parse HEAD
+git fetch origin "<TARGET_BASE_BRANCH>"
+git log --oneline -5
+```
+
 Read the issue:
 
 ```bash
@@ -64,21 +92,26 @@ Then read:
 Before changing files, summarize:
 
 1. issue goal
-2. acceptance criteria from the issue
-3. files likely affected
-4. validation commands
-5. out-of-scope items
-6. whether this should be docs-only, code-only, or mixed
-7. whether the issue is safe for normal public issue handling
-8. whether the issue changes key custody/decryption assumptions
+2. target base branch for the eventual PR
+3. whether the issue was generated from a different branch/ref
+4. acceptance criteria from the issue
+5. files likely affected
+6. validation commands
+7. out-of-scope items
+8. whether this should be docs-only, code-only, or mixed
+9. whether the issue is safe for normal public issue handling
+10. whether the issue changes key custody/decryption assumptions
+11. whether the work should be revalidated against the target base branch before PR creation
 
 ## Implementation
 
-Make the smallest useful change that satisfies the issue.
+Make the smallest useful change that satisfies the issue for the intended target base branch.
 
 Keep the diff reviewable.
 
 If you discover unrelated future work, do not implement it. Suggest a backlog issue instead.
+
+If the issue was generated against a release-prep or feature branch and the current target base branch differs from that branch, re-check that the problem still exists against the target base before implementing.
 
 ## Validation
 
@@ -111,9 +144,11 @@ go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle
 
 Summarize:
 
-1. files changed
-2. implementation summary
-3. issue acceptance criteria satisfied
-4. validation commands run
-5. any follow-up work
-6. whether a PR should be opened
+1. current branch
+2. target base branch
+3. files changed
+4. implementation summary
+5. issue acceptance criteria satisfied
+6. validation commands run
+7. any follow-up work
+8. whether a PR should be opened and against which base branch

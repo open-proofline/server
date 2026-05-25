@@ -6,11 +6,39 @@ Do **not** add features.
 Do **not** make broad refactors.
 Do **not** change application behaviour unless required to fix a release-blocking bug.
 
+## Inputs
+
+Target release / version:
+
+```text
+<TARGET_RELEASE_OR_VERSION>
+```
+
+Current release-prep branch, if applicable:
+
+```text
+<TARGET_RELEASE_BRANCH>
+```
+
+Target final base branch:
+
+```text
+<TARGET_FINAL_BASE_BRANCH>
+```
+
+Examples:
+
+```text
+main
+```
+
+If this release is staged through a release-prep branch, verify that the branch is intended to merge into the target final base branch before tagging.
+
 ## Goal
 
 Confirm the repo is ready for a tagged release.
 
-This is a final pre-release check for correctness, documentation, security warnings, tests, build metadata, release notes, and accidental committed junk.
+This is a final pre-release check for correctness, documentation, security warnings, tests, build metadata, release notes, branch/PR targeting, and accidental committed junk.
 
 ## Source of truth
 
@@ -27,6 +55,25 @@ Before making changes, read current source-of-truth files as relevant:
 - relevant issue or PR, if this is issue/PR work
 
 Do not rely on stale assumptions from this prompt if the repository has changed.
+
+## Branch and PR targeting checks
+
+Run:
+
+```bash
+git status --short --branch --untracked-files=all
+git branch --show-current
+git rev-parse HEAD
+```
+
+If this is a release-prep branch, verify:
+
+- current branch matches `<TARGET_RELEASE_BRANCH>`
+- release PR target should be `<TARGET_FINAL_BASE_BRANCH>`
+- any draft PRs created from this branch use the intended base branch
+- branch-scoped issue drafts are not treated as global issues without revalidation
+- no prompt or PR body assumes `main` unless `main` is the intended target branch
+
 ## Global constraints
 
 - Keep changes scoped to the task.
@@ -52,7 +99,7 @@ Check:
 - all tests pass
 - `gofmt` has been run
 - `go vet` passes, if practical
-- `README.md` version/scope is accurate
+- README version/scope is accurate
 - `CHANGELOG.md` includes the release
 - `LICENSE` exists and matches the documented SPDX identifier
 - `SECURITY.md` exists and does not promise production readiness
@@ -65,6 +112,7 @@ Check:
 - `docs/threat-model.md` or `docs/security-model.md` matches current security assumptions
 - `docs/codex-change-control.md` and `codex/README.md` match prompt workflow, if present
 - issue/PR/backlog workflow prompts are listed in `codex/README.md`
+- PR creation/review prompts support non-`main` base branches where applicable
 - Docker/GHCR notes are current
 - GitHub Actions workflow names and badges are correct
 - environment variable docs match implementation
@@ -167,13 +215,14 @@ Do not overstate stability or production readiness.
 Return:
 
 1. Release readiness: ready / not ready
-2. Blocking issues
-3. Non-blocking issues
-4. Tests and commands run
-5. Documentation updates needed
-6. Suggested version tag
-7. Suggested changelog entry
-8. Any backlog follow-ups
+2. Current branch and intended final base branch
+3. Blocking issues
+4. Non-blocking issues
+5. Tests and commands run
+6. Documentation updates needed
+7. Suggested version tag
+8. Suggested changelog entry
+9. Any backlog follow-ups
 
 If you make fixes:
 

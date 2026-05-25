@@ -1,4 +1,4 @@
-# Codex Prompt: Backlog Scan and Issue Drafts
+# Codex Prompt: Backlog Scan and Branch-Scoped Issue Drafts
 
 Scan the repository and create reviewed backlog issue drafts.
 
@@ -13,9 +13,9 @@ Do **not** add features.
 
 ## Goal
 
-Review the current repository, current documentation, current issue backlog, and recent merged work.
+Review the current repository, current documentation, current issue backlog, current branch, and recent merged work.
 
-Produce a small set of high-quality backlog issue drafts for future work.
+Produce a small set of high-quality branch-scoped backlog issue drafts for future work.
 
 The drafts should be specific enough that the maintainer can review them and later create GitHub issues manually or with GitHub CLI.
 
@@ -24,6 +24,30 @@ The drafts should be specific enough that the maintainer can review them and lat
 ```text
 TheSilkky/safety-recorder
 ```
+
+## Branch scope
+
+Before scanning, record:
+
+```bash
+git status --short --branch --untracked-files=all
+git branch --show-current
+git rev-parse HEAD
+```
+
+Use the current checked-out branch as the draft issue scope.
+
+Create a filesystem-safe branch slug by replacing `/` and other non-alphanumeric separators with `-`.
+
+Examples:
+
+```text
+release/v0.5.0-prep -> release-v0.5.0-prep
+develop -> develop
+feature/foo -> feature-foo
+```
+
+If running from a detached HEAD, use the reviewed branch/ref supplied by the maintainer. If no branch/ref is available, stop and ask for the intended branch scope.
 
 ## Source of truth to inspect
 
@@ -43,6 +67,7 @@ Read current repository files where present:
 - `docs/key-custody.md`, if present
 - `docs/browser-decryption.md`, if present
 - `docs/break-glass-key-access.md`, if present
+- `docs/ios-local-recorder-prototype.md`, if present
 - `docs/security-model.md`
 - `docs/threat-model.md`
 - `docs/code-map.md`
@@ -60,14 +85,15 @@ Read current repository files where present:
 - `.github/ISSUE_TEMPLATE`, if present
 - `codex/prompts`
 
-Also inspect current GitHub issues and PRs if GitHub CLI is available:
+Also inspect current GitHub issues, PRs, and labels if GitHub CLI is available:
 
 ```bash
 gh issue list --repo TheSilkky/safety-recorder --state all --limit 100
 gh pr list --repo TheSilkky/safety-recorder --state all --limit 50
+gh label list --repo TheSilkky/safety-recorder --limit 200
 ```
 
-If GitHub CLI is unavailable, continue using local repo files and mention that issue/PR duplicate detection was limited.
+If GitHub CLI is unavailable, continue using local repo files and mention that issue, PR, and label validation were limited.
 
 ## Existing issue duplicate check
 
@@ -75,9 +101,10 @@ Before drafting any issue:
 
 1. Check whether an existing open issue already covers it.
 2. Check whether a closed issue or merged PR recently completed it.
-3. If an existing issue covers it, do not create a duplicate draft.
-4. If an existing issue is close but incomplete, create a draft suggesting an update/comment instead of a duplicate issue.
-5. If uncertain, include a note in the scan index rather than generating a duplicate issue.
+3. Check whether the finding is branch-specific and may disappear after merge/rebase.
+4. If an existing issue covers it, do not create a duplicate draft.
+5. If an existing issue is close but incomplete, create a draft suggesting an update/comment instead of a duplicate issue.
+6. If uncertain, include a note in the scan index rather than generating a duplicate issue.
 
 ## Areas to scan
 
@@ -96,6 +123,7 @@ Look for future work in these categories:
 11. Release/CI polish
 12. Codex workflow/process improvements
 13. Key custody / emergency access design
+14. Branch/release-candidate follow-up work
 
 ## Candidate discovery guidance
 
@@ -131,16 +159,16 @@ Bad candidate signals:
 If you find a likely security vulnerability that should not be public:
 
 - Do not create a normal public issue draft for it.
-- Create a private note under:
+- Create a private note under the branch-scoped private notes directory:
 
 ```text
-.backlog-drafts/YYYY-MM-DD/private-notes/
+.backlog-drafts/YYYY-MM-DD/<branch-slug>/private-notes/
 ```
 
 If the date is not available, use:
 
 ```text
-.backlog-drafts/current/private-notes/
+.backlog-drafts/current/<branch-slug>/private-notes/
 ```
 
 - Clearly mark it:
@@ -154,16 +182,16 @@ PRIVATE SECURITY NOTE - DO NOT CREATE PUBLIC ISSUE
 
 ## Output directory
 
-Create a timestamped draft directory:
+Create a branch-scoped timestamped draft directory:
 
 ```text
-.backlog-drafts/YYYY-MM-DD/
+.backlog-drafts/YYYY-MM-DD/<branch-slug>/
 ```
 
 If the date is not easily available, use:
 
 ```text
-.backlog-drafts/current/
+.backlog-drafts/current/<branch-slug>/
 ```
 
 Inside it, create one Markdown file per proposed issue.
@@ -177,16 +205,16 @@ NNN-short-kebab-title.md
 Also create:
 
 ```text
-.backlog-drafts/YYYY-MM-DD/README.md
+.backlog-drafts/YYYY-MM-DD/<branch-slug>/README.md
 ```
 
 or:
 
 ```text
-.backlog-drafts/current/README.md
+.backlog-drafts/current/<branch-slug>/README.md
 ```
 
-The index should list drafted issues grouped by priority/category and include skipped duplicates.
+The index should list drafted issues grouped by priority/category, include skipped duplicates, and state the branch scope.
 
 ## Number of issues
 
@@ -202,9 +230,9 @@ If fewer than 5 good issues exist, create fewer and say why.
 
 If more than 12 exist, include only the highest-value drafts and list lower-priority candidates in the index as “future scan candidates.”
 
-## Issue draft format
+## Required issue draft format
 
-Each issue draft must use this structure:
+Each public issue draft must use this structure and section order:
 
 ```md
 # <Issue title>
@@ -219,10 +247,18 @@ bug / maintenance / security-hardening / documentation / feature / deployment / 
 
 ## Labels
 
-Suggested labels:
+Suggested GitHub labels:
 
 - `backlog`
 - one or more of: `bug`, `maintenance`, `security`, `docs`, `deployment`, `testing`, `simulator`, `ios`, `ci`, `planning`
+
+## Branch scope
+
+- Current branch: `<CURRENT_BRANCH>`
+- Current HEAD: `<CURRENT_HEAD>`
+- Target branch, if known: `<TARGET_BRANCH_OR_UNKNOWN>`
+- Scope classification: `release-blocker-current-branch` / `follow-up-after-merge` / `revalidate-on-main-or-develop` / `planning-only`
+- Scope note: This draft was generated from the branch above. Revalidate against the target branch before creating or closing public GitHub issues if the branch has moved or has not yet merged.
 
 ## Summary
 
@@ -250,6 +286,7 @@ What should change.
 - [ ] `cd server && go vet ./...`, if code changes or CI/testing changes
 - [ ] simulator smoke test, if relevant
 - [ ] docs updated, if relevant
+- [ ] revalidate on target branch before public issue creation, if branch-scoped
 
 ## Out of scope
 
@@ -257,7 +294,7 @@ What this issue must not include.
 
 ## Notes
 
-Any references to files, docs, related issues, related PRs, or future work.
+Any references to files, docs, related issues, related PRs, branch scope, or future work.
 ```
 
 ## Priority guide
@@ -273,6 +310,33 @@ P3 = polish, documentation, cleanup, or governance
 
 Do not overuse P0.
 
+## Priority and label requirements
+
+- Do not create any public issue draft without `## Priority`.
+- Do not create any public issue draft without `## Type`.
+- Do not create any public issue draft without `## Labels`.
+- Do not create any public issue draft without `## Branch scope`.
+- Every public issue draft must include the `backlog` label.
+- Every public issue draft must include at least one additional type/topic label.
+- Keep labels as backtick-wrapped Markdown bullets.
+- Do not invent new labels unless the maintainer explicitly requested label creation.
+- If GitHub CLI is available, compare draft labels against `gh label list`.
+- If no suitable label exists, use the closest existing label and note the uncertainty under `## Notes`.
+
+Likely existing labels include:
+
+- `backlog`
+- `bug`
+- `maintenance`
+- `security`
+- `docs`
+- `deployment`
+- `testing`
+- `simulator`
+- `ios`
+- `ci`
+- `planning`
+
 ## Requirements
 
 - Keep issues specific and actionable.
@@ -283,6 +347,8 @@ Do not overuse P0.
 - Do not include issue drafts already covered by open issues.
 - Do not add jokes or informal commentary to issue drafts.
 - Do not claim the project is production-ready.
+- Include branch scope in every issue draft.
+- Include priority, type, and GitHub label metadata in every issue draft.
 - Keep all output as Markdown.
 
 ## Validation
@@ -294,6 +360,33 @@ git diff --stat
 git diff -- .backlog-drafts
 ```
 
+Check required metadata:
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+import sys
+
+bad = []
+required = ["## Priority", "## Type", "## Labels", "## Branch scope"]
+for path in Path(".backlog-drafts").rglob("*.md"):
+    if path.name == "README.md" or "private-notes" in path.parts:
+        continue
+    text = path.read_text(encoding="utf-8")
+    missing = [section for section in required if section not in text]
+    if missing:
+        bad.append((str(path), missing))
+    if "## Labels" in text and "`backlog`" not in text:
+        bad.append((str(path), ["missing `backlog` label"]))
+
+for path, missing in bad:
+    print(path, "missing:", ", ".join(missing))
+
+if bad:
+    sys.exit(1)
+PY
+```
+
 Do not run Go tests unless code was changed.
 
 If any files outside `.backlog-drafts/` changed, stop and explain why.
@@ -302,12 +395,15 @@ If any files outside `.backlog-drafts/` changed, stop and explain why.
 
 Summarize:
 
-1. draft directory created
-2. number of issue drafts created
-3. priority breakdown
-4. categories covered
-5. existing issues/PRs checked
-6. duplicates skipped
-7. issues that should be reviewed before public creation
-8. sensitive/private notes created, if any
-9. suggested next command for creating GitHub issues manually
+1. current branch and HEAD
+2. draft directory created
+3. number of issue drafts created
+4. priority breakdown
+5. labels used
+6. categories covered
+7. existing issues/PRs checked
+8. duplicates skipped
+9. branch-scoped drafts that require revalidation on target branch
+10. issues that should be reviewed before public creation
+11. sensitive/private notes created, if any
+12. suggested next command for reviewing or creating GitHub issues manually

@@ -455,7 +455,12 @@ The CI workflow:
 
 - runs Go tests from `server/`
 - builds a Linux amd64 binary artifact
+- generates release binary attestations from a tag-only attestation job
+- creates a minimal GitHub Release when needed and uploads the Linux amd64
+  binary as a Release asset for `v*` tags
 - builds the Docker image from `server/Dockerfile`
 - publishes `ghcr.io/thesilkky/safety-recorder` on pushes to `main` and `v*` tags
-- keeps workflow-level token permissions read-only and grants `packages: write`
-  only to the trusted Docker publish job
+- attaches attestations to published GHCR images
+- keeps workflow-level token permissions read-only and grants write permissions
+  only to the tag-only binary attestation, release binary upload, and trusted
+  Docker publish jobs
