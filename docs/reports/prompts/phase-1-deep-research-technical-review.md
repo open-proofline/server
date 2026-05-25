@@ -48,6 +48,58 @@ Model / tool disclosure:
 OpenAI ChatGPT Deep Research using <MODEL_NAME>
 ```
 
+## Test and validation evidence policy
+
+Deep Research cannot run repository tests, containers, Docker builds, local shell commands, or simulator smoke tests.
+
+Do not claim that Deep Research personally ran tests, built containers, executed Go commands, started the API server, ran the simulator, inspected live GitHub repository settings, or validated a Docker image by executing it.
+
+Use only supplied validation evidence, public CI results, uploaded logs, maintainer-supplied summaries, Codex-supplied command output, or repository workflow files when discussing test/build status.
+
+If no validation evidence is supplied for a command, state that the command was not independently verified by this report.
+
+When validation evidence is supplied, distinguish clearly between:
+
+- repository workflow configuration
+- public GitHub Actions / CI run results
+- maintainer-supplied local command output
+- Codex-supplied command output
+- uploaded validation summaries
+- inferred expectations from source files or workflow definitions
+
+Do not treat maintainer-supplied logs as proof beyond what they actually show. Do not infer that unobserved commands passed merely because related commands passed.
+
+Recommended evidence to request or use when available:
+
+- exact reviewed branch/ref
+- exact reviewed commit SHA
+- GitHub Actions run URLs for the reviewed commit
+- local or Codex output for `cd server && gofmt -w .`
+- local or Codex output for `cd server && go test ./...`
+- local or Codex output for `cd server && go vet ./...`
+- local or CI output for `docker build -t safety-recorder-backend ./server`
+- local or Codex output for the simulator smoke test:
+
+```bash
+cd server
+go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle
+```
+
+If validation evidence is available, use wording like:
+
+```markdown
+Validation evidence supplied for the reviewed commit indicates that `<COMMAND>` passed in `<ENVIRONMENT>`. This report did not independently execute that command.
+```
+
+If validation evidence is unavailable, use wording like:
+
+```markdown
+The report reviewed the workflow configuration and source files, but did not independently execute `<COMMAND>` and no validation log was supplied for that command.
+```
+
+Do not put raw tokens, secrets, request bodies, uploaded bytes, plaintext, raw keys, private deployment details, or user-safety data into validation summaries or the public report.
+
+
 ## Repository context
 
 Safety Recorder is an experimental Go backend for private personal-safety recording. It receives already-encrypted recording chunks, stores metadata in SQLite, stores encrypted blobs on local disk, and exposes a token-scoped read-only emergency viewer.
@@ -321,6 +373,7 @@ Before returning the report, check and state whether the draft satisfies:
 - no raw tokens, secrets, private deployment details, exploit payloads, user-safety data, raw keys, plaintext media, or private vulnerability details
 - no production-readiness claim
 - no formal audit/certification claim
+- no claim that Deep Research executed tests or containers unless actual execution evidence is from Codex/CI/local logs and is attributed correctly
 - no legal/App Store approval claim
 - current implementation and future design/planning are clearly separated
 - future iOS/key-custody/browser-decryption planning documents are not described as implemented features unless implementation exists
@@ -335,6 +388,8 @@ Then include a short Phase 2 handoff summary:
 
 ```text
 Phase 2 handoff:
+- validation evidence supplied:
+- commands not independently verified:
 - reviewed branch/ref:
 - reviewed commit SHA:
 - target release/version:
