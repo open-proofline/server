@@ -139,7 +139,7 @@ intended tag:
 
 ```bash
 docker buildx imagetools inspect docker.io/library/golang:1.26-alpine
-docker buildx imagetools inspect docker.io/library/alpine:3.22
+docker buildx imagetools inspect docker.io/library/alpine:3.23
 ```
 
 Dependabot is enabled for the `docker` ecosystem in
