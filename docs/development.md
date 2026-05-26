@@ -76,29 +76,73 @@ New ideas discovered during unrelated work should become issues or backlog items
 
 ## Branch Protection And Required Checks
 
-The default branch is protected by an active GitHub repository ruleset named
-`Protect main`. It targets `~DEFAULT_BRANCH`, currently `main`.
+This repository uses GitHub repository rulesets rather than classic branch
+protection.
 
-Current ruleset requirements:
+Current branch rulesets:
 
-- block branch deletion
-- block non-fast-forward pushes
-- require pull requests before merge
-- require one approving review
-- dismiss stale approvals when new commits are pushed
-- require the latest `main` to pass before merge
-- require the `Go tests`, `Build Linux binary`, and `Build Docker image` CI jobs
-- allow merge, squash, and rebase merge methods
-- allow repository admins to bypass only through pull requests
+| Ruleset | Target | Purpose |
+|---|---|---|
+| `Protect main` | `~DEFAULT_BRANCH`, currently `main` | Stable release line. Final release PRs and hotfixes merge here. |
+| `Protect develop` | `refs/heads/develop` | Next-release integration branch. Normal issue PRs merge here after `v0.5.0`. |
+| `Protect release/v*` | `refs/heads/release/v*` | Short-lived release-prep branches such as `release/v0.6.0-prep`. |
 
-These settings are implemented as a repository ruleset, not classic branch
-protection. If the ruleset changes, update this section to match the exported
-ruleset.
+All three rulesets are active and block branch deletion and non-fast-forward
+updates. They require pull requests before merge, one approving review, stale
+approval dismissal on new pushes, and strict required status checks.
 
-The admin bypass is for maintainer-authored changes when no independent
-write-access reviewer is available. Use it only after required checks pass and
-the maintainer has reviewed the diff. Routine collaborator changes should still
-receive a qualifying approval.
+Required checks:
+
+- `Go tests`
+- `Build Linux binary`
+- `Build Docker image`
+
+The rulesets allow merge, squash, and rebase merge methods. `Protect develop`
+and `Protect release/v*` require review thread resolution. `Protect main`
+currently does not require review thread resolution.
+
+The exported rulesets include a repository-role bypass actor with bypass mode
+limited to pull requests. Use bypass only for maintainer-authored changes when
+no independent write-access reviewer is available, after required checks pass
+and the maintainer has reviewed the diff. Routine collaborator changes should
+still receive a qualifying approval.
+
+Do not require tag-only jobs such as `Attest Linux binary`, `Upload release
+binary`, or `Publish Docker image` as pull request status checks. Those jobs run
+only for trusted release/tag contexts and would make normal PRs unmergeable if
+required on PRs.
+
+If the rulesets change, update this section to match the exported rulesets.
+
+## Branch Model
+
+After `v0.5.0`, use this branch flow:
+
+```text
+issue branches -> develop
+develop -> release/vX.Y.Z-prep
+release/vX.Y.Z-prep -> main
+tag vX.Y.Z from main
+main -> develop sync after release
+```
+
+Branch purposes:
+
+- `main` is the stable release line.
+- `develop` is the next-release integration branch.
+- `release/v*` branches are short-lived release-candidate branches.
+- Final `v*` tags are created from `main`.
+- Release-candidate tags may be created from release-prep branches when
+  validating release automation.
+
+When creating PRs, set the intended base branch explicitly:
+
+- issue work for the next release: base `develop`
+- release-prep fixes: base `release/vX.Y.Z-prep`
+- final release PR: base `main`
+- hotfixes: base `main`, then sync back to `develop`
+
+## CI And Release Automation
 
 The CI workflow runs on pull requests, all branch pushes, and `v*` tags. Pushes
 to `main` and `v*` tags also publish Docker image tags to GHCR when package

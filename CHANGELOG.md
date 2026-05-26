@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Documented the `develop` and `release/v*` repository rulesets, branch model,
+  and PR base-branch guidance.
+
 ## v0.5.0 - 2026-05-26
 
 - Automated creating a minimal GitHub Release when needed and uploading the Linux amd64 binary as a Release asset for `v*` tag workflows.
