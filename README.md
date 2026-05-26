@@ -154,11 +154,11 @@ Use of Codex does not imply endorsement, audit, certification, or maintenance by
 
 ## Backlog workflow
 
-Use `80-backlog-scan-issue-drafts.md` to generate reviewed issue drafts under `.backlog-drafts/`.
+Use `80-backlog-scan-issue-drafts.md` to generate reviewed local issue drafts under a branch-scoped directory such as `.backlog-drafts/YYYY-MM-DD/<branch-slug>/`.
 
-Review those drafts manually before creating GitHub issues.
+Review those drafts manually before creating GitHub issues. Drafts are generated review artifacts, not the long-term source of truth once GitHub issues exist.
 
-Only after review, use `85-create-github-issues-from-drafts.md` to generate a script that creates GitHub issues with `gh issue create`.
+Only after review, use `85-create-github-issues-from-drafts.md` to generate `scripts/create-backlog-issues.sh` and `.backlog-drafts/.../create-issues-review.md`. Do not run the generated script unless the maintainer explicitly asks for issue creation.
 
 Do not let Codex create GitHub issues directly during the initial scan.
 

@@ -250,7 +250,7 @@ import sys
 bad = []
 required = ["## Priority", "## Type", "## Labels", "## Branch scope"]
 for path in Path(".backlog-drafts").rglob("*.md"):
-    if path.name == "README.md" or "private-notes" in path.parts:
+    if path.name in {"README.md", "create-issues-review.md"} or "private-notes" in path.parts:
         continue
     text = path.read_text(encoding="utf-8")
     missing = [section for section in required if section not in text]

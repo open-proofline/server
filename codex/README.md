@@ -77,13 +77,20 @@ Generated local artifacts should not be placed under `codex/`.
 
 Current generated artifact locations:
 
-- `.backlog-drafts/YYYY-MM-DD/` or `.backlog-drafts/current/` for backlog issue drafts
-- `.issue-review-drafts/YYYY-MM-DD/` or `.issue-review-drafts/current/` for open-issue review drafts
+- `.backlog-drafts/YYYY-MM-DD/<branch-slug>/` or `.backlog-drafts/current/<branch-slug>/` for backlog issue drafts
+- `.issue-review-drafts/YYYY-MM-DD/<branch-slug>/` or `.issue-review-drafts/current/<branch-slug>/` for open-issue review drafts
 - `scripts/create-backlog-issues.sh` only when explicitly generated from reviewed backlog drafts
 
 Backlog and issue-review drafts must not include raw tokens, secrets, private
 deployment details, exploit details, or user safety data. Public GitHub issues
 must not be created from drafts until the maintainer reviews them.
+
+Backlog draft directories should include a `README.md` index, public issue
+drafts named `NNN-short-kebab-title.md`, and a `private-notes/README.md`
+guardrail when private notes are present or expected. Public issue drafts must
+include `## Priority`, `## Type`, `## Labels`, and `## Branch scope`, including
+the `backlog` label plus at least one existing topic/type label. Private notes
+must never be used for public issue creation.
 
 ## Normal reusable prompt order
 
@@ -212,8 +219,8 @@ pull request.
 
 ## Backlog And Issue Review Workflow
 
-Use `80-backlog-scan-issue-drafts.md` to generate timestamped backlog drafts
-under `.backlog-drafts/`.
+Use `80-backlog-scan-issue-drafts.md` to generate timestamped branch-scoped
+backlog drafts under `.backlog-drafts/`.
 
 Use `81-backlog-drafts-structure-and-hygiene.md` to review or clean up backlog
 draft structure. It should not create or close GitHub issues.
@@ -223,8 +230,10 @@ drafts under `.issue-review-drafts/`. It should not close GitHub issues unless
 the maintainer explicitly asks for that follow-up action.
 
 Only after manual review, use `85-create-github-issues-from-drafts.md` to
-generate a script for GitHub issue creation. Do not execute that script unless
-explicitly instructed.
+generate a script and review summary for GitHub issue creation. Do not execute
+that script unless explicitly instructed. Once public issues exist, GitHub
+Issues become the source of truth and local drafts should be treated as
+historical generated artifacts.
 
 ## Key custody prompt use
 
