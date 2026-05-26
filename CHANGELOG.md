@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added `Phase 0` Deep Research prompt. Loads report instructions and plans research prior to running `Phase 1`
 - Documented the `develop` and `release/v*` repository rulesets, branch model,
   and PR base-branch guidance.
 
