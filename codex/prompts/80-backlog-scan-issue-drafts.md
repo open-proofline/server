@@ -206,15 +206,17 @@ Also create:
 
 ```text
 .backlog-drafts/YYYY-MM-DD/<branch-slug>/README.md
+.backlog-drafts/YYYY-MM-DD/<branch-slug>/private-notes/README.md
 ```
 
 or:
 
 ```text
 .backlog-drafts/current/<branch-slug>/README.md
+.backlog-drafts/current/<branch-slug>/private-notes/README.md
 ```
 
-The index should list drafted issues grouped by priority/category, include skipped duplicates, and state the branch scope.
+The index should list drafted issues grouped by priority/category, include skipped duplicates, and state the branch scope. The private-notes README should state that private notes must never be used for public issue creation. Do not create private note files unless a finding is unsafe for a public draft.
 
 ## Number of issues
 
@@ -250,13 +252,16 @@ bug / maintenance / security-hardening / documentation / feature / deployment / 
 Suggested GitHub labels:
 
 - `backlog`
-- one or more of: `bug`, `maintenance`, `security`, `docs`, `deployment`, `testing`, `simulator`, `ios`, `ci`, `planning`
+- one or more existing topic/type labels, for example: `bug`, `maintenance`, `security`, `docs`, `deployment`, `testing`, `ios`, `ci`
 
 ## Branch scope
 
 - Current branch: `<CURRENT_BRANCH>`
 - Current HEAD: `<CURRENT_HEAD>`
 - Target branch, if known: `<TARGET_BRANCH_OR_UNKNOWN>`
+- Reviewed branch/ref, if applicable: `<REVIEWED_BRANCH_OR_REF_OR_NOT_APPLICABLE>`
+- Reviewed commit SHA, if applicable: `<REVIEWED_COMMIT_SHA_OR_NOT_APPLICABLE>`
+- Target release/version, if applicable: `<TARGET_RELEASE_OR_VERSION_OR_NOT_APPLICABLE>`
 - Scope classification: `release-blocker-current-branch` / `follow-up-after-merge` / `revalidate-on-main-or-develop` / `planning-only`
 - Scope note: This draft was generated from the branch above. Revalidate against the target branch before creating or closing public GitHub issues if the branch has moved or has not yet merged.
 
@@ -332,10 +337,13 @@ Likely existing labels include:
 - `docs`
 - `deployment`
 - `testing`
-- `simulator`
 - `ios`
 - `ci`
-- `planning`
+
+Repository labels can change. If GitHub CLI is available, use only labels that
+exist in `gh label list`. If a good topic label such as `simulator` or
+`planning` does not exist, use the closest existing label and note the mismatch
+under `## Notes`; do not invent or create labels during this task.
 
 ## Requirements
 
@@ -370,7 +378,7 @@ import sys
 bad = []
 required = ["## Priority", "## Type", "## Labels", "## Branch scope"]
 for path in Path(".backlog-drafts").rglob("*.md"):
-    if path.name == "README.md" or "private-notes" in path.parts:
+    if path.name in {"README.md", "create-issues-review.md"} or "private-notes" in path.parts:
         continue
     text = path.read_text(encoding="utf-8")
     missing = [section for section in required if section not in text]

@@ -112,6 +112,8 @@ Codex tasks should stay narrow. If Codex or the maintainer discovers a new idea 
 
 Create an issue or backlog item instead. Good issues include context, acceptance criteria, tests, docs updates, and explicit out-of-scope notes.
 
+When using local backlog drafts, keep them branch-scoped under `.backlog-drafts/YYYY-MM-DD/<branch-slug>/` or `.backlog-drafts/current/<branch-slug>/`. Treat them as review artifacts only. After reviewed drafts become GitHub issues, GitHub Issues are the source of truth.
+
 Security vulnerabilities should follow `SECURITY.md`, not public issue templates. Security hardening work that is not a private vulnerability can use a normal issue template.
 
 Use this shape for backlog items:

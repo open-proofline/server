@@ -178,6 +178,13 @@ If the date is unavailable:
 .backlog-drafts/current/<branch-slug>/
 ```
 
+Also create a `README.md` index in that branch-scoped directory when issue
+drafts are created. The index should state the reviewed branch/ref, reviewed
+commit SHA, target release/version, current branch and HEAD, public drafts
+created, duplicates skipped, and any private notes created. If private notes
+are needed, place them under `private-notes/` with a `README.md` stating that
+they must never be used for public issue creation.
+
 ## Required issue draft structure
 
 Every public issue draft created from the report must use this structure and section order:
@@ -198,7 +205,7 @@ bug / maintenance / security-hardening / documentation / feature / deployment / 
 Suggested GitHub labels:
 
 - `backlog`
-- `bug` / `maintenance` / `security` / `docs` / `deployment` / `testing` / `simulator` / `ios` / `ci` / `planning`
+- one or more existing topic/type labels, for example: `bug` / `maintenance` / `security` / `docs` / `deployment` / `testing` / `ios` / `ci`
 
 ## Branch scope
 
@@ -249,8 +256,9 @@ What this issue must not include.
 - Do not put GitHub labels only in prose. They must appear under `## Labels`.
 - Every public draft must include at least `backlog` under `## Labels`.
 - Include one or more type/topic labels that match the issue.
-- Use likely existing labels only: `backlog`, `bug`, `maintenance`, `security`, `docs`, `deployment`, `testing`, `simulator`, `ios`, `ci`, `planning`.
-- Do not invent new labels unless the maintainer explicitly asked for label creation.
+- If GitHub CLI is available, compare labels against `gh label list --repo TheSilkky/safety-recorder --limit 200`.
+- Use only existing labels. Likely labels include `backlog`, `bug`, `maintenance`, `security`, `docs`, `deployment`, `testing`, `ios`, and `ci`.
+- If a good topic label such as `simulator` or `planning` does not exist, use the closest existing label and note the mismatch under `## Notes`; do not invent or create labels unless the maintainer explicitly asked for label creation.
 
 The older `## Classification` section is optional. If included, it must not replace `## Priority`, `## Type`, `## Labels`, or `## Branch scope`.
 
@@ -496,7 +504,7 @@ if not root.exists():
 required = ["## Priority", "## Type", "## Labels", "## Branch scope"]
 bad = []
 for path in root.rglob("*.md"):
-    if path.name == "README.md" or "private-notes" in path.parts:
+    if path.name in {"README.md", "create-issues-review.md"} or "private-notes" in path.parts:
         continue
     text = path.read_text(encoding="utf-8")
     missing = [section for section in required if section not in text]
