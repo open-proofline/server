@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Added `Phase 0` Deep Research prompt. Loads report instructions and plans research prior to running `Phase 1`
+- Refactored `server/internal/httpapi` summary, bundle, stream-validation, and upload parsing helpers for readability without changing HTTP behaviour.
 - Documented the `develop` and `release/v*` repository rulesets, branch model,
   and PR base-branch guidance.
 

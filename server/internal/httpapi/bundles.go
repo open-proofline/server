@@ -136,14 +136,8 @@ func (a *API) buildCompletedStreamBundle(ctx context.Context, incidentID, stream
 	if !validStreamBundleChunks(stream, chunks) {
 		return streamBundleData{}, incidents.ErrInvalidState
 	}
-	for _, chunk := range chunks {
-		file, err := a.store.Open(chunk.StoredPath)
-		if err != nil {
-			return streamBundleData{}, fmt.Errorf("open chunk for bundle: %w", err)
-		}
-		if err := file.Close(); err != nil {
-			return streamBundleData{}, fmt.Errorf("close chunk for bundle: %w", err)
-		}
+	if err := a.validateBundleChunkFiles(chunks); err != nil {
+		return streamBundleData{}, err
 	}
 
 	manifest := makeStreamBundleManifest(stream, chunks)
@@ -152,6 +146,19 @@ func (a *API) buildCompletedStreamBundle(ctx context.Context, incidentID, stream
 		Chunks:   chunks,
 		Manifest: manifest,
 	}, nil
+}
+
+func (a *API) validateBundleChunkFiles(chunks []incidents.Chunk) error {
+	for _, chunk := range chunks {
+		file, err := a.store.Open(chunk.StoredPath)
+		if err != nil {
+			return fmt.Errorf("open chunk for bundle: %w", err)
+		}
+		if err := file.Close(); err != nil {
+			return fmt.Errorf("close chunk for bundle: %w", err)
+		}
+	}
+	return nil
 }
 
 func (a *API) serveStreamBundle(w http.ResponseWriter, bundle streamBundleData) {
