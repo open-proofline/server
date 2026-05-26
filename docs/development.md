@@ -74,6 +74,8 @@ Do not claim production readiness unless deployment hardening has actually been 
 
 New ideas discovered during unrelated work should become issues or backlog items unless they are required to finish the current task. Capture the context, acceptance criteria, tests, docs impact, and out-of-scope items instead of expanding the active diff.
 
+Local backlog drafts are review artifacts. Keep them branch-scoped under `.backlog-drafts/YYYY-MM-DD/<branch-slug>/` or `.backlog-drafts/current/<branch-slug>/`, then treat GitHub Issues as the source of truth after reviewed drafts are created publicly.
+
 ## Branch Protection And Required Checks
 
 This repository uses GitHub repository rulesets rather than classic branch
