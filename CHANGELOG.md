@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Added `Phase 0` Deep Research prompt. Loads report instructions and plans research prior to running `Phase 1`
+- Documented Go readability standards and aligned the readability-maintenance Codex prompt with them.
 - Refactored `server/internal/httpapi` summary, bundle, stream-validation, and upload parsing helpers for readability without changing HTTP behaviour.
 - Refactored `server/internal/incidents` repository methods into focused chunk, checkin, and emergency-token files for readability without changing behaviour.
 - Documented the `develop` and `release/v*` repository rulesets, branch model,
