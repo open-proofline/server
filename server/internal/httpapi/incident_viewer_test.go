@@ -260,6 +260,19 @@ func TestPublicNotFoundUsesSecurityHeaders(t *testing.T) {
 	assertErrorCode(t, body, "not_found")
 }
 
+func TestPublicViewerUnsupportedMethodUsesNoStore(t *testing.T) {
+	app := newTestApp(t)
+
+	response, body := postPublic(t, app, "/i/not-a-real-token", "application/json", bytes.NewBufferString(`{}`))
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusNotFound {
+		t.Fatalf("expected unsupported method status 404, got %d: %s", response.StatusCode, body)
+	}
+	assertIncidentViewerPrivacyHeaders(t, response)
+	assertErrorCode(t, body, "not_found")
+}
+
 func TestPrivateServerDoesNotMountPublicIncidentViewerRoutes(t *testing.T) {
 	app := newTestApp(t)
 	incidentID := createIncident(t, app, `{}`)

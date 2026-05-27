@@ -1,6 +1,6 @@
 # Codex Prompt: Key Custody and Emergency Access Design
 
-Design the production key custody and emergency access model for Safety Recorder.
+Design the production key custody and emergency access model for Proofline.
 
 This is a **design/documentation task only**.
 

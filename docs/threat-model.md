@@ -38,7 +38,7 @@ Planned future incident modes include emergency incidents, non-emergency interac
 - Incident summaries do not expose `stored_path`. Viewer bundle downloads expose only encrypted chunk bytes and generated manifests for completed streams.
 - ZIP bundle entry names are server-controlled and generated from metadata; clients do not provide stored paths for download.
 - Public viewer responses use a strict same-origin `Content-Security-Policy` with `frame-ancestors 'none'`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, and a restrictive camera/microphone/geolocation `Permissions-Policy`.
-- Token-protected pages, JSON, errors, private JSON, private chunk reads, and bundle downloads use `Cache-Control: no-store`.
+- Token-protected pages, JSON, errors, private responses, private chunk reads, and bundle downloads use `Cache-Control: no-store`.
 - Request logging records method, redacted route pattern, status, byte count, and duration. It does not log request bodies, uploaded bytes, Authorization headers, raw viewer tokens, raw incident tokens, plaintext, or raw keys.
 - Templates use Go `html/template` escaping.
 - Storage rejects absolute paths, `..`, slash-containing path segments, and backslash traversal.
