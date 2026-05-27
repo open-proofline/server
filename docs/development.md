@@ -267,7 +267,8 @@ summary in the workflow run summary. The coverage output is advisory only; this
 repository does not currently enforce a minimum coverage percentage as a merge
 gate. The separate `Go vulnerability scan` job runs `govulncheck` against the Go
 packages without requiring repository secrets, including on pull requests from
-forks.
+forks. Release binary attestation, Release binary upload, and trusted GHCR image
+publishing depend on that scan passing.
 
 Coverage output, `govulncheck`, builds, and artifact attestations are review
 signals. They do not prove that an artifact is vulnerability free, suitable for
