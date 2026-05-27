@@ -1,6 +1,8 @@
-# Safety Recorder Server
+# Proofline Server
 
-This directory contains the Go backend for Safety Recorder.
+This directory contains the Go backend for Proofline.
+
+Repository, module, Docker image, and GHCR artifact names may still use `safety-recorder` until an explicit migration is performed.
 
 From this directory:
 
@@ -9,16 +11,18 @@ go run ./cmd/api
 go test ./...
 ```
 
-The API starts private `/v1` listeners and public emergency viewer listeners from the configured bind address lists. Keep `/v1` behind localhost, WireGuard, a firewall, or a strict reverse proxy.
+The API starts private `/v1` listeners and public incident viewer listeners from the configured bind address lists. Keep `/v1` behind localhost, WireGuard, a firewall, or a strict reverse proxy.
 
-The simulator exercises the current ingest flow:
+The simulator exercises the current generic incident ingest flow:
 
 ```bash
 go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle
 ```
 
-That flow creates an incident, creates an emergency token, creates a media stream, encrypts and uploads chunks with `stream_id`, completes the stream, downloads the encrypted ZIP bundle through the emergency viewer, and verifies local decryption when bundle download is enabled.
+That flow creates an incident, creates a viewer token through the current emergency-token route, creates a media stream, encrypts and uploads chunks with `stream_id`, completes the stream, downloads the encrypted ZIP bundle through the incident viewer, and verifies local decryption when bundle download is enabled.
 
 Evidence bundles contain encrypted chunk files and JSON manifests only. They are not decrypted, merged, or playable media exports.
 
-See the repository root `README.md`, `docs/encryption.md`, `docs/api.md`, and `docs/code-map.md` for the full route and architecture notes.
+The current backend does not implement first-class incident modes yet. Planned modes such as emergency incidents, interaction records, safety checks, and evidence notes are documented in `docs/incident-modes.md`.
+
+See the repository root `README.md`, `docs/incident-modes.md`, `docs/encryption.md`, `docs/api.md`, and `docs/code-map.md` for the full route and architecture notes.
