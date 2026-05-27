@@ -2,6 +2,8 @@
 
 This directory contains the Go backend for Proofline.
 
+This repository is intended to become `open-proofline/server` in the planned multi-repo layout. It is server/backend only; web-client, iOS-client, Android-client, and protocol implementation should live in separate future repositories.
+
 Repository, module, Docker image, and GHCR artifact names may still use `safety-recorder` until an explicit migration is performed.
 
 From this directory:
@@ -25,4 +27,4 @@ Evidence bundles contain encrypted chunk files and JSON manifests only. They are
 
 The current backend does not implement first-class incident modes yet. Planned modes such as emergency incidents, interaction records, safety checks, and evidence notes are documented in `docs/incident-modes.md`.
 
-See the repository root `README.md`, `docs/incident-modes.md`, `docs/encryption.md`, `docs/api.md`, and `docs/code-map.md` for the full route and architecture notes.
+See the repository root `README.md`, `docs/README.md`, `docs/architecture.md`, `docs/incident-modes.md`, `docs/encryption.md`, `docs/api.md`, and `docs/code-map.md` for the full route and architecture notes.
