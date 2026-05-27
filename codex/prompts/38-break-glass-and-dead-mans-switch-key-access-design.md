@@ -1,6 +1,6 @@
 # Codex Prompt: Break-Glass and Dead-Man-Switch Key Access Design
 
-Design server escrow / break-glass / dead-man-switch key access for Safety Recorder.
+Design server escrow / break-glass / dead-man-switch key access for Proofline.
 
 This is a **design/documentation task only**.
 

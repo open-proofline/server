@@ -11,7 +11,7 @@ func (a *API) privateRoutes() http.Handler {
 
 	// The private API has no public authentication by design. Deployment must provide the
 	// private boundary, for example localhost, WireGuard, or firewall rules.
-	return a.loggingMiddleware(a.recoveryMiddleware(mux))
+	return a.loggingMiddleware(a.recoveryMiddleware(a.privateSecurityMiddleware(mux)))
 }
 
 func (a *API) registerPrivateIncidentRoutes(mux *http.ServeMux) {
