@@ -125,7 +125,7 @@ Use prompts in this rough order:
 
 Treat `README.md`, `AGENTS.md`, `SECURITY.md`, and the `docs/` directory as the current source of truth.
 
-Product documentation now uses the name Proofline. Repository URLs, Go module paths, Docker image names, and GHCR package names may still use `safety-recorder` until a separate repository/organisation migration is explicitly performed.
+Product documentation now uses the name Proofline. The repository URL is `open-proofline/server`, the root Go module path is `github.com/open-proofline/server`, release binaries use `proofline-server-*` names, and the published GHCR image is `ghcr.io/open-proofline/server`. Compatibility identifiers such as the v1 simulator encryption envelope and default SQLite filename may still use earlier `safety-recorder` names until separate protocol or data-layout migrations are explicitly performed.
 
 Core constraints:
 
@@ -216,8 +216,7 @@ Use `95-validate-deep-research-report.md` in Codex to verify repository claims, 
 Before accepting Codex changes that touch Go code:
 
 ```bash
-cd server
-gofmt -w .
+gofmt -w ./cmd ./internal ./migrations
 go test ./...
 go vet ./...
 ```
@@ -227,13 +226,11 @@ For docs-only changes, inspect the relevant Markdown and links manually. Go test
 For simulator/API flow changes, also run the simulator smoke test when practical:
 
 ```bash
-cd server
 go run ./cmd/api
 ```
 
 In another terminal:
 
 ```bash
-cd server
 go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle
 ```

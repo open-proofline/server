@@ -92,8 +92,7 @@ In particular, readability-only work should:
 After changes:
 
 ```bash
-cd server
-gofmt -w .
+gofmt -w ./cmd ./internal ./migrations
 go test ./...
 go vet ./...
 ```

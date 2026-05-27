@@ -31,9 +31,9 @@ Why this maintenance is useful now.
 
 ## Validation commands
 
-- [ ] `cd server && gofmt -w .`
-- [ ] `cd server && go test ./...`
-- [ ] `cd server && go vet ./...`, if practical
+- [ ] `gofmt -w ./cmd ./internal ./migrations`
+- [ ] `go test ./...`
+- [ ] `go vet ./...`, if practical
 - [ ] docs-only review, if only Markdown changes
 
 ## Out of scope

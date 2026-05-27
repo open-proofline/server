@@ -52,8 +52,7 @@ Codex can draft changes, but the maintainer remains responsible for reviewing, t
 2. If code changed, run:
 
    ```bash
-   cd server
-   gofmt -w .
+   gofmt -w ./cmd ./internal ./migrations
    go test ./...
    go vet ./...
    ```
@@ -63,14 +62,12 @@ Codex can draft changes, but the maintainer remains responsible for reviewing, t
 4. For behavior changes, run the simulator smoke test:
 
    ```bash
-   cd server
    go run ./cmd/api
    ```
 
    In another terminal:
 
    ```bash
-   cd server
    go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle
    ```
 

@@ -36,10 +36,10 @@ Read:
 - `docs/architecture.md`
 - `docs/api.md`
 - current incident viewer files:
-  - `server/internal/httpapi/incident_viewer.go`
-  - `server/internal/httpapi/web/templates/incident_viewer.html`
-  - `server/internal/httpapi/web/static/scripts.js`
-  - `server/internal/httpapi/assets.go`
+  - `internal/httpapi/incident_viewer.go`
+  - `internal/httpapi/web/templates/incident_viewer.html`
+  - `internal/httpapi/web/static/scripts.js`
+  - `internal/httpapi/assets.go`
 
 ## Document to create
 

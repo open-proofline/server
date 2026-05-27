@@ -22,11 +22,16 @@
 # Go build and test output
 /bin/
 /server/bin/
+/dist/
+/server/dist/
 *.test
 *.prof
 *.coverprofile
 coverage.out
 /server/api
+/proofline-server
+/server/proofline-server
+# Legacy pre-rename local binaries.
 /server/safety-recorder
 /server/safety-recorder-backend
 

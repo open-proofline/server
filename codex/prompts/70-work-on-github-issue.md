@@ -9,7 +9,7 @@ Issue number: `<ISSUE_NUMBER>`
 Repository:
 
 ```text
-TheSilkky/safety-recorder
+open-proofline/server
 ```
 
 Target base branch for the eventual PR:
@@ -76,7 +76,7 @@ git log --oneline -5
 Read the issue:
 
 ```bash
-gh issue view <ISSUE_NUMBER> --repo TheSilkky/safety-recorder
+gh issue view <ISSUE_NUMBER> --repo open-proofline/server
 ```
 
 Then read:
@@ -118,8 +118,7 @@ If the issue was generated against a release-prep or feature branch and the curr
 If Go code changed:
 
 ```bash
-cd server
-gofmt -w .
+gofmt -w ./cmd ./internal ./migrations
 go test ./...
 go vet ./...
 ```
@@ -129,14 +128,12 @@ If only Markdown changed, inspect docs and links manually. Go tests are not requ
 If behaviour changed and the simulator is relevant:
 
 ```bash
-cd server
 go run ./cmd/api
 ```
 
 In another terminal:
 
 ```bash
-cd server
 go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle
 ```
 

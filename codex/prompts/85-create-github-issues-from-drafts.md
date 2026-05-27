@@ -21,7 +21,7 @@ scripts/create-backlog-issues.sh
 ## Repository
 
 ```text
-TheSilkky/safety-recorder
+open-proofline/server
 ```
 
 ## Draft directory
@@ -103,7 +103,7 @@ gh issue create \
 Before generating the script, list repository labels if GitHub CLI is available:
 
 ```bash
-gh label list --repo TheSilkky/safety-recorder --limit 200
+gh label list --repo open-proofline/server --limit 200
 ```
 
 If a draft contains a label that does not exist in the repository, exclude that draft and list the missing label in the output summary.
@@ -163,7 +163,7 @@ The script should:
 2. Define the repository once.
 
    ```bash
-   REPO="TheSilkky/safety-recorder"
+   REPO="open-proofline/server"
    ```
 
 3. Define the selected branch-scoped draft directory.

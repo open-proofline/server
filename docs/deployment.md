@@ -6,11 +6,11 @@ Proofline is experimental and not production-ready public infrastructure. Treat 
 >
 > Keep private listeners behind localhost, LAN, WireGuard, firewall rules, or a strict reverse proxy. Separate bind addresses are a deployment boundary, not a complete security model.
 
-Product documentation now uses the Proofline name. Docker image names, GHCR package names, and example volume names may still use `safety-recorder` until a separate artifact migration is explicitly performed.
+The current module and artifact names use the `open-proofline/server` repository namespace. The published GHCR image is `ghcr.io/open-proofline/server`, local examples use the `proofline-server` image name, and release binaries use `proofline-server-*` names. Compatibility identifiers such as the v1 encryption envelope scheme and default SQLite filename may still use earlier `safety-recorder` names until separate protocol or data-layout migrations are explicitly performed.
 
 ## Local Development
 
-From `server`:
+From the repository root:
 
 ```bash
 go run ./cmd/api
@@ -28,7 +28,7 @@ Defaults:
 Build from the repository root:
 
 ```bash
-docker build -t safety-recorder-backend ./server
+docker build -t proofline-server .
 ```
 
 Run with localhost-only port publishing when everything that talks to the backend is on the same host:
@@ -37,8 +37,8 @@ Run with localhost-only port publishing when everything that talks to the backen
 docker run --rm \
   -p 127.0.0.1:8080:8080 \
   -p 127.0.0.1:8081:8081 \
-  -v safety-recorder-data:/data \
-  safety-recorder-backend
+  -v proofline-server-data:/data \
+  proofline-server
 ```
 
 In this shape both listeners are reachable only through the host loopback interface. It is useful for local testing, SSH port forwarding, or a same-host reverse proxy. It does not expose the private `/v1` API or the incident viewer directly to the network.
@@ -63,8 +63,8 @@ For a private API reachable from a WireGuard peer or private LAN, publish or bin
 docker run --rm \
   -p 10.66.0.1:8080:8080 \
   -p 127.0.0.1:8081:8081 \
-  -v safety-recorder-data:/data \
-  safety-recorder-backend
+  -v proofline-server-data:/data \
+  proofline-server
 ```
 
 Only devices that can reach `10.66.0.1:8080` through the private boundary should be able to call `/v1`. Keep host firewalls aligned with that assumption. Do not publish `8080` on `0.0.0.0` or a public interface.
@@ -121,8 +121,8 @@ One same-host shape is:
 docker run --rm \
   -p 127.0.0.1:8080:8080 \
   -p 127.0.0.1:8081:8081 \
-  -v safety-recorder-data:/data \
-  safety-recorder-backend
+  -v proofline-server-data:/data \
+  proofline-server
 ```
 
 Then configure Traefik to forward the public HTTPS hostname to `http://127.0.0.1:8081` only. This example is documentation, not a maintained deployment file; review it against the Traefik version you run before use:
@@ -395,13 +395,13 @@ then the Traefik route serving the incident viewer should also allow a slow clie
 
 The CI workflow:
 
-- runs Go tests from `server/`
+- runs Go tests from the repository root
 - builds a Linux amd64 binary artifact
 - generates release binary attestations from a tag-only attestation job
 - creates a minimal GitHub Release when needed and uploads the Linux amd64 binary as a Release asset for `v*` tags
-- builds the Docker image from `server/Dockerfile`
-- publishes `ghcr.io/thesilkky/safety-recorder` on pushes to `main` and `v*` tags
+- builds the Docker image from `Dockerfile` with the repository root as build context
+- publishes `ghcr.io/open-proofline/server` on pushes to `main` and `v*` tags
 - attaches attestations to published GHCR images
 - keeps workflow-level token permissions read-only and grants write permissions only to the tag-only binary attestation, release binary upload, and trusted Docker publish jobs
 
-The GHCR package name still uses `safety-recorder` until an explicit artifact namespace migration is performed.
+The previous `ghcr.io/thesilkky/safety-recorder` package name is historical. New release and deployment references should use `ghcr.io/open-proofline/server`; deployments pinned to old images should migrate deliberately.

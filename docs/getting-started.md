@@ -10,7 +10,7 @@ This guide starts the Proofline backend locally and runs the simulator against i
 
 ## Run The Backend
 
-From the `server` directory:
+From the repository root:
 
 ```bash
 go run ./cmd/api
@@ -39,7 +39,7 @@ Uploads are staged in `tmp/`, hashed while streaming, and then hard-linked into 
 
 ## Run The Simulator
 
-In another terminal from `server`:
+In another terminal from the repository root:
 
 ```bash
 go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle

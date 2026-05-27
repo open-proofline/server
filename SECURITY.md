@@ -8,9 +8,9 @@ The current implementation supports generic incident capture and token-scoped re
 
 | Version | Supported |
 |---|---|
-| 0.6.0 | Yes |
-| 0.5.x | Yes |
-| < 0.5 | No |
+| 0.7.x | Yes |
+| 0.6.x | Yes |
+| < 0.6 | No |
 
 ## Reporting a Vulnerability
 

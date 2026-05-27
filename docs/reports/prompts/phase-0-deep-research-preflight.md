@@ -9,10 +9,10 @@ This prompt exists because the Phase 1 report prompt is strict. Phase 0 should l
 ## Repository
 
 ```text
-TheSilkky/safety-recorder
+open-proofline/server
 ```
 
-Product documentation currently uses the name Proofline. Repository URLs, Go module paths, Docker image names, GHCR package names, current route names, and compatibility names may still use `safety-recorder` or `emergency` until explicit migrations are performed.
+Product documentation currently uses the name Proofline. Repository URLs, the Go module path, Docker image names, GHCR package names, and release binary names use the `open-proofline/server` repository namespace. Compatibility identifiers such as the v1 simulator encryption envelope, default SQLite filename, legacy `/e/{token}` aliases, and historical migration names may still use `safety-recorder` or `emergency` until separate protocol or data-layout migrations are explicitly performed.
 
 ## Inputs
 
@@ -103,10 +103,11 @@ Phase 0 should make sure the actual Phase 1 report run will follow:
    docs/
    codex/
    .github/
-   server/
-   server/migrations/
-   server/Dockerfile
-   server/.dockerignore
+   cmd/
+   internal/
+   migrations/
+   Dockerfile
+   .dockerignore
    ```
 
 5. Identify future-design and planning documents that must be reviewed when present, including but not limited to:
@@ -137,7 +138,7 @@ Phase 0 should make sure the actual Phase 1 report run will follow:
     - treating compatibility names as stale when docs explicitly preserve them
     - treating Proofline as having emergency-services integration
     - treating interaction records as police-specific surveillance features
-    - treating the docs-only Proofline rename as a repository/module/Docker/GHCR/API migration
+    - treating preserved compatibility identifiers as stale after the repository/module/artifact rename
 
 13. Produce a proposed research plan.
 
@@ -179,10 +180,11 @@ AGENTS.md
 docs/
 codex/
 .github/
-server/
-server/migrations/
-server/Dockerfile
-server/.dockerignore
+cmd/
+internal/
+migrations/
+Dockerfile
+.dockerignore
 ```
 
 Also include relevant future-planning documents if present:

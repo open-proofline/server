@@ -158,8 +158,7 @@ Confirm:
 From the repository root, run:
 
 ```bash
-cd server
-gofmt -w .
+gofmt -w ./cmd ./internal ./migrations
 go test ./...
 go vet ./...
 ```
@@ -171,14 +170,12 @@ If `go vet ./...` fails because of a known harmless issue, document the reason r
 If practical, run the backend:
 
 ```bash
-cd server
 go run ./cmd/api
 ```
 
 In another terminal:
 
 ```bash
-cd server
 go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle
 ```
 

@@ -9,7 +9,7 @@ This prompt creates the first-pass source-cited technical review report. The out
 Repository:
 
 ```text
-TheSilkky/safety-recorder
+open-proofline/server
 ```
 
 Reviewed branch or ref:
@@ -52,7 +52,7 @@ OpenAI ChatGPT Deep Research using <MODEL_NAME>
 
 Proofline is an experimental Go backend for private encrypted incident capture. It receives already-encrypted recording chunks, stores metadata in SQLite, keeps encrypted blobs on local disk, and exposes a token-scoped read-only incident viewer.
 
-The product documentation now uses the name Proofline. Repository URLs, Go module paths, Docker image names, GHCR package names, current route names, and compatibility names may still use `safety-recorder` or `emergency` until a separate migration is explicitly performed.
+The product documentation now uses the name Proofline. Repository URLs, the Go module path, Docker image names, GHCR package names, and release binary names use the `open-proofline/server` repository namespace. Compatibility identifiers such as the v1 simulator encryption envelope, default SQLite filename, legacy `/e/{token}` aliases, and historical migration names may still use `safety-recorder` or `emergency` until separate protocol or data-layout migrations are explicitly performed.
 
 The long-term product direction is broader than emergency-only recording. Planned modes include emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes. These are planning direction unless the reviewed tree contains first-class implementation.
 
@@ -81,14 +81,13 @@ Recommended validation evidence to request or use when available:
 - exact reviewed branch/ref
 - exact reviewed commit SHA
 - GitHub Actions run URLs for the reviewed commit
-- local or Codex output for `cd server && gofmt -w .`
-- local or Codex output for `cd server && go test ./...`
-- local or Codex output for `cd server && go vet ./...`
-- local or CI output for `docker build -t safety-recorder-backend ./server`
+- local or Codex output for `gofmt -w ./cmd ./internal ./migrations`
+- local or Codex output for `go test ./...`
+- local or Codex output for `go vet ./...`
+- local or CI output for `docker build -t proofline-server .`
 - local or Codex output for the simulator smoke test:
 
 ```bash
-cd server
 go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle
 ```
 
@@ -192,10 +191,11 @@ Review these repository areas when present in the reviewed tree:
 - `docs/`
 - `codex/`
 - `.github/`
-- `server/`
-- `server/migrations/`
-- `server/Dockerfile`
-- `server/.dockerignore`, if present
+- `cmd/`
+- `internal/`
+- `migrations/`
+- `Dockerfile`
+- `.dockerignore`, if present
 - GitHub Actions workflows and Dependabot configuration
 
 Pay special attention to future-design and planning documents when present:
@@ -252,8 +252,7 @@ Do not recommend public GitHub issues for private vulnerabilities, raw tokens, s
 
 - Do not say `/v1` lacks public auth as a vulnerability unless the docs claim it is safe to expose publicly.
 - Do not say missing iOS, Android, web-client, accounts, incident types, escalation policies, browser decryption, production key custody, or break-glass behavior is a defect when docs mark those as future work.
-- Do not treat the docs-only Proofline rename as a repository, Go module, Docker image, GHCR, route, or protocol migration.
-- Do not treat `safety-recorder` or historical migration names such as `emergency_tokens` as stale when docs explicitly state those names remain for migration compatibility.
+- Do not treat remaining `safety-recorder` or `emergency` compatibility identifiers as stale when docs explicitly state those names remain for protocol, data-layout, route-alias, or migration compatibility.
 - Do not claim emergency-services integration exists.
 - Do not imply Proofline reports crimes, contacts police, guarantees legal admissibility, or provides legal advice.
 - Do not treat planned interaction records as police-specific surveillance features; use neutral incident-capture framing.

@@ -108,7 +108,6 @@ The simulator can load or create a local development key file:
 Encryption is enabled by default:
 
 ```bash
-cd server
 go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle
 ```
 

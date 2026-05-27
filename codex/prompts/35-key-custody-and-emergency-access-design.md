@@ -72,12 +72,12 @@ Read current files before drafting:
 - `docs/api.md`
 - `docs/simulator.md`, if present
 - `docs/code-map.md`
-- `server/internal/envelope`
-- `server/cmd/simclient`
+- `internal/envelope`
+- `cmd/simclient`
 - GitHub issue `#9`, if GitHub CLI is available:
 
 ```bash
-gh issue view 9 --repo TheSilkky/safety-recorder
+gh issue view 9 --repo open-proofline/server
 ```
 
 If GitHub CLI is unavailable, continue from local docs.

@@ -22,7 +22,7 @@ The drafts should be specific enough that the maintainer can review them and lat
 ## Repository
 
 ```text
-TheSilkky/safety-recorder
+open-proofline/server
 ```
 
 ## Branch scope
@@ -73,14 +73,14 @@ Read current repository files where present:
 - `docs/code-map.md`
 - `docs/development.md`
 - `docs/codex-change-control.md`, if present
-- `server/internal/config`
-- `server/internal/db`
-- `server/internal/httpapi`
-- `server/internal/incidents`
-- `server/internal/storage`
-- `server/internal/envelope`
-- `server/cmd/api`
-- `server/cmd/simclient`
+- `internal/config`
+- `internal/db`
+- `internal/httpapi`
+- `internal/incidents`
+- `internal/storage`
+- `internal/envelope`
+- `cmd/api`
+- `cmd/simclient`
 - `.github/workflows`
 - `.github/ISSUE_TEMPLATE`, if present
 - `codex/prompts`
@@ -88,9 +88,9 @@ Read current repository files where present:
 Also inspect current GitHub issues, PRs, and labels if GitHub CLI is available:
 
 ```bash
-gh issue list --repo TheSilkky/safety-recorder --state all --limit 100
-gh pr list --repo TheSilkky/safety-recorder --state all --limit 50
-gh label list --repo TheSilkky/safety-recorder --limit 200
+gh issue list --repo open-proofline/server --state all --limit 100
+gh pr list --repo open-proofline/server --state all --limit 50
+gh label list --repo open-proofline/server --limit 200
 ```
 
 If GitHub CLI is unavailable, continue using local repo files and mention that issue, PR, and label validation were limited.
@@ -287,8 +287,9 @@ What should change.
 
 ## Tests / validation
 
-- [ ] `cd server && go test ./...`, if code changes
-- [ ] `cd server && go vet ./...`, if code changes or CI/testing changes
+- [ ] `gofmt -w ./cmd ./internal ./migrations`, if Go files change
+- [ ] `go test ./...`, if code changes
+- [ ] `go vet ./...`, if code changes or CI/testing changes
 - [ ] simulator smoke test, if relevant
 - [ ] docs updated, if relevant
 - [ ] revalidate on target branch before public issue creation, if branch-scoped
