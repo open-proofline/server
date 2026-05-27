@@ -44,9 +44,9 @@ func run(logger *slog.Logger) error {
 
 	repo := incidents.NewRepository(conn)
 	apiOptions := httpapi.Options{
-		MaxUploadBytes:           cfg.MaxUploadBytes,
-		DefaultEmergencyTokenTTL: &cfg.DefaultEmergencyTokenTTL,
-		Logger:                   logger,
+		MaxUploadBytes:          cfg.MaxUploadBytes,
+		DefaultIncidentTokenTTL: &cfg.DefaultIncidentTokenTTL,
+		Logger:                  logger,
 	}
 	privateHandler := httpapi.NewPrivate(repo, blobStore, apiOptions)
 	publicHandler := httpapi.NewPublic(repo, blobStore, apiOptions)

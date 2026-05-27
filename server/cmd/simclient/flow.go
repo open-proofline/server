@@ -82,7 +82,7 @@ func uploadChunkWithOptionalHashFailure(ctx context.Context, out io.Writer, sim 
 }
 
 func downloadAndVerifyBundle(ctx context.Context, out io.Writer, sim client, cfg config, token, incidentID, streamID string, key envelope.Key) error {
-	fmt.Fprintln(out, "Testing emergency stream bundle download...")
+	fmt.Fprintln(out, "Testing incident stream bundle download...")
 	bundleBytes, err := sim.downloadStreamBundle(ctx, token, streamID)
 	if err != nil {
 		return err

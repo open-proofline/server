@@ -6,7 +6,7 @@ import (
 )
 
 func buildViewerURL(viewerBase, token string) string {
-	return joinURL(cleanBaseURL(viewerBase), "/e/"+url.PathEscape(token))
+	return joinURL(cleanBaseURL(viewerBase), "/i/"+url.PathEscape(token))
 }
 
 func joinURL(base, path string) string {

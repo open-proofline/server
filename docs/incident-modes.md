@@ -69,7 +69,7 @@ Review the incident, try to contact the user, and call emergency services if you
 
 ## Future Data Model Direction
 
-The current backend only has generic incidents, streams, chunks, checkins, and emergency tokens. Future protocol work may add first-class fields such as:
+The current backend only has generic incidents, streams, chunks, checkins, and incident tokens. Future protocol work may add first-class fields such as:
 
 ```text
 incident_type:
@@ -108,7 +108,7 @@ Future account-enabled clients should distinguish:
 - administrative/operator access, which should not casually expose user safety data
 - legal/export workflows controlled by the account owner
 
-The current token-scoped emergency viewer is a temporary read-only access model. A future web client may replace it after account management, authorization, key custody, and trusted-contact access are designed.
+The current token-scoped incident viewer is a temporary read-only access model. A future web client may replace it after account management, authorization, key custody, and trusted-contact access are designed.
 
 ## Current Implementation Status
 
@@ -118,8 +118,8 @@ Implemented today:
 - media streams
 - encrypted chunk upload and immutable storage
 - checkins
-- emergency tokens
-- read-only emergency viewer
+- incident tokens
+- read-only incident viewer
 - encrypted ZIP evidence bundles
 - simulator upload and decrypt-verification flows
 

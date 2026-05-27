@@ -31,14 +31,14 @@ func parseConfig(args []string) (config, error) {
 	var chunkSizeRaw string
 	cfg := config{}
 	fs.StringVar(&cfg.apiBase, "api", defaultAPIBase, "Private API base URL")
-	fs.StringVar(&cfg.viewerBase, "viewer", defaultViewerBase, "Emergency viewer base URL")
+	fs.StringVar(&cfg.viewerBase, "viewer", defaultViewerBase, "Incident viewer base URL")
 	fs.IntVar(&cfg.chunks, "chunks", defaultChunks, "Number of chunks to upload")
 	fs.DurationVar(&cfg.interval, "interval", defaultInterval, "Delay between chunk uploads")
 	fs.StringVar(&cfg.mediaType, "media-type", defaultMediaType, "Media type to upload")
 	fs.StringVar(&chunkSizeRaw, "chunk-size", defaultChunkSize, "Size of each fake plaintext chunk before optional encryption")
 	fs.BoolVar(&cfg.closeIncident, "close", false, "Close the incident when complete")
 	fs.BoolVar(&cfg.completeStream, "complete-stream", true, "Mark the uploaded media stream complete")
-	fs.BoolVar(&cfg.downloadBundle, "download-bundle", false, "Download the completed stream bundle through the emergency viewer")
+	fs.BoolVar(&cfg.downloadBundle, "download-bundle", false, "Download the completed stream bundle through the incident viewer")
 	fs.BoolVar(&cfg.encrypt, "encrypt", true, "Encrypt simulated chunk bytes before upload")
 	fs.StringVar(&cfg.keyFile, "key-file", "", "Optional simulator encryption key file")
 	fs.BoolVar(&cfg.verifyBundleDecrypt, "verify-bundle-decryption", true, "Decrypt downloaded stream bundles locally when encryption is enabled")

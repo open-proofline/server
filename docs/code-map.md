@@ -51,9 +51,9 @@ Stream completion is handled by `server/internal/httpapi.completeMediaStream`. B
 
 ## Incident Viewer Flow
 
-Viewer tokens are created on the private API server by `POST /v1/incidents/{incident_id}/emergency-tokens`. The raw token is returned once, while `server/internal/incidents.Repository.CreateEmergencyToken` stores only a SHA-256 hash in SQLite. The implementation still uses emergency-token route and repository names for compatibility while product docs use broader incident-viewer terminology.
+Viewer tokens are created on the private API server by `POST /v1/incidents/{incident_id}/incident-tokens`. The raw token is returned once, while `server/internal/incidents.Repository.CreateIncidentToken` stores only a SHA-256 hash in SQLite.
 
-`GET /e/{token}` is mounted only on the public incident viewer server. It renders `server/internal/httpapi/web/templates/emergency.html` with `html/template`. CSS and JavaScript are embedded from `server/internal/httpapi/web/static`. `GET /e/{token}/data` returns the same read-only summary as JSON for polling.
+`GET /i/{token}` is mounted only on the public incident viewer server. It renders `server/internal/httpapi/web/templates/incident_viewer.html` with `html/template`. CSS and JavaScript are embedded from `server/internal/httpapi/web/static`. `GET /i/{token}/data` returns the same read-only summary as JSON for polling.
 
 Token lookup checks the hash, expiry, and revocation state before incident metadata is loaded. Invalid, expired, and revoked tokens all return the same public error. Viewer responses use `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`, a strict `Content-Security-Policy`, restrictive `Permissions-Policy`, and `Cache-Control: no-store` for token-protected responses.
 

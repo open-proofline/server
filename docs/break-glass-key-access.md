@@ -161,7 +161,7 @@ Safe audit fields may include:
 
 Audit logs must not include:
 
-- raw viewer tokens or emergency tokens
+- raw viewer tokens or incident tokens
 - raw keys or key shares
 - plaintext media or transcripts
 - uploaded bytes

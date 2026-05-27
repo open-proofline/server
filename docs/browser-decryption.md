@@ -23,8 +23,8 @@ The current incident viewer is token-scoped and read-only. Public routes are mou
 
 Current behavior:
 
-- `GET /e/{token}` renders a read-only HTML summary after token validation.
-- `GET /e/{token}/data` returns the same summary as JSON for polling.
+- `GET /i/{token}` renders a read-only HTML summary after token validation.
+- `GET /i/{token}/data` returns the same summary as JSON for polling.
 - Static CSS and JavaScript are served from embedded files under `/static/`.
 - The page shows incident status, latest checkin, chunk counts, and completed recording download links.
 - Completed stream and incident downloads are encrypted ZIP evidence bundles.
@@ -34,13 +34,13 @@ Current behavior:
 
 The current JavaScript only builds download links and polls the JSON endpoint. It does not parse bundles, handle keys, decrypt chunks, or display plaintext.
 
-The current API route names and some data structures still use emergency-token terminology for compatibility. Future web-client and protocol work may replace this with broader account or incident-viewer access grants.
+The current API uses incident-token terminology for token-scoped public viewer access. Future web-client and protocol work may replace this with broader account or incident-viewer access grants.
 
 ## Candidate Approaches
 
 ### 1. URL Fragment Decryption Capability
 
-The viewer URL carries a decryption capability in the fragment, for example `/e/{token}#key=...` or a future structured fragment. The HTTP request sends only `/e/{token}` to the server. JavaScript running in the browser reads the fragment and uses it to unwrap or import the media key.
+The viewer URL carries a decryption capability in the fragment, for example `/i/{token}#key=...` or a future structured fragment. The HTTP request sends only `/i/{token}` to the server. JavaScript running in the browser reads the fragment and uses it to unwrap or import the media key.
 
 Strengths:
 
@@ -165,7 +165,7 @@ Do not hard-code emergency language into all decrypting viewer flows. A future w
 
 ## URL Fragment Model
 
-URL fragments are not sent in normal HTTP requests. In a URL such as `https://example.test/e/token#key=value`, the browser requests `/e/token` and keeps `#key=value` client-side. That can keep key material out of backend HTTP handlers, reverse-proxy access logs, and referrer paths.
+URL fragments are not sent in normal HTTP requests. In a URL such as `https://example.test/i/token#key=value`, the browser requests `/i/token` and keeps `#key=value` client-side. That can keep key material out of backend HTTP handlers, reverse-proxy access logs, and referrer paths.
 
 JavaScript running on the page can read the fragment locally through browser APIs. A future viewer could import a fragment-carried key, use it to unwrap or import a media key, then remove the fragment from the visible location bar after import.
 

@@ -1,6 +1,6 @@
 # Bug Report
 
-Do not report security vulnerabilities in public issues. If this might expose raw emergency tokens, uploaded bytes, request bodies, private deployment details, or user safety data, follow `SECURITY.md` instead.
+Do not report security vulnerabilities in public issues. If this might expose raw incident tokens, uploaded bytes, request bodies, private deployment details, or user safety data, follow `SECURITY.md` instead.
 
 ## Summary
 

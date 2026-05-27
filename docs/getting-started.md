@@ -48,7 +48,7 @@ go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle
 The simulator:
 
 - creates an incident
-- creates an incident viewer token using the current emergency-token route
+- creates an incident viewer token using the current incident-token route
 - creates an audio media stream
 - encrypts fake chunk plaintext and uploads the ciphertext envelope with `stream_id`
 - sends periodic checkins

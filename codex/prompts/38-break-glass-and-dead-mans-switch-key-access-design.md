@@ -135,7 +135,7 @@ Define what must never be logged:
 
 - raw keys
 - plaintext
-- raw emergency tokens
+- raw incident tokens
 - uploaded bytes
 - sensitive user safety data beyond necessary audit metadata
 
@@ -146,7 +146,7 @@ Discuss:
 - self-hosted local server
 - Docker deployment
 - WireGuard/private API
-- HTTPS emergency viewer
+- HTTPS incident viewer
 - external KMS/HSM future option
 - disk encryption
 - backup/restore impact
@@ -161,7 +161,7 @@ Cover:
 - blob storage compromise
 - operator misuse
 - malicious trusted contact
-- stolen emergency token
+- stolen incident token
 - stolen key escrow material
 - false dead-man-switch trigger
 - destroyed phone

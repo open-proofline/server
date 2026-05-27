@@ -70,7 +70,7 @@ In particular, readability-only work should:
 - clearer package responsibilities
 - reducing duplicated request/response helpers
 - comments around non-obvious logic
-- private API and emergency viewer separation
+- private API and incident viewer separation
 - upload/storage/hash-verification readability
 - stream/bundle logic readability
 - encryption-envelope and simulator-key handling readability

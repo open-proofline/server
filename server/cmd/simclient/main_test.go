@@ -47,7 +47,7 @@ func TestParseByteSizeRejectsInvalidInput(t *testing.T) {
 
 func TestBuildViewerURL(t *testing.T) {
 	got := buildViewerURL("http://localhost:8081/", "abc/123")
-	want := "http://localhost:8081/e/abc%2F123"
+	want := "http://localhost:8081/i/abc%2F123"
 	if got != want {
 		t.Fatalf("buildViewerURL returned %q, want %q", got, want)
 	}
@@ -56,7 +56,7 @@ func TestBuildViewerURL(t *testing.T) {
 func TestClientWriteRoutesUsePrivateAPIBase(t *testing.T) {
 	expectedPaths := []string{
 		"POST /v1/incidents",
-		"POST /v1/incidents/inc_1/emergency-tokens",
+		"POST /v1/incidents/inc_1/incident-tokens",
 		"POST /v1/incidents/inc_1/streams",
 		"POST /v1/incidents/inc_1/checkins",
 		"POST /v1/incidents/inc_1/streams/str_1/complete",
@@ -71,8 +71,8 @@ func TestClientWriteRoutesUsePrivateAPIBase(t *testing.T) {
 		switch r.URL.Path {
 		case "/v1/incidents":
 			return testResponse(http.StatusCreated, "application/json", `{"incident_id":"inc_1","status":"open"}`), nil
-		case "/v1/incidents/inc_1/emergency-tokens":
-			return testResponse(http.StatusCreated, "application/json", `{"token_id":"etk_1","incident_id":"inc_1","token":"tok_1","created_at":"2026-05-22T10:00:00Z"}`), nil
+		case "/v1/incidents/inc_1/incident-tokens":
+			return testResponse(http.StatusCreated, "application/json", `{"token_id":"itk_1","incident_id":"inc_1","token":"tok_1","created_at":"2026-05-22T10:00:00Z"}`), nil
 		case "/v1/incidents/inc_1/streams":
 			return testResponse(http.StatusCreated, "application/json", `{"stream":{"id":"str_1","incident_id":"inc_1","media_type":"audio","status":"open","created_at":"2026-05-22T10:00:00Z","updated_at":"2026-05-22T10:00:00Z"}}`), nil
 		case "/v1/incidents/inc_1/checkins":
@@ -100,9 +100,9 @@ func TestClientWriteRoutesUsePrivateAPIBase(t *testing.T) {
 	if incidentID != "inc_1" {
 		t.Fatalf("incidentID = %q", incidentID)
 	}
-	token, err := sim.createEmergencyToken(ctx, incidentID)
+	token, err := sim.createIncidentToken(ctx, incidentID)
 	if err != nil {
-		t.Fatalf("createEmergencyToken returned error: %v", err)
+		t.Fatalf("createIncidentToken returned error: %v", err)
 	}
 	if token != "tok_1" {
 		t.Fatalf("token = %q", token)
@@ -188,7 +188,7 @@ func TestClientDownloadStreamBundleUsesViewerBase(t *testing.T) {
 		if r.URL.Host != "viewer.example" {
 			t.Fatalf("bundle download used host %q, want viewer.example", r.URL.Host)
 		}
-		if r.Method != http.MethodGet || r.URL.Path != "/e/tok_1/streams/str_1/download" {
+		if r.Method != http.MethodGet || r.URL.Path != "/i/tok_1/streams/str_1/download" {
 			t.Fatalf("unexpected viewer route %s %s", r.Method, r.URL.Path)
 		}
 		return testResponse(http.StatusOK, "application/zip", string(bundleBytes)), nil

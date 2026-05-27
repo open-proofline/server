@@ -7,7 +7,7 @@ import (
 	"fmt"
 )
 
-func hashEmergencyToken(rawToken string) string {
+func hashIncidentToken(rawToken string) string {
 	sum := sha256.Sum256([]byte(rawToken))
 	return hex.EncodeToString(sum[:])
 }

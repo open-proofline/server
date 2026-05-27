@@ -38,13 +38,13 @@ func run(ctx context.Context, out io.Writer, args []string) error {
 		return err
 	}
 
-	token, err := sim.createEmergencyToken(ctx, incidentID)
+	token, err := sim.createIncidentToken(ctx, incidentID)
 	if err != nil {
 		return err
 	}
 
 	fmt.Fprintf(out, "Incident: %s\n", incidentID)
-	fmt.Fprintf(out, "Emergency viewer: %s\n\n", buildViewerURL(sim.viewerBase, token))
+	fmt.Fprintf(out, "Incident viewer: %s\n\n", buildViewerURL(sim.viewerBase, token))
 
 	fmt.Fprintf(out, "Creating %s media stream...\n", cfg.mediaType)
 	streamID, err := sim.createMediaStream(ctx, incidentID, cfg.mediaType)

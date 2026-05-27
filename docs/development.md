@@ -67,9 +67,9 @@ Keep packages aligned with the responsibilities documented in [code-map.md](code
 
 Preferred patterns:
 
-- keep incident, chunk, stream, checkin, and emergency-token repository methods grouped by concern
+- keep incident, chunk, stream, checkin, and incident-token repository methods grouped by concern
 - keep HTTP handlers, request parsing, response shaping, and viewer summaries easy to locate
-- keep file names boring and descriptive, such as `chunks.go`, `checkins.go`, or `emergency_tokens.go`
+- keep file names boring and descriptive, such as `chunks.go`, `checkins.go`, or `incident_tokens.go`
 - keep exported API surface stable unless the task explicitly requires an API change
 
 Avoid moving code only to make a diff look cleaner. A split should help future reviewers find related invariants, queries, handlers, or tests.
@@ -82,9 +82,9 @@ Preferred examples:
 
 - `validateChunkInsertState`
 - `parseChunkTimeRange`
-- `collectEmergencyChunkStats`
-- `summarizeEmergencyStreams`
-- `emergencyTokenExpiresAt`
+- `collectIncidentViewerChunkStats`
+- `summarizeIncidentViewerStreams`
+- `incidentTokenExpiresAt`
 
 Avoid vague names such as `processData`, `handleThing`, or `doCheck`. If a helper only exists to hide complexity, give it a name that explains the domain step being performed.
 
@@ -105,10 +105,10 @@ Readability refactors should preserve:
 - token creation, hashing, expiry, revocation, and public error-collapsing behaviour
 - encryption envelope and key-custody assumptions
 - bundle format, ZIP entry naming, and encrypted evidence-bundle semantics
-- private `/v1` and public emergency-viewer listener separation
+- private `/v1` and public incident-viewer listener separation
 - logging exclusions for raw tokens, request bodies, uploaded bytes, Authorization headers, plaintext, raw keys, and future token-like values
 
-When a refactor touches security-sensitive paths, keep the old invariant visible in the new shape. For example, emergency viewer code should still make it obvious that invalid, expired, and revoked tokens collapse into the same public error, and upload code should still make the temp-file, hash-verification, immutable-commit, and metadata-write order easy to follow.
+When a refactor touches security-sensitive paths, keep the old invariant visible in the new shape. For example, incident viewer code should still make it obvious that invalid, expired, and revoked tokens collapse into the same public error, and upload code should still make the temp-file, hash-verification, immutable-commit, and metadata-write order easy to follow.
 
 ### Comments And Invariants
 
@@ -116,7 +116,7 @@ Comments should explain non-obvious project invariants, security boundaries, rac
 
 Good comments explain why behaviour exists, for example:
 
-- why raw emergency tokens are returned once and only hashes are stored
+- why raw incident tokens are returned once and only hashes are stored
 - why streamed chunks require positive indexes while legacy unstreamed uploads may keep index `0`
 - why the schema unique constraint remains the final duplicate guard after HTTP preflight checks
 - why viewer summaries must not expose stored paths or encrypted file bytes

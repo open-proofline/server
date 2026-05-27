@@ -97,7 +97,7 @@ flowchart LR
     Private --> DB[(SQLite metadata)]
     Private --> Blobs[(Local encrypted blobs)]
     Private --> Tokens["Viewer token creation"]
-    Contact["Trusted contact"] --> Public["Public incident viewer<br/>/e/{token}"]
+    Contact["Trusted contact"] --> Public["Public incident viewer<br/>/i/{token}"]
     Public --> DB
     Public --> Blobs
     Public --> Bundles["Encrypted ZIP bundles<br/>completed streams only"]

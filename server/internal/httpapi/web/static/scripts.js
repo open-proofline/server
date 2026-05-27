@@ -294,8 +294,8 @@
     });
   }
 
-  function updateEmergencyView(data) {
-    window.__lastEmergencyData = data;
+  function updateIncidentView(data) {
+    window.__lastIncidentViewData = data;
     updateIncident(data.incident);
     updateLatestCheckin(data.latest_checkin);
     updateCompletedRecordings(data.completed_streams);
@@ -326,7 +326,7 @@
       })
       .then(function (data) {
         if (data && requestID === latestPollRequestID) {
-          updateEmergencyView(data);
+          updateIncidentView(data);
         }
       })
       .catch(function () {});

@@ -9,28 +9,28 @@ import (
 	"time"
 )
 
-//go:embed web/templates/emergency.html web/static/styles.css web/static/scripts.js
-var emergencyWebFS embed.FS
+//go:embed web/templates/incident_viewer.html web/static/styles.css web/static/scripts.js
+var incidentViewerWebFS embed.FS
 
-// emergencyPageTemplate loads the standalone HTML file with presentation-only
+// incidentViewerPageTemplate loads the standalone HTML file with presentation-only
 // helpers. Incident data still comes from the token-checked handlers.
-var emergencyPageTemplate = template.Must(template.New("emergency.html").Funcs(template.FuncMap{
+var incidentViewerPageTemplate = template.Must(template.New("incident_viewer.html").Funcs(template.FuncMap{
 	"humanTime":    humanTime,
 	"relativeTime": relativeTime,
 	"formatBytes":  formatBytes,
-}).ParseFS(emergencyWebFS, "web/templates/emergency.html"))
+}).ParseFS(incidentViewerWebFS, "web/templates/incident_viewer.html"))
 
-// emergencyStaticHandler serves embedded CSS and JavaScript through the
+// incidentViewerStaticHandler serves embedded CSS and JavaScript through the
 // standard file server. Static assets contain no incident data or raw tokens.
-func emergencyStaticHandler() http.Handler {
-	staticFiles, err := fs.Sub(emergencyWebFS, "web/static")
+func incidentViewerStaticHandler() http.Handler {
+	staticFiles, err := fs.Sub(incidentViewerWebFS, "web/static")
 	if err != nil {
 		panic(err)
 	}
 	return http.StripPrefix("/static/", http.FileServer(http.FS(staticFiles)))
 }
 
-// humanTime formats absolute timestamps for the emergency page template.
+// humanTime formats absolute timestamps for the incident viewer template.
 func humanTime(value time.Time) string {
 	if value.IsZero() {
 		return "Unknown"
@@ -38,8 +38,8 @@ func humanTime(value time.Time) string {
 	return value.Local().Format("2 Jan 2006, 3:04 pm")
 }
 
-// relativeTime formats recent activity for quick scanning in the emergency
-// page template.
+// relativeTime formats recent activity for quick scanning in the incident
+// viewer template.
 func relativeTime(value time.Time) string {
 	if value.IsZero() {
 		return "Unknown"

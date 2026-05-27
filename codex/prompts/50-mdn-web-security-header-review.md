@@ -5,7 +5,7 @@ Review browser-facing response headers and web security posture.
 Do **not** add features.
 Do **not** add React, Node, npm, OAuth, JWT, user accounts, Docker Compose, Kubernetes, or cloud integrations.
 Do **not** change endpoint behaviour unless required to fix a security bug.
-Do **not** add browser decryption or unrelated emergency viewer features.
+Do **not** add browser decryption or unrelated incident viewer features.
 
 ## Source of truth
 
@@ -42,7 +42,7 @@ Do not rely on stale assumptions from this prompt if the repository has changed.
 
 ## Goal
 
-Ensure browser-facing behaviour is MDN-aligned for a small server-rendered emergency viewer and private JSON API.
+Ensure browser-facing behaviour is MDN-aligned for a small server-rendered incident viewer and private JSON API.
 
 Use MDN guidance conceptually for:
 
@@ -52,14 +52,14 @@ Use MDN guidance conceptually for:
 - Permissions-Policy
 - Strict-Transport-Security
 - X-Frame-Options or CSP `frame-ancestors`
-- Cache-Control for token-protected emergency pages/downloads
+- Cache-Control for token-protected incident viewer pages/downloads
 
 ## Review requirements
 
 Check:
 
-- public emergency HTML responses
-- public emergency JSON responses
+- public incident viewer HTML responses
+- public incident viewer JSON responses
 - static CSS/JS responses
 - stream ZIP download responses
 - incident ZIP download responses
@@ -76,15 +76,15 @@ Look for:
 - unsafe inline scripts/styles
 - token leakage through referrers
 - token leakage through logs
-- cacheable token-protected emergency pages
-- cacheable emergency downloads
+- cacheable token-protected incident viewer pages
+- cacheable incident viewer downloads
 - incorrect headers on ZIP downloads
 - headers that should be set by reverse proxy rather than app
 - HSTS accidentally enabled for localhost/dev HTTP
 
 ## Implementation guidance
 
-For emergency viewer HTML, prefer strict CSP such as:
+For incident viewer HTML, prefer strict CSP such as:
 
 ```http
 Content-Security-Policy: default-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'; object-src 'none'
@@ -92,7 +92,7 @@ Content-Security-Policy: default-src 'self'; base-uri 'none'; frame-ancestors 'n
 
 If inline CSS/JS is introduced, either move it to static assets or explicitly justify the CSP change.
 
-For token-protected emergency pages, JSON, errors, and downloads, ensure:
+For token-protected incident viewer pages, JSON, errors, and downloads, ensure:
 
 ```http
 X-Content-Type-Options: nosniff
@@ -121,8 +121,8 @@ For HSTS:
 
 Add or update tests to verify security headers for:
 
-- emergency viewer HTML
-- emergency viewer JSON data endpoint
+- incident viewer HTML
+- incident viewer JSON data endpoint
 - static assets
 - stream ZIP download responses
 - incident ZIP download responses

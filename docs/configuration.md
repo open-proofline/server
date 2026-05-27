@@ -11,7 +11,7 @@ Configuration is read from environment variables when the Proofline API starts.
 | `SAFE_DATA_DIR` | `./data` | Local directory for SQLite, temp uploads, and encrypted blobs unless `SAFE_DB_PATH` points elsewhere. |
 | `SAFE_DB_PATH` | `./data/safety.db` | SQLite database path. The default file name still uses `safety.db` until a separate data-layout migration is performed. |
 | `SAFE_MAX_UPLOAD_BYTES` | `250MB` | Maximum encrypted file bytes per upload. |
-| `SAFE_DEFAULT_EMERGENCY_TOKEN_TTL` | `24h` | Default lifetime for viewer tokens created without `expires_at`. The variable name still uses emergency-token terminology for compatibility. Set to `0` to disable the default for omitted `expires_at` values. |
+| `SAFE_DEFAULT_INCIDENT_TOKEN_TTL` | `24h` | Default lifetime for viewer tokens created without `expires_at`. Set to `0` to disable the default for omitted `expires_at` values. |
 | `SAFE_PRIVATE_READ_HEADER_TIMEOUT` | `10s` | Private API HTTP read-header timeout. |
 | `SAFE_PRIVATE_READ_TIMEOUT` | `0s` | Private API HTTP read timeout. `0` disables it for large or slow uploads. |
 | `SAFE_PRIVATE_WRITE_TIMEOUT` | `0s` | Private API HTTP write timeout. `0` disables it for large or slow downloads. |
@@ -55,11 +55,11 @@ Fractional unit values are allowed when they resolve to at least one byte, for e
 
 ## Viewer Token Expiry
 
-Viewer tokens created without an explicit `expires_at` default to expiring after `SAFE_DEFAULT_EMERGENCY_TOKEN_TTL`, which is `24h` unless configured otherwise. The environment variable still uses emergency-token terminology for compatibility with the current backend.
+Viewer tokens created without an explicit `expires_at` default to expiring after `SAFE_DEFAULT_INCIDENT_TOKEN_TTL`, which is `24h` unless configured otherwise.
 
 The value uses Go duration strings such as `12h` or `168h`.
 
-Set `SAFE_DEFAULT_EMERGENCY_TOKEN_TTL=0` only when you deliberately want omitted `expires_at` values to create tokens that remain valid until revoked.
+Set `SAFE_DEFAULT_INCIDENT_TOKEN_TTL=0` only when you deliberately want omitted `expires_at` values to create tokens that remain valid until revoked.
 
 ## HTTP Timeouts
 

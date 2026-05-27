@@ -1,6 +1,6 @@
-# Codex Prompt: Browser-Side Emergency Viewer Decryption Design Spike
+# Codex Prompt: Browser-Side Incident Viewer Decryption Design Spike
 
-Design browser/client-side decryption for the emergency viewer.
+Design browser/client-side decryption for the incident viewer.
 
 This is a **design/documentation task only**.
 
@@ -13,7 +13,7 @@ Do **not** add React, Node, npm, Vite, frontend build tooling, OAuth, JWT, user 
 
 ## Goal
 
-Explore how the emergency viewer might decrypt completed evidence bundles or live stream chunks in the browser while keeping the backend from seeing raw media keys in normal operation.
+Explore how the incident viewer might decrypt completed evidence bundles or live stream chunks in the browser while keeping the backend from seeing raw media keys in normal operation.
 
 This design should support the broader hybrid key custody goal:
 
@@ -35,9 +35,9 @@ Read:
 - `docs/threat-model.md`
 - `docs/architecture.md`
 - `docs/api.md`
-- current emergency viewer files:
-  - `server/internal/httpapi/emergency.go`
-  - `server/internal/httpapi/web/templates/emergency.html`
+- current incident viewer files:
+  - `server/internal/httpapi/incident_viewer.go`
+  - `server/internal/httpapi/web/templates/incident_viewer.html`
   - `server/internal/httpapi/web/static/scripts.js`
   - `server/internal/httpapi/assets.go`
 
@@ -57,7 +57,7 @@ Explain the purpose of browser-side decryption and how it fits the hybrid key cu
 
 ### 2. Current viewer behaviour
 
-Summarize current emergency viewer behaviour:
+Summarize current incident viewer behaviour:
 
 - token-scoped read-only page
 - completed encrypted bundle downloads
@@ -144,7 +144,7 @@ Discuss:
 
 Cover:
 
-- stolen emergency token
+- stolen incident token
 - stolen decryption fragment/capability
 - compromised browser
 - compromised backend

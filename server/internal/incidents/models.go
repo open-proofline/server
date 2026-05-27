@@ -112,9 +112,9 @@ type CreateCheckinParams struct {
 	AccuracyMeters       *float64
 }
 
-// EmergencyToken records read-only emergency access scoped to one incident.
+// IncidentToken records read-only incident viewer access scoped to one incident.
 // TokenHash is stored instead of the raw token and is not exposed in API JSON.
-type EmergencyToken struct {
+type IncidentToken struct {
 	ID         string     `json:"id"`
 	IncidentID string     `json:"incident_id"`
 	TokenHash  string     `json:"-"`

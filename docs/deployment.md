@@ -6,7 +6,7 @@ Proofline is experimental and not production-ready public infrastructure. Treat 
 >
 > Keep private listeners behind localhost, LAN, WireGuard, firewall rules, or a strict reverse proxy. Separate bind addresses are a deployment boundary, not a complete security model.
 
-Product documentation now uses the Proofline name. Docker image names, GHCR package names, example volume names, and some route/config names may still use `safety-recorder` or `emergency` until a separate artifact and API migration is explicitly performed.
+Product documentation now uses the Proofline name. Docker image names, GHCR package names, and example volume names may still use `safety-recorder` until a separate artifact migration is explicitly performed.
 
 ## Local Development
 
@@ -93,7 +93,7 @@ Production-style public exposure still needs:
 
 - TLS at the edge
 - rate limiting and abuse controls
-- reverse-proxy log redaction for `/e/{token}` paths
+- reverse-proxy log redaction for `/i/{token}` paths
 - private `/v1` access controls
 - deployment-specific retention, backup, and deletion enforcement based on [retention-backup-deletion.md](retention-backup-deletion.md)
 - operational monitoring and restore testing
@@ -198,16 +198,16 @@ Suggested route groups:
 
 | Route group | Paths | Guidance |
 |---|---|---|
-| Viewer page lookup | `GET /e/{token}` | Keep relatively strict because each request performs a bearer-token lookup. |
-| Viewer JSON polling | `GET /e/{token}/data` | Allow normal viewer polling, but keep it lower than static assets. |
-| Viewer ZIP downloads | `GET /e/{token}/streams/{stream_id}/download`, `GET /e/{token}/incident/download` | Limit download starts without cutting off long encrypted ZIP responses; coordinate with proxy and app timeouts. |
+| Viewer page lookup | `GET /i/{token}` | Keep relatively strict because each request performs a bearer-token lookup. |
+| Viewer JSON polling | `GET /i/{token}/data` | Allow normal viewer polling, but keep it lower than static assets. |
+| Viewer ZIP downloads | `GET /i/{token}/streams/{stream_id}/download`, `GET /i/{token}/incident/download` | Limit download starts without cutting off long encrypted ZIP responses; coordinate with proxy and app timeouts. |
 | Public static assets | `GET /static/...` | Static assets are token-neutral and can usually tolerate a looser limit. |
 | Private chunk uploads | `POST /v1/incidents/{incident_id}/chunks` | If routed through a private proxy, tune for expected chunk cadence and upload retries. |
 | Private incident, stream, check-in, token, and admin-style actions | Other `/v1/...` routes | Keep behind a private boundary and use limits as an abuse backstop, not as public authentication. |
 
 Rate limiting does not make `/v1` safe to expose publicly. Keep the private API on localhost, LAN, WireGuard, firewall rules, or a private reverse-proxy entry point even when limits are configured.
 
-Exact limits are deployment-specific. Start with conservative values, watch legitimate simulator/client behavior, then adjust. Avoid sending raw `/e/{token}` paths to metrics, dashboards, or logs while measuring limiter behavior.
+Exact limits are deployment-specific. Start with conservative values, watch legitimate simulator/client behavior, then adjust. Avoid sending raw `/i/{token}` paths to metrics, dashboards, or logs while measuring limiter behavior.
 
 ### Traefik Rate-Limiting Example
 
@@ -220,7 +220,7 @@ This example replaces the single broad public viewer router from the basic examp
 http:
   routers:
     proofline-downloads:
-      rule: "Host(`proofline.example.invalid`) && Method(`GET`) && PathRegexp(`^/e/[^/]+/(streams/[^/]+/download|incident/download)$`)"
+      rule: "Host(`proofline.example.invalid`) && Method(`GET`) && PathRegexp(`^/i/[^/]+/(streams/[^/]+/download|incident/download)$`)"
       entryPoints:
         - websecure
       service: proofline-public
@@ -232,7 +232,7 @@ http:
         certResolver: letsencrypt
 
     proofline-data:
-      rule: "Host(`proofline.example.invalid`) && Method(`GET`) && PathRegexp(`^/e/[^/]+/data$`)"
+      rule: "Host(`proofline.example.invalid`) && Method(`GET`) && PathRegexp(`^/i/[^/]+/data$`)"
       entryPoints:
         - websecure
       service: proofline-public
@@ -244,7 +244,7 @@ http:
         certResolver: letsencrypt
 
     proofline-page:
-      rule: "Host(`proofline.example.invalid`) && Method(`GET`) && PathRegexp(`^/e/[^/]+$`)"
+      rule: "Host(`proofline.example.invalid`) && Method(`GET`) && PathRegexp(`^/i/[^/]+$`)"
       entryPoints:
         - websecure
       service: proofline-public
@@ -364,13 +364,13 @@ When Traefik sits behind another proxy or load balancer, review forwarded-header
 
 ### Viewer Token Paths In Proxy Logs
 
-Viewer URLs are bearer-token URLs. The Go server logs redacted route patterns such as `/e/{token}`, but an edge proxy can still log the raw request path before the request reaches the Go server.
+Viewer URLs are bearer-token URLs. The Go server logs redacted route patterns such as `/i/{token}`, but an edge proxy can still log the raw request path before the request reaches the Go server.
 
 For Traefik, use an access-log format that supports field controls, then review the fields for the version you deploy and drop or sanitize request path fields. If path redaction is unavailable in your logging format, disable access logs for this router or pass logs through a sanitizer before storage. Redacting headers is not enough because the token is in the URL path.
 
 Avoid logging:
 
-- raw `/e/{token}` paths
+- raw `/i/{token}` paths
 - query strings attached to viewer URLs
 - request bodies
 - uploaded bytes
