@@ -1,4 +1,4 @@
-# Safety Recorder
+# Proofline
 
 [![CI](https://github.com/TheSilkky/safety-recorder/actions/workflows/ci.yml/badge.svg)](https://github.com/TheSilkky/safety-recorder/actions/workflows/ci.yml)
 [![Latest Tag](https://img.shields.io/github/v/tag/TheSilkky/safety-recorder?sort=semver)](https://github.com/TheSilkky/safety-recorder/tags)
@@ -8,7 +8,9 @@
 [![Security Policy](https://img.shields.io/badge/security-policy-blue.svg)](SECURITY.md)
 [![GHCR](https://img.shields.io/badge/GHCR-ghcr.io%2Fthesilkky%2Fsafety--recorder-blue?logo=github)](https://github.com/TheSilkky/safety-recorder/pkgs/container/safety-recorder)
 
-Safety Recorder is an experimental Go backend for a private personal-safety recording system. It receives already-encrypted recording chunks, stores metadata in SQLite, keeps encrypted blobs on local disk, and exposes a token-scoped emergency viewer for read-only incident review.
+Proofline is an experimental Go backend for private encrypted incident capture. It receives already-encrypted recording chunks, stores metadata in SQLite, keeps encrypted blobs on local disk, and exposes a token-scoped read-only viewer for incident review.
+
+> Renaming note: the product name is now Proofline in documentation. Repository URLs, Go module paths, Docker image names, and GHCR package names may still use `safety-recorder` until a separate repository/organisation migration is explicitly performed.
 
 ## Security Warning
 
@@ -16,46 +18,67 @@ Safety Recorder is an experimental Go backend for a private personal-safety reco
 
 ## What It Is
 
-This repository currently contains the backend only. The intended future client is an iOS app that records audio/video in short chunks, encrypts them locally, and uploads them continuously so already-uploaded evidence is retained if a phone is lost, damaged, powered off, or taken.
+This repository currently contains the backend only. The intended long-term product is broader than emergency-only recording: Proofline should support private encrypted incident capture for emergencies, non-emergency interaction records, timed safety checks, and evidence notes.
+
+Future mobile clients are expected to record audio/video and supporting metadata in short chunks, encrypt them locally, and upload them continuously so already-uploaded evidence is retained if a phone is lost, damaged, powered off, or taken.
 
 Evidence bundles are ZIP files containing encrypted chunks and JSON manifests. They are not decrypted, playable, or merged media exports.
 
 The simulator encrypts fake chunks by default with the documented v1 AES-256-GCM envelope and verifies downloaded bundles locally. Keys remain client-side and are not uploaded to the backend. Future production key custody is expected to use a hybrid trusted-contact model; see [docs/key-custody.md](docs/key-custody.md).
 
+## Planned Incident Modes
+
+Proofline should separate capture from escalation. A user may want to preserve a private encrypted record without treating every recording as an emergency.
+
+Planned incident categories include:
+
+| Mode | Purpose | Default escalation |
+|---|---|---|
+| Emergency incident | Active safety risk where trusted contacts may need urgent access. | Trusted-contact alert immediately or after a short configured delay. |
+| Interaction record | Non-emergency record of important interactions, such as with police, security, landlords, employers, service providers, or other authorities. | No automatic escalation by default. |
+| Safety check | Timed check-in flow for walking home, meeting someone, travel, fieldwork, or other elevated-risk situations. | Trusted contacts alerted if the user misses the check-in. |
+| Evidence note | Quick photo, audio, location, or note bundle for damage, harassment, threats, or disputes. | No automatic escalation by default. |
+
+The current backend still stores generic incidents. First-class incident types, escalation policies, account access, and trusted-contact workflows are future protocol/client work. See [docs/incident-modes.md](docs/incident-modes.md).
+
 ## What Works Today
 
 - Private `/v1` write/admin API listener group
-- Public read-only emergency viewer listener group
+- Public read-only incident viewer listener group
 - SQLite metadata and local disk encrypted blob storage
 - Immutable chunk uploads with SHA-256 verification
 - Documented client-side chunk encryption envelope
 - Media streams with `open`, `complete`, and `failed` states
 - Completed encrypted stream and incident ZIP evidence bundle downloads
-- Scoped emergency viewer tokens with a default 24-hour expiry
+- Scoped viewer tokens with a default 24-hour expiry
 - Simulator CLI for encrypted upload, check-in, stream completion, and bundle download/decrypt-verification flows
 - Docker image build and GitHub Actions / GHCR publishing
 
 ## What It Is Not Yet
 
 - No iOS app
+- No Android app
+- No web client or account portal
 - No recording implementation
+- No first-class incident-type or escalation-policy schema
 - No production client-side encryption implementation
 - No backend/browser decryption, key sharing, server escrow, break-glass key access, or playable media export
 - No push notifications, SMS, or Messenger integration
 - No user accounts, OAuth, JWT, or public admin dashboard
 - No built-in TLS, app-level rate limiting, automated retention/deletion enforcement, or production deployment hardening
+- No emergency-services integration; users or trusted contacts remain responsible for contacting emergency services
 
 ## Architecture
 
-Safety Recorder runs separate private and public HTTP listener groups from the same Go binary. Private `/v1` routes handle writes and admin-style operations. Public emergency viewer routes are token-gated and read-only.
+Proofline runs separate private and public HTTP listener groups from the same Go binary. Private `/v1` routes handle writes and admin-style operations. Public viewer routes are token-gated and read-only.
 
 ```mermaid
 flowchart LR
-    FutureClient["Planned iOS client<br/>not in this repo"] --> Private["Private /v1 API<br/>localhost/LAN/WireGuard"]
+    FutureClient["Planned mobile clients<br/>not in this repo"] --> Private["Private /v1 API<br/>localhost/LAN/WireGuard"]
     Private --> DB[(SQLite metadata)]
     Private --> Blobs[(Local encrypted blobs)]
-    Private --> Tokens["Emergency token creation"]
-    Contact["Trusted contact"] --> Public["Public emergency viewer<br/>/e/{token}"]
+    Private --> Tokens["Viewer token creation"]
+    Contact["Trusted contact"] --> Public["Public incident viewer<br/>/e/{token}"]
     Public --> DB
     Public --> Blobs
     Public --> Bundles["Encrypted ZIP bundles<br/>completed streams only"]
@@ -83,7 +106,7 @@ By default this starts:
 | Listener | Address |
 |---|---|
 | Private API | `127.0.0.1:8080` |
-| Public emergency viewer | `127.0.0.1:8081` |
+| Public incident viewer | `127.0.0.1:8081` |
 
 In another terminal, run the simulator:
 
@@ -92,7 +115,7 @@ cd server
 go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle
 ```
 
-The simulator creates an incident, creates an emergency token, encrypts and uploads test chunks into a media stream, sends checkins, completes the stream, downloads the encrypted bundle, and verifies local decryption.
+The simulator creates an incident, creates a viewer token, encrypts and uploads test chunks into a media stream, sends checkins, completes the stream, downloads the encrypted bundle, and verifies local decryption.
 
 ## Docker
 
@@ -120,6 +143,7 @@ Container defaults bind to `0.0.0.0` inside the container. Restrict host exposur
 - [Getting started](docs/getting-started.md)
 - [Architecture](docs/architecture.md)
 - [Configuration](docs/configuration.md)
+- [Incident capture modes](docs/incident-modes.md)
 - [Encryption](docs/encryption.md)
 - [iOS local recorder prototype](docs/ios-local-recorder-prototype.md)
 - [Key custody and emergency access](docs/key-custody.md)
@@ -164,21 +188,27 @@ Do not let Codex create GitHub issues directly during the initial scan.
 
 ## Security
 
-Emergency viewer links are bearer-token URLs and should be treated as secrets. Public deployment still needs TLS, rate limiting, log review, proxy hardening, operational testing, and deployment-specific retention, backup, and deletion enforcement. Do not expose `/v1` publicly as-is.
+Viewer links are bearer-token URLs and should be treated as secrets. Public deployment still needs TLS, rate limiting, log review, proxy hardening, operational testing, and deployment-specific retention, backup, and deletion enforcement. Do not expose `/v1` publicly as-is.
 
 Please see [SECURITY.md](SECURITY.md) for supported versions and vulnerability reporting guidance. Do not report security vulnerabilities through public GitHub issues.
 
 ## Roadmap
 
+- Rename/migrate repository, module, Docker, and GHCR names after the Proofline docs-only rename is reviewed
+- GitHub organisation and multi-repo split planning for `server`, `web-client`, `ios-client`, `android-client`, and `protocol`
 - WireGuard-only bind/firewall deployment guidance
 - iOS client
+- Android client
+- Web client and account portal
 - Client-side recording and encryption
+- First-class incident types and escalation policies
+- Trusted-contact dead-man switch workflows
 - Production key custody, trusted-contact access, and browser/client-side decryption
 - Optional break-glass/dead-man-switch key access
 - Playable media export
-- Reverse-proxy/TLS hardening for emergency viewer exposure
+- Reverse-proxy/TLS hardening for incident viewer exposure
 - Explicit `/v1` access-control story before any public control-plane deployment
 
 ## License
 
-Safety Recorder is licensed under the GNU Affero General Public License v3.0 only (`AGPL-3.0-only`). See [LICENSE](LICENSE).
+Proofline is licensed under the GNU Affero General Public License v3.0 only (`AGPL-3.0-only`). See [LICENSE](LICENSE).
