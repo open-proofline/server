@@ -255,23 +255,82 @@ func (a *API) loadEmergencyToken(w http.ResponseWriter, r *http.Request) (incide
 // summarizeEmergencyData prepares viewer-safe incident data without exposing
 // stored paths or encrypted file bytes.
 func summarizeEmergencyData(detail incidents.IncidentDetail) emergencyViewData {
-	chunkCounts := make(map[string]int)
-	latestChunks := make(map[string]*emergencyChunkSummary)
-	streamChunkCounts := make(map[string]int)
-	streamByteCounts := make(map[string]int64)
-	for _, chunk := range detail.Chunks {
-		chunkCounts[chunk.MediaType]++
+	chunkStats := collectEmergencyChunkStats(detail.Chunks)
+	streams, completedStreams := summarizeEmergencyStreams(detail.Streams, chunkStats)
+
+	return emergencyViewData{
+		Incident:               summarizeIncident(detail.Incident),
+		LatestCheckin:          summarizeLatestCheckin(detail.Checkins),
+		ChunkCountByMediaType:  chunkStats.chunkCountByMediaType,
+		LatestChunkByMediaType: chunkStats.latestChunkByMediaType,
+		Media:                  summarizeEmergencyMedia(chunkStats),
+		Streams:                streams,
+		CompletedStreams:       completedStreams,
+		Warning:                emergencyWarning,
+		GeneratedAt:            time.Now().UTC(),
+	}
+}
+
+type emergencyChunkStats struct {
+	chunkCountByMediaType  map[string]int
+	latestChunkByMediaType map[string]*emergencyChunkSummary
+	chunkCountByStreamID   map[string]int
+	byteCountByStreamID    map[string]int64
+}
+
+func collectEmergencyChunkStats(chunks []incidents.Chunk) emergencyChunkStats {
+	stats := emergencyChunkStats{
+		chunkCountByMediaType:  make(map[string]int),
+		latestChunkByMediaType: make(map[string]*emergencyChunkSummary),
+		chunkCountByStreamID:   make(map[string]int),
+		byteCountByStreamID:    make(map[string]int64),
+	}
+	for _, chunk := range chunks {
+		stats.chunkCountByMediaType[chunk.MediaType]++
 		if chunk.StreamID != "" {
-			streamChunkCounts[chunk.StreamID]++
-			streamByteCounts[chunk.StreamID] += chunk.ByteSize
+			stats.chunkCountByStreamID[chunk.StreamID]++
+			stats.byteCountByStreamID[chunk.StreamID] += chunk.ByteSize
 		}
+
 		summary := summarizeChunk(chunk)
-		current := latestChunks[chunk.MediaType]
+		current := stats.latestChunkByMediaType[chunk.MediaType]
 		if current == nil || chunkReceivedAfter(summary, *current) {
-			latestChunks[chunk.MediaType] = &summary
+			stats.latestChunkByMediaType[chunk.MediaType] = &summary
 		}
 	}
+	return stats
+}
 
+func summarizeIncident(incident incidents.Incident) emergencyIncidentSummary {
+	return emergencyIncidentSummary{
+		ID:          incident.ID,
+		Status:      incident.Status,
+		ClientLabel: incident.ClientLabel,
+		CreatedAt:   incident.CreatedAt,
+		UpdatedAt:   incident.UpdatedAt,
+	}
+}
+
+func summarizeLatestCheckin(checkins []incidents.Checkin) *emergencyCheckinSummary {
+	if len(checkins) == 0 {
+		return nil
+	}
+	summary := summarizeCheckin(checkins[len(checkins)-1])
+	return &summary
+}
+
+func summarizeCheckin(checkin incidents.Checkin) emergencyCheckinSummary {
+	return emergencyCheckinSummary{
+		CreatedAt:            checkin.CreatedAt,
+		DeviceBatteryPercent: checkin.DeviceBatteryPercent,
+		DeviceNetwork:        checkin.DeviceNetwork,
+		Latitude:             checkin.Latitude,
+		Longitude:            checkin.Longitude,
+		AccuracyMeters:       checkin.AccuracyMeters,
+	}
+}
+
+func summarizeEmergencyMedia(stats emergencyChunkStats) []emergencyMediaSummary {
 	mediaTypes := []string{
 		incidents.MediaTypeAudio,
 		incidents.MediaTypeVideo,
@@ -282,61 +341,38 @@ func summarizeEmergencyData(detail incidents.IncidentDetail) emergencyViewData {
 	for _, mediaType := range mediaTypes {
 		media = append(media, emergencyMediaSummary{
 			MediaType:   mediaType,
-			ChunkCount:  chunkCounts[mediaType],
-			LatestChunk: latestChunks[mediaType],
+			ChunkCount:  stats.chunkCountByMediaType[mediaType],
+			LatestChunk: stats.latestChunkByMediaType[mediaType],
 		})
 	}
+	return media
+}
 
-	streams := make([]emergencyStreamSummary, 0, len(detail.Streams))
-	completedStreams := []emergencyStreamSummary{}
-	for _, stream := range detail.Streams {
-		summary := emergencyStreamSummary{
-			ID:                 stream.ID,
-			MediaType:          stream.MediaType,
-			Label:              stream.Label,
-			Status:             stream.Status,
-			ExpectedChunkCount: stream.ExpectedChunkCount,
-			CompletedAt:        stream.CompletedAt,
-			FailedAt:           stream.FailedAt,
-			FailureReason:      stream.FailureReason,
-			ChunkCount:         streamChunkCounts[stream.ID],
-			TotalBytes:         streamByteCounts[stream.ID],
-		}
-		streams = append(streams, summary)
+func summarizeEmergencyStreams(streams []incidents.MediaStream, stats emergencyChunkStats) ([]emergencyStreamSummary, []emergencyStreamSummary) {
+	summaries := make([]emergencyStreamSummary, 0, len(streams))
+	completed := []emergencyStreamSummary{}
+	for _, stream := range streams {
+		summary := summarizeEmergencyStream(stream, stats)
+		summaries = append(summaries, summary)
 		if stream.Status == incidents.StreamStatusComplete {
-			completedStreams = append(completedStreams, summary)
+			completed = append(completed, summary)
 		}
 	}
+	return summaries, completed
+}
 
-	var latestCheckin *emergencyCheckinSummary
-	if len(detail.Checkins) > 0 {
-		checkin := detail.Checkins[len(detail.Checkins)-1]
-		latestCheckin = &emergencyCheckinSummary{
-			CreatedAt:            checkin.CreatedAt,
-			DeviceBatteryPercent: checkin.DeviceBatteryPercent,
-			DeviceNetwork:        checkin.DeviceNetwork,
-			Latitude:             checkin.Latitude,
-			Longitude:            checkin.Longitude,
-			AccuracyMeters:       checkin.AccuracyMeters,
-		}
-	}
-
-	return emergencyViewData{
-		Incident: emergencyIncidentSummary{
-			ID:          detail.Incident.ID,
-			Status:      detail.Incident.Status,
-			ClientLabel: detail.Incident.ClientLabel,
-			CreatedAt:   detail.Incident.CreatedAt,
-			UpdatedAt:   detail.Incident.UpdatedAt,
-		},
-		LatestCheckin:          latestCheckin,
-		ChunkCountByMediaType:  chunkCounts,
-		LatestChunkByMediaType: latestChunks,
-		Media:                  media,
-		Streams:                streams,
-		CompletedStreams:       completedStreams,
-		Warning:                emergencyWarning,
-		GeneratedAt:            time.Now().UTC(),
+func summarizeEmergencyStream(stream incidents.MediaStream, stats emergencyChunkStats) emergencyStreamSummary {
+	return emergencyStreamSummary{
+		ID:                 stream.ID,
+		MediaType:          stream.MediaType,
+		Label:              stream.Label,
+		Status:             stream.Status,
+		ExpectedChunkCount: stream.ExpectedChunkCount,
+		CompletedAt:        stream.CompletedAt,
+		FailedAt:           stream.FailedAt,
+		FailureReason:      stream.FailureReason,
+		ChunkCount:         stats.chunkCountByStreamID[stream.ID],
+		TotalBytes:         stats.byteCountByStreamID[stream.ID],
 	}
 }
 
