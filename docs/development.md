@@ -57,6 +57,111 @@ Use `go vet ./...` when reviewing larger changes:
 go vet ./...
 ```
 
+## Go Readability Standards
+
+Readability-only work should make the Go backend easier to inspect, debug, and safely modify while preserving current behaviour. It must not introduce features, dependency changes, schema changes, route changes, security-model changes, or production-readiness claims.
+
+### Package And File Shape
+
+Keep packages aligned with the responsibilities documented in [code-map.md](code-map.md). Split large files when a package already owns several distinct concepts, but do not create new packages unless the responsibility boundary is clearer than the existing package boundary.
+
+Preferred patterns:
+
+- keep incident, chunk, stream, checkin, and emergency-token repository methods grouped by concern
+- keep HTTP handlers, request parsing, response shaping, and viewer summaries easy to locate
+- keep file names boring and descriptive, such as `chunks.go`, `checkins.go`, or `emergency_tokens.go`
+- keep exported API surface stable unless the task explicitly requires an API change
+
+Avoid moving code only to make a diff look cleaner. A split should help future reviewers find related invariants, queries, handlers, or tests.
+
+### Function Shape And Naming
+
+Prefer small functions with one clear reason to exist. Names should describe the project behaviour they protect, not generic control flow.
+
+Preferred examples:
+
+- `validateChunkInsertState`
+- `parseChunkTimeRange`
+- `collectEmergencyChunkStats`
+- `summarizeEmergencyStreams`
+- `emergencyTokenExpiresAt`
+
+Avoid vague names such as `processData`, `handleThing`, or `doCheck`. If a helper only exists to hide complexity, give it a name that explains the domain step being performed.
+
+Keep the main handler or repository method readable as an ordered story:
+
+1. read or validate inputs
+2. load required state
+3. enforce invariants
+4. perform the write or response transformation
+5. return a stable response or typed error
+
+### Behaviour-Preserving Refactors
+
+Readability refactors should preserve:
+
+- HTTP methods, route paths, status codes, JSON field names, and error codes
+- database schema, migration history, and stored data meaning
+- token creation, hashing, expiry, revocation, and public error-collapsing behaviour
+- encryption envelope and key-custody assumptions
+- bundle format, ZIP entry naming, and encrypted evidence-bundle semantics
+- private `/v1` and public emergency-viewer listener separation
+- logging exclusions for raw tokens, request bodies, uploaded bytes, Authorization headers, plaintext, raw keys, and future token-like values
+
+When a refactor touches security-sensitive paths, keep the old invariant visible in the new shape. For example, emergency viewer code should still make it obvious that invalid, expired, and revoked tokens collapse into the same public error, and upload code should still make the temp-file, hash-verification, immutable-commit, and metadata-write order easy to follow.
+
+### Comments And Invariants
+
+Comments should explain non-obvious project invariants, security boundaries, race handling, or compatibility decisions. Do not comment ordinary Go syntax.
+
+Good comments explain why behaviour exists, for example:
+
+- why raw emergency tokens are returned once and only hashes are stored
+- why streamed chunks require positive indexes while legacy unstreamed uploads may keep index `0`
+- why the schema unique constraint remains the final duplicate guard after HTTP preflight checks
+- why viewer summaries must not expose stored paths or encrypted file bytes
+
+If a comment would become stale as soon as a helper is renamed, prefer a clearer helper name instead.
+
+### Error Handling And Validation
+
+Keep validation close to the data it validates. Preserve typed sentinel errors where callers depend on them, and wrap unexpected errors with enough context for debugging.
+
+Preferred patterns:
+
+- return repository sentinel errors such as `ErrNotFound`, `ErrDuplicate`, `ErrInvalidState`, and `ErrIncidentClosed` for expected domain failures
+- keep HTTP request parsing helpers responsible for user-facing `400` and `413` responses
+- keep internal error logging behind `internalError` so sensitive request data is not logged incidentally
+- clean up temporary uploads on failed parsing, duplicate file fields, oversize requests, or invalid metadata
+
+Do not collapse distinct internal error contexts into vague messages just to shorten code.
+
+### Tests And Review Evidence
+
+Tests should describe the behaviour being protected. Prefer table-driven tests when they make edge cases clearer, and use test names that read like behaviour statements.
+
+After Go readability changes, run from `server/`:
+
+```bash
+gofmt -w .
+go test ./...
+go vet ./...
+```
+
+For behaviour-sensitive handler, storage, stream, bundle, or simulator changes, also consider the simulator smoke test documented in [codex-change-control.md](codex-change-control.md). For documentation-only readability standards changes, inspect the Markdown diff and links manually.
+
+### Codex Readability Tasks
+
+Reusable readability prompts should reference this section before proposing code changes. If this section and a prompt disagree, treat current source-of-truth docs and code as authoritative, then update the prompt as part of the docs/process change.
+
+Codex output should summarize:
+
+1. files changed
+2. readability changes made
+3. behaviour-preservation notes
+4. validation commands run
+5. follow-up work that should become an issue instead of expanding the diff
+
 ## Documentation Checks
 
 When editing docs, keep these claims aligned:
@@ -252,7 +357,7 @@ docker buildx imagetools inspect docker.io/library/alpine:3.23
 
 Dependabot is enabled for the `docker` ecosystem in
 [../.github/dependabot.yml](../.github/dependabot.yml) and monitors the
-Dockerfile under `server/`. Prefer reviewing Dependabot pull requests for
+Dockerfile under `server/`. Prefer reviewing those Dependabot pull requests for
 routine base-image refreshes.
 
 Update only the digest for the same intended tag unless the issue, Dependabot
