@@ -9,7 +9,7 @@ Pull request number: `<PR_NUMBER>`
 Repository:
 
 ```text
-TheSilkky/safety-recorder
+open-proofline/server
 ```
 
 Expected base branch:
@@ -33,7 +33,7 @@ If the expected base branch is unknown, inspect the PR metadata first and report
 Fetch PR metadata and confirm base/head branches:
 
 ```bash
-gh pr view <PR_NUMBER> --repo TheSilkky/safety-recorder --json number,title,state,isDraft,baseRefName,headRefName,headRepositoryOwner,mergeStateStatus,statusCheckRollup,url
+gh pr view <PR_NUMBER> --repo open-proofline/server --json number,title,state,isDraft,baseRefName,headRefName,headRepositoryOwner,mergeStateStatus,statusCheckRollup,url
 ```
 
 Before posting a review request or reviewing locally, summarize:
@@ -84,7 +84,7 @@ Do not include sensitive vulnerability details in a public comment.
 Use this in the IDE if reviewing locally:
 
 ```md
-Review pull request #<PR_NUMBER> in `TheSilkky/safety-recorder`.
+Review pull request #<PR_NUMBER> in `open-proofline/server`.
 
 First fetch PR metadata and diff.
 

@@ -38,7 +38,7 @@ Read:
 If GitHub CLI is available, inspect repository labels:
 
 ```bash
-gh label list --repo TheSilkky/safety-recorder --limit 200
+gh label list --repo open-proofline/server --limit 200
 ```
 
 ## Standard `.backlog-drafts/` structure

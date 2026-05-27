@@ -138,8 +138,7 @@ Update `docs/security-model.md`, `docs/deployment.md`, or README only if header 
 Run:
 
 ```bash
-cd server
-gofmt -w .
+gofmt -w ./cmd ./internal ./migrations
 go test ./...
 go vet ./...
 ```

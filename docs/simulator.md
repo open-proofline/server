@@ -1,6 +1,6 @@
 # Simulator
 
-The simulator CLI lives at `server/cmd/simclient`. It exercises the current Proofline ingest flow that a future recording client is expected to use. By default it encrypts fake chunk plaintext with the v1 client-side envelope before upload.
+The simulator CLI lives at `cmd/simclient`. It exercises the current Proofline ingest flow that a future recording client is expected to use. By default it encrypts fake chunk plaintext with the v1 client-side envelope before upload.
 
 The simulator covers generic incidents only. It does not implement planned incident modes such as emergency incidents, interaction records, safety checks, or evidence notes.
 
@@ -9,7 +9,6 @@ The simulator covers generic incidents only. It does not implement planned incid
 Start the backend first:
 
 ```bash
-cd server
 go run ./cmd/api
 ```
 

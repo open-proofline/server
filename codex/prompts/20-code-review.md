@@ -91,8 +91,7 @@ If you make changes:
 - run:
 
 ```bash
-cd server
-gofmt -w .
+gofmt -w ./cmd ./internal ./migrations
 go test ./...
 go vet ./...
 ```

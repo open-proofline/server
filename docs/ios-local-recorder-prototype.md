@@ -238,7 +238,6 @@ Before iOS implementation starts:
 - run the simulator smoke test as the backend reference flow:
 
 ```bash
-cd server
 go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle
 ```
 

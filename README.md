@@ -3,7 +3,7 @@
 [![CI](https://github.com/open-proofline/server/actions/workflows/ci.yml/badge.svg)](https://github.com/open-proofline/server/actions/workflows/ci.yml)
 [![Latest Tag](https://img.shields.io/github/v/tag/open-proofline/server?sort=semver)](https://github.com/open-proofline/server/tags)
 [![License: AGPL-3.0-only](https://img.shields.io/badge/license-AGPL--3.0--only-blue.svg)](LICENSE)
-[![Go Version](https://img.shields.io/github/go-mod/go-version/open-proofline/server?filename=server%2Fgo.mod)](server/go.mod)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/open-proofline/server?filename=go.mod)](go.mod)
 [![Status: Experimental](https://img.shields.io/badge/status-experimental-orange.svg)](#security-warning)
 [![Security Policy](https://img.shields.io/badge/security-policy-blue.svg)](SECURITY.md)
 [![GHCR](https://img.shields.io/static/v1?label=GHCR&message=ghcr.io%2Fopen-proofline%2Fserver&color=blue&logo=github)](https://github.com/orgs/open-proofline/packages/container/package/server)
@@ -12,7 +12,7 @@ Proofline Server is the experimental Go server backend for private encrypted inc
 
 > Repository role: this repository is the server/backend component only. In the multi-repo layout it is `open-proofline/server`, not the full Proofline product suite.
 >
-> Migration note: the GitHub repository has moved to `open-proofline/server`. Go module paths, Docker image names, and GHCR package names may still use `safety-recorder` until separate module/artifact migrations are explicitly performed.
+> Artifact note: the Go module path is `github.com/open-proofline/server`, the published GHCR image is `ghcr.io/open-proofline/server`, and release binaries use `proofline-server-*` names. Compatibility identifiers such as the v1 encryption envelope scheme and default SQLite filename may still use earlier `safety-recorder` names until separate protocol or data-layout migrations are explicitly designed.
 
 ## Security Warning
 
@@ -116,7 +116,6 @@ Requirements:
 Run the backend:
 
 ```bash
-cd server
 go run ./cmd/api
 ```
 
@@ -130,7 +129,6 @@ By default this starts:
 In another terminal, run the simulator:
 
 ```bash
-cd server
 go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle
 ```
 
@@ -141,7 +139,7 @@ The simulator creates an incident, creates a viewer token, encrypts and uploads 
 Build from the repository root:
 
 ```bash
-docker build -t safety-recorder-backend ./server
+docker build -t proofline-server .
 ```
 
 Run with local-only port publishing and a named data volume:
@@ -150,8 +148,8 @@ Run with local-only port publishing and a named data volume:
 docker run --rm \
   -p 127.0.0.1:8080:8080 \
   -p 127.0.0.1:8081:8081 \
-  -v safety-recorder-data:/data \
-  safety-recorder-backend
+  -v proofline-server-data:/data \
+  proofline-server
 ```
 
 Container defaults bind to `0.0.0.0` inside the container. Restrict host exposure with port publishing, firewall rules, WireGuard, or a reverse proxy. See [docs/deployment.md](docs/deployment.md).
@@ -214,7 +212,7 @@ Please see [SECURITY.md](SECURITY.md) for supported versions and vulnerability r
 ## Roadmap
 
 - Create future `open-proofline/web-client`, `open-proofline/ios-client`, `open-proofline/android-client`, and `open-proofline/protocol` repositories when their scopes are ready
-- Rename/migrate module, Docker, and GHCR names after artifact migration is planned
+- Plan any future protocol or data-layout compatibility migrations separately from the completed repository/module/artifact rename
 - WireGuard-only bind/firewall deployment guidance
 - Server-side support for first-class incident types and escalation policies after protocol design
 - Server-side support for trusted-contact dead-man switch workflows after access-control design

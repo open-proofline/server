@@ -14,7 +14,7 @@ Issue number: `<ISSUE_NUMBER>`
 Repository:
 
 ```text
-TheSilkky/safety-recorder
+open-proofline/server
 ```
 
 Target base branch:
@@ -61,7 +61,7 @@ Do not create a PR if:
 Review the issue:
 
 ```bash
-gh issue view <ISSUE_NUMBER> --repo TheSilkky/safety-recorder
+gh issue view <ISSUE_NUMBER> --repo open-proofline/server
 ```
 
 Review the diff against the target base branch:
@@ -95,8 +95,7 @@ GitHub CLI supports specifying the PR base branch with `--base` / `-B`. If `--ba
 If Go code changed, run:
 
 ```bash
-cd server
-gofmt -w .
+gofmt -w ./cmd ./internal ./migrations
 go test ./...
 go vet ./...
 ```
@@ -106,7 +105,6 @@ If only Markdown changed, inspect docs and links manually. Go tests are not requ
 If simulator behaviour is relevant:
 
 ```bash
-cd server
 go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle
 ```
 
@@ -124,7 +122,7 @@ Create a draft PR against the target base branch:
 
 ```bash
 gh pr create \
-  --repo TheSilkky/safety-recorder \
+  --repo open-proofline/server \
   --base "<TARGET_BASE_BRANCH>" \
   --head "$(git branch --show-current)" \
   --draft \
@@ -139,8 +137,8 @@ gh pr create \
 - ...
 
 ## Validation
-- [ ] cd server && go test ./...
-- [ ] cd server && go vet ./...
+- [ ] go test ./...
+- [ ] go vet ./...
 "
 ```
 

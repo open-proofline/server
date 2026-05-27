@@ -49,7 +49,7 @@ Responsibilities:
 | `android-client` | Android incident capture, encrypted staging, upload, local account flows, and platform-specific recording behavior. |
 | `protocol` | Shared API specs, encryption envelope specs, bundle manifests, compatibility matrix, and conformance tests. |
 
-The GitHub repository has moved to `open-proofline/server`. Module paths, Docker image names, and GHCR package names may still use `safety-recorder` until separate module/artifact migrations are performed.
+The Go module path is `github.com/open-proofline/server`, release binaries use `proofline-server-*` names, and the published GHCR image is `ghcr.io/open-proofline/server`. Compatibility identifiers such as the v1 simulator encryption envelope and default SQLite filename may still use earlier `safety-recorder` names until separate protocol or data-layout migrations are explicitly performed.
 
 ## Server Boundary
 
