@@ -5,6 +5,7 @@
 - Added `Phase 0` Deep Research prompt. Loads report instructions and plans research prior to running `Phase 1`
 - Documented Go readability standards and aligned the readability-maintenance Codex prompt with them.
 - Refactored `server/internal/db` connection, migration orchestration, and compatibility migration helpers into focused files for readability without changing migration behaviour.
+- Refactored `server/internal/envelope` key-file, associated-data, chunk encryption, and header parsing helpers into focused files without changing the envelope format.
 - Refactored `server/internal/httpapi` summary, bundle, stream-validation, and upload parsing helpers for readability without changing HTTP behaviour.
 - Refactored `server/internal/incidents` repository methods into focused chunk, checkin, and emergency-token files for readability without changing behaviour.
 - Refactored `server/internal/storage` temp upload and immutable blob helpers into focused files for readability without changing storage behaviour.
