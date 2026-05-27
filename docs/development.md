@@ -1,6 +1,6 @@
 # Development
 
-Safety Recorder is a Go backend only. Keep changes small, boring, and testable.
+Proofline currently contains a Go backend only. Keep changes small, boring, and testable. Repository, module, Docker, and GHCR artifact names may still use `safety-recorder` until an explicit migration is performed.
 
 ## AI Assistance
 
@@ -61,14 +61,15 @@ go vet ./...
 
 When editing docs, keep these claims aligned:
 
-- current version and scope in [../README.md](../README.md)
+- current name, version, and scope in [../README.md](../README.md)
+- planned incident modes in [incident-modes.md](incident-modes.md)
 - route details in [api.md](api.md)
 - security assumptions in [security-model.md](security-model.md) and [threat-model.md](threat-model.md)
 - future key custody/decryption designs in [key-custody.md](key-custody.md), [browser-decryption.md](browser-decryption.md), and [break-glass-key-access.md](break-glass-key-access.md)
 - package layout in [code-map.md](code-map.md)
 - release notes in [../CHANGELOG.md](../CHANGELOG.md)
 
-Do not claim production readiness unless deployment hardening has actually been implemented.
+Do not claim production readiness unless deployment hardening has actually been implemented. Do not treat the docs-only Proofline rename as a repository, module, Docker image, or GHCR namespace migration.
 
 ## Backlog Discipline
 
