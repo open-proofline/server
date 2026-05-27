@@ -159,6 +159,7 @@ Check and fix, if needed:
 - Current backend ciphertext-only behavior is represented accurately.
 - Historical report names are not rewritten as if they used the new product name at the time.
 - ChatGPT internal citation tokens are removed or converted to portable citation keys.
+- Remove informal or conversational draft language, including humour, mascot references, assistant/meta commentary, and chat-only tone, unless it is quoted as reviewed evidence.
 - Source Registry entries support material claims.
 - External-source omissions are disclosed and affected claims are marked not independently verified.
 
