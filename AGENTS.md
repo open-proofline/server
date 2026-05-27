@@ -4,7 +4,7 @@
 
 - Keep the backend small, boring, and testable.
 - Prefer Go standard library where practical.
-- This repository is the Proofline Go server backend only. In the planned organisation layout it corresponds to `open-proofline/server`.
+- This repository is the Proofline Go server backend only. In the current organisation layout it is `open-proofline/server`.
 - Do not add web-client, iOS-client, Android-client, or shared-protocol implementation to this repository unless the maintainer explicitly changes the repository strategy.
 - Do not add React, Node, npm, Docker Compose, Kubernetes, OAuth, JWT, user accounts, SMS, Messenger, push notifications, cloud services, or public admin dashboards unless explicitly requested.
 - Treat uploaded chunks as immutable.
@@ -36,10 +36,10 @@
 
 - Product documentation uses the name Proofline.
 - This repository is the Go server backend component only.
-- Planned future organisation: `open-proofline`.
-- Planned future server repository: `open-proofline/server`.
+- Current organisation: `open-proofline`.
+- Current server repository: `open-proofline/server`.
 - Planned future companion repositories: `open-proofline/web-client`, `open-proofline/ios-client`, `open-proofline/android-client`, and `open-proofline/protocol`.
-- The current GitHub repository, Go module, Docker image, and GHCR package may still use `safety-recorder` until an explicit migration is performed.
+- The Go module, Docker image, and GHCR package may still use `safety-recorder` until a separate module/artifact migration is explicitly performed.
 - SQLite metadata.
 - Local disk blob storage.
 - Private API listener group for `/v1` routes.

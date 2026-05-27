@@ -49,7 +49,7 @@ Responsibilities:
 | `android-client` | Android incident capture, encrypted staging, upload, local account flows, and platform-specific recording behavior. |
 | `protocol` | Shared API specs, encryption envelope specs, bundle manifests, compatibility matrix, and conformance tests. |
 
-This repository has not been moved yet. Repository URLs, module paths, Docker image names, and GHCR package names may still use `safety-recorder` until a separate migration is performed.
+The GitHub repository has moved to `open-proofline/server`. Module paths, Docker image names, and GHCR package names may still use `safety-recorder` until separate module/artifact migrations are performed.
 
 ## Server Boundary
 
