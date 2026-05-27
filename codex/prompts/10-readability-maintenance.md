@@ -20,12 +20,16 @@ Before making changes, read current source-of-truth files as relevant:
 - `CHANGELOG.md`
 - `SECURITY.md`
 - `docs/README.md`
+- `docs/development.md`, especially `Go Readability Standards`
 - relevant files in `docs/`
 - relevant source files
 - relevant tests
 - relevant issue or PR, if this is issue/PR work
 
 Do not rely on stale assumptions from this prompt if the repository has changed.
+
+If this prompt and `docs/development.md` disagree about readability standards, treat the current source-of-truth docs and code as authoritative, then update this prompt as part of the docs/process change.
+
 ## Global constraints
 
 - Keep changes scoped to the task.
@@ -44,9 +48,23 @@ Do not rely on stale assumptions from this prompt if the repository has changed.
 - Server storage of wrapped/encrypted keys may be acceptable if explicitly designed.
 - Raw server-side key access or server-side decryption may be acceptable only as a deliberate break-glass/dead-man-switch/emergency-access mode with clear access controls, audit expectations, and deployment warnings.
 
+## Go readability standards
+
+Follow `docs/development.md#go-readability-standards` for package shape, function naming, comments, error handling, behaviour-preserving refactors, tests, and review evidence.
+
+In particular, readability-only work should:
+
+- preserve current behaviour and public API shape
+- keep package and file splits aligned with documented responsibilities
+- use boring, descriptive helper names that explain domain steps
+- comment non-obvious invariants rather than ordinary Go syntax
+- keep security-sensitive invariants visible after refactors
+- keep validation and cleanup close to the data or temporary resource being validated
+- summarize behaviour-preservation reasoning in the final output
+
 ## Focus on
 
-- splitting overly large files
+- splitting overly large files when the package already owns multiple distinct concerns
 - clearer handler names
 - clearer route registration
 - clearer package responsibilities
@@ -79,6 +97,8 @@ gofmt -w .
 go test ./...
 go vet ./...
 ```
+
+For documentation-only readability standards changes, inspect the Markdown diff and links manually. Go tests are not required unless code changed.
 
 ## Output
 
