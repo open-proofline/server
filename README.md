@@ -1,18 +1,18 @@
 # Proofline Server
 
-[![CI](https://github.com/TheSilkky/safety-recorder/actions/workflows/ci.yml/badge.svg)](https://github.com/TheSilkky/safety-recorder/actions/workflows/ci.yml)
-[![Latest Tag](https://img.shields.io/github/v/tag/TheSilkky/safety-recorder?sort=semver)](https://github.com/TheSilkky/safety-recorder/tags)
+[![CI](https://github.com/open-proofline/server/actions/workflows/ci.yml/badge.svg)](https://github.com/open-proofline/server/actions/workflows/ci.yml)
+[![Latest Tag](https://img.shields.io/github/v/tag/open-proofline/server?sort=semver)](https://github.com/open-proofline/server/tags)
 [![License: AGPL-3.0-only](https://img.shields.io/badge/license-AGPL--3.0--only-blue.svg)](LICENSE)
-[![Go Version](https://img.shields.io/github/go-mod/go-version/TheSilkky/safety-recorder?filename=server%2Fgo.mod)](server/go.mod)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/open-proofline/server?filename=server%2Fgo.mod)](server/go.mod)
 [![Status: Experimental](https://img.shields.io/badge/status-experimental-orange.svg)](#security-warning)
 [![Security Policy](https://img.shields.io/badge/security-policy-blue.svg)](SECURITY.md)
 [![GHCR](https://img.shields.io/badge/GHCR-ghcr.io%2Fthesilkky%2Fsafety--recorder-blue?logo=github)](https://github.com/TheSilkky/safety-recorder/pkgs/container/safety-recorder)
 
 Proofline Server is the experimental Go server backend for private encrypted incident capture. It receives already-encrypted recording chunks, stores metadata in SQLite, keeps encrypted blobs on local disk, and exposes a token-scoped read-only viewer for incident review.
 
-> Repository role: this repository is the server/backend component only. In the planned multi-repo layout it corresponds to `open-proofline/server`, not the full Proofline product suite.
+> Repository role: this repository is the server/backend component only. In the multi-repo layout it is `open-proofline/server`, not the full Proofline product suite.
 >
-> Migration note: the current GitHub repository, Go module paths, Docker image names, and GHCR package names may still use `safety-recorder` until a separate repository/organisation migration is explicitly performed.
+> Migration note: the GitHub repository has moved to `open-proofline/server`. Go module paths, Docker image names, and GHCR package names may still use `safety-recorder` until separate module/artifact migrations are explicitly performed.
 
 ## Security Warning
 
@@ -213,9 +213,8 @@ Please see [SECURITY.md](SECURITY.md) for supported versions and vulnerability r
 
 ## Roadmap
 
-- Migrate this repository to `open-proofline/server`, if/when the organisation split is performed
 - Create future `open-proofline/web-client`, `open-proofline/ios-client`, `open-proofline/android-client`, and `open-proofline/protocol` repositories when their scopes are ready
-- Rename/migrate module, Docker, and GHCR names after repository migration is planned
+- Rename/migrate module, Docker, and GHCR names after artifact migration is planned
 - WireGuard-only bind/firewall deployment guidance
 - Server-side support for first-class incident types and escalation policies after protocol design
 - Server-side support for trusted-contact dead-man switch workflows after access-control design
