@@ -207,7 +207,7 @@ Suggested route groups:
 
 Rate limiting does not make `/v1` safe to expose publicly. Keep the private API on localhost, LAN, WireGuard, firewall rules, or a private reverse-proxy entry point even when limits are configured.
 
-Exact limits are deployment-specific. Start with conservative values, watch legitimate simulator/client behavior, then adjust. Avoid sending raw `/i/{token}` paths to metrics, dashboards, or logs while measuring limiter behavior.
+Exact limits are deployment-specific. Start with conservative values, watch legitimate simulator/client behavior, then adjust. Avoid sending raw `/i/{token}` paths or stale pre-rename `/e/{token}` paths to metrics, dashboards, or logs while measuring limiter behavior.
 
 ### Traefik Rate-Limiting Example
 
@@ -364,13 +364,14 @@ When Traefik sits behind another proxy or load balancer, review forwarded-header
 
 ### Viewer Token Paths In Proxy Logs
 
-Viewer URLs are bearer-token URLs. The Go server logs redacted route patterns such as `/i/{token}`, but an edge proxy can still log the raw request path before the request reaches the Go server.
+Viewer URLs are bearer-token URLs. The Go server logs redacted route patterns such as `/i/{token}`, but an edge proxy can still log the raw request path before the request reaches the Go server. During upgrades from pre-rename releases, stale `/e/{token}` requests are also token-bearing paths and should be redacted even though the Go app no longer serves that route.
 
 For Traefik, use an access-log format that supports field controls, then review the fields for the version you deploy and drop or sanitize request path fields. If path redaction is unavailable in your logging format, disable access logs for this router or pass logs through a sanitizer before storage. Redacting headers is not enough because the token is in the URL path.
 
 Avoid logging:
 
 - raw `/i/{token}` paths
+- stale pre-rename `/e/{token}` paths
 - query strings attached to viewer URLs
 - request bodies
 - uploaded bytes

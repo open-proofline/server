@@ -23,7 +23,7 @@ Private write/admin routes must not be mounted on public incident viewer listene
 
 Incident viewer tokens are scoped to one incident. The raw token is returned only at creation time; SQLite stores only a SHA-256 hash. Tokens created without an explicit `expires_at` default to a 24-hour lifetime unless `SAFE_DEFAULT_INCIDENT_TOKEN_TTL` is configured differently. Expired, revoked, and invalid tokens return the same public error.
 
-Viewer URLs contain bearer tokens and should be treated as secrets. Reverse proxies and operational logs should avoid recording raw `/i/{token}` paths.
+Viewer URLs contain bearer tokens and should be treated as secrets. Reverse proxies and operational logs should avoid recording raw `/i/{token}` paths. During upgrades from pre-rename releases, stale `/e/{token}` links may also reach the edge proxy and should be redacted even though the Go app no longer serves that route.
 
 ## Upload And Storage Controls
 
