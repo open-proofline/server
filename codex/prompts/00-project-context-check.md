@@ -31,8 +31,8 @@ Do not rely on stale assumptions from this prompt if the repository has changed.
 If the task references an issue or pull request, inspect it first:
 
 ```bash
-gh issue view <ISSUE_NUMBER> --repo TheSilkky/safety-recorder
-gh pr view <PR_NUMBER> --repo TheSilkky/safety-recorder
+gh issue view <ISSUE_NUMBER> --repo open-proofline/server
+gh pr view <PR_NUMBER> --repo open-proofline/server
 ```
 
 Use whichever command is relevant.
