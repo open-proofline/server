@@ -33,7 +33,7 @@ func newHTTPServers(cfg config.Config, privateHandler, publicHandler http.Handle
 	}
 	for _, addr := range cfg.PublicBindAddrs {
 		servers = append(servers, namedServer{
-			name: "public emergency viewer",
+			name: "public incident viewer",
 			server: &http.Server{
 				Addr:              addr,
 				Handler:           publicHandler,

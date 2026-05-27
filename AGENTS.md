@@ -9,7 +9,7 @@
 - Do not add React, Node, npm, Docker Compose, Kubernetes, OAuth, JWT, user accounts, SMS, Messenger, push notifications, cloud services, or public admin dashboards unless explicitly requested.
 - Treat uploaded chunks as immutable.
 - Never overwrite stored chunks or evidence bundle contents.
-- Never log raw viewer tokens, emergency tokens, request bodies, uploaded file bytes, Authorization headers, plaintext, raw keys, or future token-like values.
+- Never log raw viewer tokens, incident tokens, request bodies, uploaded file bytes, Authorization headers, plaintext, raw keys, or future token-like values.
 - Keep private `/v1` write/admin routes and public incident viewer routes on separate listener groups and separate muxes.
 - Do not mount private write/admin routes on public incident viewer servers.
 - Public incident viewer routes must remain read-only.
@@ -43,7 +43,7 @@
 - SQLite metadata.
 - Local disk blob storage.
 - Private API listener group for `/v1` routes.
-- Public incident viewer listener group for `/e/{token}` routes.
+- Public incident viewer listener group for `/i/{token}` routes.
 - Uploaded chunks may be grouped into media streams.
 - Media streams can be marked `open`, `complete`, or `failed`.
 - Completed streams and incidents can be downloaded as encrypted ZIP evidence bundles.

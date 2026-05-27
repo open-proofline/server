@@ -56,13 +56,13 @@ func newTestAppWithMaxUploadBytesAndLogger(t *testing.T, maxUploadBytes int64, l
 	})
 }
 
-func newTestAppWithDefaultEmergencyTokenTTL(t *testing.T, ttl time.Duration) *testApp {
+func newTestAppWithDefaultIncidentTokenTTL(t *testing.T, ttl time.Duration) *testApp {
 	t.Helper()
 
 	return newTestAppWithOptions(t, httpapi.Options{
-		MaxUploadBytes:           1024 * 1024,
-		DefaultEmergencyTokenTTL: &ttl,
-		Logger:                   slog.New(slog.NewTextHandler(io.Discard, nil)),
+		MaxUploadBytes:          1024 * 1024,
+		DefaultIncidentTokenTTL: &ttl,
+		Logger:                  slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 }
 
@@ -114,7 +114,7 @@ func createIncident(t *testing.T, app *testApp, requestBody string) string {
 	return result.IncidentID
 }
 
-type emergencyTokenResponse struct {
+type incidentTokenResponse struct {
 	TokenID    string     `json:"token_id"`
 	IncidentID string     `json:"incident_id"`
 	Token      string     `json:"token"`
@@ -123,7 +123,7 @@ type emergencyTokenResponse struct {
 	ExpiresAt  *time.Time `json:"expires_at"`
 }
 
-func createEmergencyToken(t *testing.T, app *testApp, incidentID string, label string, expiresAt *time.Time) emergencyTokenResponse {
+func createIncidentToken(t *testing.T, app *testApp, incidentID string, label string, expiresAt *time.Time) incidentTokenResponse {
 	t.Helper()
 
 	requestBody, err := json.Marshal(struct {
@@ -134,19 +134,19 @@ func createEmergencyToken(t *testing.T, app *testApp, incidentID string, label s
 		ExpiresAt: expiresAt,
 	})
 	if err != nil {
-		t.Fatalf("marshal emergency token request: %v", err)
+		t.Fatalf("marshal incident token request: %v", err)
 	}
 
-	response, body := post(t, app, "/v1/incidents/"+incidentID+"/emergency-tokens", "application/json", bytes.NewReader(requestBody))
+	response, body := post(t, app, "/v1/incidents/"+incidentID+"/incident-tokens", "application/json", bytes.NewReader(requestBody))
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusCreated {
-		t.Fatalf("expected create emergency token status 201, got %d: %s", response.StatusCode, body)
+		t.Fatalf("expected create incident token status 201, got %d: %s", response.StatusCode, body)
 	}
 	assertNoStore(t, response)
 
-	var result emergencyTokenResponse
+	var result incidentTokenResponse
 	if err := json.Unmarshal(body, &result); err != nil {
-		t.Fatalf("decode create emergency token response: %v", err)
+		t.Fatalf("decode create incident token response: %v", err)
 	}
 	return result
 }
@@ -365,7 +365,7 @@ func stringsOf(value string, count int) string {
 	return builder.String()
 }
 
-func assertEmergencyPrivacyHeaders(t *testing.T, response *http.Response) {
+func assertIncidentViewerPrivacyHeaders(t *testing.T, response *http.Response) {
 	t.Helper()
 
 	assertPublicBrowserSecurityHeaders(t, response)
@@ -454,7 +454,7 @@ func assertBundleHeaders(t *testing.T, response *http.Response) {
 	if !strings.HasPrefix(response.Header.Get("Content-Disposition"), `attachment; filename="incident_`) {
 		t.Fatalf("expected attachment content disposition, got %q", response.Header.Get("Content-Disposition"))
 	}
-	assertEmergencyPrivacyHeaders(t, response)
+	assertIncidentViewerPrivacyHeaders(t, response)
 }
 
 func assertErrorCode(t *testing.T, body []byte, expected string) {
@@ -506,7 +506,7 @@ func assertZipEntry(t *testing.T, entries map[string][]byte, name string) {
 	}
 }
 
-type emergencyTokenDBRow struct {
+type incidentTokenDBRow struct {
 	ID         string
 	IncidentID string
 	TokenHash  string
@@ -516,22 +516,22 @@ type emergencyTokenDBRow struct {
 	RevokedAt  string
 }
 
-func emergencyTokenRows(t *testing.T, app *testApp) []emergencyTokenDBRow {
+func incidentTokenRows(t *testing.T, app *testApp) []incidentTokenDBRow {
 	t.Helper()
 
 	rows, err := app.db.QueryContext(context.Background(), `
 		SELECT id, incident_id, token_hash, COALESCE(label, ''),
 			created_at, COALESCE(expires_at, ''), COALESCE(revoked_at, '')
-		FROM emergency_tokens
+		FROM incident_tokens
 		ORDER BY id`)
 	if err != nil {
-		t.Fatalf("query emergency token rows: %v", err)
+		t.Fatalf("query incident token rows: %v", err)
 	}
 	defer rows.Close()
 
-	tokenRows := []emergencyTokenDBRow{}
+	tokenRows := []incidentTokenDBRow{}
 	for rows.Next() {
-		var row emergencyTokenDBRow
+		var row incidentTokenDBRow
 		if err := rows.Scan(
 			&row.ID,
 			&row.IncidentID,
@@ -541,22 +541,22 @@ func emergencyTokenRows(t *testing.T, app *testApp) []emergencyTokenDBRow {
 			&row.ExpiresAt,
 			&row.RevokedAt,
 		); err != nil {
-			t.Fatalf("scan emergency token row: %v", err)
+			t.Fatalf("scan incident token row: %v", err)
 		}
 		tokenRows = append(tokenRows, row)
 	}
 	if err := rows.Err(); err != nil {
-		t.Fatalf("iterate emergency token rows: %v", err)
+		t.Fatalf("iterate incident token rows: %v", err)
 	}
 	return tokenRows
 }
 
-func assertEmergencyTokenColumnMissing(t *testing.T, app *testApp, column string) {
+func assertIncidentTokenColumnMissing(t *testing.T, app *testApp, column string) {
 	t.Helper()
 
-	rows, err := app.db.QueryContext(context.Background(), `PRAGMA table_info(emergency_tokens)`)
+	rows, err := app.db.QueryContext(context.Background(), `PRAGMA table_info(incident_tokens)`)
 	if err != nil {
-		t.Fatalf("query emergency token schema: %v", err)
+		t.Fatalf("query incident token schema: %v", err)
 	}
 	defer rows.Close()
 
@@ -568,14 +568,14 @@ func assertEmergencyTokenColumnMissing(t *testing.T, app *testApp, column string
 		var defaultValue sql.NullString
 		var primaryKey int
 		if err := rows.Scan(&cid, &name, &columnType, &notNull, &defaultValue, &primaryKey); err != nil {
-			t.Fatalf("scan emergency token schema: %v", err)
+			t.Fatalf("scan incident token schema: %v", err)
 		}
 		if name == column {
-			t.Fatalf("emergency_tokens still has removed column %q", column)
+			t.Fatalf("incident_tokens still has removed column %q", column)
 		}
 	}
 	if err := rows.Err(); err != nil {
-		t.Fatalf("iterate emergency token schema: %v", err)
+		t.Fatalf("iterate incident token schema: %v", err)
 	}
 }
 

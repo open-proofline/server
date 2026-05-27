@@ -45,18 +45,18 @@ func TestPrivateIncidentBundleFailsClosedWhenCompletedStreamChunksAreNonContiguo
 	}
 }
 
-func TestEmergencyIncidentBundleFailsClosedWhenCompletedStreamChunksAreNonContiguous(t *testing.T) {
+func TestIncidentViewerIncidentBundleFailsClosedWhenCompletedStreamChunksAreNonContiguous(t *testing.T) {
 	app := newTestApp(t)
 	incidentID, stream := createIncidentStreamWithChunks(t, app, 1)
 	completeMediaStream(t, app, incidentID, stream.ID, 1)
 	updateStoredStreamChunkIndex(t, app, incidentID, stream.ID, 1, 2)
-	token := createEmergencyToken(t, app, incidentID, "trusted contact", nil)
+	token := createIncidentToken(t, app, incidentID, "trusted contact", nil)
 
-	response, body := getPublic(t, app, "/e/"+token.Token+"/incident/download")
+	response, body := getPublic(t, app, "/i/"+token.Token+"/incident/download")
 	defer response.Body.Close()
 
 	assertIncidentBundleInconsistent(t, response, body)
-	assertEmergencyPrivacyHeaders(t, response)
+	assertIncidentViewerPrivacyHeaders(t, response)
 	assertIncidentBundleErrorDoesNotExposeStorageDetails(t, body, app.dataDir, stream.ID, "audio_000001.enc")
 	if bytes.Contains(body, []byte(token.Token)) {
 		t.Fatalf("incident bundle inconsistency error exposed raw token: %s", body)

@@ -182,8 +182,8 @@ func scanCheckin(s scanner) (Checkin, error) {
 	return checkin, nil
 }
 
-func scanEmergencyToken(s scanner) (EmergencyToken, error) {
-	var token EmergencyToken
+func scanIncidentToken(s scanner) (IncidentToken, error) {
+	var token IncidentToken
 	var label sql.NullString
 	var createdAt string
 	var expiresAt sql.NullString
@@ -197,21 +197,21 @@ func scanEmergencyToken(s scanner) (EmergencyToken, error) {
 		&expiresAt,
 		&revokedAt,
 	); err != nil {
-		return EmergencyToken{}, err
+		return IncidentToken{}, err
 	}
 	parsedCreatedAt, err := parseDBTime(createdAt)
 	if err != nil {
-		return EmergencyToken{}, err
+		return IncidentToken{}, err
 	}
 	token.CreatedAt = parsedCreatedAt
 	if label.Valid {
 		token.Label = label.String
 	}
 	if token.ExpiresAt, err = nullableDBTime(expiresAt); err != nil {
-		return EmergencyToken{}, err
+		return IncidentToken{}, err
 	}
 	if token.RevokedAt, err = nullableDBTime(revokedAt); err != nil {
-		return EmergencyToken{}, err
+		return IncidentToken{}, err
 	}
 	return token, nil
 }

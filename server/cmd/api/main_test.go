@@ -23,8 +23,8 @@ func TestNewHTTPServersCreatesOneServerPerBindAddress(t *testing.T) {
 	}
 	assertServer(t, servers[0], "private api", "127.0.0.1:8080", privateHandler)
 	assertServer(t, servers[1], "private api", "10.66.0.1:8080", privateHandler)
-	assertServer(t, servers[2], "public emergency viewer", "127.0.0.1:8081", publicHandler)
-	assertServer(t, servers[3], "public emergency viewer", "192.168.1.20:8081", publicHandler)
+	assertServer(t, servers[2], "public incident viewer", "127.0.0.1:8081", publicHandler)
+	assertServer(t, servers[3], "public incident viewer", "192.168.1.20:8081", publicHandler)
 }
 
 func TestNewHTTPServersAppliesPrivateAndPublicTimeouts(t *testing.T) {

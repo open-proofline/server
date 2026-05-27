@@ -44,13 +44,13 @@ type bundleChunkManifest struct {
 }
 
 type incidentBundleManifest struct {
-	Incident      emergencyIncidentSummary `json:"incident"`
-	LatestCheckin *emergencyCheckinSummary `json:"latest_checkin,omitempty"`
-	Encryption    bundleEncryptionHint     `json:"encryption"`
-	Streams       []streamBundleManifest   `json:"streams"`
-	StreamCount   int                      `json:"stream_count"`
-	TotalBytes    int64                    `json:"total_bytes"`
-	GeneratedAt   time.Time                `json:"generated_at"`
+	Incident      incidentViewerIncidentSummary `json:"incident"`
+	LatestCheckin *incidentViewerCheckinSummary `json:"latest_checkin,omitempty"`
+	Encryption    bundleEncryptionHint          `json:"encryption"`
+	Streams       []streamBundleManifest        `json:"streams"`
+	StreamCount   int                           `json:"stream_count"`
+	TotalBytes    int64                         `json:"total_bytes"`
+	GeneratedAt   time.Time                     `json:"generated_at"`
 }
 
 func makeStreamBundleManifest(stream incidents.MediaStream, chunks []incidents.Chunk) streamBundleManifest {

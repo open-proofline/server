@@ -12,17 +12,17 @@ import (
 	"safety-recorder/server/internal/incidents"
 )
 
-func TestEmergencyTokenCanDownloadCompletedStreamBundle(t *testing.T) {
+func TestIncidentTokenCanDownloadCompletedStreamBundle(t *testing.T) {
 	app := newTestApp(t)
 	incidentID, stream := createIncidentStreamWithChunks(t, app, 1)
 	completeMediaStream(t, app, incidentID, stream.ID, 1)
-	token := createEmergencyToken(t, app, incidentID, "trusted contact", nil)
+	token := createIncidentToken(t, app, incidentID, "trusted contact", nil)
 
-	response, body := getPublic(t, app, "/e/"+token.Token+"/streams/"+stream.ID+"/download")
+	response, body := getPublic(t, app, "/i/"+token.Token+"/streams/"+stream.ID+"/download")
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		t.Fatalf("expected emergency stream download status 200, got %d: %s", response.StatusCode, body)
+		t.Fatalf("expected incident viewer stream download status 200, got %d: %s", response.StatusCode, body)
 	}
 	assertBundleHeaders(t, response)
 	entries := readZipEntries(t, body)
@@ -30,31 +30,31 @@ func TestEmergencyTokenCanDownloadCompletedStreamBundle(t *testing.T) {
 	assertZipEntry(t, entries, "chunks/audio_000001.enc")
 }
 
-func TestInvalidExpiredRevokedEmergencyTokenCannotDownloadBundle(t *testing.T) {
+func TestInvalidExpiredRevokedIncidentTokenCannotDownloadBundle(t *testing.T) {
 	app := newTestApp(t)
 	incidentID, stream := createIncidentStreamWithChunks(t, app, 1)
 	completeMediaStream(t, app, incidentID, stream.ID, 1)
 
 	expiredAt := time.Now().UTC().Add(-time.Minute)
-	expired := createEmergencyToken(t, app, incidentID, "expired", &expiredAt)
-	revoked := createEmergencyToken(t, app, incidentID, "revoked", nil)
-	response, body := post(t, app, "/v1/emergency-tokens/"+revoked.TokenID+"/revoke", "application/json", bytes.NewBufferString(`{}`))
+	expired := createIncidentToken(t, app, incidentID, "expired", &expiredAt)
+	revoked := createIncidentToken(t, app, incidentID, "revoked", nil)
+	response, body := post(t, app, "/v1/incident-tokens/"+revoked.TokenID+"/revoke", "application/json", bytes.NewBufferString(`{}`))
 	response.Body.Close()
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("expected revoke status 200, got %d: %s", response.StatusCode, body)
 	}
 
 	for _, rawToken := range []string{"invalid-token", expired.Token, revoked.Token} {
-		response, body := getPublic(t, app, "/e/"+rawToken+"/streams/"+stream.ID+"/download")
+		response, body := getPublic(t, app, "/i/"+rawToken+"/streams/"+stream.ID+"/download")
 		response.Body.Close()
 		if response.StatusCode != http.StatusNotFound {
 			t.Fatalf("expected token rejection status 404, got %d: %s", response.StatusCode, body)
 		}
-		assertErrorCode(t, body, "emergency_token_invalid")
+		assertErrorCode(t, body, "incident_token_invalid")
 	}
 }
 
-func TestEmergencyViewerShowsDownloadButtonsOnlyForCompletedStreams(t *testing.T) {
+func TestIncidentViewerShowsDownloadButtonsOnlyForCompletedStreams(t *testing.T) {
 	app := newTestApp(t)
 	incidentID, completed := createIncidentStreamWithChunks(t, app, 1)
 	completeMediaStream(t, app, incidentID, completed.ID, 1)
@@ -64,13 +64,13 @@ func TestEmergencyViewerShowsDownloadButtonsOnlyForCompletedStreams(t *testing.T
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("expected fail stream status 200, got %d: %s", response.StatusCode, body)
 	}
-	token := createEmergencyToken(t, app, incidentID, "trusted contact", nil)
+	token := createIncidentToken(t, app, incidentID, "trusted contact", nil)
 
-	response, body = getPublic(t, app, "/e/"+token.Token)
+	response, body = getPublic(t, app, "/i/"+token.Token)
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		t.Fatalf("expected emergency page status 200, got %d: %s", response.StatusCode, body)
+		t.Fatalf("expected incident viewer page status 200, got %d: %s", response.StatusCode, body)
 	}
 	if !bytes.Contains(body, []byte("Download encrypted bundle")) {
 		t.Fatalf("expected completed stream download button: %s", body)
@@ -83,17 +83,17 @@ func TestEmergencyViewerShowsDownloadButtonsOnlyForCompletedStreams(t *testing.T
 	}
 }
 
-func TestEmergencyTokenCanDownloadIncidentBundle(t *testing.T) {
+func TestIncidentTokenCanDownloadIncidentBundle(t *testing.T) {
 	app := newTestApp(t)
 	incidentID, stream := createIncidentStreamWithChunks(t, app, 1)
 	completeMediaStream(t, app, incidentID, stream.ID, 1)
-	token := createEmergencyToken(t, app, incidentID, "trusted contact", nil)
+	token := createIncidentToken(t, app, incidentID, "trusted contact", nil)
 
-	response, body := getPublic(t, app, "/e/"+token.Token+"/incident/download")
+	response, body := getPublic(t, app, "/i/"+token.Token+"/incident/download")
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		t.Fatalf("expected emergency incident download status 200, got %d: %s", response.StatusCode, body)
+		t.Fatalf("expected incident viewer incident download status 200, got %d: %s", response.StatusCode, body)
 	}
 	assertBundleHeaders(t, response)
 	entries := readZipEntries(t, body)
@@ -102,12 +102,12 @@ func TestEmergencyTokenCanDownloadIncidentBundle(t *testing.T) {
 	assertZipEntry(t, entries, "streams/"+stream.ID+"/chunks/audio_000001.enc")
 }
 
-func TestCreateEmergencyToken(t *testing.T) {
+func TestCreateIncidentToken(t *testing.T) {
 	app := newTestApp(t)
 	incidentID := createIncident(t, app, `{}`)
 	expiresAt := time.Now().UTC().Add(time.Hour)
 
-	token := createEmergencyToken(t, app, incidentID, "trusted contact", &expiresAt)
+	token := createIncidentToken(t, app, incidentID, "trusted contact", &expiresAt)
 
 	if token.TokenID == "" {
 		t.Fatal("expected token id")
@@ -129,12 +129,12 @@ func TestCreateEmergencyToken(t *testing.T) {
 	}
 }
 
-func TestCreateEmergencyTokenAppliesDefaultExpiry(t *testing.T) {
+func TestCreateIncidentTokenAppliesDefaultExpiry(t *testing.T) {
 	app := newTestApp(t)
 	incidentID := createIncident(t, app, `{}`)
 
 	before := time.Now().UTC()
-	token := createEmergencyToken(t, app, incidentID, "trusted contact", nil)
+	token := createIncidentToken(t, app, incidentID, "trusted contact", nil)
 	after := time.Now().UTC()
 
 	if token.ExpiresAt == nil {
@@ -147,45 +147,45 @@ func TestCreateEmergencyTokenAppliesDefaultExpiry(t *testing.T) {
 	}
 }
 
-func TestCreateEmergencyTokenPreservesExplicitNullExpiry(t *testing.T) {
+func TestCreateIncidentTokenPreservesExplicitNullExpiry(t *testing.T) {
 	app := newTestApp(t)
 	incidentID := createIncident(t, app, `{}`)
 
-	response, body := post(t, app, "/v1/incidents/"+incidentID+"/emergency-tokens", "application/json", bytes.NewBufferString(`{"label":"trusted contact","expires_at":null}`))
+	response, body := post(t, app, "/v1/incidents/"+incidentID+"/incident-tokens", "application/json", bytes.NewBufferString(`{"label":"trusted contact","expires_at":null}`))
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusCreated {
-		t.Fatalf("expected create emergency token status 201, got %d: %s", response.StatusCode, body)
+		t.Fatalf("expected create incident token status 201, got %d: %s", response.StatusCode, body)
 	}
 
-	var token emergencyTokenResponse
+	var token incidentTokenResponse
 	if err := json.Unmarshal(body, &token); err != nil {
-		t.Fatalf("decode create emergency token response: %v", err)
+		t.Fatalf("decode create incident token response: %v", err)
 	}
 	if token.ExpiresAt != nil {
 		t.Fatalf("expected explicit null expires_at to remain unset, got %s", token.ExpiresAt)
 	}
 }
 
-func TestCreateEmergencyTokenCanDisableDefaultExpiry(t *testing.T) {
-	app := newTestAppWithDefaultEmergencyTokenTTL(t, 0)
+func TestCreateIncidentTokenCanDisableDefaultExpiry(t *testing.T) {
+	app := newTestAppWithDefaultIncidentTokenTTL(t, 0)
 	incidentID := createIncident(t, app, `{}`)
 
-	token := createEmergencyToken(t, app, incidentID, "trusted contact", nil)
+	token := createIncidentToken(t, app, incidentID, "trusted contact", nil)
 
 	if token.ExpiresAt != nil {
 		t.Fatalf("expected omitted expires_at to remain unset when default expiry is disabled, got %s", token.ExpiresAt)
 	}
 }
 
-func TestEmergencyRawTokenIsNotStored(t *testing.T) {
+func TestIncidentRawTokenIsNotStored(t *testing.T) {
 	app := newTestApp(t)
 	incidentID := createIncident(t, app, `{}`)
-	token := createEmergencyToken(t, app, incidentID, "trusted contact", nil)
+	token := createIncidentToken(t, app, incidentID, "trusted contact", nil)
 
 	var tokenHash string
 	if err := app.db.QueryRowContext(context.Background(), `
 		SELECT token_hash
-		FROM emergency_tokens
+		FROM incident_tokens
 		WHERE id = ?`,
 		token.TokenID,
 	).Scan(&tokenHash); err != nil {
@@ -201,7 +201,7 @@ func TestEmergencyRawTokenIsNotStored(t *testing.T) {
 	var rawMatches int
 	if err := app.db.QueryRowContext(context.Background(), `
 		SELECT COUNT(*)
-		FROM emergency_tokens
+		FROM incident_tokens
 		WHERE token_hash = ?`,
 		token.Token,
 	).Scan(&rawMatches); err != nil {
@@ -233,8 +233,8 @@ func TestPublicServerDoesNotMountPrivateRoutes(t *testing.T) {
 		{http.MethodGet, "/v1/incidents/inc_missing/streams/str_missing/download"},
 		{http.MethodPost, "/v1/incidents/inc_missing/checkins"},
 		{http.MethodPost, "/v1/incidents/inc_missing/close"},
-		{http.MethodPost, "/v1/incidents/inc_missing/emergency-tokens"},
-		{http.MethodPost, "/v1/emergency-tokens/etk_missing/revoke"},
+		{http.MethodPost, "/v1/incidents/inc_missing/incident-tokens"},
+		{http.MethodPost, "/v1/incident-tokens/itk_missing/revoke"},
 	}
 
 	for _, tt := range tests {
@@ -260,16 +260,16 @@ func TestPublicNotFoundUsesSecurityHeaders(t *testing.T) {
 	assertErrorCode(t, body, "not_found")
 }
 
-func TestPrivateServerDoesNotMountPublicEmergencyRoutes(t *testing.T) {
+func TestPrivateServerDoesNotMountPublicIncidentViewerRoutes(t *testing.T) {
 	app := newTestApp(t)
 	incidentID := createIncident(t, app, `{}`)
-	token := createEmergencyToken(t, app, incidentID, "trusted contact", nil)
+	token := createIncidentToken(t, app, incidentID, "trusted contact", nil)
 
 	for _, target := range []string{
-		"/e/" + token.Token,
-		"/e/" + token.Token + "/data",
-		"/e/" + token.Token + "/streams/str_missing/download",
-		"/e/" + token.Token + "/incident/download",
+		"/i/" + token.Token,
+		"/i/" + token.Token + "/data",
+		"/i/" + token.Token + "/streams/str_missing/download",
+		"/i/" + token.Token + "/incident/download",
 	} {
 		response, body := get(t, app, target)
 		response.Body.Close()
@@ -279,24 +279,24 @@ func TestPrivateServerDoesNotMountPublicEmergencyRoutes(t *testing.T) {
 	}
 }
 
-func TestValidEmergencyTokenCanReadIncidentData(t *testing.T) {
+func TestValidIncidentTokenCanReadIncidentData(t *testing.T) {
 	app := newTestApp(t)
 	incidentID := createIncident(t, app, `{"client_label":"iphone"}`)
-	token := createEmergencyToken(t, app, incidentID, "trusted contact", nil)
+	token := createIncidentToken(t, app, incidentID, "trusted contact", nil)
 
-	response, body := getPublic(t, app, "/e/"+token.Token)
+	response, body := getPublic(t, app, "/i/"+token.Token)
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		t.Fatalf("expected emergency page status 200, got %d: %s", response.StatusCode, body)
+		t.Fatalf("expected incident viewer page status 200, got %d: %s", response.StatusCode, body)
 	}
 	assertContentTypePrefix(t, response, "text/html")
-	assertEmergencyPrivacyHeaders(t, response)
+	assertIncidentViewerPrivacyHeaders(t, response)
 	if !bytes.Contains(body, []byte(`name="referrer" content="no-referrer"`)) {
 		t.Fatalf("expected no-referrer meta tag in response: %s", body)
 	}
-	if !bytes.Contains(body, []byte("Emergency Incident Viewer")) {
-		t.Fatalf("expected emergency page title in response: %s", body)
+	if !bytes.Contains(body, []byte("Incident Viewer")) {
+		t.Fatalf("expected incident viewer page title in response: %s", body)
 	}
 	if !bytes.Contains(body, []byte(`/static/styles.css`)) {
 		t.Fatalf("expected static stylesheet link in response: %s", body)
@@ -305,7 +305,7 @@ func TestValidEmergencyTokenCanReadIncidentData(t *testing.T) {
 		t.Fatalf("expected static script tag in response: %s", body)
 	}
 	if bytes.Contains(body, []byte("<style>")) || bytes.Contains(body, []byte("setInterval(function")) {
-		t.Fatalf("expected no inline style or script in emergency page: %s", body)
+		t.Fatalf("expected no inline style or script in incident viewer page: %s", body)
 	}
 	if !bytes.Contains(body, []byte("iphone")) {
 		t.Fatalf("expected client label in response: %s", body)
@@ -314,23 +314,23 @@ func TestValidEmergencyTokenCanReadIncidentData(t *testing.T) {
 		t.Fatalf("expected human-friendly relative timestamp in response: %s", body)
 	}
 	if !bytes.Contains(body, []byte("call emergency services")) {
-		t.Fatalf("expected emergency warning in response: %s", body)
+		t.Fatalf("expected safety warning in response: %s", body)
 	}
 }
 
-func TestEmergencyViewerIncludesPollingUpdateHooks(t *testing.T) {
+func TestIncidentViewerIncludesPollingUpdateHooks(t *testing.T) {
 	app := newTestApp(t)
 	incidentID := createIncident(t, app, `{"client_label":"iphone"}`)
-	token := createEmergencyToken(t, app, incidentID, "trusted contact", nil)
+	token := createIncidentToken(t, app, incidentID, "trusted contact", nil)
 
-	response, body := getPublic(t, app, "/e/"+token.Token)
+	response, body := getPublic(t, app, "/i/"+token.Token)
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		t.Fatalf("expected emergency page status 200, got %d: %s", response.StatusCode, body)
+		t.Fatalf("expected incident viewer page status 200, got %d: %s", response.StatusCode, body)
 	}
 
 	for _, hook := range []string{
-		"data-emergency-view",
+		"data-incident-view",
 		"data-incident-status",
 		"data-incident-client-label",
 		"data-incident-created",
@@ -340,12 +340,12 @@ func TestEmergencyViewerIncludesPollingUpdateHooks(t *testing.T) {
 		"data-media-rows",
 	} {
 		if !bytes.Contains(body, []byte(hook)) {
-			t.Fatalf("expected emergency page to include polling hook %q: %s", hook, body)
+			t.Fatalf("expected incident viewer page to include polling hook %q: %s", hook, body)
 		}
 	}
 }
 
-func TestEmergencyStaticAssetsAreServed(t *testing.T) {
+func TestIncidentStaticAssetsAreServed(t *testing.T) {
 	app := newTestApp(t)
 
 	response, body := getPublic(t, app, "/static/styles.css")
@@ -369,7 +369,7 @@ func TestEmergencyStaticAssetsAreServed(t *testing.T) {
 		t.Fatalf("expected script content, got: %s", body)
 	}
 	for _, snippet := range []string{
-		"function updateEmergencyView(data)",
+		"function updateIncidentView(data)",
 		"textContent",
 		"data-latest-checkin",
 		"data-completed-recordings",
@@ -379,86 +379,107 @@ func TestEmergencyStaticAssetsAreServed(t *testing.T) {
 		"requestID === latestPollRequestID",
 	} {
 		if !bytes.Contains(body, []byte(snippet)) {
-			t.Fatalf("expected emergency script to include %q: %s", snippet, body)
+			t.Fatalf("expected incident viewer script to include %q: %s", snippet, body)
 		}
 	}
 	if bytes.Contains(body, []byte("innerHTML")) {
-		t.Fatalf("emergency script should not use innerHTML: %s", body)
+		t.Fatalf("incident viewer script should not use innerHTML: %s", body)
 	}
 	assertContentTypeContains(t, response, "javascript")
 	assertPublicBrowserSecurityHeaders(t, response)
 	assertNoStrictTransportSecurity(t, response)
 }
 
-func TestExpiredEmergencyTokenIsRejected(t *testing.T) {
+func TestExpiredIncidentTokenIsRejected(t *testing.T) {
 	app := newTestApp(t)
 	incidentID := createIncident(t, app, `{}`)
 	expiresAt := time.Now().UTC().Add(-time.Minute)
-	token := createEmergencyToken(t, app, incidentID, "expired", &expiresAt)
+	token := createIncidentToken(t, app, incidentID, "expired", &expiresAt)
 
-	response, body := getPublic(t, app, "/e/"+token.Token+"/data")
+	response, body := getPublic(t, app, "/i/"+token.Token+"/data")
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusNotFound {
 		t.Fatalf("expected expired token status 404, got %d: %s", response.StatusCode, body)
 	}
-	assertErrorCode(t, body, "emergency_token_invalid")
+	assertErrorCode(t, body, "incident_token_invalid")
 }
 
-func TestRevokedEmergencyTokenIsRejected(t *testing.T) {
+func TestRevokedIncidentTokenIsRejected(t *testing.T) {
 	app := newTestApp(t)
 	incidentID := createIncident(t, app, `{}`)
-	token := createEmergencyToken(t, app, incidentID, "trusted contact", nil)
+	token := createIncidentToken(t, app, incidentID, "trusted contact", nil)
 
-	response, body := post(t, app, "/v1/emergency-tokens/"+token.TokenID+"/revoke", "application/json", bytes.NewBufferString(`{}`))
+	response, body := post(t, app, "/v1/incident-tokens/"+token.TokenID+"/revoke", "application/json", bytes.NewBufferString(`{}`))
 	response.Body.Close()
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("expected revoke status 200, got %d: %s", response.StatusCode, body)
 	}
 
-	response, body = getPublic(t, app, "/e/"+token.Token+"/data")
+	response, body = getPublic(t, app, "/i/"+token.Token+"/data")
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusNotFound {
 		t.Fatalf("expected revoked token status 404, got %d: %s", response.StatusCode, body)
 	}
-	assertErrorCode(t, body, "emergency_token_invalid")
+	assertErrorCode(t, body, "incident_token_invalid")
 }
 
-func TestInvalidEmergencyTokenIsRejected(t *testing.T) {
+func TestInvalidIncidentTokenIsRejected(t *testing.T) {
 	app := newTestApp(t)
 
-	response, body := getPublic(t, app, "/e/not-a-real-token/data")
+	response, body := getPublic(t, app, "/i/not-a-real-token/data")
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusNotFound {
 		t.Fatalf("expected invalid token status 404, got %d: %s", response.StatusCode, body)
 	}
-	assertEmergencyPrivacyHeaders(t, response)
-	assertErrorCode(t, body, "emergency_token_invalid")
+	assertIncidentViewerPrivacyHeaders(t, response)
+	assertErrorCode(t, body, "incident_token_invalid")
 }
 
-func TestEmergencyTokenIsRedactedFromRequestLogs(t *testing.T) {
+func TestIncidentTokenIsRedactedFromRequestLogs(t *testing.T) {
 	var logs bytes.Buffer
 	logger := slog.New(slog.NewTextHandler(&logs, nil))
 	app := newTestAppWithMaxUploadBytesAndLogger(t, 1024*1024, logger)
 	incidentID := createIncident(t, app, `{}`)
-	token := createEmergencyToken(t, app, incidentID, "trusted contact", nil)
+	token := createIncidentToken(t, app, incidentID, "trusted contact", nil)
 
-	response, body := getPublic(t, app, "/e/"+token.Token)
+	response, body := getPublic(t, app, "/i/"+token.Token)
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		t.Fatalf("expected emergency page status 200, got %d: %s", response.StatusCode, body)
+		t.Fatalf("expected incident viewer page status 200, got %d: %s", response.StatusCode, body)
 	}
 
 	if bytes.Contains(logs.Bytes(), []byte(token.Token)) {
 		t.Fatalf("request logs exposed raw token: %s", logs.String())
 	}
-	if !bytes.Contains(logs.Bytes(), []byte("/e/{token}")) {
-		t.Fatalf("expected redacted emergency path in request logs: %s", logs.String())
+	if !bytes.Contains(logs.Bytes(), []byte("/i/{token}")) {
+		t.Fatalf("expected redacted incident viewer path in request logs: %s", logs.String())
 	}
 }
 
-func TestEmergencyTokenCannotMutateIncidentChunkOrCheckinData(t *testing.T) {
+func TestLegacyIncidentTokenPathIsRedactedFromRequestLogs(t *testing.T) {
+	var logs bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&logs, nil))
+	app := newTestAppWithMaxUploadBytesAndLogger(t, 1024*1024, logger)
+	incidentID := createIncident(t, app, `{}`)
+	token := createIncidentToken(t, app, incidentID, "trusted contact", nil)
+
+	response, body := getPublic(t, app, "/e/"+token.Token)
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusNotFound {
+		t.Fatalf("expected legacy incident viewer path status 404, got %d: %s", response.StatusCode, body)
+	}
+
+	if bytes.Contains(logs.Bytes(), []byte(token.Token)) {
+		t.Fatalf("request logs exposed raw legacy token: %s", logs.String())
+	}
+	if !bytes.Contains(logs.Bytes(), []byte("/e/{token}")) {
+		t.Fatalf("expected redacted legacy incident viewer path in request logs: %s", logs.String())
+	}
+}
+
+func TestIncidentTokenCannotMutateIncidentChunkOrCheckinData(t *testing.T) {
 	app := newTestApp(t)
 	incidentID := createIncident(t, app, `{}`)
 	payload := []byte("encrypted audio data")
@@ -469,9 +490,9 @@ func TestEmergencyTokenCannotMutateIncidentChunkOrCheckinData(t *testing.T) {
 	}
 	createCheckin(t, app, incidentID)
 	before := getIncidentDetail(t, app, incidentID)
-	token := createEmergencyToken(t, app, incidentID, "trusted contact", nil)
+	token := createIncidentToken(t, app, incidentID, "trusted contact", nil)
 
-	for _, target := range []string{"/e/" + token.Token, "/e/" + token.Token + "/data", "/e/" + token.Token + "/checkins"} {
+	for _, target := range []string{"/i/" + token.Token, "/i/" + token.Token + "/data", "/i/" + token.Token + "/checkins"} {
 		response, body := postPublic(t, app, target, "application/json", bytes.NewBufferString(`{"device_network":"cell"}`))
 		response.Body.Close()
 		if response.StatusCode >= 200 && response.StatusCode < 300 {
@@ -491,20 +512,20 @@ func TestEmergencyTokenCannotMutateIncidentChunkOrCheckinData(t *testing.T) {
 	}
 }
 
-func TestEmergencyViewerReadsDoNotMutateEmergencyTokenRows(t *testing.T) {
+func TestIncidentViewerReadsDoNotMutateIncidentTokenRows(t *testing.T) {
 	app := newTestApp(t)
-	assertEmergencyTokenColumnMissing(t, app, "last_used_at")
+	assertIncidentTokenColumnMissing(t, app, "last_used_at")
 
 	incidentID, stream := createIncidentStreamWithChunks(t, app, 1)
 	completeMediaStream(t, app, incidentID, stream.ID, 1)
-	token := createEmergencyToken(t, app, incidentID, "trusted contact", nil)
-	before := emergencyTokenRows(t, app)
+	token := createIncidentToken(t, app, incidentID, "trusted contact", nil)
+	before := incidentTokenRows(t, app)
 
 	targets := []string{
-		"/e/" + token.Token,
-		"/e/" + token.Token + "/data",
-		"/e/" + token.Token + "/streams/" + stream.ID + "/download",
-		"/e/" + token.Token + "/incident/download",
+		"/i/" + token.Token,
+		"/i/" + token.Token + "/data",
+		"/i/" + token.Token + "/streams/" + stream.ID + "/download",
+		"/i/" + token.Token + "/incident/download",
 	}
 	for _, target := range targets {
 		response, body := getPublic(t, app, target)
@@ -514,18 +535,18 @@ func TestEmergencyViewerReadsDoNotMutateEmergencyTokenRows(t *testing.T) {
 		}
 	}
 
-	after := emergencyTokenRows(t, app)
+	after := incidentTokenRows(t, app)
 	if len(before) != len(after) {
-		t.Fatalf("emergency token row count changed from %d to %d", len(before), len(after))
+		t.Fatalf("incident token row count changed from %d to %d", len(before), len(after))
 	}
 	for i := range before {
 		if before[i] != after[i] {
-			t.Fatalf("emergency token row changed from %+v to %+v", before[i], after[i])
+			t.Fatalf("incident token row changed from %+v to %+v", before[i], after[i])
 		}
 	}
 }
 
-func TestEmergencyDataReturnsExpectedReadOnlyJSON(t *testing.T) {
+func TestIncidentViewDataReturnsExpectedReadOnlyJSON(t *testing.T) {
 	app := newTestApp(t)
 	incidentID := createIncident(t, app, `{"client_label":"iphone"}`)
 	payload := []byte("encrypted metadata")
@@ -535,19 +556,19 @@ func TestEmergencyDataReturnsExpectedReadOnlyJSON(t *testing.T) {
 		t.Fatalf("expected upload status 201, got %d: %s", response.StatusCode, body)
 	}
 	createCheckin(t, app, incidentID)
-	token := createEmergencyToken(t, app, incidentID, "trusted contact", nil)
+	token := createIncidentToken(t, app, incidentID, "trusted contact", nil)
 
-	response, body = getPublic(t, app, "/e/"+token.Token+"/data")
+	response, body = getPublic(t, app, "/i/"+token.Token+"/data")
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		t.Fatalf("expected emergency data status 200, got %d: %s", response.StatusCode, body)
+		t.Fatalf("expected incident viewer data status 200, got %d: %s", response.StatusCode, body)
 	}
-	assertEmergencyPrivacyHeaders(t, response)
+	assertIncidentViewerPrivacyHeaders(t, response)
 	if bytes.Contains(body, []byte("stored_path")) {
-		t.Fatalf("emergency data exposed storage path: %s", body)
+		t.Fatalf("incident viewer data exposed storage path: %s", body)
 	}
 	if bytes.Contains(body, []byte(token.Token)) {
-		t.Fatalf("emergency data exposed raw token: %s", body)
+		t.Fatalf("incident viewer data exposed raw token: %s", body)
 	}
 
 	var data struct {
@@ -568,7 +589,7 @@ func TestEmergencyDataReturnsExpectedReadOnlyJSON(t *testing.T) {
 		Warning string `json:"warning"`
 	}
 	if err := json.Unmarshal(body, &data); err != nil {
-		t.Fatalf("decode emergency data: %v", err)
+		t.Fatalf("decode incident viewer data: %v", err)
 	}
 	if data.Incident.ID != incidentID || data.Incident.Status != incidents.StatusOpen || data.Incident.ClientLabel != "iphone" {
 		t.Fatalf("unexpected incident summary: %+v", data.Incident)
@@ -580,11 +601,11 @@ func TestEmergencyDataReturnsExpectedReadOnlyJSON(t *testing.T) {
 		t.Fatalf("expected one metadata chunk, got %+v", data.ChunkCountByMediaType)
 	}
 	if data.Warning == "" {
-		t.Fatal("expected emergency warning")
+		t.Fatal("expected safety warning")
 	}
 }
 
-func TestEmergencyDataCompletedStreamsStayDownloadScoped(t *testing.T) {
+func TestIncidentViewDataCompletedStreamsStayDownloadScoped(t *testing.T) {
 	app := newTestApp(t)
 	incidentID, completed := createIncidentStreamWithChunks(t, app, 2)
 	completeMediaStream(t, app, incidentID, completed.ID, 2)
@@ -594,12 +615,12 @@ func TestEmergencyDataCompletedStreamsStayDownloadScoped(t *testing.T) {
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("expected fail stream status 200, got %d: %s", response.StatusCode, body)
 	}
-	token := createEmergencyToken(t, app, incidentID, "trusted contact", nil)
+	token := createIncidentToken(t, app, incidentID, "trusted contact", nil)
 
-	response, body = getPublic(t, app, "/e/"+token.Token+"/data")
+	response, body = getPublic(t, app, "/i/"+token.Token+"/data")
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		t.Fatalf("expected emergency data status 200, got %d: %s", response.StatusCode, body)
+		t.Fatalf("expected incident viewer data status 200, got %d: %s", response.StatusCode, body)
 	}
 
 	var data struct {
@@ -612,7 +633,7 @@ func TestEmergencyDataCompletedStreamsStayDownloadScoped(t *testing.T) {
 		} `json:"completed_streams"`
 	}
 	if err := json.Unmarshal(body, &data); err != nil {
-		t.Fatalf("decode emergency data: %v", err)
+		t.Fatalf("decode incident viewer data: %v", err)
 	}
 	if len(data.CompletedStreams) != 1 {
 		t.Fatalf("expected one completed stream, got %+v", data.CompletedStreams)
@@ -632,7 +653,7 @@ func TestEmergencyDataCompletedStreamsStayDownloadScoped(t *testing.T) {
 	}
 }
 
-func TestEmergencyDataLatestChunkUsesReceivedTimeAcrossStreamScopedIndexes(t *testing.T) {
+func TestIncidentViewDataLatestChunkUsesReceivedTimeAcrossStreamScopedIndexes(t *testing.T) {
 	app := newTestApp(t)
 	incidentID := createIncident(t, app, `{}`)
 	firstStream := createMediaStream(t, app, incidentID, incidents.MediaTypeAudio, "first audio")
@@ -662,11 +683,11 @@ func TestEmergencyDataLatestChunkUsesReceivedTimeAcrossStreamScopedIndexes(t *te
 	setChunkCreatedAt(t, app, firstStream.ID, 2, baseTime.Add(time.Second))
 	setChunkCreatedAt(t, app, secondStream.ID, 1, baseTime.Add(2*time.Second))
 
-	token := createEmergencyToken(t, app, incidentID, "trusted contact", nil)
-	response, body = getPublic(t, app, "/e/"+token.Token+"/data")
+	token := createIncidentToken(t, app, incidentID, "trusted contact", nil)
+	response, body = getPublic(t, app, "/i/"+token.Token+"/data")
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		t.Fatalf("expected emergency data status 200, got %d: %s", response.StatusCode, body)
+		t.Fatalf("expected incident viewer data status 200, got %d: %s", response.StatusCode, body)
 	}
 
 	var data struct {
@@ -677,7 +698,7 @@ func TestEmergencyDataLatestChunkUsesReceivedTimeAcrossStreamScopedIndexes(t *te
 		} `json:"latest_chunk_by_media_type"`
 	}
 	if err := json.Unmarshal(body, &data); err != nil {
-		t.Fatalf("decode emergency data: %v", err)
+		t.Fatalf("decode incident viewer data: %v", err)
 	}
 	latestAudio := data.LatestChunkByMediaType[incidents.MediaTypeAudio]
 	if latestAudio.ChunkIndex != 1 {

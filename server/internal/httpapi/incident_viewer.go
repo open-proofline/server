@@ -11,7 +11,7 @@ import (
 	"safety-recorder/server/internal/incidents"
 )
 
-type emergencyIncidentSummary struct {
+type incidentViewerIncidentSummary struct {
 	ID          string    `json:"id"`
 	Status      string    `json:"status"`
 	ClientLabel string    `json:"client_label,omitempty"`
@@ -19,7 +19,7 @@ type emergencyIncidentSummary struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
-type emergencyCheckinSummary struct {
+type incidentViewerCheckinSummary struct {
 	CreatedAt            time.Time `json:"created_at"`
 	DeviceBatteryPercent *int      `json:"device_battery_percent,omitempty"`
 	DeviceNetwork        *string   `json:"device_network,omitempty"`
@@ -28,7 +28,7 @@ type emergencyCheckinSummary struct {
 	AccuracyMeters       *float64  `json:"accuracy_meters,omitempty"`
 }
 
-type emergencyChunkSummary struct {
+type incidentViewerChunkSummary struct {
 	ChunkIndex       int       `json:"chunk_index"`
 	MediaType        string    `json:"media_type"`
 	StartedAt        time.Time `json:"started_at"`
@@ -39,13 +39,13 @@ type emergencyChunkSummary struct {
 	CreatedAt        time.Time `json:"created_at"`
 }
 
-type emergencyMediaSummary struct {
-	MediaType   string                 `json:"media_type"`
-	ChunkCount  int                    `json:"chunk_count"`
-	LatestChunk *emergencyChunkSummary `json:"latest_chunk,omitempty"`
+type incidentViewerMediaSummary struct {
+	MediaType   string                      `json:"media_type"`
+	ChunkCount  int                         `json:"chunk_count"`
+	LatestChunk *incidentViewerChunkSummary `json:"latest_chunk,omitempty"`
 }
 
-type emergencyStreamSummary struct {
+type incidentViewerStreamSummary struct {
 	ID                 string     `json:"id"`
 	MediaType          string     `json:"media_type"`
 	Label              string     `json:"label,omitempty"`
@@ -58,19 +58,19 @@ type emergencyStreamSummary struct {
 	TotalBytes         int64      `json:"total_bytes"`
 }
 
-type emergencyViewData struct {
-	Incident               emergencyIncidentSummary          `json:"incident"`
-	LatestCheckin          *emergencyCheckinSummary          `json:"latest_checkin,omitempty"`
-	ChunkCountByMediaType  map[string]int                    `json:"chunk_count_by_media_type"`
-	LatestChunkByMediaType map[string]*emergencyChunkSummary `json:"latest_chunk_by_media_type"`
-	Media                  []emergencyMediaSummary           `json:"media"`
-	Streams                []emergencyStreamSummary          `json:"streams"`
-	CompletedStreams       []emergencyStreamSummary          `json:"completed_streams"`
-	Warning                string                            `json:"warning"`
-	GeneratedAt            time.Time                         `json:"generated_at"`
+type incidentViewData struct {
+	Incident               incidentViewerIncidentSummary          `json:"incident"`
+	LatestCheckin          *incidentViewerCheckinSummary          `json:"latest_checkin,omitempty"`
+	ChunkCountByMediaType  map[string]int                         `json:"chunk_count_by_media_type"`
+	LatestChunkByMediaType map[string]*incidentViewerChunkSummary `json:"latest_chunk_by_media_type"`
+	Media                  []incidentViewerMediaSummary           `json:"media"`
+	Streams                []incidentViewerStreamSummary          `json:"streams"`
+	CompletedStreams       []incidentViewerStreamSummary          `json:"completed_streams"`
+	Warning                string                                 `json:"warning"`
+	GeneratedAt            time.Time                              `json:"generated_at"`
 }
 
-type createEmergencyTokenResponse struct {
+type createIncidentTokenResponse struct {
 	TokenID    string     `json:"token_id"`
 	IncidentID string     `json:"incident_id"`
 	Token      string     `json:"token"`
@@ -79,13 +79,13 @@ type createEmergencyTokenResponse struct {
 	ExpiresAt  *time.Time `json:"expires_at,omitempty"`
 }
 
-type createEmergencyTokenRequest struct {
+type createIncidentTokenRequest struct {
 	Label        string     `json:"label"`
 	ExpiresAt    *time.Time `json:"expires_at"`
 	ExpiresAtSet bool       `json:"-"`
 }
 
-func (request *createEmergencyTokenRequest) UnmarshalJSON(data []byte) error {
+func (request *createIncidentTokenRequest) UnmarshalJSON(data []byte) error {
 	var fields map[string]json.RawMessage
 	if err := json.Unmarshal(data, &fields); err != nil {
 		return err
@@ -117,11 +117,11 @@ func (request *createEmergencyTokenRequest) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-const emergencyWarning = "If you are concerned about immediate safety, call emergency services now."
+const incidentWarning = "If you are concerned about immediate safety, call emergency services now."
 
-// createEmergencyToken is a private route that mints a read-only emergency
+// createIncidentToken is a private route that mints a read-only incident viewer
 // capability for one incident.
-func (a *API) createEmergencyToken(w http.ResponseWriter, r *http.Request) {
+func (a *API) createIncidentToken(w http.ResponseWriter, r *http.Request) {
 	incidentID := r.PathValue("incident_id")
 	if _, err := a.repo.GetIncident(r.Context(), incidentID); errors.Is(err, incidents.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "incident_not_found", "incident was not found")
@@ -131,26 +131,26 @@ func (a *API) createEmergencyToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var request createEmergencyTokenRequest
+	var request createIncidentTokenRequest
 	if !decodeJSON(w, r, &request) {
 		return
 	}
 
-	expiresAt := a.emergencyTokenExpiresAt(request.ExpiresAt, request.ExpiresAtSet)
-	token, rawToken, err := a.repo.CreateEmergencyToken(r.Context(), incidentID, request.Label, expiresAt)
+	expiresAt := a.incidentTokenExpiresAt(request.ExpiresAt, request.ExpiresAtSet)
+	token, rawToken, err := a.repo.CreateIncidentToken(r.Context(), incidentID, request.Label, expiresAt)
 	if errors.Is(err, incidents.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "incident_not_found", "incident was not found")
 		return
 	}
 	if err != nil {
-		a.internalError(w, "create emergency token", err)
+		a.internalError(w, "create incident token", err)
 		return
 	}
 
 	setNoStore(w)
 	// The raw token is returned only in this response; the repository stores
 	// only its hash.
-	writeJSON(w, http.StatusCreated, createEmergencyTokenResponse{
+	writeJSON(w, http.StatusCreated, createIncidentTokenResponse{
 		TokenID:    token.ID,
 		IncidentID: token.IncidentID,
 		Token:      rawToken,
@@ -160,23 +160,23 @@ func (a *API) createEmergencyToken(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (a *API) emergencyTokenExpiresAt(requestExpiresAt *time.Time, requestExpiresAtSet bool) *time.Time {
-	if requestExpiresAtSet || a.defaultEmergencyTokenTTL <= 0 {
+func (a *API) incidentTokenExpiresAt(requestExpiresAt *time.Time, requestExpiresAtSet bool) *time.Time {
+	if requestExpiresAtSet || a.defaultIncidentTokenTTL <= 0 {
 		return requestExpiresAt
 	}
-	expiresAt := time.Now().UTC().Add(a.defaultEmergencyTokenTTL)
+	expiresAt := time.Now().UTC().Add(a.defaultIncidentTokenTTL)
 	return &expiresAt
 }
 
-// revokeEmergencyToken is a private route that disables an emergency token
+// revokeIncidentToken is a private route that disables an incident token
 // without deleting its audit metadata.
-func (a *API) revokeEmergencyToken(w http.ResponseWriter, r *http.Request) {
+func (a *API) revokeIncidentToken(w http.ResponseWriter, r *http.Request) {
 	tokenID := r.PathValue("token_id")
-	if err := a.repo.RevokeEmergencyToken(r.Context(), tokenID); errors.Is(err, incidents.ErrNotFound) {
-		writeError(w, http.StatusNotFound, "emergency_token_not_found", "emergency token was not found")
+	if err := a.repo.RevokeIncidentToken(r.Context(), tokenID); errors.Is(err, incidents.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "incident_token_not_found", "incident token was not found")
 		return
 	} else if err != nil {
-		a.internalError(w, "revoke emergency token", err)
+		a.internalError(w, "revoke incident token", err)
 		return
 	}
 
@@ -186,102 +186,102 @@ func (a *API) revokeEmergencyToken(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// emergencyPage renders the public read-only HTML view after token validation.
-func (a *API) emergencyPage(w http.ResponseWriter, r *http.Request) {
-	setEmergencyPrivacyHeaders(w)
-	data, ok := a.loadEmergencyData(w, r)
+// incidentViewerPage renders the public read-only HTML view after token validation.
+func (a *API) incidentViewerPage(w http.ResponseWriter, r *http.Request) {
+	setIncidentViewerPrivacyHeaders(w)
+	data, ok := a.loadIncidentViewData(w, r)
 	if !ok {
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := emergencyPageTemplate.Execute(w, data); err != nil {
-		a.logger.Error("render emergency page", "err", err)
+	if err := incidentViewerPageTemplate.Execute(w, data); err != nil {
+		a.logger.Error("render incident viewer page", "err", err)
 	}
 }
 
-// emergencyData returns the same read-only summary as JSON for page polling.
-func (a *API) emergencyData(w http.ResponseWriter, r *http.Request) {
-	setEmergencyPrivacyHeaders(w)
-	data, ok := a.loadEmergencyData(w, r)
+// incidentViewData returns the same read-only summary as JSON for page polling.
+func (a *API) incidentViewData(w http.ResponseWriter, r *http.Request) {
+	setIncidentViewerPrivacyHeaders(w)
+	data, ok := a.loadIncidentViewData(w, r)
 	if !ok {
 		return
 	}
 	writeJSON(w, http.StatusOK, data)
 }
 
-func setEmergencyPrivacyHeaders(w http.ResponseWriter) {
+func setIncidentViewerPrivacyHeaders(w http.ResponseWriter) {
 	setPublicBrowserSecurityHeaders(w)
 	setNoStore(w)
 }
 
-// loadEmergencyData collapses invalid, expired, and revoked tokens into one
+// loadIncidentViewData collapses invalid, expired, and revoked tokens into one
 // public error so callers cannot distinguish token state.
-func (a *API) loadEmergencyData(w http.ResponseWriter, r *http.Request) (emergencyViewData, bool) {
-	token, ok := a.loadEmergencyToken(w, r)
+func (a *API) loadIncidentViewData(w http.ResponseWriter, r *http.Request) (incidentViewData, bool) {
+	token, ok := a.loadIncidentToken(w, r)
 	if !ok {
-		return emergencyViewData{}, false
+		return incidentViewData{}, false
 	}
-	data, err := a.buildEmergencyData(r.Context(), token)
+	data, err := a.buildIncidentViewData(r.Context(), token)
 	if err != nil {
-		a.internalError(w, "load emergency data", err)
-		return emergencyViewData{}, false
+		a.internalError(w, "load incident viewer data", err)
+		return incidentViewData{}, false
 	}
 	return data, true
 }
 
-// buildEmergencyData loads incident metadata only after token validation.
-func (a *API) buildEmergencyData(ctx context.Context, token incidents.EmergencyToken) (emergencyViewData, error) {
+// buildIncidentViewData loads incident metadata only after token validation.
+func (a *API) buildIncidentViewData(ctx context.Context, token incidents.IncidentToken) (incidentViewData, error) {
 	detail, err := a.repo.GetIncidentDetail(ctx, token.IncidentID)
 	if err != nil {
-		return emergencyViewData{}, err
+		return incidentViewData{}, err
 	}
-	return summarizeEmergencyData(detail), nil
+	return summarizeIncidentViewData(detail), nil
 }
 
-func (a *API) loadEmergencyToken(w http.ResponseWriter, r *http.Request) (incidents.EmergencyToken, bool) {
-	setEmergencyPrivacyHeaders(w)
-	token, err := a.repo.LookupEmergencyToken(r.Context(), r.PathValue("token"))
+func (a *API) loadIncidentToken(w http.ResponseWriter, r *http.Request) (incidents.IncidentToken, bool) {
+	setIncidentViewerPrivacyHeaders(w)
+	token, err := a.repo.LookupIncidentToken(r.Context(), r.PathValue("token"))
 	if errors.Is(err, incidents.ErrNotFound) {
-		writeError(w, http.StatusNotFound, "emergency_token_invalid", "emergency token is invalid, expired, or revoked")
-		return incidents.EmergencyToken{}, false
+		writeError(w, http.StatusNotFound, "incident_token_invalid", "incident token is invalid, expired, or revoked")
+		return incidents.IncidentToken{}, false
 	}
 	if err != nil {
-		a.internalError(w, "lookup emergency token", err)
-		return incidents.EmergencyToken{}, false
+		a.internalError(w, "lookup incident token", err)
+		return incidents.IncidentToken{}, false
 	}
 	return token, true
 }
 
-// summarizeEmergencyData prepares viewer-safe incident data without exposing
+// summarizeIncidentViewData prepares viewer-safe incident data without exposing
 // stored paths or encrypted file bytes.
-func summarizeEmergencyData(detail incidents.IncidentDetail) emergencyViewData {
-	chunkStats := collectEmergencyChunkStats(detail.Chunks)
-	streams, completedStreams := summarizeEmergencyStreams(detail.Streams, chunkStats)
+func summarizeIncidentViewData(detail incidents.IncidentDetail) incidentViewData {
+	chunkStats := collectIncidentViewerChunkStats(detail.Chunks)
+	streams, completedStreams := summarizeIncidentViewerStreams(detail.Streams, chunkStats)
 
-	return emergencyViewData{
+	return incidentViewData{
 		Incident:               summarizeIncident(detail.Incident),
 		LatestCheckin:          summarizeLatestCheckin(detail.Checkins),
 		ChunkCountByMediaType:  chunkStats.chunkCountByMediaType,
 		LatestChunkByMediaType: chunkStats.latestChunkByMediaType,
-		Media:                  summarizeEmergencyMedia(chunkStats),
+		Media:                  summarizeIncidentViewerMedia(chunkStats),
 		Streams:                streams,
 		CompletedStreams:       completedStreams,
-		Warning:                emergencyWarning,
+		Warning:                incidentWarning,
 		GeneratedAt:            time.Now().UTC(),
 	}
 }
 
-type emergencyChunkStats struct {
+type incidentViewerChunkStats struct {
 	chunkCountByMediaType  map[string]int
-	latestChunkByMediaType map[string]*emergencyChunkSummary
+	latestChunkByMediaType map[string]*incidentViewerChunkSummary
 	chunkCountByStreamID   map[string]int
 	byteCountByStreamID    map[string]int64
 }
 
-func collectEmergencyChunkStats(chunks []incidents.Chunk) emergencyChunkStats {
-	stats := emergencyChunkStats{
+func collectIncidentViewerChunkStats(chunks []incidents.Chunk) incidentViewerChunkStats {
+	stats := incidentViewerChunkStats{
 		chunkCountByMediaType:  make(map[string]int),
-		latestChunkByMediaType: make(map[string]*emergencyChunkSummary),
+		latestChunkByMediaType: make(map[string]*incidentViewerChunkSummary),
 		chunkCountByStreamID:   make(map[string]int),
 		byteCountByStreamID:    make(map[string]int64),
 	}
@@ -301,8 +301,8 @@ func collectEmergencyChunkStats(chunks []incidents.Chunk) emergencyChunkStats {
 	return stats
 }
 
-func summarizeIncident(incident incidents.Incident) emergencyIncidentSummary {
-	return emergencyIncidentSummary{
+func summarizeIncident(incident incidents.Incident) incidentViewerIncidentSummary {
+	return incidentViewerIncidentSummary{
 		ID:          incident.ID,
 		Status:      incident.Status,
 		ClientLabel: incident.ClientLabel,
@@ -311,7 +311,7 @@ func summarizeIncident(incident incidents.Incident) emergencyIncidentSummary {
 	}
 }
 
-func summarizeLatestCheckin(checkins []incidents.Checkin) *emergencyCheckinSummary {
+func summarizeLatestCheckin(checkins []incidents.Checkin) *incidentViewerCheckinSummary {
 	if len(checkins) == 0 {
 		return nil
 	}
@@ -319,8 +319,8 @@ func summarizeLatestCheckin(checkins []incidents.Checkin) *emergencyCheckinSumma
 	return &summary
 }
 
-func summarizeCheckin(checkin incidents.Checkin) emergencyCheckinSummary {
-	return emergencyCheckinSummary{
+func summarizeCheckin(checkin incidents.Checkin) incidentViewerCheckinSummary {
+	return incidentViewerCheckinSummary{
 		CreatedAt:            checkin.CreatedAt,
 		DeviceBatteryPercent: checkin.DeviceBatteryPercent,
 		DeviceNetwork:        checkin.DeviceNetwork,
@@ -330,16 +330,16 @@ func summarizeCheckin(checkin incidents.Checkin) emergencyCheckinSummary {
 	}
 }
 
-func summarizeEmergencyMedia(stats emergencyChunkStats) []emergencyMediaSummary {
+func summarizeIncidentViewerMedia(stats incidentViewerChunkStats) []incidentViewerMediaSummary {
 	mediaTypes := []string{
 		incidents.MediaTypeAudio,
 		incidents.MediaTypeVideo,
 		incidents.MediaTypeLocation,
 		incidents.MediaTypeMetadata,
 	}
-	media := make([]emergencyMediaSummary, 0, len(mediaTypes))
+	media := make([]incidentViewerMediaSummary, 0, len(mediaTypes))
 	for _, mediaType := range mediaTypes {
-		media = append(media, emergencyMediaSummary{
+		media = append(media, incidentViewerMediaSummary{
 			MediaType:   mediaType,
 			ChunkCount:  stats.chunkCountByMediaType[mediaType],
 			LatestChunk: stats.latestChunkByMediaType[mediaType],
@@ -348,11 +348,11 @@ func summarizeEmergencyMedia(stats emergencyChunkStats) []emergencyMediaSummary 
 	return media
 }
 
-func summarizeEmergencyStreams(streams []incidents.MediaStream, stats emergencyChunkStats) ([]emergencyStreamSummary, []emergencyStreamSummary) {
-	summaries := make([]emergencyStreamSummary, 0, len(streams))
-	completed := []emergencyStreamSummary{}
+func summarizeIncidentViewerStreams(streams []incidents.MediaStream, stats incidentViewerChunkStats) ([]incidentViewerStreamSummary, []incidentViewerStreamSummary) {
+	summaries := make([]incidentViewerStreamSummary, 0, len(streams))
+	completed := []incidentViewerStreamSummary{}
 	for _, stream := range streams {
-		summary := summarizeEmergencyStream(stream, stats)
+		summary := summarizeIncidentViewerStream(stream, stats)
 		summaries = append(summaries, summary)
 		if stream.Status == incidents.StreamStatusComplete {
 			completed = append(completed, summary)
@@ -361,8 +361,8 @@ func summarizeEmergencyStreams(streams []incidents.MediaStream, stats emergencyC
 	return summaries, completed
 }
 
-func summarizeEmergencyStream(stream incidents.MediaStream, stats emergencyChunkStats) emergencyStreamSummary {
-	return emergencyStreamSummary{
+func summarizeIncidentViewerStream(stream incidents.MediaStream, stats incidentViewerChunkStats) incidentViewerStreamSummary {
+	return incidentViewerStreamSummary{
 		ID:                 stream.ID,
 		MediaType:          stream.MediaType,
 		Label:              stream.Label,
@@ -376,9 +376,9 @@ func summarizeEmergencyStream(stream incidents.MediaStream, stats emergencyChunk
 	}
 }
 
-// summarizeChunk copies only metadata that is safe for the emergency viewer.
-func summarizeChunk(chunk incidents.Chunk) emergencyChunkSummary {
-	return emergencyChunkSummary{
+// summarizeChunk copies only metadata that is safe for the incident viewer.
+func summarizeChunk(chunk incidents.Chunk) incidentViewerChunkSummary {
+	return incidentViewerChunkSummary{
 		ChunkIndex:       chunk.ChunkIndex,
 		MediaType:        chunk.MediaType,
 		StartedAt:        chunk.StartedAt,
@@ -390,7 +390,7 @@ func summarizeChunk(chunk incidents.Chunk) emergencyChunkSummary {
 	}
 }
 
-func chunkReceivedAfter(candidate, current emergencyChunkSummary) bool {
+func chunkReceivedAfter(candidate, current incidentViewerChunkSummary) bool {
 	if candidate.CreatedAt.Equal(current.CreatedAt) {
 		return candidate.ChunkIndex > current.ChunkIndex
 	}

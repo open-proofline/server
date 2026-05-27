@@ -11,24 +11,24 @@ import (
 	"time"
 )
 
-// CreateEmergencyToken creates a read-only token scoped to one incident and
+// CreateIncidentToken creates a read-only token scoped to one incident and
 // returns the raw token once for the caller to share.
-func (r *Repository) CreateEmergencyToken(ctx context.Context, incidentID, label string, expiresAt *time.Time) (EmergencyToken, string, error) {
+func (r *Repository) CreateIncidentToken(ctx context.Context, incidentID, label string, expiresAt *time.Time) (IncidentToken, string, error) {
 	tokenBytes := make([]byte, 32)
 	if _, err := rand.Read(tokenBytes); err != nil {
-		return EmergencyToken{}, "", fmt.Errorf("generate emergency token: %w", err)
+		return IncidentToken{}, "", fmt.Errorf("generate incident token: %w", err)
 	}
 	// Generate a URL-safe 256-bit bearer token and persist only its SHA-256
-	// hash so database disclosure does not reveal usable emergency links.
+	// hash so database disclosure does not reveal usable incident viewer links.
 	rawToken := base64.RawURLEncoding.EncodeToString(tokenBytes)
-	tokenHash := hashEmergencyToken(rawToken)
+	tokenHash := hashIncidentToken(rawToken)
 
-	id, err := newID("etk")
+	id, err := newID("itk")
 	if err != nil {
-		return EmergencyToken{}, "", err
+		return IncidentToken{}, "", err
 	}
 	now := time.Now().UTC()
-	token := EmergencyToken{
+	token := IncidentToken{
 		ID:         id,
 		IncidentID: incidentID,
 		TokenHash:  tokenHash,
@@ -38,7 +38,7 @@ func (r *Repository) CreateEmergencyToken(ctx context.Context, incidentID, label
 	}
 
 	_, err = r.db.ExecContext(ctx, `
-		INSERT INTO emergency_tokens (
+		INSERT INTO incident_tokens (
 			id, incident_id, token_hash, label, created_at, expires_at
 		)
 		VALUES (?, ?, ?, ?, ?, ?)`,
@@ -54,62 +54,62 @@ func (r *Repository) CreateEmergencyToken(ctx context.Context, incidentID, label
 		// vanishingly unlikely token-hash collision; callers treat both as a
 		// failed token creation.
 		if isConstraint(err) {
-			return EmergencyToken{}, "", ErrNotFound
+			return IncidentToken{}, "", ErrNotFound
 		}
-		return EmergencyToken{}, "", fmt.Errorf("insert emergency token: %w", err)
+		return IncidentToken{}, "", fmt.Errorf("insert incident token: %w", err)
 	}
 
 	return token, rawToken, nil
 }
 
-// LookupEmergencyToken returns token metadata when rawToken is valid, unexpired,
+// LookupIncidentToken returns token metadata when rawToken is valid, unexpired,
 // and not revoked.
-func (r *Repository) LookupEmergencyToken(ctx context.Context, rawToken string) (EmergencyToken, error) {
-	tokenHash := hashEmergencyToken(rawToken)
+func (r *Repository) LookupIncidentToken(ctx context.Context, rawToken string) (IncidentToken, error) {
+	tokenHash := hashIncidentToken(rawToken)
 	row := r.db.QueryRowContext(ctx, `
 		SELECT id, incident_id, token_hash, label, created_at, expires_at, revoked_at
-		FROM emergency_tokens
+		FROM incident_tokens
 		WHERE token_hash = ?`,
 		tokenHash,
 	)
 
-	token, err := scanEmergencyToken(row)
+	token, err := scanIncidentToken(row)
 	if errors.Is(err, sql.ErrNoRows) {
-		return EmergencyToken{}, ErrNotFound
+		return IncidentToken{}, ErrNotFound
 	}
 	if err != nil {
-		return EmergencyToken{}, fmt.Errorf("lookup emergency token: %w", err)
+		return IncidentToken{}, fmt.Errorf("lookup incident token: %w", err)
 	}
 	// The indexed lookup should already match the hash; keep a constant-time
 	// comparison as a final equality check before considering token state.
 	if subtle.ConstantTimeCompare([]byte(token.TokenHash), []byte(tokenHash)) != 1 {
-		return EmergencyToken{}, ErrNotFound
+		return IncidentToken{}, ErrNotFound
 	}
 	if token.RevokedAt != nil {
-		return EmergencyToken{}, ErrNotFound
+		return IncidentToken{}, ErrNotFound
 	}
 	if token.ExpiresAt != nil && !token.ExpiresAt.After(time.Now().UTC()) {
-		return EmergencyToken{}, ErrNotFound
+		return IncidentToken{}, ErrNotFound
 	}
 
 	return token, nil
 }
 
-// RevokeEmergencyToken revokes a token so it can no longer read emergency data.
-func (r *Repository) RevokeEmergencyToken(ctx context.Context, tokenID string) error {
+// RevokeIncidentToken revokes a token so it can no longer read incident viewer data.
+func (r *Repository) RevokeIncidentToken(ctx context.Context, tokenID string) error {
 	result, err := r.db.ExecContext(ctx, `
-		UPDATE emergency_tokens
+		UPDATE incident_tokens
 		SET revoked_at = ?
 		WHERE id = ? AND revoked_at IS NULL`,
 		formatDBTime(time.Now().UTC()),
 		tokenID,
 	)
 	if err != nil {
-		return fmt.Errorf("revoke emergency token: %w", err)
+		return fmt.Errorf("revoke incident token: %w", err)
 	}
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("revoke emergency token rows affected: %w", err)
+		return fmt.Errorf("revoke incident token rows affected: %w", err)
 	}
 	if rowsAffected == 0 {
 		return ErrNotFound

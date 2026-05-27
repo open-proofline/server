@@ -47,7 +47,7 @@ The simulator acts like a fake future iOS client.
 It should exercise:
 
 - incident creation
-- emergency token creation
+- incident token creation
 - media stream creation
 - chunk uploads with `stream_id`
 - stream chunk indexes starting at `1`
@@ -65,7 +65,7 @@ It should exercise:
 Check that the simulator:
 
 - uses the private API base URL for `/v1` routes
-- uses the public viewer base URL for printed emergency links
+- uses the public viewer base URL for printed incident viewer links
 - creates a media stream before uploading chunks
 - uploads chunks with `stream_id`
 - keeps chunk indexes unique per `(incident_id, media_type, chunk_index)`

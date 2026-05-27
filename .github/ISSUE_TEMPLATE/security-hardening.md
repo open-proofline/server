@@ -1,6 +1,6 @@
 # Security Hardening
 
-Use this only for non-sensitive hardening work. Do not include exploit details, raw emergency tokens, secrets, private deployment information, request bodies, uploaded bytes, or user safety data.
+Use this only for non-sensitive hardening work. Do not include exploit details, raw incident tokens, secrets, private deployment information, request bodies, uploaded bytes, or user safety data.
 
 If this is a vulnerability report, follow `SECURITY.md` instead of opening a public issue.
 
@@ -11,8 +11,8 @@ One or two sentences.
 ## Hardening area
 
 - [ ] private `/v1` route boundary
-- [ ] public emergency viewer
-- [ ] emergency tokens
+- [ ] public incident viewer
+- [ ] incident tokens
 - [ ] upload/storage integrity
 - [ ] ZIP bundle safety
 - [ ] logging

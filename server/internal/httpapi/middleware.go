@@ -64,16 +64,25 @@ func safeLogPath(r *http.Request) string {
 	if r.Pattern != "" && r.Pattern != "/" {
 		return r.Pattern
 	}
+	if strings.HasPrefix(r.URL.Path, "/i/") {
+		return redactedViewerPath(r.URL.Path, "/i")
+	}
+	// Keep redacting stale pre-rename viewer URLs even though they no longer
+	// route. They may still appear in old links or browser retries.
 	if strings.HasPrefix(r.URL.Path, "/e/") {
-		if strings.HasSuffix(r.URL.Path, "/data") {
-			return "/e/{token}/data"
-		}
-		return "/e/{token}"
+		return redactedViewerPath(r.URL.Path, "/e")
 	}
 	if r.Pattern != "" {
 		return r.Pattern
 	}
 	return r.URL.Path
+}
+
+func redactedViewerPath(path, prefix string) string {
+	if strings.HasSuffix(path, "/data") {
+		return prefix + "/{token}/data"
+	}
+	return prefix + "/{token}"
 }
 
 func (a *API) recoveryMiddleware(next http.Handler) http.Handler {

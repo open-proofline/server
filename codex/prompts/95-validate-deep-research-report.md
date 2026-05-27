@@ -56,7 +56,7 @@ Allowed values:
 
 ## Product Context
 
-Product documentation now uses the name Proofline. Repository paths, Go module paths, Docker image names, GHCR package names, current route names, and compatibility names may still use `safety-recorder` or `emergency` until explicit migrations are performed.
+Product documentation now uses the name Proofline. Repository paths, Go module paths, Docker image names, GHCR package names, and historical migration names may still use `safety-recorder` or `emergency` until explicit migrations are performed.
 
 Proofline's planned product scope includes emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes. The current backend stores generic incidents unless the reviewed tree explicitly implements first-class incident types or escalation policies.
 

@@ -81,7 +81,7 @@ Update only relevant files:
 - encryption envelope format and simulator key-file behaviour
 - current backend does not decrypt or store raw keys by default
 - future hybrid key custody direction, if design docs exist
-- emergency viewer download buttons
+- incident viewer download buttons
 - simulator commands
 - security warnings
 - known limitations

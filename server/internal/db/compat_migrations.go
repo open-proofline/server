@@ -88,16 +88,16 @@ func ensureChunkStreamIdentity(ctx context.Context, store schemaStore) error {
 	return nil
 }
 
-func dropEmergencyTokenLastUsedColumn(ctx context.Context, store schemaStore) error {
-	hasLastUsedAt, err := tableHasColumn(ctx, store, "emergency_tokens", "last_used_at")
+func dropIncidentTokenLastUsedColumn(ctx context.Context, store schemaStore) error {
+	hasLastUsedAt, err := tableHasColumn(ctx, store, "incident_tokens", "last_used_at")
 	if err != nil {
 		return err
 	}
 	if !hasLastUsedAt {
 		return nil
 	}
-	if _, err := store.ExecContext(ctx, "ALTER TABLE emergency_tokens DROP COLUMN last_used_at"); err != nil {
-		return fmt.Errorf("drop emergency_tokens.last_used_at: %w", err)
+	if _, err := store.ExecContext(ctx, "ALTER TABLE incident_tokens DROP COLUMN last_used_at"); err != nil {
+		return fmt.Errorf("drop incident_tokens.last_used_at: %w", err)
 	}
 	return nil
 }

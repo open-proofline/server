@@ -314,13 +314,13 @@ Response `201` is the created checkin.
 
 ## Viewer Tokens
 
-Viewer token creation and revocation routes are mounted only on the private API server. The implementation currently uses emergency-token route names and identifiers for compatibility.
+Incident-token creation and revocation routes are mounted only on the private API server.
 
-### `POST /v1/incidents/{incident_id}/emergency-tokens`
+### `POST /v1/incidents/{incident_id}/incident-tokens`
 
 Creates a read-only viewer token for one incident. The raw token is returned only in this response; SQLite stores only a SHA-256 hash.
 
-`expires_at` is optional. When omitted, the API applies the configured default token lifetime, which is 24 hours unless `SAFE_DEFAULT_EMERGENCY_TOKEN_TTL` is changed. Explicit `expires_at` values are preserved; send `null` to explicitly create a token that remains valid until revoked. Setting `SAFE_DEFAULT_EMERGENCY_TOKEN_TTL=0` disables the default and lets omitted expiries remain valid until revoked.
+`expires_at` is optional. When omitted, the API applies the configured default token lifetime, which is 24 hours unless `SAFE_DEFAULT_INCIDENT_TOKEN_TTL` is changed. Explicit `expires_at` values are preserved; send `null` to explicitly create a token that remains valid until revoked. Setting `SAFE_DEFAULT_INCIDENT_TOKEN_TTL=0` disables the default and lets omitted expiries remain valid until revoked.
 
 Request:
 
@@ -335,7 +335,7 @@ Response `201`:
 
 ```json
 {
-  "token_id": "etk_...",
+  "token_id": "itk_...",
   "incident_id": "inc_...",
   "token": "...",
   "label": "trusted contact",
@@ -346,7 +346,7 @@ Response `201`:
 
 The response includes `Cache-Control: no-store`.
 
-### `POST /v1/emergency-tokens/{token_id}/revoke`
+### `POST /v1/incident-tokens/{token_id}/revoke`
 
 Revokes a viewer token by ID.
 
@@ -354,7 +354,7 @@ Response `200`:
 
 ```json
 {
-  "token_id": "etk_...",
+  "token_id": "itk_...",
   "revoked": true
 }
 ```
@@ -363,11 +363,11 @@ Response `200`:
 
 Incident viewer routes are mounted only on the public incident viewer server.
 
-### `GET /e/{token}`
+### `GET /i/{token}`
 
 Renders a read-only HTML summary for a valid, unexpired, unrevoked token. The page includes embedded static CSS/JS files served from `/static/`.
 
-### `GET /e/{token}/data`
+### `GET /i/{token}/data`
 
 Returns the same read-only summary as JSON for polling.
 
@@ -410,16 +410,16 @@ Response `200`:
 }
 ```
 
-Incident viewer responses include `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`, `Permissions-Policy: geolocation=(), microphone=(), camera=()`, `X-Frame-Options: DENY`, and a strict `Content-Security-Policy` with `frame-ancestors 'none'`. Token-protected pages, JSON, errors, and downloads include `Cache-Control: no-store`. Invalid, expired, and revoked tokens all return `404 emergency_token_invalid`.
+Incident viewer responses include `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`, `Permissions-Policy: geolocation=(), microphone=(), camera=()`, `X-Frame-Options: DENY`, and a strict `Content-Security-Policy` with `frame-ancestors 'none'`. Token-protected pages, JSON, errors, and downloads include `Cache-Control: no-store`. Invalid, expired, and revoked tokens all return `404 incident_token_invalid`.
 
 The Go app does not set `Strict-Transport-Security` in local/dev HTTP mode. Set HSTS at the HTTPS reverse proxy or deployment edge for production hostnames.
 
-### `GET /e/{token}/streams/{stream_id}/download`
+### `GET /i/{token}/streams/{stream_id}/download`
 
-Downloads a completed stream bundle for the token's incident. The route is read-only and never accepts a client-provided file path. Invalid, expired, and revoked tokens return `404 emergency_token_invalid`.
+Downloads a completed stream bundle for the token's incident. The route is read-only and never accepts a client-provided file path. Invalid, expired, and revoked tokens return `404 incident_token_invalid`.
 
-### `GET /e/{token}/incident/download`
+### `GET /i/{token}/incident/download`
 
 Downloads all completed streams for the token's incident as one encrypted evidence ZIP. Failed/open streams and legacy unstreamed chunks are omitted.
 
-If any completed stream cannot be reconstructed, the incident bundle request fails with `409 incident_bundle_inconsistent` rather than returning a partial bundle. Invalid, expired, and revoked tokens still return `404 emergency_token_invalid`.
+If any completed stream cannot be reconstructed, the incident bundle request fails with `409 incident_bundle_inconsistent` rather than returning a partial bundle. Invalid, expired, and revoked tokens still return `404 incident_token_invalid`.

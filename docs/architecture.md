@@ -19,7 +19,7 @@ flowchart LR
     PrivateAPI --> Store["Blob storage"]
     Store --> Files[(Encrypted chunk files)]
     PrivateAPI --> Token["Viewer token creation"]
-    Contact["Trusted contact"] --> Viewer["Public incident viewer<br/>/e/{token}"]
+    Contact["Trusted contact"] --> Viewer["Public incident viewer<br/>/i/{token}"]
     Viewer --> Repo
     Viewer --> Store
     Viewer --> Bundle["Encrypted ZIP evidence bundles"]
@@ -97,7 +97,7 @@ sequenceDiagram
 
     Client->>Private: POST /v1/incidents
     Private->>DB: Create generic incident metadata
-    Client->>Private: POST /v1/incidents/{id}/emergency-tokens
+    Client->>Private: POST /v1/incidents/{id}/incident-tokens
     Private->>DB: Store token hash only
     Client->>Private: POST /v1/incidents/{id}/streams
     Private->>DB: Create open stream
@@ -106,7 +106,7 @@ sequenceDiagram
     Private->>DB: Recheck state and store chunk metadata
     Client->>Private: POST /streams/{stream_id}/complete
     Private->>DB: Verify chunks and mark complete transactionally
-    Contact->>Public: GET /e/{token}
+    Contact->>Public: GET /i/{token}
     Public->>DB: Validate token and read summary
     Public->>Blob: Stream completed encrypted bundle
 ```
@@ -122,7 +122,7 @@ flowchart LR
     end
 
     subgraph PublicMux["Public mux"]
-        Viewer["/e/{token} routes<br/>read-only page, JSON,<br/>completed bundle downloads"]
+        Viewer["/i/{token} routes<br/>read-only page, JSON,<br/>completed bundle downloads"]
         Static["/static assets<br/>token-neutral"]
     end
 

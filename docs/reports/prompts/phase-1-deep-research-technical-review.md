@@ -214,7 +214,7 @@ Technical focus areas:
 2. Current implementation versus future incident-mode planning
 3. Go backend structure and idiomatic implementation
 4. HTTP API behavior and private/public route separation
-5. Viewer/emergency token generation, hashing, storage, expiry, redaction, and viewer behavior
+5. Viewer/incident token generation, hashing, storage, expiry, redaction, and viewer behavior
 6. Logging, metrics, proxy examples, and sensitive data exposure
 7. Upload handling, hash verification, immutable storage, upload limits, and stream-scoped chunk identity
 8. SQLite migrations, foreign keys, WAL mode, schema migration tracking, and data integrity
@@ -253,7 +253,7 @@ Do not recommend public GitHub issues for private vulnerabilities, raw tokens, s
 - Do not say `/v1` lacks public auth as a vulnerability unless the docs claim it is safe to expose publicly.
 - Do not say missing iOS, Android, web-client, accounts, incident types, escalation policies, browser decryption, production key custody, or break-glass behavior is a defect when docs mark those as future work.
 - Do not treat the docs-only Proofline rename as a repository, Go module, Docker image, GHCR, route, or protocol migration.
-- Do not treat `safety-recorder` or `emergency-token` compatibility names as stale when docs explicitly state those names remain until explicit migration.
+- Do not treat `safety-recorder` or historical migration names such as `emergency_tokens` as stale when docs explicitly state those names remain for migration compatibility.
 - Do not claim emergency-services integration exists.
 - Do not imply Proofline reports crimes, contacts police, guarantees legal admissibility, or provides legal advice.
 - Do not treat planned interaction records as police-specific surveillance features; use neutral incident-capture framing.

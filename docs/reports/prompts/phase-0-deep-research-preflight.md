@@ -310,7 +310,7 @@ The Phase 0 plan should map the Phase 1 report to these broad areas:
 2. Current implementation versus future incident-mode planning
 3. Go backend structure and idiomatic implementation
 4. HTTP API behavior and private/public route separation
-5. Viewer/emergency token generation, hashing, storage, expiry, redaction, and viewer behavior
+5. Viewer/incident token generation, hashing, storage, expiry, redaction, and viewer behavior
 6. Logging, metrics, proxy examples, and sensitive data exposure
 7. Upload handling, hash verification, immutable storage, upload limits, and stream-scoped chunk identity
 8. SQLite migrations, WAL mode, foreign keys, schema migration tracking, and data integrity

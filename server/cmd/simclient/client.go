@@ -25,7 +25,7 @@ type createIncidentResponse struct {
 	Status     string `json:"status"`
 }
 
-type createEmergencyTokenResponse struct {
+type createIncidentTokenResponse struct {
 	TokenID    string     `json:"token_id"`
 	IncidentID string     `json:"incident_id"`
 	Token      string     `json:"token"`
@@ -76,15 +76,15 @@ func (c client) createIncident(ctx context.Context) (string, error) {
 	return response.IncidentID, nil
 }
 
-func (c client) createEmergencyToken(ctx context.Context, incidentID string) (string, error) {
+func (c client) createIncidentToken(ctx context.Context, incidentID string) (string, error) {
 	request := map[string]string{"label": "simclient"}
-	var response createEmergencyTokenResponse
-	path := "/v1/incidents/" + url.PathEscape(incidentID) + "/emergency-tokens"
+	var response createIncidentTokenResponse
+	path := "/v1/incidents/" + url.PathEscape(incidentID) + "/incident-tokens"
 	if err := c.postJSON(ctx, path, request, http.StatusCreated, &response); err != nil {
-		return "", fmt.Errorf("create emergency token: %w", err)
+		return "", fmt.Errorf("create incident token: %w", err)
 	}
 	if response.Token == "" {
-		return "", fmt.Errorf("create emergency token: empty token in response")
+		return "", fmt.Errorf("create incident token: empty token in response")
 	}
 	return response.Token, nil
 }
@@ -146,7 +146,7 @@ func (c client) closeIncident(ctx context.Context, incidentID string) error {
 }
 
 func (c client) downloadStreamBundle(ctx context.Context, token, streamID string) ([]byte, error) {
-	path := "/e/" + url.PathEscape(token) + "/streams/" + url.PathEscape(streamID) + "/download"
+	path := "/i/" + url.PathEscape(token) + "/streams/" + url.PathEscape(streamID) + "/download"
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, joinURL(c.viewerBase, path), nil)
 	if err != nil {
 		return nil, err

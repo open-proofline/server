@@ -74,7 +74,9 @@ func migrationSteps() ([]migrationStep, error) {
 
 	steps = append(steps,
 		compatMigrationStep("004_chunks_stream_id_compat", "add chunks.stream_id column and index when missing", ensureChunkStreamColumn),
-		compatMigrationStep("005_drop_emergency_token_last_used_compat", "drop obsolete emergency_tokens.last_used_at column when present", dropEmergencyTokenLastUsedColumn),
+		// Keep this recorded migration ID and description stable for databases
+		// that already stored its checksum before the incident-token rename.
+		compatMigrationStep("005_drop_emergency_token_last_used_compat", "drop obsolete emergency_tokens.last_used_at column when present", dropIncidentTokenLastUsedColumn),
 		compatMigrationStep("006_chunks_stream_identity_compat", "rebuild chunks uniqueness around stream scoped identity", ensureChunkStreamIdentity),
 	)
 	return steps, nil

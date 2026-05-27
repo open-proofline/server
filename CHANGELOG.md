@@ -2,8 +2,9 @@
 
 ## Unreleased
 
-- Documented the planned `open-proofline` multi-repo layout and clarified that this repository is the Go server backend only.
+- Renamed legacy viewer/token terminology to incident-viewer and incident-token terminology, including breaking route/config/schema names for the upcoming release while migrating existing token rows.
 - Renamed the product in documentation to Proofline while preserving current repository, module, Docker, GHCR, route, and compatibility names.
+- Documented the planned `open-proofline` multi-repo layout and clarified that this repository is the Go server backend only.
 - Documented the broader incident-capture direction, including emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes.
 - Added `Phase 0` Deep Research prompt. Loads report instructions and plans research prior to running `Phase 1`
 - Documented Go readability standards and aligned the readability-maintenance Codex prompt with them.
@@ -13,7 +14,7 @@
 - Refactored `server/internal/db` connection, migration orchestration, and compatibility migration helpers into focused files for readability without changing migration behaviour.
 - Refactored `server/internal/envelope` key-file, associated-data, chunk encryption, and header parsing helpers into focused files without changing the envelope format.
 - Refactored `server/internal/httpapi` summary, bundle, stream-validation, and upload parsing helpers for readability without changing HTTP behaviour.
-- Refactored `server/internal/incidents` repository methods into focused chunk, checkin, and emergency-token files for readability without changing behaviour.
+- Refactored `server/internal/incidents` repository methods into focused chunk, checkin, and incident-token files for readability without changing behaviour.
 - Refactored `server/internal/storage` temp upload and immutable blob helpers into focused files for readability without changing storage behaviour.
 - Documented the `develop` and `release/v*` repository rulesets, branch model,
   and PR base-branch guidance.
@@ -30,8 +31,8 @@
 - Added an iOS local recorder prototype plan covering chunking, encrypted staging, retry behavior, and current stream API mapping.
 - Added a retention, backup, restore, and secure deletion policy design document.
 - Added deployment-edge rate-limiting guidance and Traefik route-group examples.
-- Added deployment examples for localhost-only Docker, WireGuard/private-network `/v1` access, and Traefik HTTPS emergency viewer exposure.
-- Added a configurable default 24-hour emergency-token expiry for omitted `expires_at` values.
+- Added deployment examples for localhost-only Docker, WireGuard/private-network `/v1` access, and Traefik HTTPS incident viewer exposure.
+- Added a configurable default 24-hour incident-token expiry for omitted `expires_at` values.
 - Added a public technical review report and report-validation prompt workflow.
 - Documented the active branch protection ruleset, required checks, and tag/release expectations.
 - Scoped GitHub Actions package write permission to the trusted Docker publish job while keeping workflow defaults read-only.
@@ -52,13 +53,13 @@
 - Added an iOS local recorder prototype plan covering chunking, encrypted staging, retry behavior, and current stream API mapping.
 - Added a retention, backup, restore, and secure deletion policy design document.
 - Added deployment-edge rate-limiting guidance and Traefik route-group examples.
-- Added deployment examples for localhost-only Docker, WireGuard/private-network `/v1` access, and Traefik HTTPS emergency viewer exposure.
-- Added a configurable default 24-hour emergency-token expiry for omitted `expires_at` values.
+- Added deployment examples for localhost-only Docker, WireGuard/private-network `/v1` access, and Traefik HTTPS incident viewer exposure.
+- Added a configurable default 24-hour incident-token expiry for omitted `expires_at` values.
 - Added a public technical review report and report-validation prompt workflow.
 - Documented the active branch protection ruleset, required checks, and tag/release expectations.
 - Scoped GitHub Actions package write permission to the trusted Docker publish job while keeping workflow defaults read-only.
 - Added a break-glass and dead-man-switch key access design document.
-- Added a browser-side emergency viewer decryption design spike.
+- Added a browser-side incident viewer decryption design spike.
 - Added a production key custody and emergency access design document covering the future hybrid trusted-contact model.
 - Rejected non-positive chunk indexes for streamed uploads while preserving legacy unstreamed compatibility.
 - Hardened chunk upload and stream completion against incident/stream state races.
@@ -81,8 +82,8 @@
 - Added media streams for grouping uploaded chunks.
 - Added stream completion/failure state transitions.
 - Added encrypted ZIP evidence bundle downloads for completed streams and completed incident streams.
-- Updated the emergency viewer to show completed-stream download buttons.
-- Hardened emergency viewer and API response security headers.
+- Updated the incident viewer to show completed-stream download buttons.
+- Hardened incident viewer and API response security headers.
 - Hardened `SAFE_MAX_UPLOAD_BYTES` parsing and upload-limit overflow handling.
 - Added AGPL-3.0-only license.
 - Added repository security policy.
@@ -102,5 +103,5 @@
 ## v0.1.0
 
 - Initial backend ingest API.
-- Emergency viewer.
+- Incident viewer.
 - Docker/GHCR publishing.

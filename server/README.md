@@ -21,7 +21,7 @@ The simulator exercises the current generic incident ingest flow:
 go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle
 ```
 
-That flow creates an incident, creates a viewer token through the current emergency-token route, creates a media stream, encrypts and uploads chunks with `stream_id`, completes the stream, downloads the encrypted ZIP bundle through the incident viewer, and verifies local decryption when bundle download is enabled.
+That flow creates an incident, creates a viewer token through the current incident-token route, creates a media stream, encrypts and uploads chunks with `stream_id`, completes the stream, downloads the encrypted ZIP bundle through the incident viewer, and verifies local decryption when bundle download is enabled.
 
 Evidence bundles contain encrypted chunk files and JSON manifests only. They are not decrypted, merged, or playable media exports.
 

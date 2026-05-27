@@ -135,7 +135,7 @@ Core constraints:
 - Keep private `/v1` routes and public incident viewer routes on separate listener groups and muxes.
 - Treat uploaded chunks as immutable.
 - Evidence bundles are encrypted chunk bundles, not decrypted/playable media exports.
-- Do not log raw viewer tokens, emergency tokens, request bodies, uploaded bytes, Authorization headers, plaintext, raw keys, or future token-like values.
+- Do not log raw viewer tokens, incident tokens, request bodies, uploaded bytes, Authorization headers, plaintext, raw keys, or future token-like values.
 - Use stable, documented crypto libraries only. Do not implement cryptographic primitives.
 - Preserve the current backend ciphertext-only implementation unless the task explicitly concerns key custody, emergency access, or decryption design.
 - Do not introduce backend decryption, raw server-held decryption keys, key escrow, browser decryption, or key-sharing behaviour incidentally.

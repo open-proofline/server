@@ -22,7 +22,7 @@ Future incident modes such as emergency incidents, interaction records, safety c
 - Preserve uploaded evidence unless there is an explicit deletion decision.
 - Keep SQLite metadata and blob files in sync; either both are retained, or both are removed by a future deletion workflow.
 - Treat failed and open streams as possible evidence. Do not discard them just because they are not downloadable as completed stream bundles.
-- Keep raw viewer/emergency tokens out of storage and logs. Only token hashes are retained in SQLite.
+- Keep raw viewer/incident tokens out of storage and logs. Only token hashes are retained in SQLite.
 - Treat non-emergency interaction records as potentially sensitive even when they are not urgent safety incidents.
 - Do not promise unrecoverable deletion from normal file removal.
 - Use disk or volume encryption so eventual deletion can rely on cryptographic key destruction, backup expiry, and media retirement instead of overwrite claims.
