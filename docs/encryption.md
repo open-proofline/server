@@ -1,14 +1,18 @@
 # Encryption
 
-Safety Recorder currently stores opaque encrypted chunk bytes. This document describes the first client-side chunk encryption envelope used by the Go simulator and tests.
+Proofline currently stores opaque encrypted chunk bytes. This document describes the first client-side chunk encryption envelope used by the Go simulator and tests.
 
 This milestone does not add backend decryption. The server still validates SHA-256 over uploaded ciphertext bytes, stores those bytes on local disk, and emits encrypted ZIP evidence bundles.
+
+## Naming Compatibility
+
+The current envelope scheme and associated-data prefix still use `safety-recorder` / `SafetyRecorderChunk` names for compatibility with existing simulator and test data. A future protocol migration may introduce a Proofline-named envelope version, but that must be explicit protocol work with test vectors and compatibility notes.
 
 ## Threat Model
 
 The v1 envelope protects chunk plaintext from the backend, SQLite, local blob storage, and evidence bundle readers who do not have the client-held key. It does not protect metadata that is already sent to the backend, such as incident ID, stream ID, media type, chunk index, timestamps, byte size, and ciphertext hashes.
 
-The simulator key handling in this repository is for development and test use only. Future production client key storage, sharing, recovery, and emergency-contact access are out of scope for the current implementation and are designed separately in [key-custody.md](key-custody.md).
+The simulator key handling in this repository is for development and test use only. Future production client key storage, sharing, recovery, trusted-contact access, and incident-mode sharing are out of scope for the current implementation and are designed separately in [key-custody.md](key-custody.md) and [incident-modes.md](incident-modes.md).
 
 ## Scheme v1
 
@@ -63,7 +67,7 @@ AES-GCM ciphertext including authentication tag
 Magic bytes are exactly:
 
 ```text
-SRCENC1\n
+SRCENC1
 ```
 
 The JSON header is non-secret:
@@ -113,14 +117,16 @@ Expected output includes the non-secret key ID, encrypted chunk uploads, bundle 
 To persist a simulator key locally:
 
 ```bash
-go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle --key-file /tmp/safety-recorder-sim.key.json
+go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle --key-file /tmp/proofline-sim.key.json
 ```
 
 Run it again with the same path to load the existing key:
 
 ```bash
-go run ./cmd/simclient --chunks 2 --interval 1s --download-bundle --key-file /tmp/safety-recorder-sim.key.json
+go run ./cmd/simclient --chunks 2 --interval 1s --download-bundle --key-file /tmp/proofline-sim.key.json
 ```
+
+Older examples may use `/tmp/safety-recorder-sim.key.json`; the file name is not part of the encryption protocol.
 
 To preserve the old raw fake chunk behavior for development compatibility:
 
@@ -140,8 +146,12 @@ The backend sees only opaque uploaded bytes and client-provided metadata. It sto
 
 Evidence bundles remain ZIP files containing encrypted `.enc` chunk files and JSON manifests. Bundle manifests include a non-secret hint that client-side encryption is expected and that the server does not decrypt.
 
+## Incident Modes And Encryption
+
+Future incident modes do not change the backend ciphertext-only posture by themselves. Emergency incidents, interaction records, safety checks, and evidence notes may have different capture, sharing, or escalation policies, but uploaded media should still be encrypted before upload and treated as opaque ciphertext by the backend unless an explicit future decryption/key-custody design says otherwise.
+
 ## Future Work
 
 The intended Apple-side equivalent is CryptoKit or Swift Crypto AES-GCM. This repository does not include iOS or Swift code yet.
 
-Future work includes production client key storage, Keychain integration, emergency-contact key access, key sharing, browser/client-side decryption, and playable export. The intended production key custody direction is a hybrid trusted-contact model documented in [key-custody.md](key-custody.md), with browser decryption constraints in [browser-decryption.md](browser-decryption.md) and optional break-glass design in [break-glass-key-access.md](break-glass-key-access.md). Password-derived keys, passphrases, public-key wrapping, key escrow, backend decryption, and browser decryption are not implemented in this milestone.
+Future work includes production client key storage, Keychain integration, trusted-contact key access, key sharing, browser/client-side decryption, account-based access, incident-mode sharing, and playable export. The intended production key custody direction is a hybrid trusted-contact model documented in [key-custody.md](key-custody.md), with browser decryption constraints in [browser-decryption.md](browser-decryption.md) and optional break-glass design in [break-glass-key-access.md](break-glass-key-access.md). Password-derived keys, passphrases, public-key wrapping, key escrow, backend decryption, and browser decryption are not implemented in this milestone.

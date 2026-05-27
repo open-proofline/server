@@ -1,6 +1,6 @@
 # Documentation
 
-This directory contains the detailed project documentation for Safety Recorder. The top-level [README](../README.md) is a concise project overview; these docs keep operational, API, deployment, and development details in one place.
+This directory contains the detailed project documentation for Proofline. The top-level [README](../README.md) is a concise project overview; these docs keep operational, API, deployment, incident-capture, and development details in one place.
 
 ## Contents
 
@@ -9,10 +9,11 @@ This directory contains the detailed project documentation for Safety Recorder. 
 | [Getting started](getting-started.md) | Run the backend locally and exercise the simulator flow. |
 | [Architecture](architecture.md) | System diagrams, listener boundaries, and data flow. |
 | [Configuration](configuration.md) | Environment variables, bind addresses, upload limits, and data layout. |
+| [Incident capture modes](incident-modes.md) | Planned emergency, interaction-record, safety-check, and evidence-note modes. |
 | [Encryption](encryption.md) | Client-side chunk envelope, simulator key file, and local bundle verification. |
-| [iOS local recorder prototype](ios-local-recorder-prototype.md) | Future native recorder scope, chunking, encrypted staging, retry, and API mapping. |
+| [iOS local recorder prototype](ios-local-recorder-prototype.md) | Future native incident-capture scope, chunking, encrypted staging, retry, and API mapping. |
 | [Key custody and emergency access](key-custody.md) | Future production key custody, trusted-contact access, and break-glass design. |
-| [Browser-side decryption](browser-decryption.md) | Future emergency viewer decryption options, risks, and phased direction. |
+| [Browser-side decryption](browser-decryption.md) | Future incident viewer decryption options, risks, and phased direction. |
 | [Break-glass key access](break-glass-key-access.md) | Future optional server-assisted emergency key access and dead-man-switch design. |
 | [API](api.md) | Current HTTP routes, request examples, response examples, and bundle formats. |
 | [Deployment](deployment.md) | Local, Docker, reverse proxy, TLS, and public exposure notes. |
@@ -27,7 +28,11 @@ This directory contains the detailed project documentation for Safety Recorder. 
 
 ## Current Scope
 
-Safety Recorder currently contains the Go backend only. It receives already-encrypted chunks, stores metadata in SQLite, stores encrypted blobs on local disk, groups chunks into media streams, and exposes a token-scoped read-only emergency viewer. The Go simulator can produce the documented v1 client-side encryption envelope for development and test flows. The future iOS recorder prototype is planned in [ios-local-recorder-prototype.md](ios-local-recorder-prototype.md). Future production key custody is documented in [key-custody.md](key-custody.md), with browser decryption and break-glass follow-up designs in [browser-decryption.md](browser-decryption.md) and [break-glass-key-access.md](break-glass-key-access.md).
+Proofline currently contains the Go backend only. It receives already-encrypted chunks, stores metadata in SQLite, stores encrypted blobs on local disk, groups chunks into media streams, and exposes a token-scoped read-only incident viewer. The Go simulator can produce the documented v1 client-side encryption envelope for development and test flows.
+
+The long-term product direction is broader than emergency-only recording. Future clients should support emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes while keeping capture, escalation, sharing, and legal/export actions separate. The planned incident modes are documented in [incident-modes.md](incident-modes.md).
+
+The future iOS incident-capture prototype is planned in [ios-local-recorder-prototype.md](ios-local-recorder-prototype.md). Future production key custody is documented in [key-custody.md](key-custody.md), with browser decryption and break-glass follow-up designs in [browser-decryption.md](browser-decryption.md) and [break-glass-key-access.md](break-glass-key-access.md).
 
 Evidence bundles are encrypted chunk bundles with JSON manifests. They are not decrypted, playable, or merged media exports.
 

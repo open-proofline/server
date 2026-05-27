@@ -1,6 +1,8 @@
 # Security Policy
 
-Safety Recorder is a private personal-safety recording backend. It is not production-ready public infrastructure. The private `/v1` API has no public authentication and must stay behind localhost, WireGuard, a firewall, or an equivalent private boundary.
+Proofline is a private encrypted incident-capture backend. It is not production-ready public infrastructure. The private `/v1` API has no public authentication and must stay behind localhost, WireGuard, a firewall, or an equivalent private boundary.
+
+The current implementation supports generic incident capture and token-scoped read-only incident review. Planned future modes include emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes. Those modes do not change the current vulnerability-reporting process until they are implemented.
 
 ## Supported Versions
 
@@ -35,8 +37,8 @@ Because this project is not yet public-production-ready, response timelines are 
 Reports are in scope when they affect the current backend, documentation, or deployment guidance, including:
 
 - private `/v1` route exposure
-- public emergency viewer read-only access
-- emergency token leakage
+- public incident viewer read-only access
+- viewer/emergency token leakage
 - raw token logging
 - request body logging
 - uploaded file byte logging
@@ -51,18 +53,20 @@ Reports are in scope when they affect the current backend, documentation, or dep
 - Docker bind exposure
 - reverse proxy/TLS deployment
 - evidence retention/deletion policy
+- documentation that could mislead users about emergency-services contact, legal reporting, production readiness, or access-control guarantees
 
 ## Out-of-Scope Reports
 
 The following are generally out of scope unless they demonstrate a concrete vulnerability in this repository:
 
-- missing features already documented as absent, such as user accounts, OAuth, JWT, SMS, push notifications, or a public admin dashboard
+- missing features already documented as absent, such as user accounts, OAuth, JWT, SMS, push notifications, trusted-contact accounts, Android/iOS clients, a web client, first-class incident types, escalation policies, or a public admin dashboard
 - lack of production hardening already documented as a known limitation, without a new exploit path
 - reports requiring public exposure of the private `/v1` API contrary to documented deployment guidance
 - denial-of-service reports based only on unrealistic local access or unbounded physical access
-- findings in future clients, recording implementations, or key-sharing systems that are not in this repository
+- findings in future clients, recording implementations, account systems, notification systems, or key-sharing systems that are not in this repository
+- legal admissibility, recording-law, or emergency-response claims that are not implemented behavior in this repository
 - social engineering, phishing, or attacks against third-party hosting accounts
 
 ## Public Disclosure Guidance
 
-Please allow time for private triage and remediation before public disclosure. Do not publish raw emergency tokens, request bodies, uploaded bytes, private deployment details, or proof-of-concept material that could expose a user's safety data.
+Please allow time for private triage and remediation before public disclosure. Do not publish raw viewer tokens, emergency tokens, request bodies, uploaded bytes, private deployment details, proof-of-concept material, or user safety data.

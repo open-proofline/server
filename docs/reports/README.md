@@ -1,8 +1,10 @@
 # Reports
 
-This directory contains public technical review artifacts for Safety Recorder.
+This directory contains public technical review artifacts for Proofline.
 Reports are documentation and planning inputs, not formal audits,
 certifications, or production-readiness endorsements.
+
+Historical reports keep their original `Safety Recorder` titles, filenames, and reviewed-commit context because they describe the project before the docs-only Proofline rename.
 
 ## Published Reports
 
