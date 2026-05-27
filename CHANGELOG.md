@@ -2,10 +2,25 @@
 
 ## Unreleased
 
+## v0.7.0 - 2026-05-28
+
 - Moved the Go module and backend source tree to the repository root as
   `github.com/open-proofline/server`, and normalized new module, Docker, GHCR,
   and release binary artifact references after the `open-proofline/server`
   transfer.
+- Updated CI, Docker, development, deployment, prompt, and report-workflow
+  references for the repository-root server layout and `proofline-server-*`
+  release artifacts.
+- Updated the GitHub Actions `download-artifact` dependency while preserving
+  full-SHA action pinning.
+- Fixed the README Go version badge after the root-module migration.
+
+## v0.6.1 - 2026-05-28
+
+- Updated repository, GHCR badge, and prompt references after the
+  `open-proofline/server` transfer.
+- Targeted Dependabot updates to the `develop` integration branch for the
+  post-release branch model.
 
 ## v0.6.0 - 2026-05-27
 
