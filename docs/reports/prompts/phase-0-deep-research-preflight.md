@@ -4,13 +4,15 @@ Use this prompt in ChatGPT Deep Research before running the Phase 1 technical re
 
 Do **not** produce the technical review report in this Phase 0 step.
 
-This prompt exists because the Phase 1 report prompt is long and strict. Phase 0 should load the current Phase 1 prompt from the repository, restate the governing rules, and produce a research plan for maintainer approval before the actual report is generated.
+This prompt exists because the Phase 1 report prompt is strict. Phase 0 should load the current Phase 1 prompt from the repository, restate the governing rules, and produce a research plan for maintainer approval before the actual report is generated.
 
 ## Repository
 
 ```text
 TheSilkky/safety-recorder
 ```
+
+Product documentation currently uses the name Proofline. Repository URLs, Go module paths, Docker image names, GHCR package names, current route names, and compatibility names may still use `safety-recorder` or `emergency` until explicit migrations are performed.
 
 ## Inputs
 
@@ -53,7 +55,7 @@ codex/prompts/95-validate-deep-research-report.md
 Target report path, if known:
 
 ```text
-docs/reports/<YYYY-MM-DD>-safety-recorder-<TARGET_RELEASE_OR_VERSION>-technical-review.md
+docs/reports/<YYYY-MM-DD>-proofline-<TARGET_RELEASE_OR_VERSION>-technical-review.md
 ```
 
 Model / tool disclosure:
@@ -70,6 +72,7 @@ Phase 0 should make sure the actual Phase 1 report run will follow:
 
 - the correct repository scope
 - the correct reviewed branch/ref and commit SHA
+- the current Proofline naming and compatibility-name rules
 - the correct target release/version
 - the Phase 1 Source Registry requirements
 - the Phase 1 citation requirements
@@ -78,25 +81,38 @@ Phase 0 should make sure the actual Phase 1 report run will follow:
 - the Phase 1 implementation-vs-future-planning boundary
 - the Phase 2 handoff expectations
 
-## Required preflight steps
+## Required Preflight Steps
 
-1. Open and read:
+1. Open and read the current Phase 1 prompt from the reviewed branch/ref or commit:
 
    ```text
    docs/reports/prompts/phase-1-deep-research-technical-review.md
    ```
 
-   from the reviewed branch/ref or reviewed commit.
-
 2. Confirm the Phase 1 prompt path and source used.
 
 3. Summarize the governing Phase 1 requirements in your own words.
 
-4. Identify the required repository files and directories to inspect.
+4. Identify required repository files and directories to inspect, including:
+
+   ```text
+   README.md
+   SECURITY.md
+   CHANGELOG.md
+   AGENTS.md
+   docs/
+   codex/
+   .github/
+   server/
+   server/migrations/
+   server/Dockerfile
+   server/.dockerignore
+   ```
 
 5. Identify future-design and planning documents that must be reviewed when present, including but not limited to:
 
    ```text
+   docs/incident-modes.md
    docs/key-custody.md
    docs/browser-decryption.md
    docs/break-glass-key-access.md
@@ -105,7 +121,7 @@ Phase 0 should make sure the actual Phase 1 report run will follow:
 
 6. Identify the authoritative external source categories required by the Phase 1 prompt.
 
-7. Identify which Apple/iOS/Swift claims require Apple Developer or Swift primary documentation.
+7. Identify Apple/iOS/Swift, Android, web-client, protocol, legal-adjacent, or App Store/Play Store claims that would need primary sources if the report discusses them.
 
 8. Identify the required Source Registry sections and what each section must contain.
 
@@ -115,13 +131,19 @@ Phase 0 should make sure the actual Phase 1 report run will follow:
 
 11. Identify public-safety restrictions, including prohibited raw tokens, secrets, request bodies, uploaded bytes, plaintext, raw keys, private deployment details, exploit payloads, and user-safety data.
 
-12. Identify common false-positive patterns the Phase 1 report should avoid.
+12. Identify common false-positive patterns the Phase 1 report should avoid, including:
+
+    - treating documented future work as current defects
+    - treating compatibility names as stale when docs explicitly preserve them
+    - treating Proofline as having emergency-services integration
+    - treating interaction records as police-specific surveillance features
+    - treating the docs-only Proofline rename as a repository/module/Docker/GHCR/API migration
 
 13. Produce a proposed research plan.
 
 14. Stop and wait for maintainer approval before running the actual Phase 1 report.
 
-## Important constraints
+## Important Constraints
 
 Do **not** produce the technical review report in Phase 0.
 
@@ -131,21 +153,21 @@ Do **not** claim tests, containers, Docker builds, local shell commands, GitHub 
 
 Do **not** use ChatGPT-rendered citations as final public Markdown citations.
 
-Do **not** rely on repository-only evidence for external standards, platform, security, CI/CD, Docker, SQLite, dependency, license, Apple/iOS, or Swift claims when the Phase 1 prompt requires authoritative external sources.
+Do **not** rely on repository-only evidence for external standards, platform, security, CI/CD, Docker, SQLite, dependency, license, Apple/iOS, Android, Swift, web-client, protocol, or legal-adjacent claims when the Phase 1 prompt requires authoritative external sources.
 
 Do **not** include raw tokens, secrets, request bodies, uploaded bytes, plaintext, raw keys, private deployment details, exploit payloads, or user-safety data.
 
 Do **not** claim production readiness.
 
-Do **not** claim formal security audit, penetration test, compliance certification, legal review, App Store review, or production-readiness endorsement.
+Do **not** claim formal security audit, penetration test, compliance certification, legal review, App Store review, Play Store review, or production-readiness endorsement.
 
-Do **not** describe future key custody, browser decryption, break-glass access, or iOS recorder planning documents as implemented features unless the reviewed tree contains implementation code.
+Do **not** describe future incident modes, account access, key custody, browser decryption, break-glass access, mobile clients, or web clients as implemented features unless the reviewed tree contains implementation code.
 
-## Expected source plan
+## Expected Source Plan
 
 The research plan should identify sources in these groups.
 
-### Repository sources
+### Repository Sources
 
 At minimum, plan to inspect current files such as:
 
@@ -166,15 +188,16 @@ server/.dockerignore
 Also include relevant future-planning documents if present:
 
 ```text
+docs/incident-modes.md
 docs/key-custody.md
 docs/browser-decryption.md
 docs/break-glass-key-access.md
 docs/ios-local-recorder-prototype.md
 ```
 
-### External authoritative sources
+### External Authoritative Sources
 
-Use the Phase 1 prompt as the source of truth for the required external source categories.
+Use the Phase 1 prompt as the source of truth for required external source categories.
 
 The plan should identify which claims require sources from:
 
@@ -194,11 +217,13 @@ doc.traefik.io
 developer.apple.com
 swift.org
 docs.swift.org
+Android / Google developer documentation, if Android claims are made
+legal primary sources, if recording-law claims are made
 ```
 
 Do not cite broad homepages when specific documentation pages are available.
 
-### Validation evidence
+### Validation Evidence
 
 Identify validation evidence that was supplied or missing, such as:
 
@@ -217,7 +242,7 @@ attestation verification output
 
 If validation evidence is not supplied, the Phase 1 report must say the command was not independently verified.
 
-## Source Registry planning
+## Source Registry Planning
 
 The Phase 0 plan must explain how Phase 1 will build the Source Registry before writing findings.
 
@@ -237,18 +262,9 @@ The plan should include the required registry sections from Phase 1:
 ### Generated artifacts and report outputs
 ```
 
-The plan should confirm that every registry entry will include:
+Every registry entry should include source ID, source type, location, commit/ref/date, review purpose, status, limitations, and related finding IDs or report sections where applicable.
 
-- source ID / citation key
-- source type
-- location
-- commit/ref/date
-- purpose in the review
-- status
-- limitations
-- related finding IDs or report sections where applicable
-
-## Citation planning
+## Citation Planning
 
 The Phase 0 plan must restate that final public citations are handled through portable citation keys, not ChatGPT UI citation tokens.
 
@@ -261,21 +277,15 @@ I-* for issue, PR, or report-follow-up references
 V-* for validation evidence
 ```
 
-The Phase 0 plan must state that repository URLs must be pinned to:
-
-```text
-<REVIEWED_COMMIT_SHA>
-```
-
-not `main`, not `develop`, and not a moving release branch.
+Repository URLs must be pinned to `<REVIEWED_COMMIT_SHA>`, not `main`, `develop`, or a moving release branch.
 
 If ChatGPT-rendered citations appear in the Phase 1 draft, the plan must instruct Phase 2 Codex validation to convert or replace them using the Source Registry.
 
-## Branch and issue-scope planning
+## Branch And Issue-Scope Planning
 
 If Phase 1 may suggest follow-up issues, the Phase 0 plan must restate the Phase 1 branch-scope rules.
 
-The plan should require that follow-up issue suggestions distinguish:
+The plan should require follow-up issue suggestions to distinguish:
 
 - release blockers for the reviewed branch
 - non-blocking follow-ups after merge
@@ -283,7 +293,7 @@ The plan should require that follow-up issue suggestions distinguish:
 - planning-only findings
 - sensitive items that should not become public issues
 
-The plan should confirm that any Phase 2-generated public issue drafts must include:
+Any Phase 2-generated public issue drafts must include:
 
 ```text
 Priority
@@ -292,26 +302,27 @@ Labels
 Branch scope
 ```
 
-## Report scope planning
+## Report Scope Planning
 
 The Phase 0 plan should map the Phase 1 report to these broad areas:
 
-1. Documentation consistency and public-readiness wording
-2. Go backend structure and idiomatic implementation
-3. HTTP API behavior and private/public route separation
-4. Emergency token generation, hashing, storage, expiry, redaction, and viewer behavior
-5. Logging, metrics, proxy examples, and sensitive data exposure
-6. Upload handling, hash verification, immutable storage, upload limits, and stream-scoped chunk identity
-7. SQLite migrations, WAL mode, foreign keys, schema migration tracking, and data integrity
-8. ZIP bundle generation, manifest completeness, fail-closed behavior, and path traversal handling
-9. Crypto-adjacent simulator envelope
-10. Future key custody, browser decryption, break-glass, and trusted-contact planning
-11. Future iOS recorder planning and Apple-platform assumptions
-12. Deployment guidance, Traefik examples, WireGuard/private boundary, and rate limiting
-13. Docker/GHCR/GitHub Actions/supply-chain hygiene
-14. Public issue/report safety
+1. Documentation consistency, Proofline naming, and compatibility-name notes
+2. Current implementation versus future incident-mode planning
+3. Go backend structure and idiomatic implementation
+4. HTTP API behavior and private/public route separation
+5. Viewer/emergency token generation, hashing, storage, expiry, redaction, and viewer behavior
+6. Logging, metrics, proxy examples, and sensitive data exposure
+7. Upload handling, hash verification, immutable storage, upload limits, and stream-scoped chunk identity
+8. SQLite migrations, WAL mode, foreign keys, schema migration tracking, and data integrity
+9. ZIP bundle generation, manifest completeness, fail-closed behavior, and path traversal handling
+10. Crypto-adjacent simulator envelope and ciphertext-only backend boundary
+11. Future key custody, browser/client-side decryption, break-glass, trusted-contact access, and server escrow boundaries
+12. Future web/iOS/Android/protocol/client planning and platform assumptions
+13. Deployment guidance, Traefik examples, WireGuard/private boundary, and rate limiting
+14. Docker/GHCR/GitHub Actions/supply-chain hygiene
+15. Public issue/report safety
 
-## Output format
+## Output Format
 
 Return only a Phase 0 preflight response with this structure:
 
@@ -321,6 +332,7 @@ Return only a Phase 0 preflight response with this structure:
 ## Loaded prompt
 
 - Repository:
+- Product name / compatibility-name notes:
 - Reviewed branch/ref:
 - Reviewed commit SHA:
 - Target release/version:
@@ -359,7 +371,7 @@ Ready for maintainer approval before running Phase 1.
 
 Do not continue into Phase 1 until the maintainer explicitly approves the plan.
 
-## Follow-up instruction after maintainer approval
+## Follow-Up Instruction After Maintainer Approval
 
 After Phase 0 returns the plan, the maintainer may approve it with a short instruction such as:
 
