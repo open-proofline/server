@@ -4,6 +4,8 @@
 
 - Keep the backend small, boring, and testable.
 - Prefer Go standard library where practical.
+- This repository is the Proofline Go server backend only. In the planned organisation layout it corresponds to `open-proofline/server`.
+- Do not add web-client, iOS-client, Android-client, or shared-protocol implementation to this repository unless the maintainer explicitly changes the repository strategy.
 - Do not add React, Node, npm, Docker Compose, Kubernetes, OAuth, JWT, user accounts, SMS, Messenger, push notifications, cloud services, or public admin dashboards unless explicitly requested.
 - Treat uploaded chunks as immutable.
 - Never overwrite stored chunks or evidence bundle contents.
@@ -32,9 +34,12 @@
 
 ## Current project shape
 
-- Product documentation now uses the name Proofline.
-- The GitHub repository, Go module, Docker image, and GHCR package may still use `safety-recorder` until an explicit migration is performed.
-- Go backend only.
+- Product documentation uses the name Proofline.
+- This repository is the Go server backend component only.
+- Planned future organisation: `open-proofline`.
+- Planned future server repository: `open-proofline/server`.
+- Planned future companion repositories: `open-proofline/web-client`, `open-proofline/ios-client`, `open-proofline/android-client`, and `open-proofline/protocol`.
+- The current GitHub repository, Go module, Docker image, and GHCR package may still use `safety-recorder` until an explicit migration is performed.
 - SQLite metadata.
 - Local disk blob storage.
 - Private API listener group for `/v1` routes.
@@ -75,5 +80,6 @@ Before accepting Codex changes, check:
 - plaintext and raw keys are not logged
 - ZIP downloads use safe headers and controlled paths
 - documentation still matches `README.md`
+- future web, iOS, Android, or protocol work was not accidentally added to this server repository
 - key custody/decryption changes are explicit and security-reviewed
 - no public-production readiness is implied unless deployment hardening has actually been implemented
