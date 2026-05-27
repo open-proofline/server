@@ -1,10 +1,12 @@
 # Security Model
 
-This document summarizes the current security assumptions and controls. For a threat-oriented view, see [threat-model.md](threat-model.md). For future production key custody and emergency access design, see [key-custody.md](key-custody.md), [browser-decryption.md](browser-decryption.md), and [break-glass-key-access.md](break-glass-key-access.md). For vulnerability reporting, see [../SECURITY.md](../SECURITY.md).
+This document summarizes the current Proofline backend security assumptions and controls. For a threat-oriented view, see [threat-model.md](threat-model.md). For planned incident-mode behavior, see [incident-modes.md](incident-modes.md). For future production key custody and emergency access design, see [key-custody.md](key-custody.md), [browser-decryption.md](browser-decryption.md), and [break-glass-key-access.md](break-glass-key-access.md). For vulnerability reporting, see [../SECURITY.md](../SECURITY.md).
 
 ## Maturity
 
-Safety Recorder is experimental and not production-ready public infrastructure. The private `/v1` API has no public user authentication, no user accounts, no OAuth, and no JWT protection.
+Proofline is experimental and not production-ready public infrastructure. The private `/v1` API has no public user authentication, no user accounts, no OAuth, and no JWT protection.
+
+The current backend stores generic incidents only. It does not yet implement first-class incident types, escalation policies, trusted-contact accounts, dead-man switch notifications, or account-based access to personal incident data.
 
 ## Listener Boundary
 
@@ -13,15 +15,17 @@ The API binary starts separate listener groups:
 | Listener group | Routes | Intended exposure |
 |---|---|---|
 | Private API | `/v1/...` | Localhost, LAN, WireGuard, firewall, or strict reverse proxy only. |
-| Public emergency viewer | `/e/{token}` and related read-only routes | HTTPS/reverse proxy when exposed. |
+| Public incident viewer | `/e/{token}` and related read-only routes | HTTPS/reverse proxy when exposed. |
 
-Private write/admin routes must not be mounted on public emergency viewer listeners. Emergency viewer routes are read-only.
+Private write/admin routes must not be mounted on public incident viewer listeners. Incident viewer routes are read-only.
 
 ## Token Handling
 
-Emergency viewer tokens are scoped to one incident. The raw token is returned only at creation time; SQLite stores only a SHA-256 hash. Tokens created without an explicit `expires_at` default to a 24-hour lifetime unless `SAFE_DEFAULT_EMERGENCY_TOKEN_TTL` is configured differently. Expired, revoked, and invalid tokens return the same public error.
+Incident viewer tokens are scoped to one incident. The raw token is returned only at creation time; SQLite stores only a SHA-256 hash. Tokens created without an explicit `expires_at` default to a 24-hour lifetime unless `SAFE_DEFAULT_EMERGENCY_TOKEN_TTL` is configured differently. Expired, revoked, and invalid tokens return the same public error.
 
-Emergency URLs contain bearer tokens and should be treated as secrets. Reverse proxies and operational logs should avoid recording raw `/e/{token}` paths.
+The current API route names still use `emergency-token` terminology for compatibility. Documentation may call these viewer tokens when describing the broader Proofline product direction.
+
+Viewer URLs contain bearer tokens and should be treated as secrets. Reverse proxies and operational logs should avoid recording raw `/e/{token}` paths.
 
 ## Upload And Storage Controls
 
@@ -46,11 +50,24 @@ Bundles contain encrypted chunk bytes and JSON manifests only. They are not decr
 
 Bundle manifests may include a non-secret client-side encryption hint. They do not include keys.
 
+## Incident Modes And Escalation Boundary
+
+Planned incident modes are a future client/protocol layer. Emergency incidents, interaction records, safety checks, and evidence notes must not weaken the current storage, encryption, listener, or logging boundaries.
+
+Future escalation policies should keep capture separate from notification and emergency response:
+
+- non-emergency interaction records should not automatically alert trusted contacts by default
+- safety checks should alert trusted contacts only after an explicit missed-check-in policy is implemented
+- Proofline must not claim to contact emergency services unless a future jurisdiction-specific integration is explicitly designed, implemented, and documented
+- sharing, export, publication, and legal submission should remain deliberate user-controlled actions
+
+The current backend does not decide whether an incident is an emergency, does not notify trusted contacts, and does not contact emergency services.
+
 ## Logging And Headers
 
-Request logging records method, redacted route pattern, status, byte count, and duration. It does not log request bodies, uploaded bytes, Authorization headers, or raw emergency tokens.
+Request logging records method, redacted route pattern, status, byte count, and duration. It does not log request bodies, uploaded bytes, Authorization headers, raw viewer tokens, raw emergency tokens, plaintext, or raw keys.
 
-The Go app sets these headers on public emergency viewer pages, JSON responses, static assets, and ZIP downloads:
+The Go app sets these headers on public incident viewer pages, JSON responses, static assets, and ZIP downloads:
 
 - `Content-Security-Policy`
 - `X-Content-Type-Options: nosniff`
@@ -58,34 +75,26 @@ The Go app sets these headers on public emergency viewer pages, JSON responses, 
 - `Permissions-Policy: geolocation=(), microphone=(), camera=()`
 - `X-Frame-Options: DENY`
 
-Token-protected emergency pages, JSON responses, errors, and ZIP downloads also use `Cache-Control: no-store`. Private API JSON responses use `Content-Type: application/json`, `X-Content-Type-Options: nosniff`, and `Cache-Control: no-store`.
+Token-protected incident pages, JSON responses, errors, and ZIP downloads also use `Cache-Control: no-store`. Private API JSON responses use `Content-Type: application/json`, `X-Content-Type-Options: nosniff`, and `Cache-Control: no-store`.
 
-HSTS is not enabled by default in the Go app because local development uses plain HTTP and HSTS should only be sent over HTTPS. Set `Strict-Transport-Security` at the production HTTPS reverse proxy after TLS is established for the public hostname. After deployment, test the public emergency viewer with the MDN HTTP Observatory.
+HSTS is not enabled by default in the Go app because local development uses plain HTTP and HSTS should only be sent over HTTPS. Set `Strict-Transport-Security` at the production HTTPS reverse proxy after TLS is established for the public hostname. After deployment, test the public incident viewer with the MDN HTTP Observatory.
 
 HTTP server timeouts are configurable separately for private and public listener groups. Private read/write timeouts default to disabled for large uploads/downloads; public viewer timeouts are finite by default and should be coordinated with reverse-proxy timeouts.
 
-The Go app does not include an app-level rate limiter. Deployment-edge rate
-limiting guidance is documented in [deployment.md](deployment.md), but those
-proxy controls do not replace private `/v1` access boundaries or future
-application-level authorization.
+The Go app does not include an app-level rate limiter. Deployment-edge rate limiting guidance is documented in [deployment.md](deployment.md), but those proxy controls do not replace private `/v1` access boundaries or future application-level authorization.
 
 ## Retention, Backups, And Deletion
 
-Retention, backup, restore, secure deletion limits, and disk encryption posture
-are documented in [retention-backup-deletion.md](retention-backup-deletion.md).
-The current backend preserves accepted evidence by default and does not
-automatically expire incidents or expose incident deletion APIs.
+Retention, backup, restore, secure deletion limits, and disk encryption posture are documented in [retention-backup-deletion.md](retention-backup-deletion.md). The current backend preserves accepted evidence by default and does not automatically expire incidents or expose incident deletion APIs.
 
-Normal file removal is not treated as guaranteed secure erasure. Deployments
-that store real safety evidence should use encrypted disks or volumes for
-SQLite, encrypted blobs, logs, and backups, then rely on explicit backup expiry
-and encryption-key retirement for stronger deletion outcomes.
+Normal file removal is not treated as guaranteed secure erasure. Deployments that store real incident evidence should use encrypted disks or volumes for SQLite, encrypted blobs, logs, and backups, then rely on explicit backup expiry and encryption-key retirement for stronger deletion outcomes.
 
 ## Known Security Gaps
 
 - No public authentication or authorization model for `/v1`
 - No built-in TLS
 - No built-in app-level rate limiting or abuse throttling
+- No implemented first-class incident types, escalation policies, trusted-contact accounts, dead-man switch notifications, or account-based access model
 - No implemented production client key storage, key sharing, browser decryption, server-assisted break-glass key access, or emergency-contact key access model; the future designs are documented in [key-custody.md](key-custody.md), [browser-decryption.md](browser-decryption.md), and [break-glass-key-access.md](break-glass-key-access.md)
 - No automated retention/deletion enforcement or built-in disk encryption; the operational policy is documented in [retention-backup-deletion.md](retention-backup-deletion.md)
 - No malware/content scanning for uploaded encrypted blobs
