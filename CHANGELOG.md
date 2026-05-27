@@ -7,6 +7,7 @@
 - Refactored `server/internal/db` connection, migration orchestration, and compatibility migration helpers into focused files for readability without changing migration behaviour.
 - Refactored `server/internal/httpapi` summary, bundle, stream-validation, and upload parsing helpers for readability without changing HTTP behaviour.
 - Refactored `server/internal/incidents` repository methods into focused chunk, checkin, and emergency-token files for readability without changing behaviour.
+- Refactored `server/internal/storage` temp upload and immutable blob helpers into focused files for readability without changing storage behaviour.
 - Documented the `develop` and `release/v*` repository rulesets, branch model,
   and PR base-branch guidance.
 
