@@ -39,7 +39,8 @@
 - Current organisation: `open-proofline`.
 - Current server repository: `open-proofline/server`.
 - Planned future companion repositories: `open-proofline/web-client`, `open-proofline/ios-client`, `open-proofline/android-client`, and `open-proofline/protocol`.
-- The Go module, Docker image, and GHCR package may still use `safety-recorder` until a separate module/artifact migration is explicitly performed.
+- The Go module path is `github.com/open-proofline/server` at the repository root, release binaries use `proofline-server-*` names, and the published GHCR image is `ghcr.io/open-proofline/server`.
+- Some compatibility identifiers, including the v1 simulator encryption envelope and default SQLite filename, may still use earlier `safety-recorder` names until separate protocol or data-layout migrations are explicitly performed.
 - SQLite metadata.
 - Local disk blob storage.
 - Private API listener group for `/v1` routes.
@@ -56,10 +57,10 @@
 
 ## Commands
 
-From `server/`:
+From the repository root:
 
 ```bash
-gofmt -w .
+gofmt -w ./cmd ./internal ./migrations
 go test ./...
 ```
 

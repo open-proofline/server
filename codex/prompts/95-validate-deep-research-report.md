@@ -9,7 +9,7 @@ This is the Phase 2 workflow after a source-cited Deep Research draft. Phase 1 p
 Repository:
 
 ```text
-TheSilkky/safety-recorder
+open-proofline/server
 ```
 
 Reviewed branch or ref:
@@ -56,7 +56,7 @@ Allowed values:
 
 ## Product Context
 
-Product documentation now uses the name Proofline. Repository paths, Go module paths, Docker image names, GHCR package names, and historical migration names may still use `safety-recorder` or `emergency` until explicit migrations are performed.
+Product documentation now uses the name Proofline. Repository paths, the Go module path, Docker image names, GHCR package names, and release binary names use the `open-proofline/server` repository namespace. Compatibility identifiers such as the v1 simulator encryption envelope, default SQLite filename, legacy `/e/{token}` aliases, and historical migration names may still use `safety-recorder` or `emergency` until separate protocol or data-layout migrations are explicitly performed.
 
 Proofline's planned product scope includes emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes. The current backend stores generic incidents unless the reviewed tree explicitly implements first-class incident types or escalation policies.
 
@@ -168,7 +168,7 @@ Check and fix, if needed:
 - Missing web/iOS/Android clients when docs mark them as future work.
 - Missing first-class incident types, escalation policies, or dead-man switch when docs mark them as future work.
 - Missing browser decryption, production key custody, or break-glass behavior when docs mark them as future work.
-- Preserved artifact or route names treated as stale after a docs-only Proofline rename.
+- Preserved protocol, data-layout, route-alias, or migration compatibility names treated as stale after the repository/module/artifact rename.
 - Interaction-record planning treated as current implementation.
 - Backend decryption or server-held keys assumed from future design docs.
 

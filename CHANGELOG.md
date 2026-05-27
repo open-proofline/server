@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Moved the Go module and backend source tree to the repository root as
+  `github.com/open-proofline/server`, and normalized new module, Docker, GHCR,
+  and release binary artifact references after the `open-proofline/server`
+  transfer.
+
 ## v0.6.0 - 2026-05-27
 
 - Added CI vulnerability and coverage signals for release review, with release

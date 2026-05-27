@@ -111,8 +111,7 @@ For each finding, include:
 If fixes are needed, make only minimal fixes and run:
 
 ```bash
-cd server
-gofmt -w .
+gofmt -w ./cmd ./internal ./migrations
 go test ./...
 go vet ./...
 ```
