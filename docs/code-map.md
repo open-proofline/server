@@ -1,16 +1,18 @@
 # Code Map
 
-Safety Recorder currently contains the Go backend for a private personal-safety recording system. This backend receives already-encrypted recording chunks, groups them into media streams, records metadata in SQLite, and serves a scoped read-only emergency viewer with encrypted evidence bundle downloads.
+Proofline currently contains the Go backend for a private encrypted incident-capture system. This backend receives already-encrypted recording chunks, groups them into media streams, records metadata in SQLite, and serves a scoped read-only incident viewer with encrypted evidence bundle downloads.
+
+The current backend stores generic incidents only. Planned future clients may classify incidents as emergency incidents, non-emergency interaction records, timed safety checks, or evidence notes after the protocol, schema, access-control, and client designs exist. See [incident-modes.md](incident-modes.md).
 
 ## Package Layout
 
 - `.github/workflows/ci.yml`: runs Go tests on pull requests and pushes, builds a Linux amd64 binary artifact, generates release binary attestations on `v*` tag pushes, uploads the binary as a GitHub Release asset, builds the Docker image, and publishes attested images to GitHub Container Registry from a trusted job limited to `main` and `v*` tag pushes.
-- `server/cmd/api`: starts one private API HTTP server per private bind address and one public emergency viewer HTTP server per public bind address, loads config, opens SQLite, creates storage, wires shared handlers, and handles graceful shutdown.
-- `server/cmd/simclient`: simulates the future iOS client by creating an incident, creating an emergency viewer token, creating a media stream, encrypting and uploading fake chunks, completing the stream, sending periodic checkins, and optionally testing hash-failure retry, bundle download, and local decrypt verification behavior.
+- `server/cmd/api`: starts one private API HTTP server per private bind address and one public incident viewer HTTP server per public bind address, loads config, opens SQLite, creates storage, wires shared handlers, and handles graceful shutdown.
+- `server/cmd/simclient`: simulates a future client by creating an incident, creating a viewer token, creating a media stream, encrypting and uploading fake chunks, completing the stream, sending periodic checkins, and optionally testing hash-failure retry, bundle download, and local decrypt verification behavior.
 - `server/internal/config`: reads environment variables such as private/public bind address lists, legacy singular bind addresses, data directory, database path, max upload size, and HTTP server timeouts.
 - `server/internal/db`: opens SQLite, enables foreign keys and WAL mode, applies embedded migrations, records `schema_migrations`, and runs named compatibility migrations.
 - `server/internal/envelope`: implements the simulator/test AES-256-GCM client-side chunk envelope, associated data builder, and local simulator key file helpers.
-- `server/internal/httpapi`: owns separate private/public muxes, JSON responses, request logging, recovery, request validation, upload handling, stream state handlers, ZIP bundle streaming, and the emergency viewer.
+- `server/internal/httpapi`: owns separate private/public muxes, JSON responses, request logging, recovery, request validation, upload handling, stream state handlers, ZIP bundle streaming, and the incident viewer.
 - `server/internal/incidents`: defines incident/stream/chunk/checkin models and writes metadata to SQLite.
 - `server/internal/storage`: manages local disk blob storage, including temp uploads, hashing while streaming, and immutable final paths.
 - `server/migrations`: embeds the SQLite schema.
@@ -45,13 +47,13 @@ New clients can create a media stream with `POST /v1/incidents/{incident_id}/str
 
 Stream completion is handled by `server/internal/httpapi.completeMediaStream`. Before a stream moves from `open` to `complete`, the handler verifies that chunks `1..expected_chunk_count` exist contiguously for that stream and that each stored blob can be opened from local storage. `server/internal/incidents.Repository.CompleteMediaStream` then revalidates the chunk rows in the completion transaction before committing the state change. Failed streams preserve uploaded chunks but are not offered as normal downloads.
 
-## Emergency Viewer Flow
+## Incident Viewer Flow
 
-Emergency tokens are created on the private API server by `POST /v1/incidents/{incident_id}/emergency-tokens`. The raw token is returned once, while `server/internal/incidents.Repository.CreateEmergencyToken` stores only a SHA-256 hash in SQLite.
+Viewer tokens are created on the private API server by `POST /v1/incidents/{incident_id}/emergency-tokens`. The raw token is returned once, while `server/internal/incidents.Repository.CreateEmergencyToken` stores only a SHA-256 hash in SQLite. The implementation still uses emergency-token route and repository names for compatibility while product docs use broader incident-viewer terminology.
 
-`GET /e/{token}` is mounted only on the public emergency viewer server. It renders `server/internal/httpapi/web/templates/emergency.html` with `html/template`. CSS and JavaScript are embedded from `server/internal/httpapi/web/static`. `GET /e/{token}/data` returns the same read-only summary as JSON for polling.
+`GET /e/{token}` is mounted only on the public incident viewer server. It renders `server/internal/httpapi/web/templates/emergency.html` with `html/template`. CSS and JavaScript are embedded from `server/internal/httpapi/web/static`. `GET /e/{token}/data` returns the same read-only summary as JSON for polling.
 
-Token lookup checks the hash, expiry, and revocation state before incident metadata is loaded. Invalid, expired, and revoked tokens all return the same public error. Emergency responses use `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`, a strict `Content-Security-Policy`, restrictive `Permissions-Policy`, and `Cache-Control: no-store` for token-protected responses.
+Token lookup checks the hash, expiry, and revocation state before incident metadata is loaded. Invalid, expired, and revoked tokens all return the same public error. Viewer responses use `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`, a strict `Content-Security-Policy`, restrictive `Permissions-Policy`, and `Cache-Control: no-store` for token-protected responses.
 
 Completed stream bundle downloads are served by `server/internal/httpapi/bundles.go`. Bundles are generated on demand as ZIP responses and are not cached on disk. ZIP entry names are server-controlled, manifests are generated from database metadata, and chunk bytes are streamed from storage one file at a time. The first bundle format contains encrypted chunks and JSON manifests only; it does not decrypt, merge, or export playable media.
 
@@ -61,11 +63,12 @@ The separate ports are a deployment boundary, not a complete security model. Do 
 
 - real access control for `/v1` or a strict WireGuard/firewall-only deployment
 - rate limits and abuse controls
-- TLS and reverse-proxy settings for the public emergency viewer, if reachable over a network
+- TLS and reverse-proxy settings for the public incident viewer, if reachable over a network
 - deployment-specific enforcement of the documented [retention, backup, and deletion policy](retention-backup-deletion.md)
 - operational monitoring for failed uploads and storage/DB errors
-- a production review of emergency token sharing, expiry defaults, and revocation operations
+- a production review of viewer-token sharing, expiry defaults, and revocation operations
+- first-class incident type, escalation-policy, account, and trusted-contact authorization design before implementing public account workflows
 
 ## Out Of Scope Today
 
-The repository does not currently include the iOS app, local recording, production client key storage, key sharing, browser/client-side decryption, server-assisted break-glass key access, playable media export, push notifications, SMS, Messenger integration, user accounts, or a public admin dashboard.
+The repository does not currently include the iOS app, Android app, web client, local recording, first-class incident types, escalation policies, trusted-contact accounts, dead-man switch notifications, production client key storage, key sharing, browser/client-side decryption, server-assisted break-glass key access, playable media export, push notifications, SMS, Messenger integration, user accounts, or a public admin dashboard.
