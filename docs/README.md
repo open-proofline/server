@@ -1,13 +1,13 @@
 # Documentation
 
-This directory contains the detailed project documentation for Proofline. The top-level [README](../README.md) is a concise project overview; these docs keep operational, API, deployment, incident-capture, and development details in one place.
+This directory contains the detailed documentation for Proofline Server, the Go backend component of the planned Proofline project. The top-level [README](../README.md) is a concise server overview; these docs keep operational, API, deployment, incident-capture, and development details in one place.
 
 ## Contents
 
 | Document | Purpose |
 |---|---|
 | [Getting started](getting-started.md) | Run the backend locally and exercise the simulator flow. |
-| [Architecture](architecture.md) | System diagrams, listener boundaries, and data flow. |
+| [Architecture](architecture.md) | System diagrams, listener boundaries, repository split, and server data flow. |
 | [Configuration](configuration.md) | Environment variables, bind addresses, upload limits, and data layout. |
 | [Incident capture modes](incident-modes.md) | Planned emergency, interaction-record, safety-check, and evidence-note modes. |
 | [Encryption](encryption.md) | Client-side chunk envelope, simulator key file, and local bundle verification. |
@@ -26,11 +26,30 @@ This directory contains the detailed project documentation for Proofline. The to
 | [Code map](code-map.md) | Package layout and main backend request flows. |
 | [Reports](reports/README.md) | Public technical review reports and report-generation workflow notes. |
 
-## Current Scope
+## Current Repository Scope
 
-Proofline currently contains the Go backend only. It receives already-encrypted chunks, stores metadata in SQLite, stores encrypted blobs on local disk, groups chunks into media streams, and exposes a token-scoped read-only incident viewer. The Go simulator can produce the documented v1 client-side encryption envelope for development and test flows.
+This repository is the Go server backend only. In the planned multi-repo layout it corresponds to:
 
-The long-term product direction is broader than emergency-only recording. Future clients should support emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes while keeping capture, escalation, sharing, and legal/export actions separate. The planned incident modes are documented in [incident-modes.md](incident-modes.md).
+```text
+open-proofline/server
+```
+
+Future companion repositories are expected to be separate projects:
+
+```text
+open-proofline/web-client
+open-proofline/ios-client
+open-proofline/android-client
+open-proofline/protocol
+```
+
+Those repositories do not exist in this repository and should not be implemented here by accident. This server repository may keep planning notes for client and protocol work only while the split is being designed.
+
+## Current Backend Scope
+
+Proofline Server receives already-encrypted chunks, stores metadata in SQLite, stores encrypted blobs on local disk, groups chunks into media streams, and exposes a token-scoped read-only incident viewer. The Go simulator can produce the documented v1 client-side encryption envelope for development and test flows.
+
+The long-term Proofline product direction is broader than emergency-only recording. Future clients should support emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes while keeping capture, escalation, sharing, and legal/export actions separate. The planned incident modes are documented in [incident-modes.md](incident-modes.md).
 
 The future iOS incident-capture prototype is planned in [ios-local-recorder-prototype.md](ios-local-recorder-prototype.md). Future production key custody is documented in [key-custody.md](key-custody.md), with browser decryption and break-glass follow-up designs in [browser-decryption.md](browser-decryption.md) and [break-glass-key-access.md](break-glass-key-access.md).
 
