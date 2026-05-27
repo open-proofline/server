@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Renamed the product in documentation to Proofline while preserving current repository, module, Docker, GHCR, route, and compatibility names.
+- Documented the broader incident-capture direction, including emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes.
 - Added `Phase 0` Deep Research prompt. Loads report instructions and plans research prior to running `Phase 1`
 - Documented the `develop` and `release/v*` repository rulesets, branch model,
   and PR base-branch guidance.
@@ -70,7 +72,6 @@
 - Added stream completion/failure state transitions.
 - Added encrypted ZIP evidence bundle downloads for completed streams and completed incident streams.
 - Updated the emergency viewer to show completed-stream download buttons.
-- Updated the simulator to create and complete streams and optionally verify bundle download.
 - Hardened emergency viewer and API response security headers.
 - Hardened `SAFE_MAX_UPLOAD_BYTES` parsing and upload-limit overflow handling.
 - Added AGPL-3.0-only license.
