@@ -9,6 +9,7 @@
 - Hardened private API and public token-path security headers for unsupported
   method/error responses.
 - Renamed legacy viewer/token terminology to incident-viewer and incident-token terminology, including breaking route/config/schema names for the upcoming release while migrating existing token rows.
+- Retained legacy `/e/{token}` public viewer route aliases for already shared pre-rename links.
 - Renamed the product in documentation to Proofline while preserving current repository, module, Docker, GHCR, route, and compatibility names.
 - Updated active issue templates and reusable Codex prompts to match the
   Proofline product name.
