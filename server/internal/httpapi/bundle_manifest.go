@@ -84,19 +84,6 @@ func makeStreamBundleManifest(stream incidents.MediaStream, chunks []incidents.C
 }
 
 func makeIncidentBundleManifest(detail incidents.IncidentDetail, bundles []streamBundleData) incidentBundleManifest {
-	var latestCheckin *emergencyCheckinSummary
-	if len(detail.Checkins) > 0 {
-		checkin := detail.Checkins[len(detail.Checkins)-1]
-		latestCheckin = &emergencyCheckinSummary{
-			CreatedAt:            checkin.CreatedAt,
-			DeviceBatteryPercent: checkin.DeviceBatteryPercent,
-			DeviceNetwork:        checkin.DeviceNetwork,
-			Latitude:             checkin.Latitude,
-			Longitude:            checkin.Longitude,
-			AccuracyMeters:       checkin.AccuracyMeters,
-		}
-	}
-
 	manifests := make([]streamBundleManifest, 0, len(bundles))
 	var totalBytes int64
 	for _, bundle := range bundles {
@@ -104,14 +91,8 @@ func makeIncidentBundleManifest(detail incidents.IncidentDetail, bundles []strea
 		totalBytes += bundle.Manifest.TotalBytes
 	}
 	return incidentBundleManifest{
-		Incident: emergencyIncidentSummary{
-			ID:          detail.Incident.ID,
-			Status:      detail.Incident.Status,
-			ClientLabel: detail.Incident.ClientLabel,
-			CreatedAt:   detail.Incident.CreatedAt,
-			UpdatedAt:   detail.Incident.UpdatedAt,
-		},
-		LatestCheckin: latestCheckin,
+		Incident:      summarizeIncident(detail.Incident),
+		LatestCheckin: summarizeLatestCheckin(detail.Checkins),
 		Encryption:    clientSideEncryptionHint(),
 		Streams:       manifests,
 		StreamCount:   len(manifests),

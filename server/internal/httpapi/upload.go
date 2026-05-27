@@ -145,18 +145,8 @@ func parseChunkFields(w http.ResponseWriter, fields map[string]string, partFilen
 		return chunkUpload{}, false
 	}
 
-	startedAt, err := time.Parse(time.RFC3339Nano, requiredField(fields, "started_at"))
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_started_at", "started_at must be an RFC3339 timestamp")
-		return chunkUpload{}, false
-	}
-	endedAt, err := time.Parse(time.RFC3339Nano, requiredField(fields, "ended_at"))
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_ended_at", "ended_at must be an RFC3339 timestamp")
-		return chunkUpload{}, false
-	}
-	if endedAt.Before(startedAt) {
-		writeError(w, http.StatusBadRequest, "invalid_time_range", "ended_at must be after started_at")
+	startedAt, endedAt, ok := parseChunkTimeRange(w, fields)
+	if !ok {
 		return chunkUpload{}, false
 	}
 
@@ -183,11 +173,29 @@ func parseChunkFields(w http.ResponseWriter, fields map[string]string, partFilen
 		streamID:         streamID,
 		chunkIndex:       chunkIndex,
 		mediaType:        mediaType,
-		startedAt:        startedAt.UTC(),
-		endedAt:          endedAt.UTC(),
+		startedAt:        startedAt,
+		endedAt:          endedAt,
 		sha256Hex:        sha256Hex,
 		originalFilename: originalFilename,
 	}, true
+}
+
+func parseChunkTimeRange(w http.ResponseWriter, fields map[string]string) (time.Time, time.Time, bool) {
+	startedAt, err := time.Parse(time.RFC3339Nano, requiredField(fields, "started_at"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_started_at", "started_at must be an RFC3339 timestamp")
+		return time.Time{}, time.Time{}, false
+	}
+	endedAt, err := time.Parse(time.RFC3339Nano, requiredField(fields, "ended_at"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_ended_at", "ended_at must be an RFC3339 timestamp")
+		return time.Time{}, time.Time{}, false
+	}
+	if endedAt.Before(startedAt) {
+		writeError(w, http.StatusBadRequest, "invalid_time_range", "ended_at must be after started_at")
+		return time.Time{}, time.Time{}, false
+	}
+	return startedAt.UTC(), endedAt.UTC(), true
 }
 
 func requiredField(fields map[string]string, name string) string {
