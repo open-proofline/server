@@ -1,4 +1,4 @@
-# Proofline
+# Proofline Server
 
 [![CI](https://github.com/TheSilkky/safety-recorder/actions/workflows/ci.yml/badge.svg)](https://github.com/TheSilkky/safety-recorder/actions/workflows/ci.yml)
 [![Latest Tag](https://img.shields.io/github/v/tag/TheSilkky/safety-recorder?sort=semver)](https://github.com/TheSilkky/safety-recorder/tags)
@@ -8,9 +8,11 @@
 [![Security Policy](https://img.shields.io/badge/security-policy-blue.svg)](SECURITY.md)
 [![GHCR](https://img.shields.io/badge/GHCR-ghcr.io%2Fthesilkky%2Fsafety--recorder-blue?logo=github)](https://github.com/TheSilkky/safety-recorder/pkgs/container/safety-recorder)
 
-Proofline is an experimental Go backend for private encrypted incident capture. It receives already-encrypted recording chunks, stores metadata in SQLite, keeps encrypted blobs on local disk, and exposes a token-scoped read-only viewer for incident review.
+Proofline Server is the experimental Go server backend for private encrypted incident capture. It receives already-encrypted recording chunks, stores metadata in SQLite, keeps encrypted blobs on local disk, and exposes a token-scoped read-only viewer for incident review.
 
-> Renaming note: the product name is now Proofline in documentation. Repository URLs, Go module paths, Docker image names, and GHCR package names may still use `safety-recorder` until a separate repository/organisation migration is explicitly performed.
+> Repository role: this repository is the server/backend component only. In the planned multi-repo layout it corresponds to `open-proofline/server`, not the full Proofline product suite.
+>
+> Migration note: the current GitHub repository, Go module paths, Docker image names, and GHCR package names may still use `safety-recorder` until a separate repository/organisation migration is explicitly performed.
 
 ## Security Warning
 
@@ -18,13 +20,29 @@ Proofline is an experimental Go backend for private encrypted incident capture. 
 
 ## What It Is
 
-This repository currently contains the backend only. The intended long-term product is broader than emergency-only recording: Proofline should support private encrypted incident capture for emergencies, non-emergency interaction records, timed safety checks, and evidence notes.
+This repository currently contains the Go server backend only. It does not contain the web client, iOS client, Android client, protocol repository, account portal, recording implementation, or mobile app code.
 
-Future mobile clients are expected to record audio/video and supporting metadata in short chunks, encrypt them locally, and upload them continuously so already-uploaded evidence is retained if a phone is lost, damaged, powered off, or taken.
+The intended long-term Proofline product is broader than emergency-only recording: it should support private encrypted incident capture for emergencies, non-emergency interaction records, timed safety checks, and evidence notes.
+
+Future client repositories are expected to record audio/video and supporting metadata in short chunks, encrypt them locally, and upload them continuously so already-uploaded evidence is retained if a phone is lost, damaged, powered off, or taken.
 
 Evidence bundles are ZIP files containing encrypted chunks and JSON manifests. They are not decrypted, playable, or merged media exports.
 
 The simulator encrypts fake chunks by default with the documented v1 AES-256-GCM envelope and verifies downloaded bundles locally. Keys remain client-side and are not uploaded to the backend. Future production key custody is expected to use a hybrid trusted-contact model; see [docs/key-custody.md](docs/key-custody.md).
+
+## Planned Open Proofline Repositories
+
+The intended organisation is `open-proofline`, with responsibilities split across repositories:
+
+| Future repository | Responsibility |
+|---|---|
+| `open-proofline/server` | Go backend, private API, public incident viewer, storage, migrations, deployment docs, and server release workflow. |
+| `open-proofline/web-client` | Account portal, authorised incident review, trusted-contact access, and eventual replacement for the current token-only viewer. |
+| `open-proofline/ios-client` | iOS incident capture, encrypted staging, upload, local account flows, and platform-specific recording behavior. |
+| `open-proofline/android-client` | Android incident capture, encrypted staging, upload, local account flows, and platform-specific recording behavior. |
+| `open-proofline/protocol` | Shared API specs, encryption envelope specs, bundle manifests, compatibility matrix, and conformance tests. |
+
+This repository should remain scoped to the server/backend role. Product-level or client-specific work should be documented here only as planning context until the relevant future repository exists.
 
 ## Planned Incident Modes
 
@@ -39,7 +57,7 @@ Planned incident categories include:
 | Safety check | Timed check-in flow for walking home, meeting someone, travel, fieldwork, or other elevated-risk situations. | Trusted contacts alerted if the user misses the check-in. |
 | Evidence note | Quick photo, audio, location, or note bundle for damage, harassment, threats, or disputes. | No automatic escalation by default. |
 
-The current backend still stores generic incidents. First-class incident types, escalation policies, account access, and trusted-contact workflows are future protocol/client work. See [docs/incident-modes.md](docs/incident-modes.md).
+The current backend still stores generic incidents. First-class incident types, escalation policies, account access, and trusted-contact workflows are future protocol/client/server work. See [docs/incident-modes.md](docs/incident-modes.md).
 
 ## What Works Today
 
@@ -59,6 +77,7 @@ The current backend still stores generic incidents. First-class incident types, 
 - No iOS app
 - No Android app
 - No web client or account portal
+- No protocol repository or shared conformance test suite
 - No recording implementation
 - No first-class incident-type or escalation-policy schema
 - No production client-side encryption implementation
@@ -70,11 +89,11 @@ The current backend still stores generic incidents. First-class incident types, 
 
 ## Architecture
 
-Proofline runs separate private and public HTTP listener groups from the same Go binary. Private `/v1` routes handle writes and admin-style operations. Public viewer routes are token-gated and read-only.
+Proofline Server runs separate private and public HTTP listener groups from the same Go binary. Private `/v1` routes handle writes and admin-style operations. Public viewer routes are token-gated and read-only.
 
 ```mermaid
 flowchart LR
-    FutureClient["Planned mobile clients<br/>not in this repo"] --> Private["Private /v1 API<br/>localhost/LAN/WireGuard"]
+    FutureClients["Future clients<br/>separate repos"] --> Private["Private /v1 API<br/>localhost/LAN/WireGuard"]
     Private --> DB[(SQLite metadata)]
     Private --> Blobs[(Local encrypted blobs)]
     Private --> Tokens["Viewer token creation"]
@@ -194,15 +213,12 @@ Please see [SECURITY.md](SECURITY.md) for supported versions and vulnerability r
 
 ## Roadmap
 
-- Rename/migrate repository, module, Docker, and GHCR names after the Proofline docs-only rename is reviewed
-- GitHub organisation and multi-repo split planning for `server`, `web-client`, `ios-client`, `android-client`, and `protocol`
+- Migrate this repository to `open-proofline/server`, if/when the organisation split is performed
+- Create future `open-proofline/web-client`, `open-proofline/ios-client`, `open-proofline/android-client`, and `open-proofline/protocol` repositories when their scopes are ready
+- Rename/migrate module, Docker, and GHCR names after repository migration is planned
 - WireGuard-only bind/firewall deployment guidance
-- iOS client
-- Android client
-- Web client and account portal
-- Client-side recording and encryption
-- First-class incident types and escalation policies
-- Trusted-contact dead-man switch workflows
+- Server-side support for first-class incident types and escalation policies after protocol design
+- Server-side support for trusted-contact dead-man switch workflows after access-control design
 - Production key custody, trusted-contact access, and browser/client-side decryption
 - Optional break-glass/dead-man-switch key access
 - Playable media export
@@ -211,4 +227,4 @@ Please see [SECURITY.md](SECURITY.md) for supported versions and vulnerability r
 
 ## License
 
-Proofline is licensed under the GNU Affero General Public License v3.0 only (`AGPL-3.0-only`). See [LICENSE](LICENSE).
+Proofline Server is licensed under the GNU Affero General Public License v3.0 only (`AGPL-3.0-only`). See [LICENSE](LICENSE).
