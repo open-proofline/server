@@ -1,6 +1,8 @@
 # Code Map
 
-Proofline currently contains the Go backend for a private encrypted incident-capture system. This backend receives already-encrypted recording chunks, groups them into media streams, records metadata in SQLite, and serves a scoped read-only incident viewer with encrypted evidence bundle downloads.
+Proofline Server currently contains the Go backend for a private encrypted incident-capture system. This backend receives already-encrypted recording chunks, groups them into media streams, records metadata in SQLite, and serves a scoped read-only incident viewer with encrypted evidence bundle downloads.
+
+This repository is the server/backend component only. In the planned `open-proofline` organisation layout it corresponds to `open-proofline/server`. Future web-client, iOS-client, Android-client, and protocol implementation should live in separate repositories.
 
 The current backend stores generic incidents only. Planned future clients may classify incidents as emergency incidents, non-emergency interaction records, timed safety checks, or evidence notes after the protocol, schema, access-control, and client designs exist. See [incident-modes.md](incident-modes.md).
 
@@ -57,9 +59,21 @@ Token lookup checks the hash, expiry, and revocation state before incident metad
 
 Completed stream bundle downloads are served by `server/internal/httpapi/bundles.go`. Bundles are generated on demand as ZIP responses and are not cached on disk. ZIP entry names are server-controlled, manifests are generated from database metadata, and chunk bytes are streamed from storage one file at a time. The first bundle format contains encrypted chunks and JSON manifests only; it does not decrypt, merge, or export playable media.
 
-## Before Public Exposure
+## Server Repository Boundary
 
-The separate ports are a deployment boundary, not a complete security model. Do not expose the private API server beyond localhost or a private network as-is. Review and add:
+The separate ports are a deployment boundary, not a complete security model. Do not expose the private API server beyond localhost or a private network as-is.
+
+This repository should stay focused on server/backend work:
+
+- API handlers and routing
+- SQLite migrations and repository code
+- encrypted blob storage
+- token-scoped incident viewer
+- backend deployment docs
+- backend security, retention, and threat-model docs
+- simulator/reference backend flow
+
+Before public exposure, review and add:
 
 - real access control for `/v1` or a strict WireGuard/firewall-only deployment
 - rate limits and abuse controls
@@ -71,4 +85,4 @@ The separate ports are a deployment boundary, not a complete security model. Do 
 
 ## Out Of Scope Today
 
-The repository does not currently include the iOS app, Android app, web client, local recording, first-class incident types, escalation policies, trusted-contact accounts, dead-man switch notifications, production client key storage, key sharing, browser/client-side decryption, server-assisted break-glass key access, playable media export, push notifications, SMS, Messenger integration, user accounts, or a public admin dashboard.
+The repository does not currently include the web client, iOS app, Android app, protocol repository, local recording, first-class incident types, escalation policies, trusted-contact accounts, dead-man switch notifications, production client key storage, key sharing, browser/client-side decryption, server-assisted break-glass key access, playable media export, push notifications, SMS, Messenger integration, user accounts, or a public admin dashboard.
