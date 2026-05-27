@@ -8,7 +8,7 @@ The current backend stores generic incidents only. Planned future clients may cl
 
 ## Package Layout
 
-- `.github/workflows/ci.yml`: runs Go tests on pull requests and pushes, builds a Linux amd64 binary artifact, generates release binary attestations on `v*` tag pushes, uploads the binary as a GitHub Release asset, builds the Docker image, and publishes attested images to GitHub Container Registry from a trusted job limited to `main` and `v*` tag pushes.
+- `.github/workflows/ci.yml`: runs Go tests with a coverage signal on pull requests and pushes, runs `govulncheck`, builds a Linux amd64 binary artifact, gates release binary attestation and trusted GHCR publishing on the vulnerability scan, uploads the binary as a GitHub Release asset on `v*` tag pushes, builds the Docker image, and publishes attested images to GitHub Container Registry from a trusted job limited to `main` and `v*` tag pushes.
 - `server/cmd/api`: starts one private API HTTP server per private bind address and one public incident viewer HTTP server per public bind address, loads config, opens SQLite, creates storage, wires shared handlers, and handles graceful shutdown.
 - `server/cmd/simclient`: simulates a future client by creating an incident, creating a viewer token, creating a media stream, encrypting and uploading fake chunks, completing the stream, sending periodic checkins, and optionally testing hash-failure retry, bundle download, and local decrypt verification behavior.
 - `server/internal/config`: reads environment variables such as private/public bind address lists, legacy singular bind addresses, data directory, database path, max upload size, and HTTP server timeouts.

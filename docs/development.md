@@ -261,6 +261,20 @@ attestations.
 For `v*` tags, CI also uploads the Linux amd64 binary as a GitHub Release asset.
 `packages: write` is granted only to the trusted Docker publish job.
 
+CI also records lightweight assurance signals for release review. The `Go tests`
+job writes a `go-coverage` artifact and includes the `go tool cover` function
+summary in the workflow run summary. The coverage output is advisory only; this
+repository does not currently enforce a minimum coverage percentage as a merge
+gate. The separate `Go vulnerability scan` job runs `govulncheck` against the Go
+packages without requiring repository secrets, including on pull requests from
+forks. Release binary attestation, Release binary upload, and trusted GHCR image
+publishing depend on that scan passing.
+
+Coverage output, `govulncheck`, builds, and artifact attestations are review
+signals. They do not prove that an artifact is vulnerability free, suitable for
+public production exposure, or safe to deploy with `/v1` reachable from the
+public internet.
+
 ## Pinned GitHub Actions
 
 External GitHub Actions in [../.github/workflows/ci.yml](../.github/workflows/ci.yml)

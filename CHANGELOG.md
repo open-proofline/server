@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added CI vulnerability and coverage signals for release review, with release
+  publishing gated on the vulnerability scan and coverage kept advisory.
 - Renamed legacy viewer/token terminology to incident-viewer and incident-token terminology, including breaking route/config/schema names for the upcoming release while migrating existing token rows.
 - Renamed the product in documentation to Proofline while preserving current repository, module, Docker, GHCR, route, and compatibility names.
 - Documented the planned `open-proofline` multi-repo layout and clarified that this repository is the Go server backend only.
