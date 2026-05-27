@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Documented the planned `open-proofline` multi-repo layout and clarified that this repository is the Go server backend only.
 - Renamed the product in documentation to Proofline while preserving current repository, module, Docker, GHCR, route, and compatibility names.
 - Documented the broader incident-capture direction, including emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes.
 - Added `Phase 0` Deep Research prompt. Loads report instructions and plans research prior to running `Phase 1`
