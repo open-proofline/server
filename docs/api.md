@@ -362,6 +362,9 @@ Response `200`:
 ## Incident Viewer
 
 Incident viewer routes are mounted only on the public incident viewer server.
+`/i/{token}` is the canonical path for new links. The pre-rename `/e/{token}`
+paths remain as compatibility aliases for already shared viewer URLs, including
+the `/data`, stream download, and incident download variants.
 
 ### `GET /i/{token}`
 

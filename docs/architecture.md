@@ -123,6 +123,7 @@ flowchart LR
 
     subgraph PublicMux["Public mux"]
         Viewer["/i/{token} routes<br/>read-only page, JSON,<br/>completed bundle downloads"]
+        LegacyViewer["/e/{token} aliases<br/>pre-rename compatibility"]
         Static["/static assets<br/>token-neutral"]
     end
 

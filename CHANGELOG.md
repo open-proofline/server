@@ -2,10 +2,17 @@
 
 ## Unreleased
 
+## v0.6.0 - 2026-05-27
+
 - Added CI vulnerability and coverage signals for release review, with release
   publishing gated on the vulnerability scan and coverage kept advisory.
+- Hardened private API and public token-path security headers for unsupported
+  method/error responses.
 - Renamed legacy viewer/token terminology to incident-viewer and incident-token terminology, including breaking route/config/schema names for the upcoming release while migrating existing token rows.
+- Retained legacy `/e/{token}` public viewer route aliases for already shared pre-rename links.
 - Renamed the product in documentation to Proofline while preserving current repository, module, Docker, GHCR, route, and compatibility names.
+- Updated active issue templates and reusable Codex prompts to match the
+  Proofline product name.
 - Documented the planned `open-proofline` multi-repo layout and clarified that this repository is the Go server backend only.
 - Documented the broader incident-capture direction, including emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes.
 - Added `Phase 0` Deep Research prompt. Loads report instructions and plans research prior to running `Phase 1`

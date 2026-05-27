@@ -43,7 +43,7 @@
 - SQLite metadata.
 - Local disk blob storage.
 - Private API listener group for `/v1` routes.
-- Public incident viewer listener group for `/i/{token}` routes.
+- Public incident viewer listener group for canonical `/i/{token}` routes and legacy `/e/{token}` compatibility aliases.
 - Uploaded chunks may be grouped into media streams.
 - Media streams can be marked `open`, `complete`, or `failed`.
 - Completed streams and incidents can be downloaded as encrypted ZIP evidence bundles.

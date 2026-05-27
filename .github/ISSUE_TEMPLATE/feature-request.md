@@ -1,6 +1,6 @@
 # Feature Request
 
-Safety Recorder is experimental and not production-ready public infrastructure. Do not use feature requests to add public `/v1` exposure, user accounts, OAuth, JWT, SMS, push notifications, cloud integrations, or other deployment expansion unless that scope has been explicitly accepted.
+Proofline is experimental and not production-ready public infrastructure. Do not use feature requests to add public `/v1` exposure, user accounts, OAuth, JWT, SMS, push notifications, cloud integrations, or other deployment expansion unless that scope has been explicitly accepted.
 
 ## Summary
 

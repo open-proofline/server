@@ -44,6 +44,19 @@ func TestPrivateAPIErrorSecurityHeaders(t *testing.T) {
 	assertErrorCode(t, body, "incident_not_found")
 }
 
+func TestPrivateAPIUnsupportedMethodUsesSecurityHeaders(t *testing.T) {
+	app := newTestApp(t)
+
+	response, body := get(t, app, "/v1/incidents")
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusNotFound {
+		t.Fatalf("expected unsupported method status 404, got %d: %s", response.StatusCode, body)
+	}
+	assertPrivateJSONSecurityHeaders(t, response)
+	assertErrorCode(t, body, "not_found")
+}
+
 func TestGetIncidentReturnsEmptyArrays(t *testing.T) {
 	app := newTestApp(t)
 	incidentID := createIncident(t, app, `{}`)

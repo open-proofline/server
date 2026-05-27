@@ -11,7 +11,7 @@ func (a *API) privateRoutes() http.Handler {
 
 	// The private API has no public authentication by design. Deployment must provide the
 	// private boundary, for example localhost, WireGuard, or firewall rules.
-	return a.loggingMiddleware(a.recoveryMiddleware(mux))
+	return a.loggingMiddleware(a.recoveryMiddleware(a.privateSecurityMiddleware(mux)))
 }
 
 func (a *API) registerPrivateIncidentRoutes(mux *http.ServeMux) {
@@ -52,6 +52,12 @@ func (a *API) registerPublicIncidentViewerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /i/{token}/data", a.incidentViewData)
 	mux.HandleFunc("GET /i/{token}/streams/{stream_id}/download", a.downloadIncidentViewerStreamBundle)
 	mux.HandleFunc("GET /i/{token}/incident/download", a.downloadIncidentViewerIncidentBundle)
+	// Keep the pre-rename viewer path as a compatibility alias for already
+	// shared token-bearing links. /i remains canonical for new links.
+	mux.HandleFunc("GET /e/{token}", a.incidentViewerPage)
+	mux.HandleFunc("GET /e/{token}/data", a.incidentViewData)
+	mux.HandleFunc("GET /e/{token}/streams/{stream_id}/download", a.downloadIncidentViewerStreamBundle)
+	mux.HandleFunc("GET /e/{token}/incident/download", a.downloadIncidentViewerIncidentBundle)
 	// Static incident viewer assets are embedded and token-neutral; the token stays
 	// in the request path handled above.
 	mux.Handle("GET /static/", incidentViewerStaticHandler())

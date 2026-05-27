@@ -15,7 +15,7 @@ The API binary starts separate listener groups:
 | Listener group | Routes | Intended exposure |
 |---|---|---|
 | Private API | `/v1/...` | Localhost, LAN, WireGuard, firewall, or strict reverse proxy only. |
-| Public incident viewer | `/i/{token}` and related read-only routes | HTTPS/reverse proxy when exposed. |
+| Public incident viewer | `/i/{token}` and related read-only routes, plus pre-rename `/e/{token}` compatibility aliases | HTTPS/reverse proxy when exposed. |
 
 Private write/admin routes must not be mounted on public incident viewer listeners. Incident viewer routes are read-only.
 
@@ -23,7 +23,7 @@ Private write/admin routes must not be mounted on public incident viewer listene
 
 Incident viewer tokens are scoped to one incident. The raw token is returned only at creation time; SQLite stores only a SHA-256 hash. Tokens created without an explicit `expires_at` default to a 24-hour lifetime unless `SAFE_DEFAULT_INCIDENT_TOKEN_TTL` is configured differently. Expired, revoked, and invalid tokens return the same public error.
 
-Viewer URLs contain bearer tokens and should be treated as secrets. Reverse proxies and operational logs should avoid recording raw `/i/{token}` paths. During upgrades from pre-rename releases, stale `/e/{token}` links may also reach the edge proxy and should be redacted even though the Go app no longer serves that route.
+Viewer URLs contain bearer tokens and should be treated as secrets. Reverse proxies and operational logs should avoid recording raw `/i/{token}` paths. During upgrades from pre-rename releases, `/e/{token}` compatibility links may also reach the edge proxy and should be redacted.
 
 ## Upload And Storage Controls
 
@@ -73,7 +73,7 @@ The Go app sets these headers on public incident viewer pages, JSON responses, s
 - `Permissions-Policy: geolocation=(), microphone=(), camera=()`
 - `X-Frame-Options: DENY`
 
-Token-protected incident pages, JSON responses, errors, and ZIP downloads also use `Cache-Control: no-store`. Private API JSON responses use `Content-Type: application/json`, `X-Content-Type-Options: nosniff`, and `Cache-Control: no-store`.
+Token-protected incident pages, JSON responses, errors, and ZIP downloads also use `Cache-Control: no-store`, including automatic method-mismatch errors on token-bearing paths. Private API responses use `X-Content-Type-Options: nosniff` and `Cache-Control: no-store`; JSON responses also use `Content-Type: application/json`.
 
 HSTS is not enabled by default in the Go app because local development uses plain HTTP and HSTS should only be sent over HTTPS. Set `Strict-Transport-Security` at the production HTTPS reverse proxy after TLS is established for the public hostname. After deployment, test the public incident viewer with the MDN HTTP Observatory.
 

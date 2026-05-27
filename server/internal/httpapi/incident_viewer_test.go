@@ -260,6 +260,19 @@ func TestPublicNotFoundUsesSecurityHeaders(t *testing.T) {
 	assertErrorCode(t, body, "not_found")
 }
 
+func TestPublicViewerUnsupportedMethodUsesNoStore(t *testing.T) {
+	app := newTestApp(t)
+
+	response, body := postPublic(t, app, "/i/not-a-real-token", "application/json", bytes.NewBufferString(`{}`))
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusNotFound {
+		t.Fatalf("expected unsupported method status 404, got %d: %s", response.StatusCode, body)
+	}
+	assertIncidentViewerPrivacyHeaders(t, response)
+	assertErrorCode(t, body, "not_found")
+}
+
 func TestPrivateServerDoesNotMountPublicIncidentViewerRoutes(t *testing.T) {
 	app := newTestApp(t)
 	incidentID := createIncident(t, app, `{}`)
@@ -270,12 +283,76 @@ func TestPrivateServerDoesNotMountPublicIncidentViewerRoutes(t *testing.T) {
 		"/i/" + token.Token + "/data",
 		"/i/" + token.Token + "/streams/str_missing/download",
 		"/i/" + token.Token + "/incident/download",
+		"/e/" + token.Token,
+		"/e/" + token.Token + "/data",
+		"/e/" + token.Token + "/streams/str_missing/download",
+		"/e/" + token.Token + "/incident/download",
 	} {
 		response, body := get(t, app, target)
 		response.Body.Close()
 		if response.StatusCode != http.StatusNotFound {
 			t.Fatalf("GET %s: expected private server status 404, got %d: %s", target, response.StatusCode, body)
 		}
+	}
+}
+
+func TestLegacyIncidentViewerAliasesCanReadIncidentData(t *testing.T) {
+	app := newTestApp(t)
+	incidentID, stream := createIncidentStreamWithChunks(t, app, 1)
+	completeMediaStream(t, app, incidentID, stream.ID, 1)
+	token := createIncidentToken(t, app, incidentID, "trusted contact", nil)
+
+	tests := []struct {
+		name   string
+		target string
+		assert func(*testing.T, *http.Response, []byte)
+	}{
+		{
+			name:   "page",
+			target: "/e/" + token.Token,
+			assert: func(t *testing.T, response *http.Response, body []byte) {
+				assertContentTypePrefix(t, response, "text/html")
+				assertIncidentViewerPrivacyHeaders(t, response)
+				if !bytes.Contains(body, []byte("Incident Viewer")) {
+					t.Fatalf("expected incident viewer page content: %s", body)
+				}
+			},
+		},
+		{
+			name:   "data",
+			target: "/e/" + token.Token + "/data",
+			assert: func(t *testing.T, response *http.Response, body []byte) {
+				assertIncidentViewerPrivacyHeaders(t, response)
+				if bytes.Contains(body, []byte(token.Token)) {
+					t.Fatalf("legacy incident viewer data exposed raw token: %s", body)
+				}
+			},
+		},
+		{
+			name:   "stream bundle",
+			target: "/e/" + token.Token + "/streams/" + stream.ID + "/download",
+			assert: func(t *testing.T, response *http.Response, body []byte) {
+				assertBundleHeaders(t, response)
+			},
+		},
+		{
+			name:   "incident bundle",
+			target: "/e/" + token.Token + "/incident/download",
+			assert: func(t *testing.T, response *http.Response, body []byte) {
+				assertBundleHeaders(t, response)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			response, body := getPublic(t, app, tt.target)
+			defer response.Body.Close()
+			if response.StatusCode != http.StatusOK {
+				t.Fatalf("GET %s: expected legacy alias status 200, got %d: %s", tt.target, response.StatusCode, body)
+			}
+			tt.assert(t, response, body)
+		})
 	}
 }
 
@@ -467,8 +544,8 @@ func TestLegacyIncidentTokenPathIsRedactedFromRequestLogs(t *testing.T) {
 
 	response, body := getPublic(t, app, "/e/"+token.Token)
 	defer response.Body.Close()
-	if response.StatusCode != http.StatusNotFound {
-		t.Fatalf("expected legacy incident viewer path status 404, got %d: %s", response.StatusCode, body)
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("expected legacy incident viewer path status 200, got %d: %s", response.StatusCode, body)
 	}
 
 	if bytes.Contains(logs.Bytes(), []byte(token.Token)) {

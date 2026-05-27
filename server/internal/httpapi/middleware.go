@@ -56,8 +56,23 @@ func (a *API) loggingMiddleware(next http.Handler) http.Handler {
 func (a *API) publicSecurityMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		setPublicBrowserSecurityHeaders(w)
+		if isViewerTokenPath(r.URL.Path) {
+			setNoStore(w)
+		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func (a *API) privateSecurityMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		setNoSniff(w)
+		setNoStore(w)
+		next.ServeHTTP(w, r)
+	})
+}
+
+func isViewerTokenPath(path string) bool {
+	return strings.HasPrefix(path, "/i/") || strings.HasPrefix(path, "/e/")
 }
 
 func safeLogPath(r *http.Request) string {
@@ -67,8 +82,8 @@ func safeLogPath(r *http.Request) string {
 	if strings.HasPrefix(r.URL.Path, "/i/") {
 		return redactedViewerPath(r.URL.Path, "/i")
 	}
-	// Keep redacting stale pre-rename viewer URLs even though they no longer
-	// route. They may still appear in old links or browser retries.
+	// Keep redacting pre-rename viewer URLs; they remain compatibility aliases
+	// for already shared token-bearing links.
 	if strings.HasPrefix(r.URL.Path, "/e/") {
 		return redactedViewerPath(r.URL.Path, "/e")
 	}
