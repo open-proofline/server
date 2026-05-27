@@ -1,14 +1,8 @@
 # Retention, Backup, And Deletion
 
-This document defines the operational retention, backup, restore, and deletion
-policy for the current backend shape. It is a design and operations document
-only. It does not add deletion APIs, background jobs, cloud backups, key escrow,
-or backend decryption.
+This document defines the operational retention, backup, restore, and deletion policy for the current Proofline backend shape. It is a design and operations document only. It does not add deletion APIs, background jobs, cloud backups, key escrow, or backend decryption.
 
-Safety Recorder is still experimental and not production-ready public
-infrastructure. Before real-world use, an operator must choose concrete
-retention windows, backup locations, encryption settings, and restore checks
-that match the user's safety and legal risk model.
+Proofline is still experimental and not production-ready public infrastructure. Before real-world use, an operator must choose concrete retention windows, backup locations, encryption settings, and restore checks that match the user's safety, privacy, and legal risk model.
 
 ## Scope
 
@@ -19,29 +13,23 @@ The current backend stores:
 - temporary upload files under `SAFE_DATA_DIR/tmp`
 - on-demand encrypted ZIP bundle responses generated from completed streams
 
-The backend stores ciphertext only. It does not store raw media keys, decrypt
-chunks, produce playable media, or persist generated ZIP bundle files.
+The backend stores ciphertext only. It does not store raw media keys, decrypt chunks, produce playable media, or persist generated ZIP bundle files.
+
+Future incident modes such as emergency incidents, interaction records, safety checks, and evidence notes may need different retention defaults. Those modes are not implemented yet and must update this policy before or alongside implementation.
 
 ## Retention Principles
 
 - Preserve uploaded evidence unless there is an explicit deletion decision.
-- Keep SQLite metadata and blob files in sync; either both are retained, or both
-  are removed by a future deletion workflow.
-- Treat failed and open streams as possible evidence. Do not discard them just
-  because they are not downloadable as completed stream bundles.
-- Keep raw emergency tokens out of storage and logs. Only token hashes are
-  retained in SQLite.
+- Keep SQLite metadata and blob files in sync; either both are retained, or both are removed by a future deletion workflow.
+- Treat failed and open streams as possible evidence. Do not discard them just because they are not downloadable as completed stream bundles.
+- Keep raw viewer/incident tokens out of storage and logs. Only token hashes are retained in SQLite.
+- Treat non-emergency interaction records as potentially sensitive even when they are not urgent safety incidents.
 - Do not promise unrecoverable deletion from normal file removal.
-- Use disk or volume encryption so eventual deletion can rely on cryptographic
-  key destruction, backup expiry, and media retirement instead of overwrite
-  claims.
+- Use disk or volume encryption so eventual deletion can rely on cryptographic key destruction, backup expiry, and media retirement instead of overwrite claims.
 
 ## Current Retention Choices
 
-The current implementation does not automatically expire or delete incidents.
-Operationally, this means retention is evidence-preserving by default until the
-operator performs a deliberate manual removal or a future deletion feature is
-implemented.
+The current implementation does not automatically expire or delete incidents. Operationally, this means retention is evidence-preserving by default until the operator performs a deliberate manual removal or a future deletion feature is implemented.
 
 | Data | Current retention choice | Notes |
 |---|---|---|
@@ -49,57 +37,45 @@ implemented.
 | Chunks | Retain every accepted encrypted chunk with its incident. | Uploaded chunks are immutable and must not be overwritten. |
 | Media streams | Retain open, complete, and failed stream metadata with the incident. | Failed streams may still contain useful uploaded chunks. |
 | Checkins | Retain checkin rows with the incident. | Checkins may contain location and device-status metadata, so they should be deleted with the incident. |
-| Emergency token rows | Retain token-hash metadata with the incident, including expired and revoked tokens. | Raw tokens are returned only once and are not stored. Future pruning may remove expired or revoked token rows after an audit window. |
+| Viewer token rows | Retain token-hash metadata with the incident, including expired and revoked tokens. | Raw tokens are returned only once and are not stored. Future pruning may remove expired or revoked token rows after an audit window. |
 | Generated ZIP bundles | Do not retain on the server. | Stream and incident bundles are generated on demand as HTTP responses. Downloaded copies are outside backend control. |
 | Temporary upload files | Remove after successful commit or failed upload cleanup. | Orphaned temp files may exist after crashes and need a future cleanup policy. |
 
 Before real-world use, choose explicit local policy values such as:
 
 - how long closed incidents should remain available
-- whether failed streams should follow the same retention window as completed
-  streams
+- whether emergency incidents, interaction records, safety checks, and evidence notes need different retention windows
+- whether failed streams should follow the same retention window as completed streams
 - how long expired or revoked token metadata is useful for audit
 - how long backup generations are retained after an incident is deleted
 - who is allowed to request deletion and who can approve it
 
 ## Backup Policy
 
-Backups must preserve the relationship between SQLite metadata and encrypted
-blob files. A database backup without the matching blob tree may leave bundles
-unusable. A blob backup without the matching database may leave evidence hard to
-locate, verify, or serve.
+Backups must preserve the relationship between SQLite metadata and encrypted blob files. A database backup without the matching blob tree may leave bundles unusable. A blob backup without the matching database may leave evidence hard to locate, verify, or serve.
 
 Back up at least:
 
 - `SAFE_DB_PATH`
 - `SAFE_DATA_DIR/incidents`
 - SQLite sidecar files if copying a live database directly, such as WAL files
-- deployment configuration needed to restore bind addresses, data paths, upload
-  limits, token TTL defaults, and reverse-proxy routing
+- deployment configuration needed to restore bind addresses, data paths, upload limits, token TTL defaults, and reverse-proxy routing
 
-If `SAFE_DB_PATH` points outside `SAFE_DATA_DIR`, include both locations in the
-same backup set.
+If `SAFE_DB_PATH` points outside `SAFE_DATA_DIR`, include both locations in the same backup set.
 
 Use one of these consistency strategies:
 
 - stop the API process, then copy the database and blob tree
-- take an atomic filesystem or volume snapshot that includes both database and
-  blobs
-- use SQLite's backup mechanism for the database and coordinate it with a blob
-  snapshot taken while uploads are paused
+- take an atomic filesystem or volume snapshot that includes both database and blobs
+- use SQLite's backup mechanism for the database and coordinate it with a blob snapshot taken while uploads are paused
 
-Do not copy only `safety.db` from a running WAL-mode database and assume that is
-a complete backup. Include the live SQLite state correctly, or use a database
-backup operation.
+Do not copy only `safety.db` from a running WAL-mode database and assume that is a complete backup. Include the live SQLite state correctly, or use a database backup operation. The file name still uses `safety.db` until a separate data-layout migration is performed.
 
-Backups should be encrypted at rest and access-controlled. Backup logs,
-filenames, tickets, and monitoring should not contain raw emergency tokens,
-private deployment details, request bodies, uploaded bytes, plaintext, or raw
-keys.
+Backups should be encrypted at rest and access-controlled. Backup logs, filenames, tickets, and monitoring should not contain raw viewer tokens, private deployment details, request bodies, uploaded bytes, plaintext, or raw keys.
 
 ## Restore Expectations
 
-Restores must be tested before relying on the system for real emergencies.
+Restores must be tested before relying on the system for real incidents.
 
 A restore test should:
 
@@ -108,82 +84,57 @@ A restore test should:
 3. Load known incident metadata through private routes.
 4. Verify completed stream or incident bundle downloads can be generated.
 5. Confirm generated manifests match expected stream and chunk metadata.
-6. Confirm missing blobs or database/blob mismatches fail closed rather than
-   producing partial evidence.
+6. Confirm missing blobs or database/blob mismatches fail closed rather than producing partial evidence.
 
-The restore target must preserve the private/public listener split. Do not use a
-restore drill as a reason to expose `/v1` publicly.
+The restore target must preserve the private/public listener split. Do not use a restore drill as a reason to expose `/v1` publicly.
 
 ## Deletion Policy
 
-The current backend has no incident deletion API and no automatic expiration
-job. Manual deletion is therefore an operator action, not an application-level
-feature. Manual deletion must be treated carefully because the database and blob
-tree need to stay consistent.
+The current backend has no incident deletion API and no automatic expiration job. Manual deletion is therefore an operator action, not an application-level feature. Manual deletion must be treated carefully because the database and blob tree need to stay consistent.
 
 The intended future deletion behavior is:
 
 - delete an incident only through a private/admin path
-- remove or tombstone the incident row, media streams, chunks, checkins, and
-  emergency token rows together
+- remove or tombstone the incident row, media streams, chunks, checkins, and viewer token rows together
 - remove encrypted blob files by server-controlled stored paths only
 - never accept client-provided filesystem paths for deletion
 - make repeated deletion attempts idempotent
-- keep public emergency viewer routes read-only
+- keep public incident viewer routes read-only
 - avoid deleting open incidents unless the request explicitly allows it
-- record enough non-sensitive audit information for operational review, without
-  logging raw tokens, request bodies, uploaded bytes, plaintext, or raw keys
+- record enough non-sensitive audit information for operational review, without logging raw tokens, request bodies, uploaded bytes, plaintext, or raw keys
 
 Future deletion policy should distinguish:
 
 - deleting one incident
 - expiring closed incidents after an operator-defined retention window
+- applying different retention to emergency incidents, interaction records, safety checks, and evidence notes after incident types exist
 - pruning expired or revoked token metadata after an audit window
 - cleaning orphaned temporary upload files after crashes
 - identifying orphaned blobs or rows after interrupted manual operations
-- deleting downloaded bundles or plaintext exports if such derived files are
-  ever implemented
+- deleting downloaded bundles or plaintext exports if such derived files are ever implemented
 
-Completed stream and incident ZIP bundles are not currently stored by the
-server, so server-side incident deletion cannot delete copies already downloaded
-by emergency contacts, operators, browsers, reverse proxies, backup systems, or
-endpoint devices.
+Completed stream and incident ZIP bundles are not currently stored by the server, so server-side incident deletion cannot delete copies already downloaded by trusted contacts, operators, browsers, reverse proxies, backup systems, or endpoint devices.
 
 ## Secure Deletion Limits
 
-Normal file deletion unlinks a path. It does not guarantee that encrypted blob
-bytes, SQLite pages, WAL contents, filesystem journal blocks, SSD wear-leveling
-copies, volume snapshots, backups, caches, or downloaded bundles are
-unrecoverable.
+Normal file deletion unlinks a path. It does not guarantee that encrypted blob bytes, SQLite pages, WAL contents, filesystem journal blocks, SSD wear-leveling copies, volume snapshots, backups, caches, or downloaded bundles are unrecoverable.
 
-Do not document or operate Safety Recorder as if `os.Remove`, `rm`, database row
-deletion, or SQLite vacuuming provides guaranteed secure erasure on modern
-storage.
+Do not document or operate Proofline as if `os.Remove`, `rm`, database row deletion, or SQLite vacuuming provides guaranteed secure erasure on modern storage.
 
 The recommended posture is:
 
-- use full-disk, volume, dataset, or filesystem encryption for `SAFE_DATA_DIR`,
-  `SAFE_DB_PATH`, logs, and backups
+- use full-disk, volume, dataset, or filesystem encryption for `SAFE_DATA_DIR`, `SAFE_DB_PATH`, logs, and backups
 - keep encryption keys outside the backup set they protect
-- retire or destroy storage-encryption keys when decommissioning a deployment
-  or backup generation
-- enforce backup retention so deleted incidents eventually age out of all
-  backup copies
+- retire or destroy storage-encryption keys when decommissioning a deployment or backup generation
+- enforce backup retention so deleted incidents eventually age out of all backup copies
 - document where downloaded evidence bundles may land outside server control
-- avoid persistent derived plaintext exports unless a future explicit design
-  covers their retention and deletion
+- avoid persistent derived plaintext exports unless a future explicit design covers their retention and deletion
 
-If a deployment needs stronger per-incident deletion guarantees, that should be
-designed as future security-sensitive work. For example, per-incident encrypted
-data keys could make key destruction part of deletion, but that would interact
-with key custody, emergency access, backups, and restore testing. It must not be
-introduced incidentally.
+If a deployment needs stronger per-incident deletion guarantees, that should be designed as future security-sensitive work. For example, per-incident encrypted data keys could make key destruction part of deletion, but that would interact with key custody, emergency access, backups, and restore testing. It must not be introduced incidentally.
 
 ## Disk Encryption Posture
 
-Disk or volume encryption is expected for any deployment that stores real
-safety evidence. It protects data at rest when disks, snapshots, or offline
-backups are lost, stolen, retired, or later deleted.
+Disk or volume encryption is expected for any deployment that stores real incident evidence. It protects data at rest when disks, snapshots, or offline backups are lost, stolen, retired, or later deleted.
 
 Recommended deployment posture:
 
@@ -191,29 +142,23 @@ Recommended deployment posture:
 - encrypt the database path if `SAFE_DB_PATH` is outside `SAFE_DATA_DIR`
 - encrypt backup storage separately from the live host
 - restrict access to encryption keys and recovery keys
-- test boot and restore procedures so encryption does not make emergency
-  evidence unavailable
-- document who can unlock production storage during an emergency
+- test boot and restore procedures so encryption does not make urgent evidence unavailable
+- document who can unlock production storage during an emergency or restore operation
 
-Disk encryption does not protect data while the host is running and unlocked,
-and it does not replace private `/v1` boundaries, TLS at the edge, token
-handling, rate limiting, backup access control, or future application-level
-authorization.
+Disk encryption does not protect data while the host is running and unlocked, and it does not replace private `/v1` boundaries, TLS at the edge, token handling, rate limiting, backup access control, or future application-level authorization.
 
 ## Future Implementation Work
 
-Implementing this policy requires separate, explicit issues. Likely future work
-includes:
+Implementing this policy requires separate, explicit issues. Likely future work includes:
 
 - incident deletion repository methods that transactionally remove metadata
 - storage deletion helpers that operate only on server-stored relative paths
-- private/admin deletion routes or CLI commands with clear authorization
-  assumptions
+- private/admin deletion routes or CLI commands with clear authorization assumptions
+- retention policy fields or settings for first-class incident modes after they exist
 - tests for database/blob consistency during deletion failures
 - orphan temp-file cleanup with a conservative age threshold
 - optional retention configuration for closed incidents and token metadata
 - backup and restore runbooks with deployment-specific commands
-- documentation updates for any future derived plaintext or persisted bundle
-  outputs
+- documentation updates for any future derived plaintext or persisted bundle outputs
 
 These are intentionally not implemented in this issue.

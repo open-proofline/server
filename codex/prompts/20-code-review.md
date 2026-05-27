@@ -57,8 +57,8 @@ Check for:
 - ZIP manifest correctness
 - server-controlled ZIP entry names
 - download routes exposing filesystem paths
-- private `/v1` routes mounted on public emergency server
-- public emergency routes mutating data
+- private `/v1` routes mounted on public incident viewer server
+- public incident viewer routes mutating data
 - raw token logging
 - request body logging
 - uploaded file byte logging
@@ -68,7 +68,7 @@ Check for:
 - encryption envelope validation, if touched
 - simulator key file handling, if touched
 - template escaping
-- security headers on emergency viewer and downloads
+- security headers on incident viewer and downloads
 - bind address parsing
 - tests that do not assert important behaviour
 - docs drift caused by code changes

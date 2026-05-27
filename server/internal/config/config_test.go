@@ -32,35 +32,35 @@ func TestLoadDefaultHTTPTimeouts(t *testing.T) {
 	})
 }
 
-func TestLoadDefaultEmergencyTokenTTL(t *testing.T) {
+func TestLoadDefaultIncidentTokenTTL(t *testing.T) {
 	cfg := loadConfigForTest(t, nil)
 
-	if cfg.DefaultEmergencyTokenTTL != 24*time.Hour {
-		t.Fatalf("default emergency token ttl = %s, want 24h", cfg.DefaultEmergencyTokenTTL)
+	if cfg.DefaultIncidentTokenTTL != 24*time.Hour {
+		t.Fatalf("default incident token ttl = %s, want 24h", cfg.DefaultIncidentTokenTTL)
 	}
 }
 
-func TestLoadEmergencyTokenTTLFromEnv(t *testing.T) {
+func TestLoadIncidentTokenTTLFromEnv(t *testing.T) {
 	cfg := loadConfigForTest(t, map[string]string{
-		"SAFE_DEFAULT_EMERGENCY_TOKEN_TTL": "12h",
+		"SAFE_DEFAULT_INCIDENT_TOKEN_TTL": "12h",
 	})
 
-	if cfg.DefaultEmergencyTokenTTL != 12*time.Hour {
-		t.Fatalf("default emergency token ttl = %s, want 12h", cfg.DefaultEmergencyTokenTTL)
+	if cfg.DefaultIncidentTokenTTL != 12*time.Hour {
+		t.Fatalf("default incident token ttl = %s, want 12h", cfg.DefaultIncidentTokenTTL)
 	}
 }
 
-func TestLoadCanDisableDefaultEmergencyTokenTTL(t *testing.T) {
+func TestLoadCanDisableDefaultIncidentTokenTTL(t *testing.T) {
 	cfg := loadConfigForTest(t, map[string]string{
-		"SAFE_DEFAULT_EMERGENCY_TOKEN_TTL": "0",
+		"SAFE_DEFAULT_INCIDENT_TOKEN_TTL": "0",
 	})
 
-	if cfg.DefaultEmergencyTokenTTL != 0 {
-		t.Fatalf("default emergency token ttl = %s, want disabled", cfg.DefaultEmergencyTokenTTL)
+	if cfg.DefaultIncidentTokenTTL != 0 {
+		t.Fatalf("default incident token ttl = %s, want disabled", cfg.DefaultIncidentTokenTTL)
 	}
 }
 
-func TestLoadRejectsInvalidEmergencyTokenTTL(t *testing.T) {
+func TestLoadRejectsInvalidIncidentTokenTTL(t *testing.T) {
 	tests := map[string]string{
 		"negative": "-1s",
 		"invalid":  "forever",
@@ -70,13 +70,13 @@ func TestLoadRejectsInvalidEmergencyTokenTTL(t *testing.T) {
 	for name, value := range tests {
 		t.Run(name, func(t *testing.T) {
 			_, err := loadConfigForTestErr(t, map[string]string{
-				"SAFE_DEFAULT_EMERGENCY_TOKEN_TTL": value,
+				"SAFE_DEFAULT_INCIDENT_TOKEN_TTL": value,
 			})
 			if err == nil {
-				t.Fatal("expected emergency token ttl config error")
+				t.Fatal("expected incident token ttl config error")
 			}
-			if !strings.Contains(err.Error(), "parse SAFE_DEFAULT_EMERGENCY_TOKEN_TTL") {
-				t.Fatalf("expected SAFE_DEFAULT_EMERGENCY_TOKEN_TTL parse context, got %v", err)
+			if !strings.Contains(err.Error(), "parse SAFE_DEFAULT_INCIDENT_TOKEN_TTL") {
+				t.Fatalf("expected SAFE_DEFAULT_INCIDENT_TOKEN_TTL parse context, got %v", err)
 			}
 		})
 	}
@@ -290,7 +290,7 @@ func loadConfigForTestErr(t *testing.T, env map[string]string) (Config, error) {
 		"SAFE_DATA_DIR",
 		"SAFE_DB_PATH",
 		"SAFE_MAX_UPLOAD_BYTES",
-		"SAFE_DEFAULT_EMERGENCY_TOKEN_TTL",
+		"SAFE_DEFAULT_INCIDENT_TOKEN_TTL",
 		"SAFE_PRIVATE_READ_HEADER_TIMEOUT",
 		"SAFE_PRIVATE_READ_TIMEOUT",
 		"SAFE_PRIVATE_WRITE_TIMEOUT",

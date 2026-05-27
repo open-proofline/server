@@ -119,7 +119,7 @@ Check:
 - bind address variables are documented
 - public/private listener separation is documented
 - private `/v1` API exposure warnings are clear
-- emergency viewer token behaviour is documented
+- incident viewer token behaviour is documented
 - completed evidence bundle limitations are documented
 - simulator commands still work
 - no raw secrets/tokens are committed
@@ -137,8 +137,8 @@ Check:
 Confirm:
 
 - private write/admin routes are not mounted on public viewer server
-- public emergency viewer routes are read-only
-- raw emergency tokens are not logged
+- public incident viewer routes are read-only
+- raw incident tokens are not logged
 - request bodies are not logged
 - uploaded file bytes are not logged
 - Authorization headers are not logged
@@ -147,9 +147,9 @@ Confirm:
 - ZIP download routes do not expose filesystem paths
 - ZIP entry names are controlled by the server
 - ZIP downloads set safe headers
-- token-protected emergency pages and downloads use `Cache-Control: no-store`
-- emergency responses use `Referrer-Policy: no-referrer`
-- emergency responses use `X-Content-Type-Options: nosniff`
+- token-protected incident viewer pages and downloads use `Cache-Control: no-store`
+- incident viewer responses use `Referrer-Policy: no-referrer`
+- incident viewer responses use `X-Content-Type-Options: nosniff`
 - HSTS is not enabled by default for localhost/dev HTTP unless explicitly gated by config
 - documentation does not claim production readiness
 
@@ -185,11 +185,11 @@ go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle
 Confirm:
 
 - the simulator creates an incident
-- the simulator creates an emergency token
+- the simulator creates an incident token
 - chunks upload successfully
 - checkins are sent
 - the stream completes
-- the emergency viewer URL works
+- the incident viewer URL works
 - completed-stream download buttons appear
 - encrypted bundle download works
 - local decrypt verification succeeds

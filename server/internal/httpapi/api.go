@@ -10,28 +10,28 @@ import (
 )
 
 const (
-	defaultMaxUploadBytes    = int64(250 * 1024 * 1024)
-	defaultEmergencyTokenTTL = 24 * time.Hour
-	jsonBodyLimit            = int64(64 * 1024)
-	fieldLimit               = int64(64 * 1024)
-	multipartOverhead        = int64(1024 * 1024)
-	maxSafeUploadBytes       = int64(1<<63 - 1 - multipartOverhead)
+	defaultMaxUploadBytes   = int64(250 * 1024 * 1024)
+	defaultIncidentTokenTTL = 24 * time.Hour
+	jsonBodyLimit           = int64(64 * 1024)
+	fieldLimit              = int64(64 * 1024)
+	multipartOverhead       = int64(1024 * 1024)
+	maxSafeUploadBytes      = int64(1<<63 - 1 - multipartOverhead)
 )
 
 // Options configures API construction.
 type Options struct {
-	MaxUploadBytes           int64
-	DefaultEmergencyTokenTTL *time.Duration
-	Logger                   *slog.Logger
+	MaxUploadBytes          int64
+	DefaultIncidentTokenTTL *time.Duration
+	Logger                  *slog.Logger
 }
 
 // API holds the dependencies and limits used by the HTTP handlers.
 type API struct {
-	repo                     *incidents.Repository
-	store                    *storage.Store
-	maxUploadBytes           int64
-	defaultEmergencyTokenTTL time.Duration
-	logger                   *slog.Logger
+	repo                    *incidents.Repository
+	store                   *storage.Store
+	maxUploadBytes          int64
+	defaultIncidentTokenTTL time.Duration
+	logger                  *slog.Logger
 }
 
 // New builds the private HTTP handler. Prefer NewPrivate or NewPublic at call
@@ -45,7 +45,7 @@ func NewPrivate(repo *incidents.Repository, store *storage.Store, opts Options) 
 	return newAPI(repo, store, opts).privateRoutes()
 }
 
-// NewPublic builds the HTTP handler tree for the public read-only emergency
+// NewPublic builds the HTTP handler tree for the public read-only incident
 // viewer.
 func NewPublic(repo *incidents.Repository, store *storage.Store, opts Options) http.Handler {
 	return newAPI(repo, store, opts).publicRoutes()
@@ -59,12 +59,12 @@ func newAPI(repo *incidents.Repository, store *storage.Store, opts Options) *API
 	if maxUploadBytes > maxSafeUploadBytes {
 		maxUploadBytes = maxSafeUploadBytes
 	}
-	emergencyTokenTTL := defaultEmergencyTokenTTL
-	if opts.DefaultEmergencyTokenTTL != nil {
-		emergencyTokenTTL = *opts.DefaultEmergencyTokenTTL
+	incidentTokenTTL := defaultIncidentTokenTTL
+	if opts.DefaultIncidentTokenTTL != nil {
+		incidentTokenTTL = *opts.DefaultIncidentTokenTTL
 	}
-	if emergencyTokenTTL < 0 {
-		emergencyTokenTTL = 0
+	if incidentTokenTTL < 0 {
+		incidentTokenTTL = 0
 	}
 	logger := opts.Logger
 	if logger == nil {
@@ -72,10 +72,10 @@ func newAPI(repo *incidents.Repository, store *storage.Store, opts Options) *API
 	}
 
 	return &API{
-		repo:                     repo,
-		store:                    store,
-		maxUploadBytes:           maxUploadBytes,
-		defaultEmergencyTokenTTL: emergencyTokenTTL,
-		logger:                   logger,
+		repo:                    repo,
+		store:                   store,
+		maxUploadBytes:          maxUploadBytes,
+		defaultIncidentTokenTTL: incidentTokenTTL,
+		logger:                  logger,
 	}
 }

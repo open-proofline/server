@@ -168,24 +168,30 @@ func (a *API) validateCompleteStreamChunks(w http.ResponseWriter, chunks []incid
 		return false
 	}
 	for i, chunk := range chunks {
-		expectedIndex := i + 1
-		if chunk.ChunkIndex != expectedIndex {
-			writeError(w, http.StatusConflict, "stream_chunks_not_contiguous", "stream chunks must be contiguous from 1 to expected_chunk_count")
+		if !a.validateCompleteStreamChunk(w, chunk, i+1) {
 			return false
 		}
-		file, err := a.store.Open(chunk.StoredPath)
-		if errors.Is(err, os.ErrNotExist) {
-			writeError(w, http.StatusConflict, "stream_chunk_file_missing", "stream chunk file is missing")
-			return false
-		}
-		if err != nil {
-			a.internalError(w, "open stream chunk", err)
-			return false
-		}
-		if err := file.Close(); err != nil {
-			a.internalError(w, "close stream chunk", err)
-			return false
-		}
+	}
+	return true
+}
+
+func (a *API) validateCompleteStreamChunk(w http.ResponseWriter, chunk incidents.Chunk, expectedIndex int) bool {
+	if chunk.ChunkIndex != expectedIndex {
+		writeError(w, http.StatusConflict, "stream_chunks_not_contiguous", "stream chunks must be contiguous from 1 to expected_chunk_count")
+		return false
+	}
+	file, err := a.store.Open(chunk.StoredPath)
+	if errors.Is(err, os.ErrNotExist) {
+		writeError(w, http.StatusConflict, "stream_chunk_file_missing", "stream chunk file is missing")
+		return false
+	}
+	if err != nil {
+		a.internalError(w, "open stream chunk", err)
+		return false
+	}
+	if err := file.Close(); err != nil {
+		a.internalError(w, "close stream chunk", err)
+		return false
 	}
 	return true
 }

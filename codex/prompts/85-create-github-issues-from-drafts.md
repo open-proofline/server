@@ -47,6 +47,7 @@ Before generating the script:
 3. If multiple directories exist and the newest or intended branch scope is unclear, stop and ask which draft directory to use.
 4. Do not use `.backlog-drafts/private-notes/` or any `private-notes/` directory for public issue creation.
 5. Read the selected directory `README.md` and every `NNN-*.md` draft before generating a script.
+6. If an existing `scripts/create-backlog-issues.sh` points at a different or missing draft directory, replace it only after selecting and validating the intended branch-scoped directory.
 
 ## Required draft metadata
 
@@ -167,15 +168,17 @@ The script should:
 
 3. Define the selected branch-scoped draft directory.
 
-4. Refuse to run if GitHub CLI is not installed or not authenticated.
+4. Refuse to run if the selected draft directory is missing.
 
-5. Print which issue draft is being created.
+5. Refuse to run if GitHub CLI is not installed or not authenticated.
 
-6. Use `--body-file`.
+6. Print which issue draft is being created.
 
-7. Include `--label` arguments derived from each draft.
+7. Use `--body-file`.
 
-8. Print a warning before creating issues that branch-scoped drafts should have been reviewed for current target-branch relevance.
+8. Include `--label` arguments derived from each draft.
+
+9. Print a warning before creating issues that branch-scoped drafts should have been reviewed for current target-branch relevance.
 
 ## Review exclusions
 
@@ -217,9 +220,9 @@ gh issue create \
 
 Use safe quoting for file paths, titles, and labels.
 
-## Optional helper output
+## Issue creation review output
 
-Also create, if useful:
+Also create:
 
 ```text
 .backlog-drafts/<selected-directory>/create-issues-review.md
@@ -237,6 +240,7 @@ This file should summarize:
 - command to run the script
 - warning that running twice may create duplicates
 - warning that branch-scoped drafts should be revalidated if the source branch moved
+- warning that private notes are excluded from public issue creation
 
 ## Constraints
 

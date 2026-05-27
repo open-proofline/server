@@ -56,24 +56,48 @@ func (a *API) loggingMiddleware(next http.Handler) http.Handler {
 func (a *API) publicSecurityMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		setPublicBrowserSecurityHeaders(w)
+		if isViewerTokenPath(r.URL.Path) {
+			setNoStore(w)
+		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func (a *API) privateSecurityMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		setNoSniff(w)
+		setNoStore(w)
+		next.ServeHTTP(w, r)
+	})
+}
+
+func isViewerTokenPath(path string) bool {
+	return strings.HasPrefix(path, "/i/") || strings.HasPrefix(path, "/e/")
 }
 
 func safeLogPath(r *http.Request) string {
 	if r.Pattern != "" && r.Pattern != "/" {
 		return r.Pattern
 	}
+	if strings.HasPrefix(r.URL.Path, "/i/") {
+		return redactedViewerPath(r.URL.Path, "/i")
+	}
+	// Keep redacting pre-rename viewer URLs; they remain compatibility aliases
+	// for already shared token-bearing links.
 	if strings.HasPrefix(r.URL.Path, "/e/") {
-		if strings.HasSuffix(r.URL.Path, "/data") {
-			return "/e/{token}/data"
-		}
-		return "/e/{token}"
+		return redactedViewerPath(r.URL.Path, "/e")
 	}
 	if r.Pattern != "" {
 		return r.Pattern
 	}
 	return r.URL.Path
+}
+
+func redactedViewerPath(path, prefix string) string {
+	if strings.HasSuffix(path, "/data") {
+		return prefix + "/{token}/data"
+	}
+	return prefix + "/{token}"
 }
 
 func (a *API) recoveryMiddleware(next http.Handler) http.Handler {

@@ -1,6 +1,8 @@
 # Simulator
 
-The simulator CLI lives at `server/cmd/simclient`. It exercises the current ingest flow that a future recording client is expected to use. By default it encrypts fake chunk plaintext with the v1 client-side envelope before upload.
+The simulator CLI lives at `server/cmd/simclient`. It exercises the current Proofline ingest flow that a future recording client is expected to use. By default it encrypts fake chunk plaintext with the v1 client-side envelope before upload.
+
+The simulator covers generic incidents only. It does not implement planned incident modes such as emergency incidents, interaction records, safety checks, or evidence notes.
 
 ## Basic Flow
 
@@ -17,17 +19,17 @@ Then run:
 go run ./cmd/simclient --chunks 12 --interval 5s
 ```
 
-The simulator prints an emergency viewer URL. Open it to watch incident metadata update.
+The simulator prints an incident viewer URL. Open it to watch incident metadata update.
 
 ## Bundle Download Flow
 
-To test encrypted bundle download through the emergency viewer:
+To test encrypted bundle download through the incident viewer:
 
 ```bash
 go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle
 ```
 
-This creates a media stream, uploads encrypted chunks with `stream_id`, completes the stream, downloads the completed encrypted ZIP bundle through the emergency viewer, and verifies local decryption.
+This creates a media stream, uploads encrypted chunks with `stream_id`, completes the stream, downloads the completed encrypted ZIP bundle through the incident viewer, and verifies local decryption.
 
 ## Encryption
 
@@ -42,10 +44,12 @@ The simulator prints a non-secret `key_id`, but it never prints the raw key or d
 To reuse a simulator key across runs:
 
 ```bash
-go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle --key-file /tmp/safety-recorder-sim.key.json
+go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle --key-file /tmp/proofline-sim.key.json
 ```
 
 If the key file exists, the simulator loads it. If it does not exist, the simulator creates it with restrictive permissions where practical. Do not upload or commit simulator key files.
+
+Older examples may use `/tmp/safety-recorder-sim.key.json`; the file name is not part of the encryption protocol.
 
 To preserve the old raw fake chunk behavior:
 
@@ -70,13 +74,13 @@ Every fourth chunk intentionally fails SHA-256 verification before being retried
 | Flag | Purpose |
 |---|---|
 | `--api` | Private API base URL. |
-| `--viewer` | Emergency viewer base URL. |
+| `--viewer` | Incident viewer base URL. |
 | `--chunks` | Number of chunks to upload. |
 | `--interval` | Delay between chunk uploads. |
 | `--chunk-size` | Size of each fake plaintext chunk before optional encryption. |
 | `--media-type` | Media type to upload. |
 | `--complete-stream` | Mark the uploaded media stream complete. |
-| `--download-bundle` | Download the completed stream bundle through the emergency viewer. |
+| `--download-bundle` | Download the completed stream bundle through the incident viewer. |
 | `--encrypt` | Encrypt simulated chunk bytes before upload. Defaults to `true`. |
 | `--key-file` | Optional local simulator key file. |
 | `--verify-bundle-decryption` | Locally decrypt downloaded bundles when encryption is enabled. |

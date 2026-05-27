@@ -2,7 +2,7 @@
 
 Use this prompt in ChatGPT Deep Research, not in Codex.
 
-This prompt creates the first-pass source-cited technical review report. The output is expected to be validated and cleaned by the Phase 2 Codex workflow before publication.
+This prompt creates the first-pass source-cited technical review report. The output must be validated and cleaned by the Phase 2 Codex workflow before publication.
 
 ## Inputs
 
@@ -39,7 +39,7 @@ Review date:
 Target report path, if known:
 
 ```text
-docs/reports/<YYYY-MM-DD>-safety-recorder-technical-review.md
+docs/reports/<YYYY-MM-DD>-proofline-<TARGET_RELEASE_OR_VERSION>-technical-review.md
 ```
 
 Model / tool disclosure:
@@ -48,7 +48,25 @@ Model / tool disclosure:
 OpenAI ChatGPT Deep Research using <MODEL_NAME>
 ```
 
-## Test and validation evidence policy
+## Repository Context
+
+Proofline is an experimental Go backend for private encrypted incident capture. It receives already-encrypted recording chunks, stores metadata in SQLite, keeps encrypted blobs on local disk, and exposes a token-scoped read-only incident viewer.
+
+The product documentation now uses the name Proofline. Repository URLs, Go module paths, Docker image names, GHCR package names, current route names, and compatibility names may still use `safety-recorder` or `emergency` until a separate migration is explicitly performed.
+
+The long-term product direction is broader than emergency-only recording. Planned modes include emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes. These are planning direction unless the reviewed tree contains first-class implementation.
+
+Core project boundaries:
+
+- The private `/v1` API has no public user authentication and must not be exposed publicly.
+- The current backend treats uploaded bytes as opaque ciphertext.
+- The current backend must not be described as production-ready public infrastructure.
+- Current backend incidents are generic unless the reviewed tree implements first-class incident types.
+- Backend decryption, browser decryption, production key custody, break-glass access, user accounts, OAuth/JWT, push notifications, SMS, Messenger, web/iOS/Android clients, and first-class escalation policies are future or out-of-scope items unless explicitly implemented in the reviewed tree.
+- Future key custody, browser decryption, break-glass, incident-mode, and client prototype documents are design/planning guardrails, not shipped implementation.
+- Do not treat documented future work as a current defect merely because it is not implemented.
+
+## Validation Evidence Policy
 
 Deep Research cannot run repository tests, containers, Docker builds, local shell commands, or simulator smoke tests.
 
@@ -58,18 +76,7 @@ Use only supplied validation evidence, public CI results, uploaded logs, maintai
 
 If no validation evidence is supplied for a command, state that the command was not independently verified by this report.
 
-When validation evidence is supplied, distinguish clearly between:
-
-- repository workflow configuration
-- public GitHub Actions / CI run results
-- maintainer-supplied local command output
-- Codex-supplied command output
-- uploaded validation summaries
-- inferred expectations from source files or workflow definitions
-
-Do not treat maintainer-supplied logs as proof beyond what they actually show. Do not infer that unobserved commands passed merely because related commands passed.
-
-Recommended evidence to request or use when available:
+Recommended validation evidence to request or use when available:
 
 - exact reviewed branch/ref
 - exact reviewed commit SHA
@@ -85,103 +92,39 @@ cd server
 go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle
 ```
 
-If validation evidence is available, use wording like:
+Do not put raw tokens, secrets, request bodies, uploaded bytes, plaintext, raw keys, private deployment details, exploit payloads, or user-safety data into validation summaries or the public report.
 
-```markdown
-Validation evidence supplied for the reviewed commit indicates that `<COMMAND>` passed in `<ENVIRONMENT>`. This report did not independently execute that command.
-```
-
-If validation evidence is unavailable, use wording like:
-
-```markdown
-The report reviewed the workflow configuration and source files, but did not independently execute `<COMMAND>` and no validation log was supplied for that command.
-```
-
-Do not put raw tokens, secrets, request bodies, uploaded bytes, plaintext, raw keys, private deployment details, or user-safety data into validation summaries or the public report.
-
-## Repository context
-
-Safety Recorder is an experimental Go backend for private personal-safety recording. It receives already-encrypted recording chunks, stores metadata in SQLite, stores encrypted blobs on local disk, and exposes a token-scoped read-only emergency viewer.
-
-The repository may also contain future-design and planning documents for a future iOS recorder, production key custody, browser-side decryption, and break-glass/dead-man-switch access. These documents are planning inputs unless the reviewed tree contains implementation code.
-
-Core project boundaries:
-
-- The private `/v1` API has no public user authentication and must not be exposed publicly.
-- The current backend treats uploaded bytes as opaque ciphertext.
-- The current backend must not be described as production-ready public infrastructure.
-- Backend decryption, browser decryption, production key custody, break-glass access, user accounts, OAuth/JWT, push notifications, SMS, Messenger, and iOS recording implementation are future or out-of-scope items unless explicitly implemented in the reviewed tree.
-- Future key custody, browser decryption, break-glass, and iOS recorder documents are design/planning guardrails, not shipped implementation.
-- Do not treat documented future work as a current defect merely because it is not implemented.
-
-## Source policy
+## Source Policy
 
 Use authoritative sources only.
 
-Repository evidence is the anchor for claims about the reviewed tree, but this is **not** a repository-only review. Repository-first means repository claims must be grounded in the reviewed commit; it does not excuse skipping authoritative external sources for language, platform, security, CI/CD, Docker, SQLite, dependency, licence, or standards claims.
-
-The draft is incomplete if authoritative external sources required by this prompt are not consulted. Do not describe the review as "repo-only", "repo-only by design", or "completed to a responsible standard from repository evidence alone" when the prompt requires external source checks. If web search, browser access, or external-source retrieval is unavailable, state that limitation in the Source Registry and mark affected claims as **not independently verified** instead of treating repository-only evidence as sufficient.
+Repository evidence is the anchor for claims about the reviewed tree, but this is not a repository-only review. Repository claims must be grounded in the reviewed commit, and external technical claims must use authoritative sources.
 
 Prioritize repository evidence first:
 
 - repository files in the reviewed tree
 - source code, migrations, tests, workflows, Dockerfile, and documentation pinned to `<REVIEWED_COMMIT_SHA>`
 
-Prioritize these external source families for current backend, security, CI/CD, Docker, SQLite, and web-security claims:
+Required external-source families when applicable:
 
-- `go.dev`
-- `pkg.go.dev`
-- `csrc.nist.gov`
-- `nvlpubs.nist.gov`
-- `owasp.org`
-- `cheatsheetseries.owasp.org`
-- `docs.github.com`
-- `docs.docker.com`
-- `sqlite.org`
-- `rfc-editor.org`
-- `datatracker.ietf.org`
-- `doc.traefik.io`, only for Traefik reverse-proxy examples and rate-limiting guidance
+- Go/toolchain/standard-library/module claims: `go.dev` or `pkg.go.dev`
+- AES-GCM, nonce, randomness, authenticated encryption, or cryptographic-strength claims: NIST, Go official docs, or another primary standards/source document
+- SQLite WAL, foreign keys, migration, transaction, locking, backup, or restore claims: `sqlite.org`
+- GitHub Actions security, permissions, SHA pinning, Dependabot, provenance, OIDC, workflow hardening, or CI/CD claims: `docs.github.com`
+- Docker image pinning, digest semantics, multi-stage builds, runtime image behavior, or container build/publish claims: `docs.docker.com`
+- dependency vulnerability/advisory claims: OSV, Go vulnerability database, GitHub Advisory Database, or another primary advisory source
+- licence/SPDX/AGPL claims: repository licence plus SPDX, GNU/FSF, or another authoritative licence source
+- web-security headers, caching, token-in-URL handling, sensitive-data logging, rate limiting, or browser-facing security claims: OWASP, relevant RFCs, GitHub/Docker docs, Traefik docs for Traefik-specific examples, or other primary sources
+- iOS, Swift, Apple-platform, App Store, AVFoundation, background execution, CryptoKit, Keychain, or Apple privacy/safety claims: Apple Developer or Swift primary documentation
+- recording-law or legal-admissibility claims: do not provide legal conclusions unless sourced to current authoritative legal material and clearly marked as not legal advice
 
-Prioritize these external source families for future iOS, Swift, Apple-platform, and App Store planning claims:
+Avoid random blogs, Stack Overflow, social posts, vendor marketing pages, AI-generated summaries, uncited claims, and stale Apple API examples when current Apple documentation is available.
 
-- `developer.apple.com/documentation/`
-- `developer.apple.com/app-store/review/guidelines/`
-- `developer.apple.com/design/human-interface-guidelines/`
-- `developer.apple.com/videos/`, only for Apple WWDC sessions when API reference docs are insufficient
-- `swift.org`
-- `docs.swift.org`
+If required external sources are unavailable, state that limitation in the Source Registry and mark affected claims as not independently verified.
 
-Apple/Swift topics that should use Apple or Swift primary sources include:
+## Source Registry
 
-- Swift language behaviour and concurrency
-- Swift API design conventions
-- AVFoundation / AVFAudio recording and media capture
-- app lifecycle, interruptions, permissions, and background execution
-- URLSession and background transfer behaviour
-- BackgroundTasks
-- CryptoKit and AES-GCM usage
-- Keychain Services
-- file protection and local data protection
-- App Store Review Guidelines and privacy/safety requirements
-- Human Interface Guidelines when reviewing future iOS user-facing flows
-
-Avoid relying on:
-
-- random blogs
-- Stack Overflow
-- social posts
-- vendor marketing pages
-- AI-generated summaries
-- uncited claims
-- stale Apple API examples when current Apple documentation is available
-
-If a secondary source is used, explain why no primary source was sufficient.
-
-## Source Registry and evidence gate
-
-Before drafting the report body, create a Source Registry. The registry is an evidence-control mechanism, not an appendix generated after the conclusions are written.
-
-The report must include a dedicated `## Source Registry` section with these subsections:
+Before drafting findings, create a `## Source Registry` section. It must include:
 
 ```markdown
 ## Source Registry
@@ -200,15 +143,15 @@ The report must include a dedicated `## Source Registry` section with these subs
 Every registry entry must include:
 
 - source ID / citation key
-- source type: repository file, external authoritative source, validation evidence, unavailable check, generated artifact, or connector/tool context
-- location: repository path, pinned GitHub URL, external URL, uploaded evidence name, command name, or artifact path
-- commit/ref/date: reviewed commit SHA for repository files; access date or publication/version date for external sources where available; evidence date for validation logs
+- source type
+- location
+- commit/ref/date
 - purpose in the review
-- status: inspected, consulted, supplied, generated, unavailable, not executed, or not applicable
-- limitations: what the source does not prove
+- status
+- limitations
 - related finding IDs or report sections where applicable
 
-Minimum Source Registry requirements:
+Minimum requirements:
 
 - List every repository file materially relied on, pinned to `<REVIEWED_COMMIT_SHA>`.
 - List every authoritative external source materially relied on.
@@ -216,37 +159,9 @@ Minimum Source Registry requirements:
 - List validation commands that were actually supported by supplied evidence.
 - List validation commands that were not independently executed or not supported by supplied evidence.
 - List generated report outputs, including the target report path if supplied.
-- List the active review connector/tool context, including whether web search was available.
+- List active review connector/tool context, including whether web search was available.
 
-Required external-source coverage:
-
-- For Go standard-library, module, toolchain, HTTP server, `database/sql`, `net/http`, or crypto implementation claims, consult and cite `go.dev` or `pkg.go.dev`.
-- For AES-GCM, nonce/randomness, authenticated encryption, or cryptographic strength claims, consult and cite NIST, Go official docs, or another primary standards/source document from the allowed source families.
-- For SQLite WAL, foreign keys, migration, transaction, locking, backup, or restore claims, consult and cite `sqlite.org`.
-- For GitHub Actions security, permissions, SHA pinning, Dependabot, provenance, OIDC, workflow hardening, or CI/CD claims, consult and cite `docs.github.com`.
-- For Docker image pinning, digest semantics, multi-stage builds, runtime image behaviour, or container build/publish claims, consult and cite `docs.docker.com`.
-- For dependency vulnerability/advisory claims, consult and cite OSV, the Go vulnerability database, GitHub Advisory Database, or another primary advisory source.
-- For licence/SPDX/AGPL claims, consult and cite the repository licence plus SPDX, GNU/FSF, or another authoritative licence source.
-- For web-security headers, caching, token-in-URL handling, logging-sensitive-data, rate limiting, or browser-facing security claims, consult and cite OWASP, relevant RFCs, GitHub/Docker docs, Traefik docs for Traefik-specific reverse-proxy examples, or other allowed primary sources.
-- For future Apple/iOS/Swift planning claims, consult and cite Apple Developer or Swift primary documentation as described in the Source policy.
-
-Do not cite broad homepages when a specific documentation page is available.
-
-If a required external source category is not applicable because the report makes no claim in that category, state `not applicable` in the Source Registry. If it is applicable but not consulted, state `not consulted`, explain why, and downgrade related claims to `not independently verified`.
-
-The report must not contain this type of statement unless it is strictly true and all required-source omissions are documented:
-
-```text
-No additional web sources were consulted.
-```
-
-If no external web sources were consulted despite applicable external-source requirements, use this wording instead:
-
-```markdown
-Applicable authoritative external-source checks were not completed for this Phase 1 draft. The affected claims are therefore limited to repository evidence and are marked as not independently verified in the Source Registry.
-```
-
-## Citation requirements
+## Citation Requirements
 
 Use portable citation keys only.
 
@@ -259,35 +174,14 @@ Repository fact. [R-README] [R-CI]
 
 External-source fact. [S-GITHUB-ACTIONS-SECURE]
 
-Apple-platform planning fact. [S-APPLE-AVFOUNDATION] [S-SWIFT-DOCS]
+Apple-platform planning fact. [S-APPLE-AVFOUNDATION]
 ```
 
-At the end of the report, include Markdown reference definitions for every citation key:
+At the end of the report, include Markdown reference definitions for every citation key.
 
-```markdown
-[R-README]: https://github.com/TheSilkky/safety-recorder/blob/<REVIEWED_COMMIT_SHA>/README.md
-[S-GITHUB-ACTIONS-SECURE]: https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions
-[S-APPLE-AVFOUNDATION]: https://developer.apple.com/documentation/avfoundation
-[S-SWIFT-DOCS]: https://www.swift.org/documentation/
-```
+Repository citations must be pinned to `<REVIEWED_COMMIT_SHA>`, not `main`, `develop`, or a moving release branch. If the SHA is unavailable, clearly mark the report as a draft and include a warning that repository URLs must be commit-pinned before publication.
 
-Repository citations must be pinned to `<REVIEWED_COMMIT_SHA>`, not `main`, unless the commit SHA is genuinely unavailable. If the SHA is unavailable, clearly mark the report as a draft and include a warning that repository URLs must be commit-pinned before publication.
-
-If reviewing a release-prep branch, provide both the branch name and the exact commit SHA. The branch name is workflow context; the commit SHA is the citation target. Repository citations must still be pinned to `<REVIEWED_COMMIT_SHA>` so the report remains stable if the branch moves.
-
-## Branch-scoped follow-up guidance
-
-The report may suggest follow-up issues, but it must not treat branch-specific release-candidate findings as if they automatically apply to every branch.
-
-When suggesting follow-up issues, include the reviewed branch/ref and reviewed commit SHA in the finding context. For a release-prep branch such as `release/v0.5.0-prep`, distinguish:
-
-- release blockers for the current branch
-- non-blocking follow-ups that can be filed after the branch merges
-- findings that must be revalidated on `main` or `develop` before public issue creation
-
-Do not recommend creating a public GitHub issue from a branch-specific finding unless the finding is expected to remain valid after the branch is merged or has been revalidated against the target branch.
-
-## Review scope
+## Review Scope
 
 Review these repository areas when present in the reviewed tree:
 
@@ -306,56 +200,33 @@ Review these repository areas when present in the reviewed tree:
 
 Pay special attention to future-design and planning documents when present:
 
+- `docs/incident-modes.md`
 - `docs/key-custody.md`
 - `docs/browser-decryption.md`
 - `docs/break-glass-key-access.md`
 - `docs/ios-local-recorder-prototype.md`
-- any future `docs/ios*.md`, `docs/apple*.md`, or client-planning documents
-- any future `ios/` client code, Swift package files, Xcode project files, entitlement files, or App Store metadata files if they exist in the reviewed tree
+- any future web, iOS, Android, account, protocol, Apple-platform, or client-planning documents
+- any future client code, Swift/Kotlin/TypeScript package files, Xcode/Android project files, entitlement files, or App Store/Play Store metadata files if they exist in the reviewed tree
 
 Technical focus areas:
 
-1. Documentation consistency and public-readiness wording
-2. Go backend structure and idiomatic implementation
-3. HTTP API behavior and private/public route separation
-4. Emergency token generation, hashing, storage, expiry, redaction, and viewer behavior
-5. Logging, metrics, proxy examples, and sensitive data exposure
-6. Upload handling, hash verification, immutable storage, upload limits, and stream-scoped chunk identity
-7. SQLite migrations, foreign keys, WAL mode, schema migration tracking, and data integrity
-8. ZIP bundle generation, manifest completeness, fail-closed behaviour, and path traversal handling
-9. Crypto-adjacent simulator envelope:
-   - AES-GCM use
-   - nonce generation and uniqueness assumptions
-   - associated data construction
-   - key generation and simulator key handling
-   - ciphertext-only backend boundary
-10. Future-design boundary:
-   - production key custody
-   - browser/client-side decryption
-   - break-glass / dead-man-switch access
-   - trusted-contact recovery
-   - server escrow or server-side decryption as explicit future modes only
-11. Future iOS recorder planning:
-   - whether the plan accurately distinguishes planning from implementation
-   - AVFoundation / AVFAudio feasibility claims
-   - foreground/background recording assumptions
-   - iOS lifecycle, interruption, and permission constraints
-   - URLSession/background transfer assumptions
-   - local encrypted staging and file protection assumptions
-   - Keychain and CryptoKit assumptions
-   - App Store safety/privacy review considerations
-   - mapping from local recorder state to current backend stream/chunk APIs
-12. Deployment guidance:
-   - Docker local/private exposure
-   - WireGuard/private-network patterns
-   - Traefik HTTPS emergency viewer exposure
-   - deployment-edge rate limiting
-   - proxy logging of token-bearing paths
-   - no `/v1` public exposure
-13. Docker/GHCR/GitHub Actions/supply-chain hygiene
-14. Public issue/report safety
+1. Documentation consistency, Proofline naming, compatibility-name notes, and public-readiness wording
+2. Current implementation versus future incident-mode planning
+3. Go backend structure and idiomatic implementation
+4. HTTP API behavior and private/public route separation
+5. Viewer/incident token generation, hashing, storage, expiry, redaction, and viewer behavior
+6. Logging, metrics, proxy examples, and sensitive data exposure
+7. Upload handling, hash verification, immutable storage, upload limits, and stream-scoped chunk identity
+8. SQLite migrations, foreign keys, WAL mode, schema migration tracking, and data integrity
+9. ZIP bundle generation, manifest completeness, fail-closed behavior, and path traversal handling
+10. Crypto-adjacent simulator envelope, ciphertext-only backend boundary, and naming-compatibility claims
+11. Future key custody, browser/client-side decryption, break-glass, trusted-contact access, and server escrow boundaries
+12. Future web/iOS/Android/protocol/client planning and platform assumptions
+13. Deployment guidance, Traefik examples, WireGuard/private boundary, rate limiting, and no `/v1` public exposure
+14. Docker/GHCR/GitHub Actions/supply-chain hygiene
+15. Public issue/report safety
 
-## Finding rules
+## Finding Rules
 
 For every finding, include:
 
@@ -365,8 +236,8 @@ For every finding, include:
 - current implementation vs future design
 - affected files and functions, or affected planning documents
 - repository evidence citation
-- authoritative external citation for any applicable backend, security, CI/CD, Docker, SQLite, dependency, licence, standards, web-security, Apple/iOS, or Swift claim
-- explicit `not independently verified` wording if the required authoritative external source was not consulted
+- authoritative external citation for applicable backend, security, CI/CD, Docker, SQLite, dependency, licence, standards, web-security, Apple/iOS, Swift, or legal-adjacent claim
+- explicit `not independently verified` wording if required authoritative external sources were not consulted
 - reviewed branch/ref and commit context
 - why it matters
 - minimal actionable fix
@@ -375,35 +246,28 @@ For every finding, include:
 
 Do not inflate severity merely because a finding is security-adjacent. If a limitation is already documented as out of scope, classify it as a non-finding or future-work item unless there is a contradiction between docs and code.
 
-Do not claim “missing” if a file or control exists. If a control exists but is incomplete, describe the narrower hardening task.
+Do not recommend public GitHub issues for private vulnerabilities, raw tokens, secrets, exploit details, private deployment details, or user safety data.
 
-For future-design documents, classify issues as planning gaps, ambiguity, source-support gaps, or future-work risks unless the reviewed tree actually implements the feature.
+## Common False Positives To Avoid
 
-For iOS planning documents, do not claim the iOS client exists unless `ios/` implementation files exist in the reviewed tree. Review whether the plan is plausible, source-supported, scoped, and explicit about platform limitations.
+- Do not say `/v1` lacks public auth as a vulnerability unless the docs claim it is safe to expose publicly.
+- Do not say missing iOS, Android, web-client, accounts, incident types, escalation policies, browser decryption, production key custody, or break-glass behavior is a defect when docs mark those as future work.
+- Do not treat the docs-only Proofline rename as a repository, Go module, Docker image, GHCR, route, or protocol migration.
+- Do not treat `safety-recorder` or historical migration names such as `emergency_tokens` as stale when docs explicitly state those names remain for migration compatibility.
+- Do not claim emergency-services integration exists.
+- Do not imply Proofline reports crimes, contacts police, guarantees legal admissibility, or provides legal advice.
+- Do not treat planned interaction records as police-specific surveillance features; use neutral incident-capture framing.
+- Do not claim backend decryption or server-held keys exist unless implementation proves it.
+- Do not include sensitive details in public report text or issue drafts.
 
-## Required report structure
+## Required Output Structure
 
-Use this structure:
+The report should use this structure:
 
 ```markdown
-# Technical Review of Safety Recorder <TARGET_RELEASE_OR_VERSION>
+# Technical Review of Proofline <version/ref>
 
-**Repository:** `TheSilkky/safety-recorder`
-**Reviewed branch/ref:** `<REVIEWED_BRANCH_OR_REF>`
-**Reviewed commit SHA:** `<REVIEWED_COMMIT_SHA>`
-**Target release/version:** `<TARGET_RELEASE_OR_VERSION>`
-**Review date:** `<YYYY-MM-DD>`
-**Report status:** Phase 1 draft pending maintainer/Codex validation.
-
-**Citation format note:** ...
-**AI-assisted review disclosure:** ...
-**Public-disclosure note:** ...
-
-## Executive summary
-
-## Scope and methodology
-
-### AI assistance and review limitations
+## Executive Summary
 
 ## Source Registry
 
@@ -417,94 +281,19 @@ Use this structure:
 
 ### Generated artifacts and report outputs
 
-## Portable source bibliography
+## Scope And Method
 
-### Repository sources
-
-### External authoritative sources
-
-### Validation evidence sources
-
-## Repository architecture summary
-
-## Current implementation vs future planning boundary
+## Current Implementation Summary
 
 ## Findings
 
-### Findings table
+## Non-Findings And Confirmed Boundaries
 
-### F-A — ...
+## Follow-Up Recommendations
 
-## Suggested GitHub issues for follow-up
+## Conclusion
 
-## Explicit non-findings and limitations
-
-## Appendix: mapping findings to authoritative guidance
-
-[reference definitions]
+## Citation References
 ```
 
-Do not include a “Claims check” section in the publishable report.
-
-Do not include a “Verify before sending” section.
-
-Do not include raw secrets, raw tokens, private deployment details, exploit payloads, user-safety data, raw keys, plaintext media, or private vulnerability details.
-
-## Required disclaimer wording
-
-Include this near the top:
-
-```markdown
-**AI-assisted review disclosure:** This report was generated with assistance from OpenAI ChatGPT Deep Research using <MODEL_NAME>, then reviewed and edited by the maintainer. It is not a formal security audit, penetration test, compliance certification, legal review, App Store review, or production-readiness endorsement. Findings should be verified against the reviewed commit, cited sources, and current project scope before being relied on.
-
-**Public-disclosure note:** This report is intended for public project documentation. It intentionally avoids raw tokens, secrets, private deployment details, exploit payloads, user-safety data, raw keys, plaintext media, and private vulnerability details.
-```
-
-## Quality gates before returning the draft
-
-Before returning the report, check and state whether the draft satisfies:
-
-- no ChatGPT internal citation tokens
-- no `blob/main` repository URLs when a reviewed commit SHA was supplied
-- all repository citations are pinned to `<REVIEWED_COMMIT_SHA>`
-- reviewed branch/ref is named separately from the commit SHA when supplied
-- every bracket citation key has a reference definition
-- every reference definition is used or intentionally retained
-- Source Registry section is present
-- Source Registry includes repository sources, external authoritative sources, validation evidence, unavailable/not-executed checks, generated artifacts, and connector/tool context
-- suggested follow-up issues include branch/ref and commit context when derived from branch-specific findings
-- the report does not claim repo-only completion when authoritative external-source checks are applicable
-- every applicable Go, SQLite, Docker, GitHub Actions, dependency, licence, web-security, Apple/iOS, or Swift claim is supported by an authoritative external source or marked as not independently verified
-- required external-source categories that were not consulted are explicitly listed with limitations
-- no raw tokens, secrets, private deployment details, exploit payloads, user-safety data, raw keys, plaintext media, or private vulnerability details
-- no production-readiness claim
-- no formal audit/certification claim
-- no claim that Deep Research executed tests or containers unless actual execution evidence is from Codex/CI/local logs and is attributed correctly
-- no legal/App Store approval claim
-- current implementation and future design/planning are clearly separated
-- future iOS/key-custody/browser-decryption planning documents are not described as implemented features unless implementation exists
-- no “Claims check” section
-- no “Verify before sending” section
-
-## Output
-
-Return the full Markdown report.
-
-Then include a short Phase 2 handoff summary:
-
-```text
-Phase 2 handoff:
-- validation evidence supplied:
-- commands not independently verified:
-- reviewed branch/ref:
-- reviewed commit SHA:
-- target release/version:
-- highest-confidence findings:
-- future-planning claims that need maintainer verification:
-- iOS/Swift/Apple-platform claims that need source verification:
-- citations that may need cleanup:
-- Source Registry gaps:
-- authoritative external-source categories not consulted:
-- branch-scoped follow-up concerns:
-- possible duplicate or existing issues to check:
-```
+The report must clearly separate implemented behavior from future planning, preserve public-safety restrictions, and avoid production-readiness claims.

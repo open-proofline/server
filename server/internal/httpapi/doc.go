@@ -1,5 +1,5 @@
 // Package httpapi exposes separate HTTP handlers for the private write API and
-// the read-only emergency viewer.
+// the read-only incident viewer.
 //
 // This package deliberately does not implement public authentication. The
 // private handler is meant to run behind localhost, WireGuard, or firewall

@@ -46,7 +46,7 @@ Check:
 - public route surface
 - private `/v1` write/admin route exposure
 - public/private mux separation
-- emergency token generation
+- incident token generation
 - token hashing
 - token expiry and revocation
 - raw token logging

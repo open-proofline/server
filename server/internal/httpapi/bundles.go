@@ -20,8 +20,8 @@ func (a *API) downloadPrivateStreamBundle(w http.ResponseWriter, r *http.Request
 	a.serveStreamBundle(w, bundle)
 }
 
-func (a *API) downloadEmergencyStreamBundle(w http.ResponseWriter, r *http.Request) {
-	token, ok := a.loadEmergencyToken(w, r)
+func (a *API) downloadIncidentViewerStreamBundle(w http.ResponseWriter, r *http.Request) {
+	token, ok := a.loadIncidentToken(w, r)
 	if !ok {
 		return
 	}
@@ -50,14 +50,14 @@ func (a *API) downloadPrivateIncidentBundle(w http.ResponseWriter, r *http.Reque
 	a.serveIncidentBundle(w, detail, bundles)
 }
 
-func (a *API) downloadEmergencyIncidentBundle(w http.ResponseWriter, r *http.Request) {
-	token, ok := a.loadEmergencyToken(w, r)
+func (a *API) downloadIncidentViewerIncidentBundle(w http.ResponseWriter, r *http.Request) {
+	token, ok := a.loadIncidentToken(w, r)
 	if !ok {
 		return
 	}
 	detail, err := a.repo.GetIncidentDetail(r.Context(), token.IncidentID)
 	if errors.Is(err, incidents.ErrNotFound) {
-		writeError(w, http.StatusNotFound, "emergency_token_invalid", "emergency token is invalid, expired, or revoked")
+		writeError(w, http.StatusNotFound, "incident_token_invalid", "incident token is invalid, expired, or revoked")
 		return
 	}
 	if err != nil {
@@ -136,14 +136,8 @@ func (a *API) buildCompletedStreamBundle(ctx context.Context, incidentID, stream
 	if !validStreamBundleChunks(stream, chunks) {
 		return streamBundleData{}, incidents.ErrInvalidState
 	}
-	for _, chunk := range chunks {
-		file, err := a.store.Open(chunk.StoredPath)
-		if err != nil {
-			return streamBundleData{}, fmt.Errorf("open chunk for bundle: %w", err)
-		}
-		if err := file.Close(); err != nil {
-			return streamBundleData{}, fmt.Errorf("close chunk for bundle: %w", err)
-		}
+	if err := a.validateBundleChunkFiles(chunks); err != nil {
+		return streamBundleData{}, err
 	}
 
 	manifest := makeStreamBundleManifest(stream, chunks)
@@ -152,6 +146,19 @@ func (a *API) buildCompletedStreamBundle(ctx context.Context, incidentID, stream
 		Chunks:   chunks,
 		Manifest: manifest,
 	}, nil
+}
+
+func (a *API) validateBundleChunkFiles(chunks []incidents.Chunk) error {
+	for _, chunk := range chunks {
+		file, err := a.store.Open(chunk.StoredPath)
+		if err != nil {
+			return fmt.Errorf("open chunk for bundle: %w", err)
+		}
+		if err := file.Close(); err != nil {
+			return fmt.Errorf("close chunk for bundle: %w", err)
+		}
+	}
+	return nil
 }
 
 func (a *API) serveStreamBundle(w http.ResponseWriter, bundle streamBundleData) {

@@ -1,6 +1,6 @@
 # Codex Prompt: Key Custody and Emergency Access Design
 
-Design the production key custody and emergency access model for Safety Recorder.
+Design the production key custody and emergency access model for Proofline.
 
 This is a **design/documentation task only**.
 
@@ -139,7 +139,7 @@ Evaluate:
 
 1. Client-only keys
 2. Contact-wrapped keys
-3. Browser/client-side emergency viewer decryption
+3. Browser/client-side incident viewer decryption
 4. Server escrow / break-glass access
 5. Threshold or multi-party recovery
 6. Hybrid model
@@ -167,7 +167,7 @@ Default:
   client encrypts per-incident or per-stream media keys
   backend stores ciphertext chunks
   backend stores wrapped/encrypted media keys for trusted contacts
-  emergency viewer or future trusted client performs decryption client-side where possible
+  incident viewer or future trusted client performs decryption client-side where possible
 
 Optional future mode:
   server escrow or break-glass key access for dead-man-switch/emergency cases
@@ -207,7 +207,7 @@ Consider:
 - pre-registered trusted contacts
 - public/private key pairs
 - contact-wrapped media keys
-- emergency viewer token plus decryption capability
+- incident viewer token plus decryption capability
 - browser-side decryption tradeoffs
 - future app-based contact decryption
 - lost contact key scenarios
@@ -247,7 +247,7 @@ Do not implement this.
 
 Address:
 
-- live GPS data may be visible to the backend/emergency viewer depending on design
+- live GPS data may be visible to the backend/incident viewer depending on design
 - metadata may not be encrypted in the same way as media chunks
 - live streaming may require a different key/session model than completed chunk bundles
 - emergency dashboard usability may trade off against strict confidentiality
@@ -259,7 +259,7 @@ Discuss impacts on:
 - compromised backend
 - compromised database
 - stolen blob storage
-- compromised emergency viewer token
+- compromised incident viewer token
 - malicious/compromised reverse proxy
 - compromised trusted contact device
 - destroyed iPhone

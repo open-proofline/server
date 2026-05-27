@@ -1,38 +1,33 @@
 # Break-Glass And Dead-Man-Switch Key Access
 
-This document designs possible future server-assisted emergency key access for
-Safety Recorder. It is a design document only. It does not implement
-server-side decryption, key escrow, API routes, database schema changes,
-background jobs, or dead-man-switch logic.
+This document designs possible future server-assisted key access for Proofline. It is a design document only. It does not implement server-side decryption, key escrow, API routes, database schema changes, background jobs, notifications, or dead-man-switch logic.
 
 ## Summary
 
-Break-glass key access is an explicit emergency mode where a server, operator,
-deployment secret store, or policy-controlled process can help recover or use
-media keys when normal client-side access is unavailable. A dead-man-switch is a
-related policy that grants or escalates access after configured conditions are
-met, such as missed checkins or a device being offline too long.
+Break-glass key access is an explicit mode where a server, operator, deployment secret store, or policy-controlled process can help recover or use media keys when normal client-side or trusted-contact access is unavailable. A dead-man switch is a related policy that grants or escalates access after configured conditions are met, such as missed checkins or a device being offline too long.
 
-This may be needed because Safety Recorder is meant to preserve evidence when a
-phone is lost, damaged, powered off, taken, destroyed, or otherwise unavailable.
-Contact-wrapped keys and browser/client-side decryption should be the default
-future path, but some deployments may want an additional emergency recovery path
-for cases where contacts cannot decrypt quickly enough.
+This may be needed because Proofline is meant to preserve incident evidence when a phone is lost, damaged, powered off, taken, destroyed, or otherwise unavailable. Contact-wrapped keys and browser/client-side decryption should be the default future path, but some deployments may want an additional recovery path for cases where trusted contacts cannot decrypt quickly enough.
 
-This is not implemented today. The current backend remains ciphertext-only: it
-stores encrypted chunk bytes, validates hashes over ciphertext, and produces
-encrypted ZIP bundles. It does not store raw media keys or decrypt media.
+This is not implemented today. The current backend remains ciphertext-only: it stores encrypted chunk bytes, validates hashes over ciphertext, and produces encrypted ZIP bundles. It does not store raw media keys or decrypt media.
 
-Any future break-glass mode would increase backend, operator, and deployment
-trust requirements. It must be explicit, separately configured, auditable,
-tested, threat-modeled, and documented with clear deployment warnings. It must
-never appear as an incidental side effect of unrelated key custody, viewer, or
-simulator work.
+Any future break-glass mode would increase backend, operator, and deployment trust requirements. It must be explicit, separately configured, auditable, tested, threat-modeled, and documented with clear deployment warnings. It must never appear as an incidental side effect of unrelated key custody, viewer, simulator, or incident-mode work.
+
+## Incident Mode Boundary
+
+Break-glass and dead-man-switch behavior should be policy attached to an incident or account, not an automatic property of recording.
+
+| Incident mode | Break-glass implication |
+|---|---|
+| Emergency incident | May justify urgent trusted-contact access or explicit break-glass policy if configured. |
+| Interaction record | Should not trigger emergency escalation by default. Sharing, export, or decryption should remain deliberate. |
+| Safety check | May trigger trusted-contact access after a missed check-in, but requires careful grace periods, cancellation, and false-alarm handling. |
+| Evidence note | Usually private by default. Break-glass access is unlikely unless the user explicitly configured it. |
+
+Do not use labels such as `police mode` as access-control policy. Future clients may allow user-selected tags, but tags must not silently change key custody or escalation behavior.
 
 ## Availability Requirement
 
-Production key custody must assume the iPhone may be unavailable during the
-moment when evidence is needed most. The device may be:
+Production key custody must assume the user's phone may be unavailable during the moment when evidence is needed most. The device may be:
 
 - lost
 - damaged
@@ -42,71 +37,31 @@ moment when evidence is needed most. The device may be:
 - disconnected from the network
 - unable to complete a final key-share upload
 
-Phone-only keys are therefore not sufficient for this product. They protect
-confidentiality well when the backend or blob storage is compromised, but they
-can turn preserved evidence into unusable ciphertext if the phone is gone.
+Phone-only keys are therefore not sufficient for the full Proofline product. They protect confidentiality well when the backend or blob storage is compromised, but they can turn preserved evidence into unusable ciphertext if the phone is gone.
 
-The preferred availability baseline is contact-wrapped key material: the client
-encrypts media, uploads ciphertext, and uploads wrapped media keys for trusted
-contacts. Break-glass access is a stronger availability option that should be
-treated as optional and higher risk, not as the default path.
+The preferred availability baseline is contact-wrapped key material: the client encrypts media, uploads ciphertext, and uploads wrapped media keys for trusted contacts. Break-glass access is a stronger availability option that should be treated as optional and higher risk, not as the default path.
 
 ## Candidate Access Models
 
 ### 1. Server Stores Wrapped Key Material Only
 
-How it works:
-
-The backend stores encrypted or wrapped copies of incident or stream media keys.
-Those keys are wrapped for trusted contacts, future devices, recovery keys, or
-other explicitly designed recipients. The server can deliver wrapped material
-but cannot unwrap it by itself.
+The backend stores encrypted or wrapped copies of incident or stream media keys. Those keys are wrapped for trusted contacts, future devices, recovery keys, or other explicitly designed recipients. The server can deliver wrapped material but cannot unwrap it by itself.
 
 What the server can access:
 
 - ciphertext chunks
 - metadata
 - wrapped keys
-- emergency token-gated summaries
+- token-gated incident summaries
 - no raw media keys in normal operation
 
-Operator trust requirements:
+This is the strongest default fit. It preserves the current ciphertext-only backend posture while improving availability when trusted contacts are enrolled and have a working decrypt path.
 
-Moderate. Operators can delete, withhold, corrupt, or expose encrypted material,
-but they cannot decrypt media without a recipient key.
-
-Audit requirements:
-
-Audit delivery and management of wrapped keys, especially key creation,
-replacement, revocation, and download. Audit logs must not include raw keys,
-plaintext, or raw emergency tokens.
-
-Failure modes:
-
-- no trusted contact key exists
-- wrapped key upload fails before the phone is unavailable
-- contact private key is lost
-- server omits or corrupts wrapped keys
-- revocation semantics are misunderstood
-
-Usability during emergency:
-
-Good if contacts are pre-enrolled and have a working decrypt path. Poor if setup
-was incomplete.
-
-Fit for personal/self-hosted deployment:
-
-Strong fit as the default future production model. It preserves the current
-ciphertext-only backend posture while improving availability.
+Failure modes include missing trusted-contact setup, failed wrapped-key upload, contact private-key loss, server omission/corruption of wrapped keys, and misunderstood revocation semantics.
 
 ### 2. Server Can Unwrap Keys Under Break-Glass Policy
 
-How it works:
-
-The backend or deployment environment stores media keys wrapped to a server
-escrow key. Under an explicit break-glass policy, the server can unwrap the
-media key and either return it to an authorized decrypting client or use it in a
-closely controlled operation.
+The backend or deployment environment stores media keys wrapped to a server escrow key. Under an explicit break-glass policy, the server can unwrap the media key and either return it to an authorized decrypting client or use it in a closely controlled operation.
 
 What the server can access:
 
@@ -114,533 +69,144 @@ What the server can access:
 - raw media keys during authorized break-glass operations
 - potentially plaintext if it uses those keys to decrypt
 
-Operator trust requirements:
+Operator trust requirements are high. Every unwrap attempt must be audited with incident ID, timestamp, triggering policy, caller or actor, decision, and outcome. Logs must never include raw keys, plaintext, raw viewer tokens, uploaded bytes, or sensitive safety data beyond minimal audit metadata.
 
-High. Operators or compromised server processes may be able to obtain media keys
-if controls fail.
+This may be useful for self-hosted deployments where the user explicitly trusts the operator or is the operator. It should be disabled by default and clearly marked as a higher-trust mode.
 
-Audit requirements:
+### 3. Server Decrypts Or Transcodes Media Under Break-Glass Policy
 
-Every unwrap attempt must be logged with incident ID, timestamp, triggering
-policy, caller or actor, decision, and outcome. Logs must never include raw
-keys, plaintext, raw emergency tokens, uploaded bytes, or sensitive safety data
-beyond minimal audit metadata.
+After a break-glass trigger, the server unwraps media keys and decrypts chunks server-side. It may also merge, transcode, or produce a playable media export for authorised contacts.
 
-Failure modes:
+This is the highest-risk model because the backend becomes part of the plaintext handling path. It can be useful for non-technical contacts, but it creates major logging, caching, retention, backup, and operator-misuse risks.
 
-- unauthorized unwrap due to weak policy
-- false dead-man-switch trigger
-- escrow key loss
-- escrow key compromise
-- backup/restore mismatch makes old keys unusable
-- user assumes confidentiality that no longer matches deployment reality
-
-Usability during emergency:
-
-Strong if policy is correctly configured and operationally available. It can
-help when the phone and contact keys are unavailable.
-
-Fit for personal/self-hosted deployment:
-
-Potentially useful for a self-hosted deployment where the user explicitly trusts
-the operator or is the operator. It should be disabled by default and clearly
-marked as a higher-trust mode.
-
-### 3. Server Decrypts/Transcodes Media Under Break-Glass Policy
-
-How it works:
-
-After a break-glass trigger, the server unwraps media keys and decrypts chunks
-server-side. It may also merge, transcode, or produce a playable media export
-for emergency contacts.
-
-What the server can access:
-
-- raw media keys
-- plaintext media
-- potentially playable exports
-- decrypted temporary files or streams if implementation is not extremely
-  careful
-
-Operator trust requirements:
-
-Very high. This mode makes the backend part of the plaintext handling path.
-
-Audit requirements:
-
-Audit must cover authorization, key access, decrypt/transcode start and finish,
-output creation, output download, output deletion, and policy decisions. It
-must not log raw keys, plaintext, decrypted filenames containing sensitive
-content, raw tokens, or uploaded bytes.
-
-Failure modes:
-
-- plaintext cached, logged, indexed, backed up, or left on disk
-- transcode errors destroy evidentiary confidence
-- playable exports are mistaken for original evidence
-- operator or server compromise exposes plaintext
-- retention/deletion policy fails to cover derived plaintext
-
-Usability during emergency:
-
-Excellent for non-technical contacts if implemented safely, because playable
-media is easier to use than encrypted bundles.
-
-Fit for personal/self-hosted deployment:
-
-Not recommended as an early production mode. It may be acceptable later only as
-a deliberate, high-warning break-glass feature with retention, deletion,
-logging, and audit design completed first.
+This is not recommended as an early production mode. It may be acceptable later only as a deliberate, high-warning feature with retention, deletion, logging, and audit design completed first.
 
 ### 4. n-of-m Trusted Contacts
 
-How it works:
+Media recovery requires a threshold of trusted contacts or shares. For example, two of three contacts may need to approve or contribute key material before a media key can be recovered.
 
-Media recovery requires a threshold of trusted contacts or shares. For example,
-two of three contacts may need to approve or contribute key material before a
-media key can be recovered.
+This can reduce unilateral misuse but may slow urgent access if enough people are unavailable. It may be useful later for high-risk users, but it is too complex for the first production key custody milestone.
 
-What the server can access:
+### 5. Maintainer Or Operator Assisted Recovery
 
-- ciphertext
-- metadata
-- wrapped shares or approvals
-- no raw media key unless the threshold protocol deliberately reconstructs it on
-  the server, which should be avoided by default
+A trusted maintainer or operator manually performs recovery steps, such as validating a request, unlocking a local secret, approving break-glass access, or helping a contact retrieve wrapped key material.
 
-Operator trust requirements:
+This is high-trust and deployment-specific. Manual actions require clear audit trails: actor identity, request source, incident ID, decision, timestamp, reason, and post-incident review status. Public issue trackers, support logs, and chat transcripts must not receive sensitive incident data, raw tokens, raw keys, plaintext, or private deployment details.
 
-Moderate if reconstruction happens client-side. High if the server participates
-in reconstruction or receives raw shares.
+## Dead-Man Switch Policy Design
 
-Audit requirements:
+Dead-man switch logic should be explicit and conservative.
 
-Audit share creation, contact enrollment, contact revocation, recovery attempts,
-approvals, denials, and threshold satisfaction. Do not log share contents,
-private keys, raw media keys, or plaintext.
+Possible trigger inputs:
 
-Failure modes:
+- missed user check-in
+- device offline beyond a configured grace period
+- active incident started with urgent escalation enabled
+- account-owner preconfigured timer
+- trusted-contact review request after an access grant
+- optional future operator-approved break-glass request
 
-- not enough contacts are available during an emergency
-- contacts lose private keys or shares
-- contacts collude
-- recovery UX is too slow under stress
-- revocation and rotation become hard to explain
+Required design decisions before implementation:
 
-Usability during emergency:
+- check-in interval and grace period
+- cancellation behavior and cancellation deadline
+- whether network loss pauses, extends, or triggers escalation
+- whether the user can configure different policies for emergency incidents, interaction records, safety checks, and evidence notes
+- which trusted contacts receive alerts
+- what data contacts see before decryption
+- whether contacts can request more access
+- how false positives and false negatives are audited
+- whether escalation unlocks only metadata, encrypted bundles, wrapped keys, raw keys, or plaintext exports
 
-Mixed. It improves misuse resistance but can slow urgent access.
+A missed check-in should not automatically mean emergency services were contacted. Proofline does not currently contact emergency services. Trusted contacts should review the context and decide whether to call emergency services unless a future jurisdiction-specific emergency-services integration is explicitly designed, implemented, and documented.
 
-Fit for personal/self-hosted deployment:
+Suggested trusted-contact wording for a missed check-in:
 
-Useful for high-risk users later, but probably too complex for the first
-production key custody milestone.
+```text
+A Proofline safety check was missed.
+Review the incident, try to contact the user, and call emergency services if you believe there is immediate danger.
+```
 
-### 5. Maintainer/Operator Assisted Recovery
+## Access Policy Requirements
 
-How it works:
+Before implementing break-glass or dead-man-switch key access, define:
 
-A trusted maintainer or operator manually performs recovery steps, such as
-validating a request, unlocking a local secret, approving break-glass access, or
-helping a contact retrieve wrapped key material.
+- who can configure the policy
+- who can trigger the policy
+- who can cancel the policy
+- who can review an escalation
+- what contacts or operators can see before decryption
+- what evidence can be decrypted
+- whether raw keys are ever exposed
+- whether plaintext exports are created
+- how long access lasts
+- how access can be revoked
+- how audit records are retained
 
-What the server can access:
+The design must distinguish account-owner access, trusted-contact access, bearer-link access, admin/operator access, and optional server escrow access.
 
-Depends on the deployment. It may range from wrapped-key delivery only to raw
-escrow key access.
+## Audit And Logging Requirements
 
-Operator trust requirements:
+Audit logs should be useful for review without becoming a second copy of sensitive evidence.
 
-High. The operator becomes part of the security and availability model.
+Safe audit fields may include:
 
-Audit requirements:
-
-Manual actions require especially clear audit trails: actor identity, request
-source, incident ID, decision, timestamp, reason, and post-incident review
-status. Public issue trackers or support logs must not receive sensitive
-details.
-
-Failure modes:
-
-- operator unavailable
-- operator error
-- social engineering
-- inconsistent manual policy
-- support channel leaks sensitive information
-- actions are not reproducible or reviewable
-
-Usability during emergency:
-
-Potentially helpful for a single-user self-hosted setup, but unreliable as the
-only emergency path.
-
-Fit for personal/self-hosted deployment:
-
-Reasonable as an explicitly documented local procedure for advanced users. It
-should not be implied as a public service or default support model.
-
-### 6. External KMS/HSM/Secret Store
-
-How it works:
-
-Server escrow keys live in a deployment-controlled key management system,
-hardware security module, hardware-backed local key, or locked local secret
-store. The Safety Recorder backend calls that system only under break-glass
-policy.
-
-What the server can access:
-
-- wrapped key material
-- key unwrap results if policy allows
-- raw media keys during authorized operations, unless the external system can
-  keep unwrap/decrypt operations isolated
-
-Operator trust requirements:
-
-High, but potentially better controlled than local raw key files. Trust shifts
-to the secret store, its policies, and deployment administration.
-
-Audit requirements:
-
-Audit must include both Safety Recorder policy decisions and the external
-secret store's access logs. Clock sync, log retention, and restore testing
-matter.
-
-Failure modes:
-
-- secret store unavailable during emergency
-- credentials misconfigured
-- backup cannot restore keys
-- cloud or vendor dependency conflicts with self-hosting goals
-- operator misunderstands which system can access raw keys
-
-Usability during emergency:
-
-Good if the deployment is mature and tested. Poor if the secret store is not
-available or the operator cannot recover it.
-
-Fit for personal/self-hosted deployment:
-
-Optional. A cloud KMS should not be required by default. A local locked secret
-store or hardware-backed key may fit self-hosted deployments better, but each
-choice needs explicit deployment docs.
-
-### 7. No Server Break-Glass Support
-
-How it works:
-
-The project does not support server-assisted key access. Recovery relies on
-contact-wrapped keys, browser/client-side decryption, trusted contact apps,
-offline tools, or out-of-band recovery material.
-
-What the server can access:
-
-- ciphertext
-- metadata
-- wrapped keys it cannot open
-- no raw media keys or plaintext
-
-Operator trust requirements:
-
-Lower. Operators still control availability and metadata, but not media
-plaintext.
-
-Audit requirements:
-
-Audit remains focused on token access, wrapped-key delivery, metadata changes,
-and administrative actions.
-
-Failure modes:
-
-- phone destroyed before key wrapping completes
-- contacts unavailable
-- contact keys lost
-- no path to decrypt in a worst-case emergency
-
-Usability during emergency:
-
-Good if contact setup works. Bad when all client-side recovery paths fail.
-
-Fit for personal/self-hosted deployment:
-
-Safe and simple, but may not meet the strongest availability goal. It remains a
-valid deployment policy for users who prioritize confidentiality over server
-assisted recovery.
-
-## Trigger Policy
-
-Break-glass access requires a trigger policy. Possible triggers include:
-
-- explicit user panic or incident start
-- missed checkins
-- dead-man-switch timeout
-- trusted contact request
-- manual maintainer/operator action
-- repeated failed uploads
-- device offline threshold
-
-These triggers must not be treated as equivalent. Some are weak signals, and
-some are strong explicit signals. A future design should define which triggers
-can only notify contacts, which can expose metadata, which can release wrapped
-keys, and which can authorize server-side key access.
-
-False positives matter. A missed checkin may happen because of battery drain,
-network outage, travel, sleep, or app failure. An incorrect trigger could expose
-keys or evidence before the user intended.
-
-False negatives matter too. A device may be destroyed before sending a final
-panic signal. A conservative trigger policy may delay or prevent emergency
-access when evidence is urgently needed.
-
-Any trigger design should define:
-
-- trigger source
-- minimum confidence threshold
-- delay or cooldown
-- cancellation path
-- contact notification behavior
-- policy escalation stages
-- audit entry contents
-- post-incident review process
-
-## Access Controls
-
-If server-assisted key access exists, it must have explicit controls.
-
-Required controls:
-
-- explicit enable/disable configuration
-- per-incident policy
-- trusted contact authorization rules
-- operator authentication for private/admin actions
-- local-only or private API boundary for administrative controls
-- audit log for decisions and key access attempts
-- rate limits and abuse controls
-- notification events for user, contacts, or operators where appropriate
-- revocation for tokens, contacts, and future key wrapping
-- least-privilege separation between metadata viewing, key unwrap, and plaintext
-  export
-- clear separation between emergency viewer token and decryption authority
-
-The emergency viewer token should authorize read access to the incident's
-emergency view and encrypted evidence. It should not by itself grant decryption
-authority unless a future design explicitly accepts a bearer-token-only
-decryption mode with documented risks.
-
-Break-glass controls should be separate from ordinary bundle download controls.
-Downloading encrypted bundles and unwrapping media keys are different security
-events.
-
-## Audit And Logging
-
-Audit logs should record security-relevant decisions without storing secrets.
-
-Log:
-
-- key unwrap attempts
-- successful key access
-- failed key access
-- who or what triggered access
 - incident ID
+- actor or trusted-contact ID
+- action type
+- policy name or version
 - timestamp
-- policy decision
-- actor or subsystem identity
-- reason code
-- outcome
-- post-incident review status when available
+- decision or outcome
+- non-sensitive reason category
 
-Never log:
+Audit logs must not include:
 
-- raw media keys
-- raw escrow keys
-- contact private keys
-- plaintext
-- decrypted media bytes
-- raw emergency tokens
+- raw viewer tokens or incident tokens
+- raw keys or key shares
+- plaintext media or transcripts
 - uploaded bytes
 - request bodies
 - Authorization headers
-- sensitive user safety data beyond necessary audit metadata
+- private deployment details
+- unnecessary user safety data
 
-Audit logs need their own retention, backup, and access policy. They may reveal
-that an incident exists, when access was attempted, and who was involved.
+## Deployment Requirements
 
-## Deployment Assumptions
+Break-glass and server escrow modes require stronger deployment controls than the current ciphertext-only backend:
 
-Self-hosted local server:
+- TLS at the edge
+- private `/v1` access boundaries
+- app-level authorization before public control-plane exposure
+- rate limiting and abuse controls
+- restricted operator access
+- secret storage with backup and restore procedures
+- key rotation and revocation policy
+- deployment-specific retention/deletion policy for any plaintext outputs
+- tested restore and emergency procedures
 
-The simplest deployment may have one operator who is also the user. Break-glass
-can be useful here, but it should still be explicit because malware or another
-local user on the server could abuse raw key access.
+Self-hosted deployments may intentionally accept stronger operator trust. Public or shared deployments need stricter separation, policy, audit, and warning text.
 
-Docker deployment:
+## Future Work
 
-Containerized deployments must account for persistent volumes, container
-environment variables, host logs, backup jobs, and where escrow secrets live.
-Raw keys should not be stored casually in environment variables or image layers.
+Likely implementation phases:
 
-WireGuard/private API:
+1. Keep the current backend ciphertext-only.
+2. Design first-class incident types and escalation policies.
+3. Prototype contact-wrapped keys without server decryption.
+4. Prototype trusted-contact client-side decryption.
+5. Design dead-man switch triggers, cancellation, notification, and audit policy.
+6. Only then consider optional server escrow or server-side decryption.
 
-Private administrative actions must stay behind localhost, LAN, WireGuard,
-firewall, or an equivalent private boundary. Break-glass controls must not be
-mounted on the public emergency viewer listener.
-
-HTTPS emergency viewer:
-
-The public emergency viewer may expose metadata and encrypted bundles through
-HTTPS. Public viewer access must not become an administrative key-access path
-unless separately designed and authorized.
-
-External KMS/HSM future option:
-
-Some deployments may choose a KMS, HSM, hardware-backed local key, or locked
-secret store. This repository should not require cloud services by default.
-
-Disk encryption:
-
-Disk encryption can protect stored database, blobs, wrapped keys, audit logs,
-and local secret stores when the server is offline. It does not protect against
-a running compromised server.
-
-Backup and restore:
-
-Escrow material, wrapped keys, audit logs, and ciphertext blobs must be backed
-up and restored consistently. A restored database without the matching secret
-store may make emergency access impossible. A restored secret without audit logs
-may make access unreviewable.
-
-Retention and deletion:
-
-Break-glass modes increase the need for retention and deletion policy.
-Plaintext exports, temporary decrypted files, derived media, audit logs, wrapped
-keys, and escrow keys all need explicit lifecycle rules before implementation.
-
-## Threat Model Impacts
-
-Backend compromise:
-
-Default contact-wrapped keys limit a passive backend compromise. Break-glass
-mode increases risk because a compromised backend may be able to request key
-unwraps, alter policy decisions, or capture plaintext during server-side
-decrypt operations.
-
-Database compromise:
-
-An attacker may obtain wrapped keys, policy metadata, trigger state, and audit
-metadata. If server escrow wrapping is weak or escrow keys are stored nearby,
-database compromise becomes more dangerous.
-
-Blob storage compromise:
-
-Ciphertext chunks remain protected without media keys. If break-glass produces
-plaintext exports on disk, blob or backup compromise may expose those derived
-files unless retention is strict.
-
-Operator misuse:
-
-Break-glass explicitly makes operators more powerful. Controls must assume that
-mistakes, curiosity, coercion, or malicious action are possible.
-
-Malicious trusted contact:
-
-A trusted contact may request emergency access falsely, misuse decrypted
-evidence, or share plaintext. Contact authorization and audit should separate
-contact read access from server-assisted key access.
-
-Stolen emergency token:
-
-A stolen token should not grant key unwrap by itself. If a future policy allows
-token-only decryption, that must be called out as a weaker mode.
-
-Stolen key escrow material:
-
-Escrow key compromise can expose all media keys protected by that escrow key.
-Rotation, incident scoping, backup handling, and revocation expectations must be
-designed before implementation.
-
-False dead-man-switch trigger:
-
-A false trigger may expose wrapped keys, raw keys, or plaintext early. Policies
-need delays, cancellation, notifications, and review.
-
-Destroyed phone:
-
-This is the main availability case break-glass tries to address. It only works
-if the phone uploaded ciphertext and the relevant wrapped or escrowed key
-material before becoming unavailable.
-
-Compromised server during browser decryption:
-
-If browser decryption is served by the same backend, a compromised backend can
-serve malicious JavaScript to capture keys. Break-glass does not solve this; it
-may compound the problem if the same server can also unwrap keys.
-
-## Recommended Direction
-
-Default model:
-
-- use contact-wrapped media keys
-- keep backend storage ciphertext-only in normal operation
-- support browser/client-side or app-based contact decryption where practical
-- keep emergency viewer tokens separate from decryption authority
-
-Optional future mode:
-
-- allow server escrow or break-glass access only for dead-man-switch and
-  emergency-access cases
-- keep it disabled by default
-- require explicit deployment configuration
-- require per-incident policy
-- require audit logging and post-incident review
-- require operator access controls
-- document the higher backend/operator trust model clearly
-
-Not recommended early:
-
-- server-side decrypt/transcode/playable export as an initial break-glass
-  feature
-- bearer-token-only decryption authority
-- cloud KMS dependency as a default requirement
-
-Break-glass access should be documented now, optional later, and implemented
-only after the default contact-wrapped key path is accepted.
-
-## Implementation Prerequisites
-
-Before implementing break-glass access, complete or accept:
-
-- key custody design
-- browser/contact decryption design
-- exact key hierarchy and wrapping scheme
-- retention, backup, and deletion policy
-- emergency-token expiry and revocation workflow for tokens, contacts, and wrapped keys
-- `/v1` access-control story
-- operator authentication story
-- audit log design and retention policy
-- trigger policy and false-positive/false-negative handling
-- deployment hardening guidance
-- secret-store choice for self-hosted deployments
-- test plan for authorization, audit, key unwrap, and failure cases
-- documentation updates for security model, threat model, encryption, API, and
-  deployment guidance
+Each phase must update [security-model.md](security-model.md), [threat-model.md](threat-model.md), [key-custody.md](key-custody.md), [encryption.md](encryption.md), and operational guidance where relevant.
 
 ## Open Questions
 
-- Should break-glass be supported in the first production key custody release,
-  or deferred until contact-wrapped decryption is proven?
-- Should server escrow be per-incident, per-stream, per-user, or deployment
-  wide?
-- Should the server ever return raw media keys to a client, or only perform
-  constrained operations?
-- Is server-side decrypt/transcode acceptable for any deployment mode?
-- What actor can approve break-glass access?
-- Can trusted contacts request break-glass without operator involvement?
-- How are false dead-man-switch triggers cancelled?
-- What audit log fields are useful without exposing sensitive safety data?
-- Where should escrow secrets live in a self-hosted non-cloud deployment?
-- How should backup and restore verify that wrapped keys, blobs, database rows,
-  and secret stores still match?
-- How should break-glass interact with browser decryption and malicious-server
-  risk?
-- What should happen when a contact is revoked after wrapped or escrowed key
-  material was already created?
+- Should break-glass be available for interaction records, or only emergency incidents and safety checks?
+- How should false missed-check-in alerts be cancelled and audited?
+- Should contacts receive metadata before key access is granted?
+- Can trusted contacts request escalation, or only receive it?
+- Should server escrow exist at all in a first production release?
+- What deployment secret store is acceptable for self-hosted versus shared deployments?
+- What plaintext export formats, if any, are acceptable later?
+- How should retention and deletion apply to decrypted outputs?
+- What exact warning text should users see when enabling higher-trust server access?
