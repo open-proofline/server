@@ -1,7 +1,10 @@
 package main
 
 import (
+	"bytes"
+	"log/slog"
 	"net/http"
+	"os"
 	"testing"
 	"time"
 
@@ -51,6 +54,21 @@ func TestNewHTTPServersAppliesPrivateAndPublicTimeouts(t *testing.T) {
 
 	assertServerTimeouts(t, servers[0].server, cfg.PrivateTimeouts)
 	assertServerTimeouts(t, servers[1].server, cfg.PublicTimeouts)
+}
+
+func TestStartupErrorLogDoesNotExposeFilesystemPath(t *testing.T) {
+	var logs bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&logs, nil))
+	err := &os.PathError{Op: "mkdir", Path: "/tmp/proofline/private/data", Err: os.ErrPermission}
+
+	logStartupError(logger, err)
+
+	if bytes.Contains(logs.Bytes(), []byte("/tmp/proofline/private/data")) {
+		t.Fatalf("startup log exposed filesystem path: %s", logs.String())
+	}
+	if !bytes.Contains(logs.Bytes(), []byte("error_category=permission")) {
+		t.Fatalf("startup log omitted safe error category: %s", logs.String())
+	}
 }
 
 func assertServer(t *testing.T, got namedServer, name, addr string, handler http.Handler) {

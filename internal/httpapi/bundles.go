@@ -165,7 +165,7 @@ func (a *API) serveStreamBundle(w http.ResponseWriter, bundle streamBundleData) 
 	filename := safeDownloadFilename(fmt.Sprintf("incident_%s_%s_%s.zip", bundle.Stream.IncidentID, bundle.Stream.MediaType, bundle.Stream.ID))
 	setBundleHeaders(w, filename)
 	if err := writeStreamBundle(w, a.openBundleChunk, bundle, ""); err != nil {
-		a.logger.Error("write stream bundle", "err", err)
+		a.logInternalError("write stream bundle", err)
 	}
 }
 
@@ -176,19 +176,19 @@ func (a *API) serveIncidentBundle(w http.ResponseWriter, detail incidents.Incide
 	manifest := makeIncidentBundleManifest(detail, bundles)
 	zipWriter := zip.NewWriter(w)
 	if err := writeJSONZipEntry(zipWriter, "manifest.json", manifest, manifest.GeneratedAt); err != nil {
-		a.logger.Error("write incident manifest", "err", err)
+		a.logInternalError("write incident manifest", err)
 		_ = zipWriter.Close()
 		return
 	}
 	for _, bundle := range bundles {
 		prefix := "streams/" + safeZipSegment(bundle.Stream.ID) + "/"
 		if err := writeStreamBundleToZip(zipWriter, a.openBundleChunk, bundle, prefix); err != nil {
-			a.logger.Error("write incident stream bundle", "err", err)
+			a.logInternalError("write incident stream bundle", err)
 			_ = zipWriter.Close()
 			return
 		}
 	}
 	if err := zipWriter.Close(); err != nil {
-		a.logger.Error("close incident bundle", "err", err)
+		a.logInternalError("close incident bundle", err)
 	}
 }
