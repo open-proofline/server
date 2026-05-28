@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"archive/zip"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,8 +13,10 @@ import (
 	"github.com/open-proofline/server/internal/incidents"
 )
 
-func (a *API) openBundleChunk(relPath string) (io.ReadCloser, error) {
-	return a.store.Open(relPath)
+func (a *API) openBundleChunk(ctx context.Context) func(string) (io.ReadCloser, error) {
+	return func(relPath string) (io.ReadCloser, error) {
+		return a.store.Open(ctx, relPath)
+	}
 }
 
 func writeStreamBundle(w io.Writer, openChunk func(string) (io.ReadCloser, error), bundle streamBundleData, prefix string) error {

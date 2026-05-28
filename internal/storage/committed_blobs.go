@@ -1,32 +1,24 @@
 package storage
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
-	"strings"
 )
 
 // CommitTemp links a verified temp upload into its final immutable chunk path.
 // It never overwrites an existing file. Streamed chunks are stored below a
 // stream-specific namespace; legacy unstreamed chunks keep their original path.
-func (s *Store) CommitTemp(upload *TempUpload, incidentID, streamID, mediaType string, chunkIndex int) (string, error) {
+func (s *Store) CommitTemp(_ context.Context, upload *TempUpload, incidentID, streamID, mediaType string, chunkIndex int) (string, error) {
 	if upload == nil || upload.Path == "" {
 		return "", fmt.Errorf("missing temp upload")
 	}
-	if chunkIndex < 0 || !safePathSegment(incidentID) || !safePathSegment(mediaType) {
-		return "", ErrUnsafePath
-	}
-	if streamID != "" && !safePathSegment(streamID) {
-		return "", ErrUnsafePath
-	}
-
-	relPath := path.Join("incidents", incidentID, fmt.Sprintf("%s_%06d.enc", mediaType, chunkIndex))
-	if streamID != "" {
-		relPath = path.Join("incidents", incidentID, "streams", streamID, fmt.Sprintf("%s_%06d.enc", mediaType, chunkIndex))
+	relPath, err := storedBlobPath(incidentID, streamID, mediaType, chunkIndex)
+	if err != nil {
+		return "", err
 	}
 	finalPath, err := s.fullPath(relPath)
 	if err != nil {
@@ -51,7 +43,7 @@ func (s *Store) CommitTemp(upload *TempUpload, incidentID, streamID, mediaType s
 }
 
 // Open opens a previously committed blob by its stored relative path.
-func (s *Store) Open(relPath string) (io.ReadCloser, error) {
+func (s *Store) Open(_ context.Context, relPath string) (io.ReadCloser, error) {
 	fullPath, err := s.fullPath(relPath)
 	if err != nil {
 		return nil, err
@@ -60,7 +52,7 @@ func (s *Store) Open(relPath string) (io.ReadCloser, error) {
 }
 
 // Remove deletes a committed blob by its stored relative path.
-func (s *Store) Remove(relPath string) error {
+func (s *Store) Remove(_ context.Context, relPath string) error {
 	fullPath, err := s.fullPath(relPath)
 	if err != nil {
 		return err
@@ -69,20 +61,9 @@ func (s *Store) Remove(relPath string) error {
 }
 
 func (s *Store) fullPath(relPath string) (string, error) {
-	if relPath == "" || path.IsAbs(relPath) || strings.Contains(relPath, "\\") {
-		return "", ErrUnsafePath
-	}
-	clean := path.Clean(relPath)
-	if clean == "." || clean == ".." || strings.HasPrefix(clean, "../") {
-		return "", ErrUnsafePath
+	clean, err := cleanStoredPath(relPath)
+	if err != nil {
+		return "", err
 	}
 	return filepath.Join(s.dataDir, filepath.FromSlash(clean)), nil
-}
-
-func safePathSegment(value string) bool {
-	return value != "" &&
-		value != "." &&
-		value != ".." &&
-		!strings.Contains(value, "/") &&
-		!strings.Contains(value, "\\")
 }

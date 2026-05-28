@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added optional S3-compatible encrypted blob storage for committed chunks while
+  keeping local filesystem storage as the default.
 - Added a resumable upload and upload lease protocol plan that defers
   resumable uploads for a local desktop recorder simulator client, preserves
   complete encrypted chunk retry semantics, calls for adjustable poor-network

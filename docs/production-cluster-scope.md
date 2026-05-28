@@ -1,8 +1,8 @@
 # Production Cluster Scope
 
-This document records the planned production-cluster expansion path for Proofline Server.
+This document records the production-cluster expansion path for Proofline Server.
 
-It is a planning and scope document only. It does not implement PostgreSQL, Valkey/Redis-compatible coordination, S3-compatible object storage, public `/v1` authentication, account management, cloud deployment automation, or production hardening.
+It is a planning and scope document for cluster-related work. Optional S3-compatible object storage is implemented for committed encrypted chunks, but PostgreSQL, Valkey/Redis-compatible coordination, public `/v1` authentication, account management, cloud deployment automation, and production hardening are not implemented.
 
 ## Current Local-First Scope
 
@@ -10,12 +10,13 @@ The current backend remains local-first and experimental:
 
 - SQLite metadata remains supported.
 - Local filesystem encrypted blob storage remains supported.
+- Optional S3-compatible encrypted blob storage is available only when explicitly configured.
 - The simulator and local development flow remain supported.
 - The private `/v1` API remains private and unauthenticated.
 - The public incident viewer remains token-gated and read-only.
 - The backend stores ciphertext only and does not decrypt chunks.
 
-SQLite plus local filesystem storage should remain the default development and small self-hosted deployment shape unless a future release deliberately changes defaults.
+SQLite plus local filesystem storage remains the default development and small self-hosted deployment shape unless a future release deliberately changes defaults.
 
 ## Planned Cluster Scope
 
@@ -26,12 +27,12 @@ Planned optional cluster backends:
 | Capability | Local/default backend | Planned cluster backend |
 |---|---|---|
 | Metadata | SQLite | PostgreSQL |
-| Committed encrypted chunks | Local filesystem | S3-compatible object storage |
+| Committed encrypted chunks | Local filesystem | S3-compatible object storage, implemented as an optional backend |
 | Short-lived coordination | None | Valkey/Redis-compatible coordination |
 
 These backends should be additive. They must not remove or weaken SQLite and local filesystem support.
 
-The current configuration scaffold exposes backend selectors for these capability groups, but it only accepts the implemented local-first values: `SAFE_METADATA_BACKEND=sqlite`, `SAFE_BLOB_BACKEND=local`, and `SAFE_COORDINATION_BACKEND=none`. Planned values for PostgreSQL, S3-compatible storage, or Valkey/Redis-compatible coordination must continue to fail startup until those backends exist.
+The current configuration scaffold exposes backend selectors for these capability groups. It accepts implemented values: `SAFE_METADATA_BACKEND=sqlite`, `SAFE_BLOB_BACKEND=local` or `s3`, and `SAFE_COORDINATION_BACKEND=none`. Planned values for PostgreSQL metadata or Valkey/Redis-compatible coordination must continue to fail startup until those backends exist.
 
 ## Cluster-Safety Principles
 
@@ -81,20 +82,20 @@ expectations before implementation begins.
 
 ## S3-Compatible Object Storage Scope
 
-S3-compatible object storage is planned as the production blob backend for committed encrypted chunks.
+S3-compatible object storage is implemented as an optional blob backend for committed encrypted chunks.
 
 The object store should hold opaque encrypted bytes only. It must not require server-side decryption or raw media keys.
 
-Object-storage support should include:
+Object-storage support includes:
 
 - server-controlled object keys
-- staging keys for in-progress uploads, if needed
 - final immutable object keys for committed encrypted chunks
-- conditional write or equivalent no-overwrite behavior for final objects
-- lifecycle cleanup guidance for abandoned staging objects
+- conditional no-overwrite writes for final objects
+- local temp-file staging before final object writes
+- cleanup guidance for abandoned local staging files
 - backup and restore guidance that keeps metadata and blobs consistent
 
-The local filesystem backend should remain supported and should continue to use relative server-controlled stored paths.
+The implementation stages upload bytes under `SAFE_DATA_DIR/tmp`, computes SHA-256 over the uploaded ciphertext, verifies the client-provided hash, and then writes the final S3 object with `If-None-Match: *`. It does not create S3 staging objects. The local filesystem backend remains supported and continues to use relative server-controlled stored paths.
 
 ## Valkey / Redis-Compatible Coordination Scope
 
@@ -163,9 +164,9 @@ Any future deployment automation must preserve private/public listener separatio
 
 Preferred implementation sequence:
 
-1. Add configuration scaffolding for backend selection while preserving current defaults. The current scaffold accepts only `sqlite`, `local`, and `none`.
-2. Introduce metadata and blob-store interfaces around the current SQLite and filesystem implementations.
-3. Add S3-compatible blob storage as an optional backend.
+1. Add configuration scaffolding for backend selection while preserving current defaults. Implemented for `sqlite`, `local`, `s3`, and `none`.
+2. Introduce metadata and blob-store interfaces around the current SQLite and filesystem implementations. Implemented.
+3. Add S3-compatible blob storage as an optional backend. Implemented for committed encrypted chunks.
 4. Add PostgreSQL metadata support as an optional backend.
 5. Add explicit idempotency and upload-operation semantics for cluster-safe retries.
 6. Add optional Valkey/Redis-compatible coordination.

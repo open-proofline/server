@@ -1,6 +1,9 @@
 package storage
 
-import "io"
+import (
+	"context"
+	"io"
+)
 
 // BlobStore is the storage boundary used by the HTTP API for encrypted chunk
 // bytes.
@@ -14,10 +17,10 @@ import "io"
 //   - Remove is for rollback of a just-committed blob when metadata insertion
 //     fails; it must not accept client-provided paths.
 type BlobStore interface {
-	SaveTemp(reader io.Reader, maxBytes int64) (*TempUpload, error)
-	CommitTemp(upload *TempUpload, incidentID, streamID, mediaType string, chunkIndex int) (string, error)
-	Open(storedPath string) (io.ReadCloser, error)
-	Remove(storedPath string) error
+	SaveTemp(ctx context.Context, reader io.Reader, maxBytes int64) (*TempUpload, error)
+	CommitTemp(ctx context.Context, upload *TempUpload, incidentID, streamID, mediaType string, chunkIndex int) (string, error)
+	Open(ctx context.Context, storedPath string) (io.ReadCloser, error)
+	Remove(ctx context.Context, storedPath string) error
 }
 
 var _ BlobStore = (*Store)(nil)

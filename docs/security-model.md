@@ -31,12 +31,18 @@ Viewer URLs contain bearer tokens and should be treated as secrets. Reverse prox
 - Upload file bytes are limited by `SAFE_MAX_UPLOAD_BYTES`.
 - Final chunk storage happens only after hash verification.
 - Stored chunks are immutable and never overwritten.
+- Local storage commits use no-overwrite hard links. Optional S3-compatible storage commits final objects with conditional no-overwrite writes.
 - Streamed uploads require positive chunk indexes, while legacy unstreamed uploads may still use index `0`.
 - The simulator can wrap chunks in the documented v1 AES-256-GCM client-side encryption envelope before upload.
 - The backend validates and stores ciphertext bytes only; it does not store encryption keys or decrypt chunk contents.
 - SQLite enforces media type, chunk index, byte size, SHA-256 shape, foreign keys, and unique chunk identity.
 - Chunk metadata inserts recheck incident and stream state in the repository so uploads racing with close or completion are rejected.
 - Media stream completion verifies contiguous chunks and readable stored files, then rechecks chunk rows transactionally before committing completion.
+
+Optional S3-compatible storage preserves ciphertext-only behavior for committed
+encrypted chunks. It uses server-controlled object keys, does not expose object
+store URLs in evidence bundles, and does not add backend decryption or key
+custody.
 
 Future PostgreSQL metadata support must preserve these controls with equivalent
 or stronger constraints, duplicate guards, token-hash storage, and transaction
@@ -97,7 +103,7 @@ The Go app does not include an app-level rate limiter. Deployment-edge rate limi
 
 Retention, backup, restore, secure deletion limits, and disk encryption posture are documented in [retention-backup-deletion.md](retention-backup-deletion.md). The current backend preserves accepted evidence by default and does not automatically expire incidents or expose incident deletion APIs.
 
-Normal file removal is not treated as guaranteed secure erasure. Deployments that store real incident evidence should use encrypted disks or volumes for SQLite, encrypted blobs, logs, and backups, then rely on explicit backup expiry and encryption-key retirement for stronger deletion outcomes.
+Normal file or object removal is not treated as guaranteed secure erasure. Deployments that store real incident evidence should use encrypted disks, encrypted volumes, encrypted object buckets, logs, and backups, then rely on explicit backup expiry and encryption-key retirement for stronger deletion outcomes.
 
 ## Known Security Gaps
 

@@ -2,7 +2,7 @@
 
 Proofline currently stores opaque encrypted chunk bytes. This document describes the first client-side chunk encryption envelope used by the Go simulator and tests.
 
-This milestone does not add backend decryption. The server still validates SHA-256 over uploaded ciphertext bytes, stores those bytes on local disk, and emits encrypted ZIP evidence bundles.
+This milestone does not add backend decryption. The server still validates SHA-256 over uploaded ciphertext bytes, stores those bytes in the configured blob backend, and emits encrypted ZIP evidence bundles.
 
 ## Naming Compatibility
 
@@ -10,7 +10,7 @@ The current envelope scheme and associated-data prefix still use `safety-recorde
 
 ## Threat Model
 
-The v1 envelope protects chunk plaintext from the backend, SQLite, local blob storage, and evidence bundle readers who do not have the client-held key. It does not protect metadata that is already sent to the backend, such as incident ID, stream ID, media type, chunk index, timestamps, byte size, and ciphertext hashes.
+The v1 envelope protects chunk plaintext from the backend, SQLite, configured blob storage, and evidence bundle readers who do not have the client-held key. It does not protect metadata that is already sent to the backend, such as incident ID, stream ID, media type, chunk index, timestamps, byte size, and ciphertext hashes.
 
 The simulator key handling in this repository is for development and test use only. Future production client key storage, sharing, recovery, trusted-contact access, and incident-mode sharing are out of scope for the current implementation and are designed separately in [key-custody.md](key-custody.md) and [incident-modes.md](incident-modes.md).
 

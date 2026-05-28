@@ -17,7 +17,7 @@ func (a *API) downloadPrivateStreamBundle(w http.ResponseWriter, r *http.Request
 	if !ok {
 		return
 	}
-	a.serveStreamBundle(w, bundle)
+	a.serveStreamBundle(r.Context(), w, bundle)
 }
 
 func (a *API) downloadIncidentViewerStreamBundle(w http.ResponseWriter, r *http.Request) {
@@ -29,7 +29,7 @@ func (a *API) downloadIncidentViewerStreamBundle(w http.ResponseWriter, r *http.
 	if !ok {
 		return
 	}
-	a.serveStreamBundle(w, bundle)
+	a.serveStreamBundle(r.Context(), w, bundle)
 }
 
 func (a *API) downloadPrivateIncidentBundle(w http.ResponseWriter, r *http.Request) {
@@ -47,7 +47,7 @@ func (a *API) downloadPrivateIncidentBundle(w http.ResponseWriter, r *http.Reque
 	if !ok {
 		return
 	}
-	a.serveIncidentBundle(w, detail, bundles)
+	a.serveIncidentBundle(r.Context(), w, detail, bundles)
 }
 
 func (a *API) downloadIncidentViewerIncidentBundle(w http.ResponseWriter, r *http.Request) {
@@ -68,7 +68,7 @@ func (a *API) downloadIncidentViewerIncidentBundle(w http.ResponseWriter, r *htt
 	if !ok {
 		return
 	}
-	a.serveIncidentBundle(w, detail, bundles)
+	a.serveIncidentBundle(r.Context(), w, detail, bundles)
 }
 
 func (a *API) loadCompletedStreamBundle(w http.ResponseWriter, r *http.Request, incidentID, streamID string) (streamBundleData, bool) {
@@ -136,7 +136,7 @@ func (a *API) buildCompletedStreamBundle(ctx context.Context, incidentID, stream
 	if !validStreamBundleChunks(stream, chunks) {
 		return streamBundleData{}, incidents.ErrInvalidState
 	}
-	if err := a.validateBundleChunkFiles(chunks); err != nil {
+	if err := a.validateBundleChunkFiles(ctx, chunks); err != nil {
 		return streamBundleData{}, err
 	}
 
@@ -148,9 +148,9 @@ func (a *API) buildCompletedStreamBundle(ctx context.Context, incidentID, stream
 	}, nil
 }
 
-func (a *API) validateBundleChunkFiles(chunks []incidents.Chunk) error {
+func (a *API) validateBundleChunkFiles(ctx context.Context, chunks []incidents.Chunk) error {
 	for _, chunk := range chunks {
-		file, err := a.store.Open(chunk.StoredPath)
+		file, err := a.store.Open(ctx, chunk.StoredPath)
 		if err != nil {
 			return fmt.Errorf("open chunk for bundle: %w", err)
 		}
@@ -161,15 +161,15 @@ func (a *API) validateBundleChunkFiles(chunks []incidents.Chunk) error {
 	return nil
 }
 
-func (a *API) serveStreamBundle(w http.ResponseWriter, bundle streamBundleData) {
+func (a *API) serveStreamBundle(ctx context.Context, w http.ResponseWriter, bundle streamBundleData) {
 	filename := safeDownloadFilename(fmt.Sprintf("incident_%s_%s_%s.zip", bundle.Stream.IncidentID, bundle.Stream.MediaType, bundle.Stream.ID))
 	setBundleHeaders(w, filename)
-	if err := writeStreamBundle(w, a.openBundleChunk, bundle, ""); err != nil {
+	if err := writeStreamBundle(w, a.openBundleChunk(ctx), bundle, ""); err != nil {
 		a.logInternalError("write stream bundle", err)
 	}
 }
 
-func (a *API) serveIncidentBundle(w http.ResponseWriter, detail incidents.IncidentDetail, bundles []streamBundleData) {
+func (a *API) serveIncidentBundle(ctx context.Context, w http.ResponseWriter, detail incidents.IncidentDetail, bundles []streamBundleData) {
 	filename := safeDownloadFilename(fmt.Sprintf("incident_%s_evidence.zip", detail.Incident.ID))
 	setBundleHeaders(w, filename)
 
@@ -182,7 +182,7 @@ func (a *API) serveIncidentBundle(w http.ResponseWriter, detail incidents.Incide
 	}
 	for _, bundle := range bundles {
 		prefix := "streams/" + safeZipSegment(bundle.Stream.ID) + "/"
-		if err := writeStreamBundleToZip(zipWriter, a.openBundleChunk, bundle, prefix); err != nil {
+		if err := writeStreamBundleToZip(zipWriter, a.openBundleChunk(ctx), bundle, prefix); err != nil {
 			a.logInternalError("write incident stream bundle", err)
 			_ = zipWriter.Close()
 			return

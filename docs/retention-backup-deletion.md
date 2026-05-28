@@ -9,7 +9,7 @@ Proofline is still experimental and not production-ready public infrastructure. 
 The current backend stores:
 
 - SQLite metadata at `SAFE_DB_PATH`
-- encrypted chunk blobs under `SAFE_DATA_DIR`
+- encrypted chunk blobs under `SAFE_DATA_DIR` for the local backend, or committed encrypted objects in the configured S3-compatible bucket for the S3 backend
 - temporary upload files under `SAFE_DATA_DIR/tmp`
 - on-demand encrypted ZIP bundle responses generated from completed streams
 
@@ -20,7 +20,7 @@ Future incident modes such as emergency incidents, interaction records, safety c
 ## Retention Principles
 
 - Preserve uploaded evidence unless there is an explicit deletion decision.
-- Keep SQLite metadata and blob files in sync; either both are retained, or both are removed by a future deletion workflow.
+- Keep SQLite metadata and encrypted blobs in sync; either both are retained, or both are removed by a future deletion workflow.
 - Treat failed and open streams as possible evidence. Do not discard them just because they are not downloadable as completed stream bundles.
 - Keep raw viewer/incident tokens out of storage and logs. Only token hashes are retained in SQLite.
 - Treat non-emergency interaction records as potentially sensitive even when they are not urgent safety incidents.
@@ -52,7 +52,7 @@ Before real-world use, choose explicit local policy values such as:
 
 ## Backup Policy
 
-Backups must preserve the relationship between SQLite metadata and encrypted blob files. A database backup without the matching blob tree may leave bundles unusable. A blob backup without the matching database may leave evidence hard to locate, verify, or serve.
+Backups must preserve the relationship between SQLite metadata and encrypted blobs. A database backup without the matching local blob tree or S3 object set may leave bundles unusable. A blob backup without the matching database may leave evidence hard to locate, verify, or serve.
 
 Future PostgreSQL metadata support has the same consistency requirement. The
 planned PostgreSQL schema, migration, and restore expectations are documented in
@@ -62,7 +62,8 @@ backend is implemented, SQLite remains the only supported metadata store.
 Back up at least:
 
 - `SAFE_DB_PATH`
-- `SAFE_DATA_DIR/incidents`
+- `SAFE_DATA_DIR/incidents` when `SAFE_BLOB_BACKEND=local`
+- the configured S3 bucket and `SAFE_S3_PREFIX` object set when `SAFE_BLOB_BACKEND=s3`
 - SQLite sidecar files if copying a live database directly, such as WAL files
 - deployment configuration needed to restore backend selectors, bind addresses, data paths, upload limits, token TTL defaults, and reverse-proxy routing
 
@@ -73,6 +74,7 @@ Use one of these consistency strategies:
 - stop the API process, then copy the database and blob tree
 - take an atomic filesystem or volume snapshot that includes both database and blobs
 - use SQLite's backup mechanism for the database and coordinate it with a blob snapshot taken while uploads are paused
+- pause uploads, back up SQLite with its live state, and take an S3 bucket or prefix inventory/copy for the matching committed objects
 
 Do not copy only `safety.db` from a running WAL-mode database and assume that is a complete backup. Include the live SQLite state correctly, or use a database backup operation. The file name still uses `safety.db` until a separate data-layout migration is performed.
 
@@ -84,7 +86,7 @@ Restores must be tested before relying on the system for real incidents.
 
 A restore test should:
 
-1. Restore SQLite and blobs into an isolated staging path.
+1. Restore SQLite and blobs into an isolated staging path or isolated S3 bucket/prefix.
 2. Start the API with private/local bind addresses only.
 3. Load known incident metadata through private routes.
 4. Verify completed stream or incident bundle downloads can be generated.
@@ -93,10 +95,12 @@ A restore test should:
 
 The restore target must preserve the private/public listener split. Do not use a restore drill as a reason to expose `/v1` publicly.
 
-For a future PostgreSQL deployment, restore drills must also restore the
-PostgreSQL metadata database and encrypted blob storage as one logical evidence
-set, then verify completed stream and incident bundles before any public viewer
-exposure.
+For S3-compatible storage, restore drills must verify the configured bucket,
+prefix, credentials, and endpoint can reconstruct completed stream and incident
+bundles without exposing object-store URLs. For a future PostgreSQL deployment,
+restore drills must also restore the PostgreSQL metadata database and encrypted
+blob storage as one logical evidence set, then verify completed stream and
+incident bundles before any public viewer exposure.
 
 ## Deletion Policy
 
@@ -106,8 +110,8 @@ The intended future deletion behavior is:
 
 - delete an incident only through a private/admin path
 - remove or tombstone the incident row, media streams, chunks, checkins, and viewer token rows together
-- remove encrypted blob files by server-controlled stored paths only
-- never accept client-provided filesystem paths for deletion
+- remove encrypted blob files or objects by server-controlled stored paths only
+- never accept client-provided filesystem paths, object keys, or object-store URLs for deletion
 - make repeated deletion attempts idempotent
 - keep public incident viewer routes read-only
 - avoid deleting open incidents unless the request explicitly allows it
@@ -119,7 +123,7 @@ Future deletion policy should distinguish:
 - expiring closed incidents after an operator-defined retention window
 - applying different retention to emergency incidents, interaction records, safety checks, and evidence notes after incident types exist
 - pruning expired or revoked token metadata after an audit window
-- cleaning orphaned temporary upload files after crashes
+- cleaning orphaned temporary upload files under `SAFE_DATA_DIR/tmp` after crashes
 - identifying orphaned blobs or rows after interrupted manual operations
 - deleting downloaded bundles or plaintext exports if such derived files are ever implemented
 
@@ -127,13 +131,13 @@ Completed stream and incident ZIP bundles are not currently stored by the server
 
 ## Secure Deletion Limits
 
-Normal file deletion unlinks a path. It does not guarantee that encrypted blob bytes, SQLite pages, WAL contents, filesystem journal blocks, SSD wear-leveling copies, volume snapshots, backups, caches, or downloaded bundles are unrecoverable.
+Normal file or object deletion removes a path or object reference. It does not guarantee that encrypted blob bytes, SQLite pages, WAL contents, filesystem journal blocks, SSD wear-leveling copies, object-store replicas, versioned objects, lifecycle snapshots, volume snapshots, backups, caches, or downloaded bundles are unrecoverable.
 
 Do not document or operate Proofline as if `os.Remove`, `rm`, database row deletion, or SQLite vacuuming provides guaranteed secure erasure on modern storage.
 
 The recommended posture is:
 
-- use full-disk, volume, dataset, or filesystem encryption for `SAFE_DATA_DIR`, `SAFE_DB_PATH`, logs, and backups
+- use full-disk, volume, dataset, filesystem, or object-bucket encryption for `SAFE_DATA_DIR`, `SAFE_DB_PATH`, S3-compatible blobs, logs, and backups
 - keep encryption keys outside the backup set they protect
 - retire or destroy storage-encryption keys when decommissioning a deployment or backup generation
 - enforce backup retention so deleted incidents eventually age out of all backup copies
@@ -149,6 +153,7 @@ Disk or volume encryption is expected for any deployment that stores real incide
 Recommended deployment posture:
 
 - encrypt the host disk or the volume containing `SAFE_DATA_DIR`
+- enable appropriate bucket-side encryption and access controls when `SAFE_BLOB_BACKEND=s3`
 - encrypt the database path if `SAFE_DB_PATH` is outside `SAFE_DATA_DIR`
 - encrypt backup storage separately from the live host
 - restrict access to encryption keys and recovery keys

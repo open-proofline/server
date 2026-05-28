@@ -18,7 +18,7 @@ The current backend stores generic incidents only. Planned future clients may cl
 - `internal/envelope`: implements the simulator/test AES-256-GCM client-side chunk envelope, associated data builder, and local simulator key file helpers.
 - `internal/httpapi`: owns separate private/public muxes, JSON responses, request logging, recovery, request validation, upload handling, stream state handlers, ZIP bundle streaming, the incident viewer, and the narrow metadata repository boundary consumed by handlers.
 - `internal/incidents`: defines incident/stream/chunk/checkin models and provides the current SQLite metadata repository implementation.
-- `internal/storage`: defines the blob-store boundary used by HTTP handlers and provides the local filesystem implementation, including temp uploads, hashing while streaming, and immutable final paths.
+- `internal/storage`: defines the blob-store boundary used by HTTP handlers and provides local filesystem and optional S3-compatible implementations, including temp uploads, hashing while streaming, server-controlled stored paths, and immutable final commits.
 - `migrations`: embeds the SQLite schema.
 
 ## Main Request Flow
@@ -31,7 +31,7 @@ Upload handling first checks that the incident exists and is open. The file is t
 
 Hash verification happens in `internal/httpapi.uploadChunk` by comparing the computed temp-file hash with the client-provided `sha256_hex`.
 
-After verification, `internal/storage.BlobStore.CommitTemp` commits the file under:
+After verification, `internal/storage.BlobStore.CommitTemp` commits the encrypted bytes under the server-controlled stored path:
 
 ```text
 data/incidents/{incident_id}/streams/{stream_id}/{media_type}_{zero_padded_chunk_index}.enc
@@ -43,13 +43,13 @@ Legacy unstreamed chunks keep the older path:
 data/incidents/{incident_id}/{media_type}_{zero_padded_chunk_index}.enc
 ```
 
-Storage uses no-overwrite behavior, so an existing chunk file is treated as a conflict.
+Local storage maps that stored path under `SAFE_DATA_DIR`. Optional S3-compatible storage maps the same stored path under `SAFE_S3_PREFIX` in the configured bucket. Storage uses no-overwrite behavior, so an existing local file or final object is treated as a conflict.
 
 SQLite metadata is written after the file is safely committed, through `internal/incidents.Repository.CreateChunk`. The repository rechecks the incident and stream state before inserting chunk metadata so uploads that race with incident close or stream completion are rejected. The schema enforces separate unique identities for streamed and legacy unstreamed chunks.
 
 New clients can create a media stream with `POST /v1/incidents/{incident_id}/streams` and include the returned `stream_id` during chunk upload. Streamed chunk indexes start at `1`, and streamed chunk identity is `incident_id + stream_id + chunk_index`. Existing chunks without `stream_id` remain valid and readable as legacy chunk metadata, including older index `0` chunks; legacy unstreamed identity remains `incident_id + media_type + chunk_index`. Legacy unstreamed chunks are not included in completed-stream evidence bundles.
 
-Stream completion is handled by `internal/httpapi.completeMediaStream`. Before a stream moves from `open` to `complete`, the handler verifies that chunks `1..expected_chunk_count` exist contiguously for that stream and that each stored blob can be opened from local storage. `internal/incidents.Repository.CompleteMediaStream` then revalidates the chunk rows in the completion transaction before committing the state change. Failed streams preserve uploaded chunks but are not offered as normal downloads.
+Stream completion is handled by `internal/httpapi.completeMediaStream`. Before a stream moves from `open` to `complete`, the handler verifies that chunks `1..expected_chunk_count` exist contiguously for that stream and that each stored blob can be opened from the configured blob store. `internal/incidents.Repository.CompleteMediaStream` then revalidates the chunk rows in the completion transaction before committing the state change. Failed streams preserve uploaded chunks but are not offered as normal downloads.
 
 ## Incident Viewer Flow
 
