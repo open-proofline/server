@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added CI runtime smoke tests for the built Linux binary and Docker image.
 - Added a public incident viewer deployment checklist covering public route
   exposure, TLS/HSTS, edge rate limiting, proxy log redaction, viewer-token
   review, and retention/restore expectations.
