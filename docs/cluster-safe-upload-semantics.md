@@ -39,7 +39,8 @@ storage backends.
 
 - No implementation in this design task.
 - No resumable upload protocol or partial committed chunks.
-- No duplicate-chunk reconciliation API design beyond the boundary noted below.
+- No duplicate-chunk reconciliation API implementation. The client-facing
+  reconciliation design is documented in [api.md](api.md).
 - No PostgreSQL, S3-compatible storage, or Valkey implementation.
 - No public `/v1` exposure or account/authentication model.
 - No client repository, protocol repository, or mobile implementation.
@@ -296,11 +297,14 @@ committed by another API node.
 
 ## Relationship To Other Issues
 
-Issue `#85`, "Design Duplicate Chunk Reconciliation API", should decide the
-client-facing reconciliation contract for already committed duplicate chunk
-identities. That work may enrich `409 duplicate_chunk`, add a query route, or
-define another safe comparison workflow. This document assumes such a contract
-will preserve immutable chunks and avoid exposing bytes or stored paths.
+Issue `#85`, "Design Duplicate Chunk Reconciliation API", chooses a separate
+private query workflow for already committed duplicate chunk identities. The
+planned route compares a client's expected ciphertext hash and immutable
+metadata with an accepted chunk row without re-uploading ciphertext, overwriting
+evidence, or exposing bytes, stored paths, raw tokens, plaintext, or keys. This
+cluster-safe upload design can still add idempotency-key equivalent success on
+the upload route later; duplicate reconciliation remains the fallback for
+clients that only know the final chunk identity and expected fingerprint.
 
 Issue `#86`, "Plan Resumable Upload And Upload Lease Protocol", should decide
 whether incomplete transfers need explicit leases, resumable multipart upload,
@@ -316,6 +320,8 @@ final chunk can be committed.
 
 API documentation:
 
+- implement and document the duplicate-chunk reconciliation route designed in
+  [api.md](api.md)
 - document the idempotency key location and allowed format
 - document equivalent success status codes and replay headers
 - document idempotency conflict and in-progress responses
@@ -333,6 +339,8 @@ Backend tests:
 - HTTP tests for equivalent retry success with the same idempotency key
 - HTTP tests for idempotency-key reuse with different metadata
 - HTTP tests for same chunk identity with different ciphertext
+- HTTP tests for duplicate reconciliation matches and conflicts without
+  returning uploaded bytes, stored paths, or conflicting stored values
 - blob-store tests for conditional no-overwrite final commits
 - cleanup tests proving staging cleanup does not delete committed evidence
 - race tests for upload versus incident close and stream completion

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added a duplicate-chunk reconciliation API design for future clients to
+  compare expected ciphertext hashes and immutable metadata without overwriting
+  stored evidence.
 - Added a cluster-safe upload operation semantics design covering future
   idempotency keys, durable operation state, commit ordering, equivalent retry
   success, conflict handling, cleanup, and backend-specific follow-up work.
