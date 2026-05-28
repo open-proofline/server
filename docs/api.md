@@ -131,6 +131,126 @@ The repository rechecks incident and stream state when chunk metadata is inserte
 
 For clients using the v1 encryption envelope, `sha256_hex` is the SHA-256 of the complete uploaded envelope bytes, not the plaintext.
 
+### Planned Duplicate Chunk Reconciliation
+
+This section is a design contract for future implementation. The current server
+does not yet expose the reconciliation route described here; duplicate uploads
+still return `409 duplicate_chunk`.
+
+The planned API shape is a separate private query workflow, not a public route
+and not an enriched `409 duplicate_chunk` upload response. A separate route lets
+clients compare expected metadata without re-uploading ciphertext, keeps
+duplicate upload errors small, and can coexist with future idempotency-key
+retry success.
+
+Planned route:
+
+```http
+POST /v1/incidents/{incident_id}/chunks/reconcile
+```
+
+Request:
+
+```json
+{
+  "stream_id": "str_...",
+  "chunk_index": 1,
+  "media_type": "audio",
+  "started_at": "2026-05-21T10:00:00Z",
+  "ended_at": "2026-05-21T10:00:10Z",
+  "byte_size": 23,
+  "sha256_hex": "...",
+  "original_filename": "chunk.enc"
+}
+```
+
+For streamed chunks, `stream_id` is required and identity is
+`(incident_id, stream_id, chunk_index)`. `media_type` remains required and must
+match the stream media type. For legacy unstreamed chunks, omit `stream_id`;
+identity is `(incident_id, media_type, chunk_index)`, and `chunk_index = 0`
+remains valid for compatibility.
+
+The comparison fingerprint is:
+
+- normalized chunk identity
+- `media_type`
+- `started_at`
+- `ended_at`
+- normalized `original_filename`, including empty value
+- ciphertext `byte_size`
+- ciphertext `sha256_hex`
+
+The route should allow reconciliation after an incident is closed or a stream is
+complete or failed, because it is read-only and only confirms already accepted
+metadata. It must not overwrite, replace, delete, or rewrite stored chunks.
+
+Matched response `200`:
+
+```json
+{
+  "reconciliation": {
+    "status": "matched",
+    "identity": {
+      "incident_id": "inc_...",
+      "stream_id": "str_...",
+      "chunk_index": 1,
+      "media_type": "audio"
+    },
+    "chunk_id": "chk_...",
+    "byte_size": 23,
+    "sha256_hex": "...",
+    "started_at": "2026-05-21T10:00:00Z",
+    "ended_at": "2026-05-21T10:00:10Z",
+    "created_at": "2026-05-21T10:00:11Z"
+  }
+}
+```
+
+Conflict response `409`:
+
+```json
+{
+  "error": {
+    "code": "duplicate_chunk_conflict",
+    "message": "existing chunk does not match expected ciphertext or metadata"
+  },
+  "reconciliation": {
+    "status": "conflict",
+    "identity": {
+      "incident_id": "inc_...",
+      "stream_id": "str_...",
+      "chunk_index": 1,
+      "media_type": "audio"
+    },
+    "mismatched_fields": ["sha256_hex", "byte_size"]
+  }
+}
+```
+
+The conflict response should identify mismatched field names, not the existing
+stored values. If no accepted chunk exists for the requested identity, return
+`404 chunk_not_found`. Invalid identity or fingerprint fields should reuse the
+existing upload validation error codes where practical, such as
+`400 invalid_chunk_index`, `400 invalid_media_type`, or
+`400 invalid_sha256_hex`.
+
+Safe reconciliation responses may return server-generated chunk ID, normalized
+identity fields, timestamps, byte size, ciphertext hash, creation time, and
+field names that matched or mismatched. They must not return uploaded bytes,
+plaintext, raw keys, raw tokens, request bodies, local filesystem paths,
+`stored_path`, staging paths, object-storage keys, or object-storage
+credentials.
+
+Future implementation should extend `internal/httpapi/uploads_test.go` for:
+
+- matched streamed duplicate reconciliation
+- conflicting streamed duplicate reconciliation
+- matched and conflicting legacy unstreamed reconciliation
+- omission of `stored_path` and stored conflicting values from reconciliation
+  responses
+- read-only reconciliation after stream completion, stream failure, or incident
+  close
+
 ### `GET /v1/incidents/{incident_id}/chunks`
 
 Lists chunk metadata for one incident.

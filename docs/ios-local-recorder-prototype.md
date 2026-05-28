@@ -157,7 +157,10 @@ Retry expectations:
 - do not mutate staged ciphertext when retrying an upload
 - on `400 hash_mismatch`, treat the local staged record as corrupt and stop retrying that chunk until the user or developer can inspect it
 - on `400 invalid_chunk_index`, `400 invalid_media_type`, or time-range errors, treat the local metadata as a client bug
-- on `409 duplicate_chunk`, reconcile against local state before deciding that the upload already succeeded
+- on `409 duplicate_chunk`, reconcile against local state before deciding that
+  the upload already succeeded; after the planned duplicate-chunk
+  reconciliation API exists, compare the expected ciphertext hash and immutable
+  metadata through that private query workflow
 - on `409 stream_not_open`, stop uploads for that stream and surface a local stream-state error
 - on `413 upload_too_large`, reduce the chunk duration or encoded bitrate for future chunks; do not split or rewrite the already staged immutable chunk
 - on `5xx` or network loss, keep the chunk pending for retry
@@ -221,7 +224,9 @@ Do not implement these as part of the prototype plan. Track them as future backe
 - no implemented idempotency-key or equivalent retry-success API for ambiguous
   chunk upload outcomes; future semantics are planned in
   [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md)
-- no client API for reconciling a duplicate chunk by expected ciphertext hash
+- no implemented client API for reconciling a duplicate chunk by expected
+  ciphertext hash; the planned private query workflow is documented in
+  [api.md](api.md)
 - no explicit resumable-upload protocol for partially sent large chunks
 - no endpoint for client-side local queue summaries or upload leases
 - no API for registering or storing contact-wrapped media keys
