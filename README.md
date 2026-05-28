@@ -143,3 +143,96 @@ The simulator creates an incident, creates a viewer token, encrypts and uploads 
 ## Docker
 
 Build from the repository root:
+
+```bash
+docker build -t proofline-server .
+```
+
+Run with local-only port publishing and a named data volume:
+
+```bash
+docker run --rm \
+  -p 127.0.0.1:8080:8080 \
+  -p 127.0.0.1:8081:8081 \
+  -v proofline-server-data:/data \
+  proofline-server
+```
+
+Container defaults bind to `0.0.0.0` inside the container. Restrict host exposure with port publishing, firewall rules, WireGuard, or a reverse proxy. See [docs/deployment.md](docs/deployment.md).
+
+## Documentation
+
+- [Docs index](docs/README.md)
+- [Getting started](docs/getting-started.md)
+- [Architecture](docs/architecture.md)
+- [Configuration](docs/configuration.md)
+- [Production cluster scope](docs/production-cluster-scope.md)
+- [Incident capture modes](docs/incident-modes.md)
+- [Encryption](docs/encryption.md)
+- [iOS local recorder prototype](docs/ios-local-recorder-prototype.md)
+- [Key custody and emergency access](docs/key-custody.md)
+- [Browser-side decryption design](docs/browser-decryption.md)
+- [Break-glass key access design](docs/break-glass-key-access.md)
+- [API reference](docs/api.md)
+- [Deployment notes](docs/deployment.md)
+- [Retention, backup, and deletion](docs/retention-backup-deletion.md)
+- [Security model](docs/security-model.md)
+- [Threat model](docs/threat-model.md)
+- [Simulator](docs/simulator.md)
+- [Development](docs/development.md)
+- [Code map](docs/code-map.md)
+- [Technical review reports](docs/reports/README.md)
+
+## AI-Assisted Development
+
+This project has been developed with substantial assistance from OpenAI Codex.
+
+Codex has been used to draft, refactor, test, document, and review parts of the Go backend and Markdown documentation. All accepted changes are reviewed, tested, and committed by the maintainer.
+
+AI assistance does not replace human responsibility. The maintainer remains responsible for:
+
+- code correctness
+- security review
+- licensing decisions
+- release decisions
+- deployment choices
+- any real-world use of the software
+
+Use of Codex does not imply endorsement, audit, certification, or maintenance by OpenAI.
+
+## Backlog workflow
+
+Use `80-backlog-scan-issue-drafts.md` to generate reviewed local issue drafts under a branch-scoped directory such as `.backlog-drafts/YYYY-MM-DD/<branch-slug>/`.
+
+Review those drafts manually before creating GitHub issues. Drafts are generated review artifacts, not the long-term source of truth once GitHub issues exist.
+
+Only after review, use `85-create-github-issues-from-drafts.md` to generate `scripts/create-backlog-issues.sh` and `.backlog-drafts/.../create-issues-review.md`. Do not run the generated script unless the maintainer explicitly asks for issue creation.
+
+Do not let Codex create GitHub issues directly during the initial scan.
+
+## Security
+
+Viewer links are bearer-token URLs and should be treated as secrets. Public deployment still needs TLS, rate limiting, log review, proxy hardening, operational testing, and deployment-specific retention, backup, and deletion enforcement. Do not expose `/v1` publicly as-is.
+
+Please see [SECURITY.md](SECURITY.md) for supported versions and vulnerability reporting guidance. Do not report security vulnerabilities through public GitHub issues.
+
+## Roadmap
+
+- Create future `open-proofline/web-client`, `open-proofline/ios-client`, `open-proofline/android-client`, and `open-proofline/protocol` repositories when their scopes are ready
+- Plan any future protocol or data-layout compatibility migrations separately from the completed repository/module/artifact rename
+- Add optional PostgreSQL metadata support while preserving SQLite local/default support
+- Add optional S3-compatible encrypted blob storage while preserving local filesystem support
+- Add optional Valkey/Redis-compatible coordination for leases, idempotency, and retry handling without making it durable evidence storage
+- Add cluster-safe upload operation semantics before multi-node production deployment
+- WireGuard-only bind/firewall deployment guidance
+- Server-side support for first-class incident types and escalation policies after protocol design
+- Server-side support for trusted-contact dead-man switch workflows after access-control design
+- Production key custody, trusted-contact access, and browser/client-side decryption
+- Optional break-glass/dead-man-switch key access
+- Playable media export
+- Reverse-proxy/TLS hardening for incident viewer exposure
+- Explicit `/v1` access-control story before any public control-plane deployment
+
+## License
+
+Proofline Server is licensed under the GNU Affero General Public License v3.0 only (`AGPL-3.0-only`). See [LICENSE](LICENSE).
