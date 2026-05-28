@@ -52,6 +52,7 @@
 - The current simulator encryption envelope is development/test oriented.
 - Future product scope includes emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes.
 - The current backend does not yet implement first-class incident types, escalation policies, account management, trusted-contact accounts, dead-man switch notifications, or public `/v1` authentication.
+- Planned production-cluster scope may add optional PostgreSQL metadata, S3-compatible object storage, Valkey/Redis-compatible coordination, and cluster-safe idempotent upload semantics. These are additive future backends and must not remove SQLite or local filesystem support.
 - Future encryption direction should be a hybrid key custody model.
 - Docker and GitHub Actions/GHCR publishing exist, but deployment expansion should not be added unless explicitly requested.
 
