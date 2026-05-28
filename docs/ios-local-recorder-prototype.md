@@ -218,6 +218,9 @@ Do not implement these as part of the prototype plan. Track them as future backe
 - no app-level `/v1` authentication or authorization suitable for public networks
 - no first-class incident type or escalation-policy field
 - no account-owner, trusted-contact, or web-client access model
+- no implemented idempotency-key or equivalent retry-success API for ambiguous
+  chunk upload outcomes; future semantics are planned in
+  [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md)
 - no client API for reconciling a duplicate chunk by expected ciphertext hash
 - no explicit resumable-upload protocol for partially sent large chunks
 - no endpoint for client-side local queue summaries or upload leases

@@ -11,6 +11,10 @@ Planned future incident modes include emergency incidents, non-emergency interac
 - Future optional PostgreSQL metadata is planned but not implemented; schema,
   migration, transaction, test, and restore expectations are documented in
   [postgresql-metadata-migration.md](postgresql-metadata-migration.md)
+- Future cluster-safe upload operation semantics are planned but not
+  implemented; idempotency, retry-success, conflict, and cleanup expectations
+  are documented in
+  [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md)
 - On-demand encrypted evidence ZIP bundles generated from completed streams
 - Raw viewer/incident tokens returned once at creation time
 - Incident viewer URLs containing bearer tokens
@@ -71,6 +75,11 @@ The current backend does not implement incident-mode-specific controls yet, so f
   preserve the private `/v1` boundary, token hashing, ciphertext-only storage,
   and backup/restore expectations described in
   [postgresql-metadata-migration.md](postgresql-metadata-migration.md).
+- No implemented cluster-safe upload operation or idempotency API. Future
+  semantics are planned in
+  [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md), but
+  current duplicate uploads still use the existing `409 duplicate_chunk`
+  behavior.
 - Retention, backup, restore, and deletion policy is documented in [retention-backup-deletion.md](retention-backup-deletion.md), but the backend does not yet implement automatic expiration, incident deletion APIs, or built-in disk encryption.
 - No malware/content scanning; uploaded bytes are assumed to be client-encrypted blobs.
 - Bundle downloads are encrypted chunk bundles, not decrypted or playable media exports.

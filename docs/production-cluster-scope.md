@@ -122,6 +122,8 @@ If Valkey is unavailable, the system should fail closed or return retryable erro
 ## Upload Operation Semantics
 
 Future cluster upload handling should move toward explicit upload operations.
+The detailed planning design is
+[Cluster-safe upload operation semantics](cluster-safe-upload-semantics.md).
 
 A safe cluster upload flow should be designed around these steps:
 
