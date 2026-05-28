@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/open-proofline/server/internal/incidents"
 	"github.com/open-proofline/server/internal/storage"
 )
 
@@ -27,7 +26,7 @@ type Options struct {
 
 // API holds the dependencies and limits used by the HTTP handlers.
 type API struct {
-	repo                    *incidents.Repository
+	repo                    MetadataRepository
 	store                   storage.BlobStore
 	maxUploadBytes          int64
 	defaultIncidentTokenTTL time.Duration
@@ -36,22 +35,22 @@ type API struct {
 
 // New builds the private HTTP handler. Prefer NewPrivate or NewPublic at call
 // sites that need to make the routing boundary explicit.
-func New(repo *incidents.Repository, store storage.BlobStore, opts Options) http.Handler {
+func New(repo MetadataRepository, store storage.BlobStore, opts Options) http.Handler {
 	return NewPrivate(repo, store, opts)
 }
 
 // NewPrivate builds the HTTP handler tree for the private write/admin API.
-func NewPrivate(repo *incidents.Repository, store storage.BlobStore, opts Options) http.Handler {
+func NewPrivate(repo MetadataRepository, store storage.BlobStore, opts Options) http.Handler {
 	return newAPI(repo, store, opts).privateRoutes()
 }
 
 // NewPublic builds the HTTP handler tree for the public read-only incident
 // viewer.
-func NewPublic(repo *incidents.Repository, store storage.BlobStore, opts Options) http.Handler {
+func NewPublic(repo MetadataRepository, store storage.BlobStore, opts Options) http.Handler {
 	return newAPI(repo, store, opts).publicRoutes()
 }
 
-func newAPI(repo *incidents.Repository, store storage.BlobStore, opts Options) *API {
+func newAPI(repo MetadataRepository, store storage.BlobStore, opts Options) *API {
 	maxUploadBytes := opts.MaxUploadBytes
 	if maxUploadBytes <= 0 {
 		maxUploadBytes = defaultMaxUploadBytes
