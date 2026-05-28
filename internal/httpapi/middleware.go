@@ -104,7 +104,7 @@ func (a *API) recoveryMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if recovered := recover(); recovered != nil {
-				a.logger.Error("panic recovered", "err", recovered)
+				a.logRecoveredPanic(recovered)
 				writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
 			}
 		}()

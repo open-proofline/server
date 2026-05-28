@@ -17,7 +17,7 @@ import (
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	if err := run(logger); err != nil {
-		logger.Error("server stopped", "err", err)
+		logStartupError(logger, err)
 		os.Exit(1)
 	}
 }

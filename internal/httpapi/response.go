@@ -55,7 +55,7 @@ func writeError(w http.ResponseWriter, status int, code, message string) {
 }
 
 func (a *API) internalError(w http.ResponseWriter, operation string, err error) {
-	a.logger.Error("internal error", "operation", operation, "err", err)
+	a.logInternalError(operation, err)
 	writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
 }
 
