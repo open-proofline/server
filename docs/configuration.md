@@ -10,6 +10,9 @@ Configuration is read from environment variables when the Proofline API starts.
 | `SAFE_PUBLIC_BIND_ADDRS` | `127.0.0.1:8081` | Comma-separated public incident viewer listener addresses. |
 | `SAFE_DATA_DIR` | `./data` | Local directory for SQLite, temp uploads, and encrypted blobs unless `SAFE_DB_PATH` points elsewhere. |
 | `SAFE_DB_PATH` | `./data/safety.db` | SQLite database path. The default file name still uses `safety.db` until a separate data-layout migration is performed. |
+| `SAFE_METADATA_BACKEND` | `sqlite` | Metadata backend selector. Only `sqlite` is currently implemented. |
+| `SAFE_BLOB_BACKEND` | `local` | Encrypted blob backend selector. Only `local` filesystem storage is currently implemented. |
+| `SAFE_COORDINATION_BACKEND` | `none` | Coordination backend selector. Only `none` is currently implemented. |
 | `SAFE_MAX_UPLOAD_BYTES` | `250MB` | Maximum encrypted file bytes per upload. |
 | `SAFE_DEFAULT_INCIDENT_TOKEN_TTL` | `24h` | Default lifetime for viewer tokens created without `expires_at`. Set to `0` to disable the default for omitted `expires_at` values. |
 | `SAFE_PRIVATE_READ_HEADER_TIMEOUT` | `10s` | Private API HTTP read-header timeout. |
@@ -22,6 +25,23 @@ Configuration is read from environment variables when the Proofline API starts.
 | `SAFE_PUBLIC_IDLE_TIMEOUT` | `120s` | Public incident viewer HTTP idle connection timeout. |
 
 The older singular variables `SAFE_PRIVATE_BIND_ADDR` and `SAFE_PUBLIC_BIND_ADDR` are still supported when the matching plural variable is unset. Plural variables take precedence.
+
+## Backend Selection Scaffold
+
+The backend selector variables are a startup validation scaffold for planned cluster support. They currently accept only the implemented local-first values:
+
+```bash
+SAFE_METADATA_BACKEND=sqlite \
+SAFE_BLOB_BACKEND=local \
+SAFE_COORDINATION_BACKEND=none \
+go run ./cmd/api
+```
+
+Values are matched case-insensitively after trimming surrounding whitespace. Unsupported names fail startup with a clear configuration error.
+
+PostgreSQL metadata, S3-compatible object storage, and Valkey/Redis-compatible coordination are planned but not implemented by this scaffold. Setting future values such as `postgresql`, `s3`, `valkey`, or `redis` will fail until those backends are deliberately added and documented.
+
+`SAFE_DB_PATH` and `SAFE_DATA_DIR` keep their current behavior for the supported `sqlite` and `local` backends.
 
 ## Bind Address Lists
 

@@ -7,11 +7,16 @@ import (
 	"net"
 	"os"
 
+	"github.com/open-proofline/server/internal/config"
 	"github.com/open-proofline/server/internal/storage"
 )
 
 func logStartupError(logger *slog.Logger, err error) {
-	logger.Error("server stopped", "error_category", safeStartupErrorCategory(err))
+	attrs := []any{"error_category", safeStartupErrorCategory(err)}
+	if detail := safeStartupErrorDetail(err); detail != "" {
+		attrs = append(attrs, "error_detail", detail)
+	}
+	logger.Error("server stopped", attrs...)
 }
 
 func safeStartupErrorCategory(err error) string {
@@ -37,6 +42,11 @@ func safeStartupErrorCategory(err error) string {
 		return "permission"
 	}
 
+	var unsupportedBackendErr config.UnsupportedBackendError
+	if errors.As(err, &unsupportedBackendErr) {
+		return "config"
+	}
+
 	var netErr net.Error
 	if errors.As(err, &netErr) && netErr.Timeout() {
 		return "timeout"
@@ -55,4 +65,12 @@ func safeStartupErrorCategory(err error) string {
 		return "system"
 	}
 	return "startup"
+}
+
+func safeStartupErrorDetail(err error) string {
+	var unsupportedBackendErr config.UnsupportedBackendError
+	if errors.As(err, &unsupportedBackendErr) {
+		return unsupportedBackendErr.Error()
+	}
+	return ""
 }

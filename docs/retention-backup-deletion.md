@@ -59,7 +59,7 @@ Back up at least:
 - `SAFE_DB_PATH`
 - `SAFE_DATA_DIR/incidents`
 - SQLite sidecar files if copying a live database directly, such as WAL files
-- deployment configuration needed to restore bind addresses, data paths, upload limits, token TTL defaults, and reverse-proxy routing
+- deployment configuration needed to restore backend selectors, bind addresses, data paths, upload limits, token TTL defaults, and reverse-proxy routing
 
 If `SAFE_DB_PATH` points outside `SAFE_DATA_DIR`, include both locations in the same backup set.
 

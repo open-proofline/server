@@ -31,6 +31,8 @@ Planned optional cluster backends:
 
 These backends should be additive. They must not remove or weaken SQLite and local filesystem support.
 
+The current configuration scaffold exposes backend selectors for these capability groups, but it only accepts the implemented local-first values: `SAFE_METADATA_BACKEND=sqlite`, `SAFE_BLOB_BACKEND=local`, and `SAFE_COORDINATION_BACKEND=none`. Planned values for PostgreSQL, S3-compatible storage, or Valkey/Redis-compatible coordination must continue to fail startup until those backends exist.
+
 ## Cluster-Safety Principles
 
 Cluster-aware behavior means duplicate attempts may happen, but duplicate side effects must not happen.
@@ -149,7 +151,7 @@ Any future deployment automation must preserve private/public listener separatio
 
 Preferred implementation sequence:
 
-1. Add configuration scaffolding for backend selection while preserving current defaults.
+1. Add configuration scaffolding for backend selection while preserving current defaults. The current scaffold accepts only `sqlite`, `local`, and `none`.
 2. Introduce metadata and blob-store interfaces around the current SQLite and filesystem implementations.
 3. Add S3-compatible blob storage as an optional backend.
 4. Add PostgreSQL metadata support as an optional backend.

@@ -8,7 +8,7 @@ This directory contains the detailed documentation for Proofline Server, the Go 
 |---|---|
 | [Getting started](getting-started.md) | Run the backend locally and exercise the simulator flow. |
 | [Architecture](architecture.md) | System diagrams, listener boundaries, repository split, and server data flow. |
-| [Configuration](configuration.md) | Environment variables, bind addresses, upload limits, and data layout. |
+| [Configuration](configuration.md) | Environment variables, backend selectors, bind addresses, upload limits, and data layout. |
 | [Production cluster scope](production-cluster-scope.md) | Planned additive support for cluster-safe PostgreSQL, S3-compatible object storage, and Valkey/Redis-compatible coordination. |
 | [Incident capture modes](incident-modes.md) | Planned emergency, interaction-record, safety-check, and evidence-note modes. |
 | [Encryption](encryption.md) | Client-side chunk envelope, simulator key file, and local bundle verification. |
@@ -50,7 +50,7 @@ Those repositories do not exist in this repository and should not be implemented
 
 Proofline Server receives already-encrypted chunks, stores metadata in SQLite, stores encrypted blobs on local disk, groups chunks into media streams, and exposes a token-scoped read-only incident viewer. The Go simulator can produce the documented v1 client-side encryption envelope for development and test flows.
 
-The planned production-cluster scope is additive: SQLite and local filesystem storage remain supported while future work may add optional PostgreSQL metadata, S3-compatible object storage, and Valkey/Redis-compatible coordination backends. See [production-cluster-scope.md](production-cluster-scope.md).
+The planned production-cluster scope is additive: SQLite and local filesystem storage remain supported while future work may add optional PostgreSQL metadata, S3-compatible object storage, and Valkey/Redis-compatible coordination backends. Current backend selector configuration accepts only the implemented local-first values and rejects planned future backend values until those backends exist. See [production-cluster-scope.md](production-cluster-scope.md).
 
 The long-term Proofline product direction is broader than emergency-only recording. Future clients should support emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes while keeping capture, escalation, sharing, and legal/export actions separate. The planned incident modes are documented in [incident-modes.md](incident-modes.md).
 
