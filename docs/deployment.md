@@ -89,15 +89,36 @@ Reverse proxies should still set their own connection, request, and upstream tim
 
 If exposing any part of the system publicly, expose only the incident viewer listener unless `/v1` has a separate authenticated control plane in front of it.
 
-Production-style public exposure still needs:
+The checklist below is a deployment review aid. Completing it does not make
+Proofline production-ready public infrastructure, and it does not make `/v1`
+safe to expose publicly.
 
-- TLS at the edge
-- rate limiting and abuse controls
-- reverse-proxy log redaction for `/i/{token}` paths
-- private `/v1` access controls
-- deployment-specific retention, backup, and deletion enforcement based on [retention-backup-deletion.md](retention-backup-deletion.md)
-- operational monitoring and restore testing
-- review of viewer-token sharing, expiry defaults, and revocation workflows
+Before exposing the public incident viewer:
+
+- [ ] The public route group forwards only to the public incident viewer
+      listener, for example the listener configured by `SAFE_PUBLIC_BIND_ADDRS`.
+- [ ] No public reverse-proxy route, service, wildcard rule, or fallback reaches
+      the private `/v1` listener or a private API bind address.
+- [ ] TLS is terminated at the deployment edge for the public hostname.
+- [ ] HSTS is enabled at the HTTPS edge only after TLS is working reliably for
+      the public hostname.
+- [ ] Edge rate limiting covers viewer page lookup, viewer JSON polling, ZIP
+      download starts, and public static assets with route-appropriate limits.
+- [ ] Reverse-proxy logs, metrics, dashboards, and rate-limit keys avoid raw
+      `/i/{token}` paths, legacy `/e/{token}` paths, query strings attached to
+      viewer URLs, request bodies, uploaded bytes, Authorization headers,
+      plaintext, raw keys, and future token-like values.
+- [ ] Viewer-token sharing, default expiry, explicit no-expiry tokens, and
+      revocation workflows have been reviewed for this deployment.
+- [ ] Retention, backup, restore, and deletion expectations are documented for
+      this deployment and reviewed against
+      [retention-backup-deletion.md](retention-backup-deletion.md).
+- [ ] Restore testing confirms SQLite metadata and encrypted blobs can be
+      restored together without exposing `/v1` publicly.
+- [ ] Monitoring and timeout settings cover public viewer errors, storage or
+      database failures, and long encrypted ZIP downloads without logging raw
+      tokens, request bodies, uploaded bytes, plaintext, raw keys, or private
+      deployment details.
 
 The Go app still has no built-in app-level rate limiter. Apply rate limits at the deployment edge for now, and tune them for the expected recording, polling, and download patterns.
 
