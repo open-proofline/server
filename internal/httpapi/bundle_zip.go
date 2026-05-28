@@ -12,17 +12,11 @@ import (
 	"github.com/open-proofline/server/internal/incidents"
 )
 
-type readSeekCloser interface {
-	io.Reader
-	io.Seeker
-	io.Closer
-}
-
-func (a *API) openBundleChunk(relPath string) (readSeekCloser, error) {
+func (a *API) openBundleChunk(relPath string) (io.ReadCloser, error) {
 	return a.store.Open(relPath)
 }
 
-func writeStreamBundle(w io.Writer, openChunk func(string) (readSeekCloser, error), bundle streamBundleData, prefix string) error {
+func writeStreamBundle(w io.Writer, openChunk func(string) (io.ReadCloser, error), bundle streamBundleData, prefix string) error {
 	zipWriter := zip.NewWriter(w)
 	if err := writeStreamBundleToZip(zipWriter, openChunk, bundle, prefix); err != nil {
 		_ = zipWriter.Close()
@@ -31,7 +25,7 @@ func writeStreamBundle(w io.Writer, openChunk func(string) (readSeekCloser, erro
 	return zipWriter.Close()
 }
 
-func writeStreamBundleToZip(zipWriter *zip.Writer, openChunk func(string) (readSeekCloser, error), bundle streamBundleData, prefix string) error {
+func writeStreamBundleToZip(zipWriter *zip.Writer, openChunk func(string) (io.ReadCloser, error), bundle streamBundleData, prefix string) error {
 	if err := writeJSONZipEntry(zipWriter, prefix+"manifest.json", bundle.Manifest, bundle.Stream.UpdatedAt); err != nil {
 		return err
 	}
@@ -44,7 +38,7 @@ func writeStreamBundleToZip(zipWriter *zip.Writer, openChunk func(string) (readS
 	return nil
 }
 
-func writeChunkZipEntry(zipWriter *zip.Writer, openChunk func(string) (readSeekCloser, error), entryName string, chunk incidents.Chunk) error {
+func writeChunkZipEntry(zipWriter *zip.Writer, openChunk func(string) (io.ReadCloser, error), entryName string, chunk incidents.Chunk) error {
 	header := &zip.FileHeader{
 		Name:     entryName,
 		Method:   zip.Deflate,

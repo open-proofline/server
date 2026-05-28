@@ -3,6 +3,7 @@ package storage
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"path/filepath"
@@ -50,7 +51,7 @@ func (s *Store) CommitTemp(upload *TempUpload, incidentID, streamID, mediaType s
 }
 
 // Open opens a previously committed blob by its stored relative path.
-func (s *Store) Open(relPath string) (*os.File, error) {
+func (s *Store) Open(relPath string) (io.ReadCloser, error) {
 	fullPath, err := s.fullPath(relPath)
 	if err != nil {
 		return nil, err

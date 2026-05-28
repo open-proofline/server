@@ -18,7 +18,7 @@ The current backend stores generic incidents only. Planned future clients may cl
 - `internal/envelope`: implements the simulator/test AES-256-GCM client-side chunk envelope, associated data builder, and local simulator key file helpers.
 - `internal/httpapi`: owns separate private/public muxes, JSON responses, request logging, recovery, request validation, upload handling, stream state handlers, ZIP bundle streaming, and the incident viewer.
 - `internal/incidents`: defines incident/stream/chunk/checkin models and writes metadata to SQLite.
-- `internal/storage`: manages local disk blob storage, including temp uploads, hashing while streaming, and immutable final paths.
+- `internal/storage`: defines the blob-store boundary used by HTTP handlers and provides the local filesystem implementation, including temp uploads, hashing while streaming, and immutable final paths.
 - `migrations`: embeds the SQLite schema.
 
 ## Main Request Flow
@@ -27,11 +27,11 @@ Incidents are created in `internal/httpapi.createIncident`, which calls `interna
 
 Chunks are uploaded through `POST /v1/incidents/{incident_id}/chunks`, handled by `internal/httpapi.uploadChunk`.
 
-Upload handling first checks that the incident exists and is open. The file is then streamed by `internal/httpapi.readChunkUpload` into `internal/storage.Store.SaveTemp`, which writes to `data/tmp` while computing SHA-256 and enforcing the upload byte limit.
+Upload handling first checks that the incident exists and is open. The file is then streamed by `internal/httpapi.readChunkUpload` into `internal/storage.BlobStore.SaveTemp`, which the current local implementation writes to `data/tmp` while computing SHA-256 and enforcing the upload byte limit.
 
 Hash verification happens in `internal/httpapi.uploadChunk` by comparing the computed temp-file hash with the client-provided `sha256_hex`.
 
-After verification, `internal/storage.Store.CommitTemp` stores the file under:
+After verification, `internal/storage.BlobStore.CommitTemp` commits the file under:
 
 ```text
 data/incidents/{incident_id}/streams/{stream_id}/{media_type}_{zero_padded_chunk_index}.enc
