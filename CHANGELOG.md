@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Introduced a narrow blob-store interface around the existing local filesystem
+  encrypted blob storage implementation.
 - Added backend-selection configuration scaffolding for the current SQLite,
   local filesystem, and no-coordination backends while rejecting unsupported
   future backend values.

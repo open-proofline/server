@@ -3,6 +3,7 @@ package httpapi
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path"
@@ -159,7 +160,13 @@ func (a *API) getChunkBytes(w http.ResponseWriter, r *http.Request) {
 	setNoStore(w)
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Length", strconv.FormatInt(chunk.ByteSize, 10))
-	http.ServeContent(w, r, path.Base(chunk.StoredPath), chunk.CreatedAt, file)
+	if seeker, ok := file.(io.ReadSeeker); ok {
+		http.ServeContent(w, r, path.Base(chunk.StoredPath), chunk.CreatedAt, seeker)
+		return
+	}
+	if _, err := io.Copy(w, file); err != nil {
+		a.logInternalError("write chunk bytes", err)
+	}
 }
 
 func (a *API) validateChunkStream(w http.ResponseWriter, r *http.Request, incidentID string, upload chunkUpload) bool {
