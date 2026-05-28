@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Added a public incident viewer deployment checklist covering public route
+  exposure, TLS/HSTS, edge rate limiting, proxy log redaction, viewer-token
+  review, and retention/restore expectations.
+- Sanitized internal filesystem error logging
+
 ## v0.7.0 - 2026-05-28
 
 - Moved the Go module and backend source tree to the repository root as
