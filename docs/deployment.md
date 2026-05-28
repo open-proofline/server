@@ -55,6 +55,32 @@ Container defaults:
 
 Inside containers, bind to container addresses such as `0.0.0.0`, then restrict host exposure with Docker port publishing, firewall rules, WireGuard, or a reverse proxy.
 
+## Optional S3-Compatible Blob Storage
+
+Local filesystem encrypted blob storage remains the default. To store committed encrypted chunks in an S3-compatible object store, explicitly set `SAFE_BLOB_BACKEND=s3` and configure the S3 endpoint and bucket:
+
+```bash
+SAFE_BLOB_BACKEND=s3 \
+SAFE_S3_ENDPOINT=https://s3.example.invalid \
+SAFE_S3_REGION=us-east-1 \
+SAFE_S3_BUCKET=proofline-evidence \
+SAFE_S3_PREFIX=prod/server \
+SAFE_S3_ACCESS_KEY_ID=example-access-key \
+SAFE_S3_SECRET_ACCESS_KEY=example-secret-key \
+go run ./cmd/api
+```
+
+The S3 backend requires `SAFE_S3_ACCESS_KEY_ID` and `SAFE_S3_SECRET_ACCESS_KEY`. `SAFE_S3_SESSION_TOKEN` is optional. Treat static credentials, bucket names, private endpoints, and deployment-specific prefixes as private deployment details.
+
+S3-compatible storage stores opaque encrypted chunk bytes only. It does not add backend decryption, key escrow, public `/v1` authentication, cloud deployment automation, or production readiness. Uploads still stage local temp files under `SAFE_DATA_DIR/tmp` before a final conditional object write, so the deployment must preserve enough local temp space for in-flight uploads and must include conservative cleanup for abandoned temp files after crashes.
+
+Use HTTPS for S3-compatible endpoints unless the endpoint is reachable only on a
+local or private test network. Before storing real evidence, verify the selected
+provider honors conditional no-overwrite object writes by rejecting a second
+write to the same final key.
+
+Final object keys are derived by the server from stored chunk metadata and the optional safe prefix. Do not create proxy routes, dashboards, logs, or support workflows that expose raw object keys, bucket URLs, request bodies, uploaded bytes, plaintext, raw keys, raw viewer tokens, or private deployment details.
+
 ## Private API Through WireGuard Or A Private Network
 
 For a private API reachable from a WireGuard peer or private LAN, publish or bind `/v1` only on that private interface. This example uses `10.66.0.1` as a placeholder WireGuard interface address:
@@ -113,8 +139,8 @@ Before exposing the public incident viewer:
 - [ ] Retention, backup, restore, and deletion expectations are documented for
       this deployment and reviewed against
       [retention-backup-deletion.md](retention-backup-deletion.md).
-- [ ] Restore testing confirms SQLite metadata and encrypted blobs can be
-      restored together without exposing `/v1` publicly.
+- [ ] Restore testing confirms SQLite metadata and encrypted local blobs or S3
+      objects can be restored together without exposing `/v1` publicly.
 - [ ] Monitoring and timeout settings cover public viewer errors, storage or
       database failures, and long encrypted ZIP downloads without logging raw
       tokens, request bodies, uploaded bytes, plaintext, raw keys, or private

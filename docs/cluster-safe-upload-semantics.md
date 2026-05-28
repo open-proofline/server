@@ -41,7 +41,8 @@ storage backends.
 - No resumable upload protocol or partial committed chunks.
 - No duplicate-chunk reconciliation API implementation. The client-facing
   reconciliation design is documented in [api.md](api.md).
-- No PostgreSQL, S3-compatible storage, or Valkey implementation.
+- No PostgreSQL implementation, no changes to the optional S3-compatible
+  storage backend, and no Valkey implementation.
 - No public `/v1` exposure or account/authentication model.
 - No client repository, protocol repository, or mobile implementation.
 - No backend decryption, raw server-held keys, key escrow, key sharing, or

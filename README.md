@@ -8,7 +8,7 @@
 [![Security Policy](https://img.shields.io/badge/security-policy-blue.svg)](SECURITY.md)
 [![GHCR](https://img.shields.io/static/v1?label=GHCR&message=ghcr.io%2Fopen-proofline%2Fserver&color=blue&logo=github)](https://github.com/orgs/open-proofline/packages/container/package/server)
 
-Proofline Server is the experimental Go server backend for private encrypted incident capture. It receives already-encrypted recording chunks, stores metadata in SQLite, keeps encrypted blobs on local disk, and exposes a token-scoped read-only viewer for incident review.
+Proofline Server is the experimental Go server backend for private encrypted incident capture. It receives already-encrypted recording chunks, stores metadata in SQLite, keeps encrypted blobs on local disk by default or in optional S3-compatible object storage, and exposes a token-scoped read-only viewer for incident review.
 
 > Repository role: this repository is the server/backend component only. In the multi-repo layout it is `open-proofline/server`, not the full Proofline product suite.
 >
@@ -30,7 +30,7 @@ Evidence bundles are ZIP files containing encrypted chunks and JSON manifests. T
 
 The simulator encrypts fake chunks by default with the documented v1 AES-256-GCM envelope and verifies downloaded bundles locally. Keys remain client-side and are not uploaded to the backend. Future production key custody is expected to use a hybrid trusted-contact model; see [docs/key-custody.md](docs/key-custody.md).
 
-Planned production-cluster work is additive. SQLite metadata and local filesystem blob storage remain supported while future implementation may add optional PostgreSQL metadata, S3-compatible object storage, Valkey/Redis-compatible coordination, and cluster-safe idempotent upload semantics. See [docs/production-cluster-scope.md](docs/production-cluster-scope.md).
+Planned production-cluster work is additive. SQLite metadata and local filesystem blob storage remain supported. Optional S3-compatible object storage is available for committed encrypted chunks, while future implementation may add optional PostgreSQL metadata, Valkey/Redis-compatible coordination, and cluster-safe idempotent upload semantics. See [docs/production-cluster-scope.md](docs/production-cluster-scope.md).
 
 ## Planned Open Proofline Repositories
 
@@ -65,13 +65,14 @@ The current backend still stores generic incidents. First-class incident types, 
 
 - Private `/v1` write/admin API listener group
 - Public read-only incident viewer listener group
-- SQLite metadata and local disk encrypted blob storage
+- SQLite metadata and local disk encrypted blob storage by default
+- Optional S3-compatible encrypted blob storage for committed chunks
 - Immutable chunk uploads with SHA-256 verification
 - Documented client-side chunk encryption envelope
 - Media streams with `open`, `complete`, and `failed` states
 - Completed encrypted stream and incident ZIP evidence bundle downloads
 - Scoped viewer tokens with a default 24-hour expiry
-- Validated backend-selection config defaults for SQLite metadata, local encrypted blobs, and no coordination backend
+- Validated backend-selection config defaults for SQLite metadata, local encrypted blobs, optional S3-compatible encrypted blobs, and no coordination backend
 - Simulator CLI for encrypted upload, check-in, stream completion, and bundle download/decrypt-verification flows
 - Docker image build and GitHub Actions / GHCR publishing
 
@@ -85,7 +86,6 @@ The current backend still stores generic incidents. First-class incident types, 
 - No first-class incident-type or escalation-policy schema
 - No production client-side encryption implementation
 - No PostgreSQL metadata backend
-- No S3-compatible object storage backend
 - No Valkey/Redis-compatible coordination backend
 - No implemented cluster-safe upload operation or idempotency API
 - No implemented resumable upload or upload lease protocol
@@ -103,7 +103,7 @@ Proofline Server runs separate private and public HTTP listener groups from the 
 flowchart LR
     FutureClients["Future clients<br/>separate repos"] --> Private["Private /v1 API<br/>localhost/LAN/WireGuard"]
     Private --> DB[(SQLite metadata)]
-    Private --> Blobs[(Local encrypted blobs)]
+    Private --> Blobs[(Local or S3 encrypted blobs)]
     Private --> Tokens["Viewer token creation"]
     Contact["Trusted contact"] --> Public["Public incident viewer<br/>/i/{token}"]
     Public --> DB
@@ -119,7 +119,7 @@ Requirements:
 
 - Go 1.26.3
 - SQLite via the bundled Go SQLite driver dependency
-- Local disk storage for encrypted uploaded blobs
+- Local disk storage for encrypted uploaded blobs by default
 
 Run the backend:
 
@@ -226,7 +226,6 @@ Please see [SECURITY.md](SECURITY.md) for supported versions and vulnerability r
 - Create future `open-proofline/web-client`, `open-proofline/ios-client`, `open-proofline/android-client`, and `open-proofline/protocol` repositories when their scopes are ready
 - Plan any future protocol or data-layout compatibility migrations separately from the completed repository/module/artifact rename
 - Add optional PostgreSQL metadata support while preserving SQLite local/default support
-- Add optional S3-compatible encrypted blob storage while preserving local filesystem support
 - Add optional Valkey/Redis-compatible coordination for leases, idempotency, and retry handling without making it durable evidence storage
 - Implement cluster-safe upload operation semantics before multi-node production deployment
 - WireGuard-only bind/firewall deployment guidance

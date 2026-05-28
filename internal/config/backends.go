@@ -9,6 +9,7 @@ import (
 const (
 	MetadataBackendSQLite   = "sqlite"
 	BlobBackendLocal        = "local"
+	BlobBackendS3           = "s3"
 	CoordinationBackendNone = "none"
 )
 
@@ -24,7 +25,7 @@ func backendSelectionFromEnv() (BackendSelection, error) {
 	blob, err := backendFromEnv(
 		"SAFE_BLOB_BACKEND",
 		BlobBackendLocal,
-		[]string{BlobBackendLocal},
+		[]string{BlobBackendLocal, BlobBackendS3},
 	)
 	if err != nil {
 		return BackendSelection{}, err

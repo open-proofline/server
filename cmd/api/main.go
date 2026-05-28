@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
 	"github.com/open-proofline/server/internal/config"
@@ -37,7 +39,7 @@ func run(logger *slog.Logger) error {
 	}
 	defer conn.Close()
 
-	blobStore, err := storage.New(cfg.DataDir)
+	blobStore, err := newBlobStore(cfg)
 	if err != nil {
 		return err
 	}
@@ -63,5 +65,26 @@ func run(logger *slog.Logger) error {
 	case err := <-errCh:
 		_ = shutdownServers(servers)
 		return err
+	}
+}
+
+func newBlobStore(cfg config.Config) (storage.BlobStore, error) {
+	switch cfg.Backends.Blob {
+	case config.BlobBackendLocal:
+		return storage.New(cfg.DataDir)
+	case config.BlobBackendS3:
+		return storage.NewS3(storage.S3Options{
+			Endpoint:        cfg.S3Blob.Endpoint,
+			Region:          cfg.S3Blob.Region,
+			Bucket:          cfg.S3Blob.Bucket,
+			Prefix:          cfg.S3Blob.Prefix,
+			AccessKeyID:     cfg.S3Blob.AccessKeyID,
+			SecretAccessKey: cfg.S3Blob.SecretAccessKey,
+			SessionToken:    cfg.S3Blob.SessionToken,
+			ForcePathStyle:  cfg.S3Blob.ForcePathStyle,
+			TempDir:         filepath.Join(cfg.DataDir, "tmp"),
+		})
+	default:
+		return nil, fmt.Errorf("unsupported blob backend %q", cfg.Backends.Blob)
 	}
 }

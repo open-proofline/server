@@ -31,6 +31,7 @@ type Config struct {
 	PrivateBindAddrs        []string
 	PublicBindAddrs         []string
 	Backends                BackendSelection
+	S3Blob                  S3BlobConfig
 	DataDir                 string
 	DBPath                  string
 	MaxUploadBytes          int64
@@ -44,6 +45,18 @@ type BackendSelection struct {
 	Metadata     string
 	Blob         string
 	Coordination string
+}
+
+// S3BlobConfig contains the optional S3-compatible blob backend settings.
+type S3BlobConfig struct {
+	Endpoint        string
+	Region          string
+	Bucket          string
+	Prefix          string
+	AccessKeyID     string
+	SecretAccessKey string
+	SessionToken    string
+	ForcePathStyle  bool
 }
 
 // HTTPTimeouts groups net/http server timeout settings.
@@ -70,6 +83,10 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	s3Blob, err := s3BlobConfigFromEnv(backends.Blob)
+	if err != nil {
+		return Config{}, err
+	}
 
 	maxUploadBytes, err := maxUploadBytesFromEnv()
 	if err != nil {
@@ -93,6 +110,7 @@ func Load() (Config, error) {
 		PrivateBindAddrs:        privateBindAddrs,
 		PublicBindAddrs:         publicBindAddrs,
 		Backends:                backends,
+		S3Blob:                  s3Blob,
 		DataDir:                 envOrDefault("SAFE_DATA_DIR", defaultDataDir),
 		DBPath:                  envOrDefault("SAFE_DB_PATH", defaultDBPath),
 		MaxUploadBytes:          maxUploadBytes,

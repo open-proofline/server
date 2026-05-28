@@ -1,6 +1,6 @@
 # Architecture
 
-Proofline Server is currently a single Go backend binary with separate private and public HTTP listener groups. It stores incident metadata in SQLite and encrypted uploaded chunks on local disk.
+Proofline Server is currently a single Go backend binary with separate private and public HTTP listener groups. It stores incident metadata in SQLite and encrypted uploaded chunks on local disk by default, with optional S3-compatible object storage for committed encrypted chunks.
 
 This repository is the server/backend component only. In the planned multi-repo layout it corresponds to `open-proofline/server`. Web, iOS, Android, and shared protocol work are expected to live in separate future repositories.
 
@@ -73,7 +73,7 @@ flowchart TB
         FuturePhone["Future mobile client<br/>separate repo"] --> WireGuard["WireGuard / LAN / firewall"]
         Simulator["Simulator CLI"] --> PrivateListener["Private API listener<br/>SAFE_PRIVATE_BIND_ADDRS"]
         WireGuard --> PrivateListener
-        PrivateListener --> Storage["SQLite + local encrypted blobs"]
+        PrivateListener --> Storage["SQLite + local or S3 encrypted blobs"]
     end
 
     subgraph PublicEdge["Public incident viewer exposure"]
@@ -91,7 +91,7 @@ sequenceDiagram
     participant Client as Simulator or future client
     participant Private as Private /v1 API
     participant DB as SQLite
-    participant Blob as Local blob storage
+    participant Blob as Blob storage
     participant Public as Public incident viewer
     participant Contact as Trusted contact
 

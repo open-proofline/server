@@ -23,7 +23,7 @@ internal/db       SQLite setup, schema_migrations, and compatibility migrations
 internal/envelope client-side chunk encryption envelope helpers
 internal/httpapi  HTTP handlers, muxes, middleware, bundles, web assets
 internal/incidents incident, stream, chunk, checkin, and token repository code
-internal/storage  local immutable blob storage
+internal/storage  blob-store boundary, local immutable storage, and optional S3-compatible storage
 migrations        embedded SQLite schema
 docs/              project documentation
 docs/reports/      public technical review reports and report prompts

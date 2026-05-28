@@ -11,8 +11,16 @@ Configuration is read from environment variables when the Proofline API starts.
 | `SAFE_DATA_DIR` | `./data` | Local directory for SQLite, temp uploads, and encrypted blobs unless `SAFE_DB_PATH` points elsewhere. |
 | `SAFE_DB_PATH` | `./data/safety.db` | SQLite database path. The default file name still uses `safety.db` until a separate data-layout migration is performed. |
 | `SAFE_METADATA_BACKEND` | `sqlite` | Metadata backend selector. Only `sqlite` is currently implemented. |
-| `SAFE_BLOB_BACKEND` | `local` | Encrypted blob backend selector. Only `local` filesystem storage is currently implemented. |
+| `SAFE_BLOB_BACKEND` | `local` | Encrypted blob backend selector. Supported values are `local` and `s3`. |
 | `SAFE_COORDINATION_BACKEND` | `none` | Coordination backend selector. Only `none` is currently implemented. |
+| `SAFE_S3_ENDPOINT` | unset | S3-compatible endpoint URL. Required when `SAFE_BLOB_BACKEND=s3`. |
+| `SAFE_S3_REGION` | `us-east-1` | S3 signing region used when `SAFE_BLOB_BACKEND=s3`. |
+| `SAFE_S3_BUCKET` | unset | S3 bucket for committed encrypted chunks. Required when `SAFE_BLOB_BACKEND=s3`. |
+| `SAFE_S3_PREFIX` | unset | Optional server-controlled object key prefix for committed chunks. |
+| `SAFE_S3_ACCESS_KEY_ID` | unset | Static S3 access key. Required when `SAFE_BLOB_BACKEND=s3`. |
+| `SAFE_S3_SECRET_ACCESS_KEY` | unset | Static S3 secret access key. Required when `SAFE_BLOB_BACKEND=s3`; treat as a secret. |
+| `SAFE_S3_SESSION_TOKEN` | unset | Optional static S3 session token. Requires static S3 credentials. |
+| `SAFE_S3_FORCE_PATH_STYLE` | `true` | Use path-style bucket addressing for S3-compatible services. Set to `false` for virtual-hosted-style services that require it. |
 | `SAFE_MAX_UPLOAD_BYTES` | `250MB` | Maximum encrypted file bytes per upload. |
 | `SAFE_DEFAULT_INCIDENT_TOKEN_TTL` | `24h` | Default lifetime for viewer tokens created without `expires_at`. Set to `0` to disable the default for omitted `expires_at` values. |
 | `SAFE_PRIVATE_READ_HEADER_TIMEOUT` | `10s` | Private API HTTP read-header timeout. |
@@ -28,7 +36,7 @@ The older singular variables `SAFE_PRIVATE_BIND_ADDR` and `SAFE_PUBLIC_BIND_ADDR
 
 ## Backend Selection Scaffold
 
-The backend selector variables are a startup validation scaffold for planned cluster support. They currently accept only the implemented local-first values:
+The backend selector variables are a startup validation scaffold for cluster support. Local-first values remain the defaults:
 
 ```bash
 SAFE_METADATA_BACKEND=sqlite \
@@ -39,9 +47,24 @@ go run ./cmd/api
 
 Values are matched case-insensitively after trimming surrounding whitespace. Unsupported names fail startup with a clear configuration error.
 
-PostgreSQL metadata, S3-compatible object storage, and Valkey/Redis-compatible coordination are planned but not implemented by this scaffold. Setting future values such as `postgresql`, `s3`, `valkey`, or `redis` will fail until those backends are deliberately added and documented.
+S3-compatible object storage is implemented as an optional encrypted blob backend for committed chunks:
 
-`SAFE_DB_PATH` and `SAFE_DATA_DIR` keep their current behavior for the supported `sqlite` and `local` backends.
+```bash
+SAFE_METADATA_BACKEND=sqlite \
+SAFE_BLOB_BACKEND=s3 \
+SAFE_COORDINATION_BACKEND=none \
+SAFE_S3_ENDPOINT=https://s3.example.invalid \
+SAFE_S3_REGION=us-east-1 \
+SAFE_S3_BUCKET=proofline-evidence \
+SAFE_S3_PREFIX=prod/server \
+SAFE_S3_ACCESS_KEY_ID=example-access-key \
+SAFE_S3_SECRET_ACCESS_KEY=example-secret-key \
+go run ./cmd/api
+```
+
+PostgreSQL metadata and Valkey/Redis-compatible coordination are still planned but not implemented. Setting future values such as `postgresql`, `valkey`, or `redis` will fail until those backends are deliberately added and documented.
+
+`SAFE_DB_PATH` and `SAFE_DATA_DIR` keep their current behavior for the supported `sqlite` and `local` backends. When `SAFE_BLOB_BACKEND=s3`, `SAFE_DATA_DIR/tmp` is still used for local temporary upload staging before final object writes.
 
 The future PostgreSQL metadata configuration shape is planned in
 [PostgreSQL metadata migration path](postgresql-metadata-migration.md). Until
@@ -49,6 +72,32 @@ that backend exists, do not configure PostgreSQL connection strings for the
 server and do not expect `SAFE_DB_PATH` to apply to anything except SQLite.
 Future PostgreSQL DSNs or credentials must be treated as secret-bearing values
 and must not be logged.
+
+## S3-Compatible Blob Storage
+
+The S3-compatible backend stores only opaque encrypted chunk bytes. It does not add backend decryption, raw media keys, key escrow, browser decryption, public `/v1` authentication, or production-readiness guarantees.
+
+Uploads are first staged as local temp files under `SAFE_DATA_DIR/tmp` while the server enforces `SAFE_MAX_UPLOAD_BYTES` and computes SHA-256 over the uploaded ciphertext. After the client-provided hash is verified, the server writes the final object key with conditional no-overwrite behavior. The final object key is derived from server-controlled incident, stream, media type, and chunk index metadata:
+
+```text
+{SAFE_S3_PREFIX}/incidents/{incident_id}/streams/{stream_id}/{media_type}_{zero_padded_chunk_index}.enc
+{SAFE_S3_PREFIX}/incidents/{incident_id}/{media_type}_{zero_padded_chunk_index}.enc
+```
+
+The optional prefix must be relative and must not contain empty, `.`, `..`, or backslash path segments. Client requests never provide final object keys or stored paths.
+
+Use HTTPS for S3-compatible endpoints unless the endpoint is limited to a local
+or private test network. Plain HTTP object-storage traffic can expose
+credentials, session tokens, object keys, and encrypted evidence bytes to the
+network path. Before enabling a provider for evidence storage, run a small
+no-overwrite smoke test that confirms conditional writes reject an existing
+object instead of replacing it.
+
+This implementation does not create S3 staging objects. Failed uploads and hash mismatches clean up local temp files through the normal upload path. If the process crashes, abandoned local temp files under `SAFE_DATA_DIR/tmp` may remain and should be cleaned only by a conservative operator policy that never deletes committed objects. Object-store lifecycle cleanup for staging prefixes is not needed unless a future resumable or multipart S3 staging design adds such prefixes.
+
+`SAFE_S3_ACCESS_KEY_ID` and `SAFE_S3_SECRET_ACCESS_KEY` are required when the S3 backend is selected. `SAFE_S3_SESSION_TOKEN` is optional. Credentials, endpoints, bucket names, object keys, and private deployment details should not be written to public issue drafts, logs, or support tickets.
+
+Bundle downloads continue to generate server-controlled ZIP entry names such as `chunks/audio_000001.enc`; they do not expose object-store URLs, bucket names, configured prefixes, or filesystem paths.
 
 ## Bind Address Lists
 
@@ -109,3 +158,5 @@ data/
 Uploaded chunks are staged in `tmp/`, hashed while streaming, and hard-linked into the final incident path only after SHA-256 verification. New streamed uploads use the stream-scoped path. Legacy unstreamed chunks keep the older incident-level path. Stored chunk paths are relative server-controlled paths, not client-provided paths.
 
 SQLite schema changes are tracked in a `schema_migrations` table in the configured database.
+
+With `SAFE_BLOB_BACKEND=s3`, committed encrypted chunks use the same stored path values in SQLite, but those values are resolved to S3 object keys under `SAFE_S3_PREFIX` instead of local files under `SAFE_DATA_DIR/incidents`.

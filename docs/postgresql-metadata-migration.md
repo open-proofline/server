@@ -6,9 +6,10 @@ change the current SQLite default, change blob storage, expose `/v1`
 publicly, add account management, or change the backend ciphertext-only
 encryption posture.
 
-SQLite metadata and local encrypted blob storage remain supported. PostgreSQL
-is planned as an optional metadata backend for deployments that need a
-cluster-safe database behind more than one API node.
+SQLite metadata and local encrypted blob storage remain supported. Optional
+S3-compatible encrypted blob storage is implemented separately from this
+metadata design. PostgreSQL is planned as an optional metadata backend for
+deployments that need a cluster-safe database behind more than one API node.
 
 ## Goals
 
@@ -28,8 +29,8 @@ cluster-safe database behind more than one API node.
 - No change to current `SAFE_METADATA_BACKEND=sqlite` behavior.
 - No migration of existing deployments by default.
 - No PostgreSQL requirement for local development or simulator flows.
-- No S3-compatible blob storage or Valkey/Redis-compatible coordination
-  implementation.
+- No changes to S3-compatible blob storage and no Valkey/Redis-compatible
+  coordination implementation.
 - No public `/v1` exposure, user accounts, OAuth, JWT, public admin dashboard,
   cloud deployment automation, Docker Compose, Kubernetes, or Terraform.
 - No backend decryption, raw server-held media keys, key escrow, browser

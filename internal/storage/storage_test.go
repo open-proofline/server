@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -16,9 +17,10 @@ func TestLocalStoreBlobStoreSemantics(t *testing.T) {
 		t.Fatalf("new store: %v", err)
 	}
 	var blobStore BlobStore = store
+	ctx := context.Background()
 
 	payload := "encrypted audio data"
-	upload, err := blobStore.SaveTemp(strings.NewReader(payload), int64(len(payload)))
+	upload, err := blobStore.SaveTemp(ctx, strings.NewReader(payload), int64(len(payload)))
 	if err != nil {
 		t.Fatalf("save temp: %v", err)
 	}
@@ -26,7 +28,7 @@ func TestLocalStoreBlobStoreSemantics(t *testing.T) {
 		t.Fatalf("unexpected staged upload metadata: %+v", upload)
 	}
 
-	storedPath, err := blobStore.CommitTemp(upload, "inc_test", "str_test", "audio", 1)
+	storedPath, err := blobStore.CommitTemp(ctx, upload, "inc_test", "str_test", "audio", 1)
 	if err != nil {
 		t.Fatalf("commit temp: %v", err)
 	}
@@ -37,7 +39,7 @@ func TestLocalStoreBlobStoreSemantics(t *testing.T) {
 		t.Fatalf("expected committed upload cleanup, got temp path %q", upload.Path)
 	}
 
-	reader, err := blobStore.Open(storedPath)
+	reader, err := blobStore.Open(ctx, storedPath)
 	if err != nil {
 		t.Fatalf("open stored blob: %v", err)
 	}
@@ -52,17 +54,17 @@ func TestLocalStoreBlobStoreSemantics(t *testing.T) {
 		t.Fatalf("stored payload mismatch: %q", stored)
 	}
 
-	duplicateUpload, err := blobStore.SaveTemp(strings.NewReader("replacement"), int64(len("replacement")))
+	duplicateUpload, err := blobStore.SaveTemp(ctx, strings.NewReader("replacement"), int64(len("replacement")))
 	if err != nil {
 		t.Fatalf("save duplicate temp: %v", err)
 	}
 	t.Cleanup(duplicateUpload.Cleanup)
-	_, err = blobStore.CommitTemp(duplicateUpload, "inc_test", "str_test", "audio", 1)
+	_, err = blobStore.CommitTemp(ctx, duplicateUpload, "inc_test", "str_test", "audio", 1)
 	if !errors.Is(err, ErrAlreadyExists) {
 		t.Fatalf("duplicate commit error = %v, want ErrAlreadyExists", err)
 	}
 
-	reader, err = blobStore.Open(storedPath)
+	reader, err = blobStore.Open(ctx, storedPath)
 	if err != nil {
 		t.Fatalf("open original after duplicate: %v", err)
 	}
@@ -77,10 +79,10 @@ func TestLocalStoreBlobStoreSemantics(t *testing.T) {
 		t.Fatalf("duplicate commit overwrote stored payload: %q", stored)
 	}
 
-	if err := blobStore.Remove(storedPath); err != nil {
+	if err := blobStore.Remove(ctx, storedPath); err != nil {
 		t.Fatalf("remove stored blob: %v", err)
 	}
-	_, err = blobStore.Open(storedPath)
+	_, err = blobStore.Open(ctx, storedPath)
 	if !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("open removed blob error = %v, want os.ErrNotExist", err)
 	}
@@ -91,17 +93,20 @@ func TestLocalStoreRejectsUnsafeStoredPaths(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new store: %v", err)
 	}
+	ctx := context.Background()
 
 	for _, storedPath := range []string{
 		"",
 		"/absolute",
 		"../escape",
+		"incidents/inc_test/../escape",
+		"incidents//inc_test/audio_000001.enc",
 		"incidents\\inc_test\\audio_000001.enc",
 	} {
-		if _, err := store.Open(storedPath); !errors.Is(err, ErrUnsafePath) {
+		if _, err := store.Open(ctx, storedPath); !errors.Is(err, ErrUnsafePath) {
 			t.Fatalf("open %q error = %v, want ErrUnsafePath", storedPath, err)
 		}
-		if err := store.Remove(storedPath); !errors.Is(err, ErrUnsafePath) {
+		if err := store.Remove(ctx, storedPath); !errors.Is(err, ErrUnsafePath) {
 			t.Fatalf("remove %q error = %v, want ErrUnsafePath", storedPath, err)
 		}
 	}

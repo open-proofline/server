@@ -6,7 +6,7 @@ Planned future incident modes include emergency incidents, non-emergency interac
 
 ## Assets
 
-- Already-encrypted uploaded chunk files under `SAFE_DATA_DIR`
+- Already-encrypted uploaded chunk files under `SAFE_DATA_DIR` for local storage, or committed encrypted objects in the configured S3-compatible bucket
 - Incident, media stream, chunk, checkin, and viewer/incident-token metadata in SQLite
 - Future optional PostgreSQL metadata is planned but not implemented; schema,
   migration, transaction, test, and restore expectations are documented in
@@ -38,7 +38,7 @@ Planned future incident modes include emergency incidents, non-emergency interac
 - Uploads stream to `data/tmp` while computing SHA-256 and enforcing `SAFE_MAX_UPLOAD_BYTES`.
 - Upload-limit configuration rejects non-positive, sub-byte, invalid, and oversized values before request-size limits are applied.
 - Uploaded bytes are committed only after hash verification.
-- Final chunk storage uses no-overwrite hard links.
+- Final local chunk storage uses no-overwrite hard links. Optional S3-compatible storage uses conditional no-overwrite final object writes.
 - The simulator encrypts fake chunk plaintext by default using the documented v1 AES-256-GCM envelope.
 - Encryption keys remain client-side; they are not uploaded, stored in SQLite, or added to evidence bundles.
 - SQLite enforces media type, chunk index, byte size, SHA-256 shape, foreign keys, and unique chunk identity.
@@ -52,7 +52,7 @@ Planned future incident modes include emergency incidents, non-emergency interac
 - Token-protected pages, JSON, errors, private responses, private chunk reads, and bundle downloads use `Cache-Control: no-store`.
 - Request logging records method, redacted route pattern, status, byte count, and duration. It does not log request bodies, uploaded bytes, Authorization headers, raw viewer tokens, raw incident tokens, plaintext, or raw keys.
 - Templates use Go `html/template` escaping.
-- Storage rejects absolute paths, `..`, slash-containing path segments, and backslash traversal.
+- Storage rejects absolute paths, `..`, slash-containing path segments, and backslash traversal. S3 object keys are derived from server-controlled stored paths and an optional safe prefix.
 
 ## Incident Mode Risks To Preserve For Future Design
 
@@ -87,7 +87,7 @@ The current backend does not implement incident-mode-specific controls yet, so f
 - No implemented resumable upload or upload lease protocol. Current clients
   should retry complete encrypted chunk uploads; the future design is planned
   in [resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md).
-- Retention, backup, restore, and deletion policy is documented in [retention-backup-deletion.md](retention-backup-deletion.md), but the backend does not yet implement automatic expiration, incident deletion APIs, or built-in disk encryption.
+- Retention, backup, restore, and deletion policy is documented in [retention-backup-deletion.md](retention-backup-deletion.md), but the backend does not yet implement automatic expiration, incident deletion APIs, built-in disk encryption, or object-bucket lifecycle policy enforcement.
 - No malware/content scanning; uploaded bytes are assumed to be client-encrypted blobs.
 - Bundle downloads are encrypted chunk bundles, not decrypted or playable media exports.
 - No multi-user authorization model.

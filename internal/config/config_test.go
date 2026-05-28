@@ -70,6 +70,97 @@ func TestLoadExplicitSupportedBackends(t *testing.T) {
 	}
 }
 
+func TestLoadS3BlobBackendConfig(t *testing.T) {
+	cfg := loadConfigForTest(t, map[string]string{
+		"SAFE_BLOB_BACKEND":         "S3",
+		"SAFE_S3_ENDPOINT":          "https://s3.example.test",
+		"SAFE_S3_REGION":            "us-test-1",
+		"SAFE_S3_BUCKET":            "proofline-evidence",
+		"SAFE_S3_PREFIX":            "prod/server",
+		"SAFE_S3_ACCESS_KEY_ID":     "test-access-key",
+		"SAFE_S3_SECRET_ACCESS_KEY": "test-secret-key",
+		"SAFE_S3_SESSION_TOKEN":     "test-session-token",
+		"SAFE_S3_FORCE_PATH_STYLE":  "false",
+	})
+
+	if cfg.Backends.Blob != BlobBackendS3 {
+		t.Fatalf("blob backend = %q, want s3", cfg.Backends.Blob)
+	}
+	want := S3BlobConfig{
+		Endpoint:        "https://s3.example.test",
+		Region:          "us-test-1",
+		Bucket:          "proofline-evidence",
+		Prefix:          "prod/server",
+		AccessKeyID:     "test-access-key",
+		SecretAccessKey: "test-secret-key",
+		SessionToken:    "test-session-token",
+		ForcePathStyle:  false,
+	}
+	if cfg.S3Blob != want {
+		t.Fatalf("s3 config = %+v, want %+v", cfg.S3Blob, want)
+	}
+}
+
+func TestLoadS3BlobBackendRequiresExplicitConfig(t *testing.T) {
+	tests := map[string]map[string]string{
+		"endpoint": {
+			"SAFE_BLOB_BACKEND":         "s3",
+			"SAFE_S3_BUCKET":            "proofline-evidence",
+			"SAFE_S3_ACCESS_KEY_ID":     "test-access-key",
+			"SAFE_S3_SECRET_ACCESS_KEY": "test-secret-key",
+		},
+		"bucket": {
+			"SAFE_BLOB_BACKEND":         "s3",
+			"SAFE_S3_ENDPOINT":          "https://s3.example.test",
+			"SAFE_S3_ACCESS_KEY_ID":     "test-access-key",
+			"SAFE_S3_SECRET_ACCESS_KEY": "test-secret-key",
+		},
+		"missing access key": {
+			"SAFE_BLOB_BACKEND":         "s3",
+			"SAFE_S3_ENDPOINT":          "https://s3.example.test",
+			"SAFE_S3_BUCKET":            "proofline-evidence",
+			"SAFE_S3_SECRET_ACCESS_KEY": "test-secret-key",
+		},
+		"missing secret key": {
+			"SAFE_BLOB_BACKEND":     "s3",
+			"SAFE_S3_ENDPOINT":      "https://s3.example.test",
+			"SAFE_S3_BUCKET":        "proofline-evidence",
+			"SAFE_S3_ACCESS_KEY_ID": "test-access-key",
+		},
+		"invalid path style flag": {
+			"SAFE_BLOB_BACKEND":         "s3",
+			"SAFE_S3_ENDPOINT":          "https://s3.example.test",
+			"SAFE_S3_BUCKET":            "proofline-evidence",
+			"SAFE_S3_ACCESS_KEY_ID":     "test-access-key",
+			"SAFE_S3_SECRET_ACCESS_KEY": "test-secret-key",
+			"SAFE_S3_FORCE_PATH_STYLE":  "sometimes",
+		},
+	}
+
+	for name, env := range tests {
+		t.Run(name, func(t *testing.T) {
+			_, err := loadConfigForTestErr(t, env)
+			if err == nil {
+				t.Fatal("expected s3 config error")
+			}
+			if !strings.Contains(err.Error(), "SAFE_S3_") {
+				t.Fatalf("expected SAFE_S3 error, got %v", err)
+			}
+		})
+	}
+}
+
+func TestLoadLocalBlobBackendIgnoresS3Config(t *testing.T) {
+	cfg := loadConfigForTest(t, map[string]string{
+		"SAFE_BLOB_BACKEND":        "local",
+		"SAFE_S3_FORCE_PATH_STYLE": "not-a-bool",
+	})
+
+	if cfg.Backends.Blob != BlobBackendLocal {
+		t.Fatalf("blob backend = %q, want local", cfg.Backends.Blob)
+	}
+}
+
 func TestLoadBackendsPreservesLocalPaths(t *testing.T) {
 	cfg := loadConfigForTest(t, map[string]string{
 		"SAFE_METADATA_BACKEND":     "sqlite",
@@ -93,7 +184,7 @@ func TestLoadRejectsUnsupportedBackends(t *testing.T) {
 			"SAFE_METADATA_BACKEND": "postgres",
 		},
 		"blob": {
-			"SAFE_BLOB_BACKEND": "s3",
+			"SAFE_BLOB_BACKEND": "filesystem",
 		},
 		"coordination": {
 			"SAFE_COORDINATION_BACKEND": "redis",
@@ -381,6 +472,14 @@ func loadConfigForTestErr(t *testing.T, env map[string]string) (Config, error) {
 		"SAFE_PUBLIC_READ_TIMEOUT",
 		"SAFE_PUBLIC_WRITE_TIMEOUT",
 		"SAFE_PUBLIC_IDLE_TIMEOUT",
+		"SAFE_S3_ENDPOINT",
+		"SAFE_S3_REGION",
+		"SAFE_S3_BUCKET",
+		"SAFE_S3_PREFIX",
+		"SAFE_S3_ACCESS_KEY_ID",
+		"SAFE_S3_SECRET_ACCESS_KEY",
+		"SAFE_S3_SESSION_TOKEN",
+		"SAFE_S3_FORCE_PATH_STYLE",
 	}
 	restoreEnv(t, names)
 	for name, value := range env {

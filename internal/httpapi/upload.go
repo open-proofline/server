@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -60,7 +61,7 @@ func (a *API) readChunkUpload(w http.ResponseWriter, r *http.Request) (chunkUplo
 
 		if part.FormName() == "file" {
 			var ok bool
-			temp, partFilename, ok = a.readFilePart(w, part, temp)
+			temp, partFilename, ok = a.readFilePart(r.Context(), w, part, temp)
 			if !ok {
 				return chunkUpload{}, false
 			}
@@ -91,7 +92,7 @@ func (a *API) readChunkUpload(w http.ResponseWriter, r *http.Request) (chunkUplo
 	return parsed, true
 }
 
-func (a *API) readFilePart(w http.ResponseWriter, part *multipart.Part, current *storage.TempUpload) (*storage.TempUpload, string, bool) {
+func (a *API) readFilePart(ctx context.Context, w http.ResponseWriter, part *multipart.Part, current *storage.TempUpload) (*storage.TempUpload, string, bool) {
 	if current != nil {
 		current.Cleanup()
 		writeError(w, http.StatusBadRequest, "duplicate_file", "only one file field is allowed")
@@ -99,7 +100,7 @@ func (a *API) readFilePart(w http.ResponseWriter, part *multipart.Part, current 
 	}
 
 	partFilename := cleanFilename(part.FileName())
-	temp, err := a.store.SaveTemp(part, a.maxUploadBytes)
+	temp, err := a.store.SaveTemp(ctx, part, a.maxUploadBytes)
 	if errors.Is(err, storage.ErrTooLarge) || isMaxBytesError(err) {
 		writeError(w, http.StatusRequestEntityTooLarge, "upload_too_large", "upload exceeded SAFE_MAX_UPLOAD_BYTES")
 		return nil, "", false
