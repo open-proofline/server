@@ -54,6 +54,11 @@ Before real-world use, choose explicit local policy values such as:
 
 Backups must preserve the relationship between SQLite metadata and encrypted blob files. A database backup without the matching blob tree may leave bundles unusable. A blob backup without the matching database may leave evidence hard to locate, verify, or serve.
 
+Future PostgreSQL metadata support has the same consistency requirement. The
+planned PostgreSQL schema, migration, and restore expectations are documented in
+[postgresql-metadata-migration.md](postgresql-metadata-migration.md). Until that
+backend is implemented, SQLite remains the only supported metadata store.
+
 Back up at least:
 
 - `SAFE_DB_PATH`
@@ -87,6 +92,11 @@ A restore test should:
 6. Confirm missing blobs or database/blob mismatches fail closed rather than producing partial evidence.
 
 The restore target must preserve the private/public listener split. Do not use a restore drill as a reason to expose `/v1` publicly.
+
+For a future PostgreSQL deployment, restore drills must also restore the
+PostgreSQL metadata database and encrypted blob storage as one logical evidence
+set, then verify completed stream and incident bundles before any public viewer
+exposure.
 
 ## Deletion Policy
 

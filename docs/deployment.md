@@ -124,6 +124,13 @@ The Go app still has no built-in app-level rate limiter. Apply rate limits at th
 
 Future server-assisted break-glass, dead-man-switch key access, account access, or trusted-contact workflows would add stronger operator and deployment trust requirements. They should remain disabled unless explicitly designed and configured; see [break-glass-key-access.md](break-glass-key-access.md), [key-custody.md](key-custody.md), and [incident-modes.md](incident-modes.md).
 
+Future PostgreSQL metadata deployment remains planning-only. The intended
+schema parity, migration tracking, transaction boundaries, configuration shape,
+and restore expectations are documented in
+[PostgreSQL metadata migration path](postgresql-metadata-migration.md).
+PostgreSQL support must not be treated as implemented or production-ready until
+the backend, tests, and restore guidance exist.
+
 The Go app does not set `Strict-Transport-Security` by default because local development uses plain HTTP. Enable HSTS at the HTTPS reverse proxy only after TLS is working for the production hostname.
 
 After deploying the public incident viewer over HTTPS, test the exposed origin with the MDN HTTP Observatory:

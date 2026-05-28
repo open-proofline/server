@@ -168,6 +168,7 @@ Container defaults bind to `0.0.0.0` inside the container. Restrict host exposur
 - [Architecture](docs/architecture.md)
 - [Configuration](docs/configuration.md)
 - [Production cluster scope](docs/production-cluster-scope.md)
+- [PostgreSQL metadata migration path](docs/postgresql-metadata-migration.md)
 - [Incident capture modes](docs/incident-modes.md)
 - [Encryption](docs/encryption.md)
 - [iOS local recorder prototype](docs/ios-local-recorder-prototype.md)

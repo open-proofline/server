@@ -38,6 +38,11 @@ Viewer URLs contain bearer tokens and should be treated as secrets. Reverse prox
 - Chunk metadata inserts recheck incident and stream state in the repository so uploads racing with close or completion are rejected.
 - Media stream completion verifies contiguous chunks and readable stored files, then rechecks chunk rows transactionally before committing completion.
 
+Future PostgreSQL metadata support must preserve these controls with equivalent
+or stronger constraints, duplicate guards, token-hash storage, and transaction
+boundaries. The planning design is documented in
+[postgresql-metadata-migration.md](postgresql-metadata-migration.md).
+
 ## Bundle Controls
 
 Completed stream and incident bundles are generated on demand as ZIP responses. ZIP entry names are controlled by the server. Manifests are generated from database metadata and do not expose server filesystem paths.
@@ -92,6 +97,8 @@ Normal file removal is not treated as guaranteed secure erasure. Deployments tha
 - No public authentication or authorization model for `/v1`
 - No built-in TLS
 - No built-in app-level rate limiting or abuse throttling
+- No implemented PostgreSQL metadata backend; the future migration path is only
+  planned in [postgresql-metadata-migration.md](postgresql-metadata-migration.md)
 - No implemented first-class incident types, escalation policies, trusted-contact accounts, dead-man switch notifications, or account-based access model
 - No implemented production client key storage, key sharing, browser decryption, server-assisted break-glass key access, or emergency-contact key access model; the future designs are documented in [key-custody.md](key-custody.md), [browser-decryption.md](browser-decryption.md), and [break-glass-key-access.md](break-glass-key-access.md)
 - No automated retention/deletion enforcement or built-in disk encryption; the operational policy is documented in [retention-backup-deletion.md](retention-backup-deletion.md)

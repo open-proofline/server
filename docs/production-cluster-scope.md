@@ -73,6 +73,12 @@ PostgreSQL support should include:
 
 SQLite should remain supported for local development, simulator workflows, and small deployments.
 
+The detailed planning design for this backend is
+[PostgreSQL metadata migration path](postgresql-metadata-migration.md). That
+document maps the current SQLite tables and constraints, migration tracking,
+transaction boundaries, parity testing, configuration shape, and restore
+expectations before implementation begins.
+
 ## S3-Compatible Object Storage Scope
 
 S3-compatible object storage is planned as the production blob backend for committed encrypted chunks.
