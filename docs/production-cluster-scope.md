@@ -124,6 +124,10 @@ If Valkey is unavailable, the system should fail closed or return retryable erro
 Future cluster upload handling should move toward explicit upload operations.
 The detailed planning design is
 [Cluster-safe upload operation semantics](cluster-safe-upload-semantics.md).
+Resumable upload and upload lease behavior is planned separately in
+[Resumable upload and upload lease protocol](resumable-upload-lease-protocol.md);
+that design defers resumable uploads and leases for a local desktop recorder
+simulator client.
 
 A safe cluster upload flow should be designed around these steps:
 

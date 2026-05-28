@@ -131,6 +131,12 @@ The repository rechecks incident and stream state when chunk metadata is inserte
 
 For clients using the v1 encryption envelope, `sha256_hex` is the SHA-256 of the complete uploaded envelope bytes, not the plaintext.
 
+The current API does not implement resumable uploads, upload leases, or
+client-side queue summary endpoints. Future clients should retry complete
+encrypted chunks unless a later explicit resumable-upload protocol is
+implemented. The planning decision is documented in
+[resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md).
+
 ### Planned Duplicate Chunk Reconciliation
 
 This section is a design contract for future implementation. The current server

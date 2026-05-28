@@ -227,8 +227,13 @@ Do not implement these as part of the prototype plan. Track them as future backe
 - no implemented client API for reconciling a duplicate chunk by expected
   ciphertext hash; the planned private query workflow is documented in
   [api.md](api.md)
-- no explicit resumable-upload protocol for partially sent large chunks
-- no endpoint for client-side local queue summaries or upload leases
+- no explicit resumable-upload protocol for partially sent large chunks; the
+  current plan defers resumable uploads for a local desktop recorder simulator
+  client and should be revalidated before native iOS work, as documented in
+  [resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md)
+- no endpoint for client-side local queue summaries or upload leases; upload
+  leases are future coordination work, not account authentication or public
+  `/v1` access control
 - no API for registering or storing contact-wrapped media keys
 - no production key custody, recovery, or trusted-contact decryption API
 - no server-side retention or incident deletion API
