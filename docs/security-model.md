@@ -45,6 +45,10 @@ boundaries. The planning design is documented in
 Future cluster-safe upload operation semantics are planned separately in
 [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md), but no
 idempotency-key or upload-operation API is implemented yet.
+Resumable uploads and upload leases are also planning-only; the current API
+still accepts complete encrypted chunks and retries should resend the complete
+chunk. See
+[resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md).
 
 ## Bundle Controls
 
@@ -105,6 +109,9 @@ Normal file removal is not treated as guaranteed secure erasure. Deployments tha
 - No implemented cluster-safe upload operation or idempotency API; the future
   semantics are only planned in
   [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md)
+- No implemented resumable upload or upload lease protocol; the future design
+  is planned in
+  [resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md)
 - No implemented first-class incident types, escalation policies, trusted-contact accounts, dead-man switch notifications, or account-based access model
 - No implemented production client key storage, key sharing, browser decryption, server-assisted break-glass key access, or emergency-contact key access model; the future designs are documented in [key-custody.md](key-custody.md), [browser-decryption.md](browser-decryption.md), and [break-glass-key-access.md](break-glass-key-access.md)
 - No automated retention/deletion enforcement or built-in disk encryption; the operational policy is documented in [retention-backup-deletion.md](retention-backup-deletion.md)

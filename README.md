@@ -88,6 +88,7 @@ The current backend still stores generic incidents. First-class incident types, 
 - No S3-compatible object storage backend
 - No Valkey/Redis-compatible coordination backend
 - No implemented cluster-safe upload operation or idempotency API
+- No implemented resumable upload or upload lease protocol
 - No backend/browser decryption, key sharing, server escrow, break-glass key access, or playable media export
 - No push notifications, SMS, or Messenger integration
 - No user accounts, OAuth, JWT, or public admin dashboard
@@ -170,6 +171,7 @@ Container defaults bind to `0.0.0.0` inside the container. Restrict host exposur
 - [Production cluster scope](docs/production-cluster-scope.md)
 - [PostgreSQL metadata migration path](docs/postgresql-metadata-migration.md)
 - [Cluster-safe upload operation semantics](docs/cluster-safe-upload-semantics.md)
+- [Resumable upload and upload lease protocol](docs/resumable-upload-lease-protocol.md)
 - [Incident capture modes](docs/incident-modes.md)
 - [Encryption](docs/encryption.md)
 - [iOS local recorder prototype](docs/ios-local-recorder-prototype.md)

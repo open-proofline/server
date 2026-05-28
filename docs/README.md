@@ -12,6 +12,7 @@ This directory contains the detailed documentation for Proofline Server, the Go 
 | [Production cluster scope](production-cluster-scope.md) | Planned additive support for cluster-safe PostgreSQL, S3-compatible object storage, and Valkey/Redis-compatible coordination. |
 | [PostgreSQL metadata migration path](postgresql-metadata-migration.md) | Planning design for the future optional PostgreSQL metadata backend, schema parity, migrations, transaction boundaries, tests, and restore expectations. |
 | [Cluster-safe upload operation semantics](cluster-safe-upload-semantics.md) | Planning design for future upload operation identity, idempotency state, commit ordering, retry success, conflict handling, and cleanup across metadata and blob backends. |
+| [Resumable upload and upload lease protocol](resumable-upload-lease-protocol.md) | Planning decision to defer resumable uploads and upload leases for a local desktop recorder simulator client while preserving complete encrypted chunk retry semantics, poor-network simulation, and future account-flow shape. |
 | [Incident capture modes](incident-modes.md) | Planned emergency, interaction-record, safety-check, and evidence-note modes. |
 | [Encryption](encryption.md) | Client-side chunk envelope, simulator key file, and local bundle verification. |
 | [iOS local recorder prototype](ios-local-recorder-prototype.md) | Future native incident-capture scope, chunking, encrypted staging, retry, and API mapping. |
@@ -62,6 +63,13 @@ The future cluster-safe upload operation path is a planning design only; see
 [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md). It does
 not implement idempotency keys, upload operations, resumable uploads,
 PostgreSQL, S3-compatible storage, or Valkey/Redis-compatible coordination.
+The resumable upload and upload lease path is also planning-only; see
+[resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md). It
+defers resumable uploads and leases for a local desktop recorder simulator
+client and keeps the current complete encrypted chunk upload contract. The
+future desktop simulator should include adjustable poor-network simulation and
+be ready for account-aware flows once the account and access-control model
+exists.
 
 The long-term Proofline product direction is broader than emergency-only recording. Future clients should support emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes while keeping capture, escalation, sharing, and legal/export actions separate. The planned incident modes are documented in [incident-modes.md](incident-modes.md).
 

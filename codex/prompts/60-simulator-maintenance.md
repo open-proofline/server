@@ -36,13 +36,29 @@ Do not rely on stale assumptions from this prompt if the repository has changed.
 - Preserve the current backend ciphertext-only implementation unless the task explicitly concerns key custody, emergency access, or decryption design.
 - Do not introduce backend decryption, raw server-held decryption keys, key escrow, browser decryption, or key-sharing behaviour as an incidental implementation detail.
 - Any key custody/decryption change must be an explicit security-sensitive task that updates the threat model, security model, encryption docs, tests, and operational guidance before or alongside implementation.
-- Future production key custody should assume the iPhone may be unavailable; keys must not exist solely on the client device.
+- Future production key custody should assume the user's phone may be unavailable; keys must not exist solely on the client device.
 - Server storage of wrapped/encrypted keys may be acceptable if explicitly designed.
 - Raw server-side key access or server-side decryption may be acceptable only as a deliberate break-glass/dead-man-switch/emergency-access mode with clear access controls, audit expectations, and deployment warnings.
 
 ## Current simulator purpose
 
-The simulator acts like a fake future iOS client.
+The simulator acts as a local backend reference client for current and future
+recorder flows.
+
+The current `cmd/simclient` uploads fake chunks through the private API and can
+verify encrypted bundle downloads locally. A future local desktop recorder
+simulator client may extend this simulator boundary, but it should remain a
+simulator, not a production desktop app or replacement for planned mobile
+clients.
+
+The future desktop simulator should support adjustable poor-network simulation
+for latency, jitter, request timeouts, bandwidth ceilings, intermittent offline
+windows, upload failure rates, and process restart or resume drills.
+
+It should also be shaped for near-term account-aware flows once the account and
+access-control model exists. Until then, account identity should remain local
+test metadata only and must not add user accounts, OAuth, JWT, public `/v1`
+authentication, or account-management routes incidentally.
 
 It should exercise:
 
@@ -57,6 +73,8 @@ It should exercise:
 - checkins
 - stream completion
 - optional failure/retry behaviour
+- adjustable poor-network simulation for future desktop recorder flows, when
+  that simulator exists
 - optional encrypted bundle download verification
 - local decrypt verification of downloaded bundles when encryption is enabled
 
@@ -68,7 +86,7 @@ Check that the simulator:
 - uses the public viewer base URL for printed incident viewer links
 - creates a media stream before uploading chunks
 - uploads chunks with `stream_id`
-- keeps chunk indexes unique per `(incident_id, media_type, chunk_index)`
+- keeps streamed chunk indexes unique per `(incident_id, stream_id, chunk_index)`
 - starts stream chunk indexes at `1`
 - encrypts fake chunks by default
 - supports `--encrypt=false` only for development compatibility
@@ -77,11 +95,17 @@ Check that the simulator:
 - sends checkins during simulation
 - completes the stream by default unless configured otherwise
 - can simulate bad-hash failure and retry
+- can simulate poor network conditions through adjustable controls when working
+  on the future desktop recorder simulator
 - can optionally download a completed encrypted bundle
 - can decrypt-verify downloaded encrypted chunks locally
 - prints readable progress output
 - does not require public auth
 - does not assume playable media exists
+- keeps near-term account support local or fixture-only until explicit account
+  and access-control backend work exists
+- does not add resumable uploads, upload leases, or server-visible queue
+  summary routes just to support simulator work unless explicitly requested
 
 ## Tests
 

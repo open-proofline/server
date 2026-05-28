@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Added a resumable upload and upload lease protocol plan that defers
+  resumable uploads for a local desktop recorder simulator client, preserves
+  complete encrypted chunk retry semantics, calls for adjustable poor-network
+  simulation and near-term account-aware simulator flows, and defines future
+  cleanup and validation boundaries.
 - Added a duplicate-chunk reconciliation API design for future clients to
   compare expected ciphertext hashes and immutable metadata without overwriting
   stored evidence.
