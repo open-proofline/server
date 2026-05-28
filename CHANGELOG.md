@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added backend-selection configuration scaffolding for the current SQLite,
+  local filesystem, and no-coordination backends while rejecting unsupported
+  future backend values.
 - Added CI runtime smoke tests for the built Linux binary and Docker image.
 - Added a public incident viewer deployment checklist covering public route
   exposure, TLS/HSTS, edge rate limiting, proxy log redaction, viewer-token

@@ -13,7 +13,7 @@ The current backend stores generic incidents only. Planned future clients may cl
 - `.dockerignore`: excludes local runtime, review, and build artifacts from the root Docker build context used by `Dockerfile`.
 - `cmd/api`: starts one private API HTTP server per private bind address and one public incident viewer HTTP server per public bind address, loads config, opens SQLite, creates storage, wires shared handlers, and handles graceful shutdown.
 - `cmd/simclient`: simulates a future client by creating an incident, creating a viewer token, creating a media stream, encrypting and uploading fake chunks, completing the stream, sending periodic checkins, and optionally testing hash-failure retry, bundle download, and local decrypt verification behavior.
-- `internal/config`: reads environment variables such as private/public bind address lists, legacy singular bind addresses, data directory, database path, max upload size, and HTTP server timeouts.
+- `internal/config`: reads environment variables such as backend selectors, private/public bind address lists, legacy singular bind addresses, data directory, database path, max upload size, and HTTP server timeouts.
 - `internal/db`: opens SQLite, enables foreign keys and WAL mode, applies embedded migrations, records `schema_migrations`, and runs named compatibility migrations.
 - `internal/envelope`: implements the simulator/test AES-256-GCM client-side chunk envelope, associated data builder, and local simulator key file helpers.
 - `internal/httpapi`: owns separate private/public muxes, JSON responses, request logging, recovery, request validation, upload handling, stream state handlers, ZIP bundle streaming, and the incident viewer.

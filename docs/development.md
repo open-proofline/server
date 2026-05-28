@@ -18,7 +18,7 @@ For rollback points, scoped prompts, review steps, and backlog handling, see [co
 go.mod            root Go module for the server repository
 cmd/api           API server entry point
 cmd/simclient     simulator CLI
-internal/config   environment configuration and HTTP timeout parsing
+internal/config   environment configuration, backend selectors, and HTTP timeout parsing
 internal/db       SQLite setup, schema_migrations, and compatibility migrations
 internal/envelope client-side chunk encryption envelope helpers
 internal/httpapi  HTTP handlers, muxes, middleware, bundles, web assets

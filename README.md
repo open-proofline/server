@@ -71,6 +71,7 @@ The current backend still stores generic incidents. First-class incident types, 
 - Media streams with `open`, `complete`, and `failed` states
 - Completed encrypted stream and incident ZIP evidence bundle downloads
 - Scoped viewer tokens with a default 24-hour expiry
+- Validated backend-selection config defaults for SQLite metadata, local encrypted blobs, and no coordination backend
 - Simulator CLI for encrypted upload, check-in, stream completion, and bundle download/decrypt-verification flows
 - Docker image build and GitHub Actions / GHCR publishing
 

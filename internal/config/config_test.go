@@ -40,6 +40,85 @@ func TestLoadDefaultIncidentTokenTTL(t *testing.T) {
 	}
 }
 
+func TestLoadDefaultBackends(t *testing.T) {
+	cfg := loadConfigForTest(t, nil)
+
+	want := BackendSelection{
+		Metadata:     MetadataBackendSQLite,
+		Blob:         BlobBackendLocal,
+		Coordination: CoordinationBackendNone,
+	}
+	if cfg.Backends != want {
+		t.Fatalf("backends = %+v, want %+v", cfg.Backends, want)
+	}
+}
+
+func TestLoadExplicitSupportedBackends(t *testing.T) {
+	cfg := loadConfigForTest(t, map[string]string{
+		"SAFE_METADATA_BACKEND":     "SQLite",
+		"SAFE_BLOB_BACKEND":         " local ",
+		"SAFE_COORDINATION_BACKEND": "NONE",
+	})
+
+	want := BackendSelection{
+		Metadata:     MetadataBackendSQLite,
+		Blob:         BlobBackendLocal,
+		Coordination: CoordinationBackendNone,
+	}
+	if cfg.Backends != want {
+		t.Fatalf("backends = %+v, want %+v", cfg.Backends, want)
+	}
+}
+
+func TestLoadBackendsPreservesLocalPaths(t *testing.T) {
+	cfg := loadConfigForTest(t, map[string]string{
+		"SAFE_METADATA_BACKEND":     "sqlite",
+		"SAFE_BLOB_BACKEND":         "local",
+		"SAFE_COORDINATION_BACKEND": "none",
+		"SAFE_DB_PATH":              "/tmp/proofline-test.db",
+		"SAFE_DATA_DIR":             "/tmp/proofline-test-data",
+	})
+
+	if cfg.DBPath != "/tmp/proofline-test.db" {
+		t.Fatalf("db path = %q, want configured path", cfg.DBPath)
+	}
+	if cfg.DataDir != "/tmp/proofline-test-data" {
+		t.Fatalf("data dir = %q, want configured path", cfg.DataDir)
+	}
+}
+
+func TestLoadRejectsUnsupportedBackends(t *testing.T) {
+	tests := map[string]map[string]string{
+		"metadata": {
+			"SAFE_METADATA_BACKEND": "postgres",
+		},
+		"blob": {
+			"SAFE_BLOB_BACKEND": "s3",
+		},
+		"coordination": {
+			"SAFE_COORDINATION_BACKEND": "redis",
+		},
+		"empty": {
+			"SAFE_METADATA_BACKEND": "",
+		},
+	}
+
+	for name, env := range tests {
+		t.Run(name, func(t *testing.T) {
+			_, err := loadConfigForTestErr(t, env)
+			if err == nil {
+				t.Fatal("expected backend config error")
+			}
+			if !strings.Contains(err.Error(), "unsupported backend") {
+				t.Fatalf("expected unsupported backend error, got %v", err)
+			}
+			if !strings.Contains(err.Error(), "supported values") {
+				t.Fatalf("expected supported values in error, got %v", err)
+			}
+		})
+	}
+}
+
 func TestLoadIncidentTokenTTLFromEnv(t *testing.T) {
 	cfg := loadConfigForTest(t, map[string]string{
 		"SAFE_DEFAULT_INCIDENT_TOKEN_TTL": "12h",
@@ -289,6 +368,9 @@ func loadConfigForTestErr(t *testing.T, env map[string]string) (Config, error) {
 		"SAFE_PUBLIC_BIND_ADDR",
 		"SAFE_DATA_DIR",
 		"SAFE_DB_PATH",
+		"SAFE_METADATA_BACKEND",
+		"SAFE_BLOB_BACKEND",
+		"SAFE_COORDINATION_BACKEND",
 		"SAFE_MAX_UPLOAD_BYTES",
 		"SAFE_DEFAULT_INCIDENT_TOKEN_TTL",
 		"SAFE_PRIVATE_READ_HEADER_TIMEOUT",

@@ -30,12 +30,20 @@ const (
 type Config struct {
 	PrivateBindAddrs        []string
 	PublicBindAddrs         []string
+	Backends                BackendSelection
 	DataDir                 string
 	DBPath                  string
 	MaxUploadBytes          int64
 	DefaultIncidentTokenTTL time.Duration
 	PrivateTimeouts         HTTPTimeouts
 	PublicTimeouts          HTTPTimeouts
+}
+
+// BackendSelection records the configured storage and coordination backends.
+type BackendSelection struct {
+	Metadata     string
+	Blob         string
+	Coordination string
 }
 
 // HTTPTimeouts groups net/http server timeout settings.
@@ -54,6 +62,11 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 	publicBindAddrs, err := bindAddrsFromEnv("SAFE_PUBLIC_BIND_ADDRS", "SAFE_PUBLIC_BIND_ADDR", defaultPublicBindAddr)
+	if err != nil {
+		return Config{}, err
+	}
+
+	backends, err := backendSelectionFromEnv()
 	if err != nil {
 		return Config{}, err
 	}
@@ -79,6 +92,7 @@ func Load() (Config, error) {
 	return Config{
 		PrivateBindAddrs:        privateBindAddrs,
 		PublicBindAddrs:         publicBindAddrs,
+		Backends:                backends,
 		DataDir:                 envOrDefault("SAFE_DATA_DIR", defaultDataDir),
 		DBPath:                  envOrDefault("SAFE_DB_PATH", defaultDBPath),
 		MaxUploadBytes:          maxUploadBytes,
