@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Introduced a narrow metadata repository interface around the existing SQLite
+  incident repository implementation.
 - Introduced a narrow blob-store interface around the existing local filesystem
   encrypted blob storage implementation.
 - Added backend-selection configuration scaffolding for the current SQLite,

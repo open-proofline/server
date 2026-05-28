@@ -16,8 +16,8 @@ The current backend stores generic incidents only. Planned future clients may cl
 - `internal/config`: reads environment variables such as backend selectors, private/public bind address lists, legacy singular bind addresses, data directory, database path, max upload size, and HTTP server timeouts.
 - `internal/db`: opens SQLite, enables foreign keys and WAL mode, applies embedded migrations, records `schema_migrations`, and runs named compatibility migrations.
 - `internal/envelope`: implements the simulator/test AES-256-GCM client-side chunk envelope, associated data builder, and local simulator key file helpers.
-- `internal/httpapi`: owns separate private/public muxes, JSON responses, request logging, recovery, request validation, upload handling, stream state handlers, ZIP bundle streaming, and the incident viewer.
-- `internal/incidents`: defines incident/stream/chunk/checkin models and writes metadata to SQLite.
+- `internal/httpapi`: owns separate private/public muxes, JSON responses, request logging, recovery, request validation, upload handling, stream state handlers, ZIP bundle streaming, the incident viewer, and the narrow metadata repository boundary consumed by handlers.
+- `internal/incidents`: defines incident/stream/chunk/checkin models and provides the current SQLite metadata repository implementation.
 - `internal/storage`: defines the blob-store boundary used by HTTP handlers and provides the local filesystem implementation, including temp uploads, hashing while streaming, and immutable final paths.
 - `migrations`: embeds the SQLite schema.
 

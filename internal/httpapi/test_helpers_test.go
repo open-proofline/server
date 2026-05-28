@@ -82,7 +82,7 @@ func newTestAppWithOptions(t *testing.T, options httpapi.Options) *testApp {
 	if err != nil {
 		t.Fatalf("create storage: %v", err)
 	}
-	repo := incidents.NewRepository(conn)
+	var repo httpapi.MetadataRepository = incidents.NewRepository(conn)
 
 	return &testApp{
 		privateHandler: httpapi.NewPrivate(repo, blobStore, options),
