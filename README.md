@@ -87,7 +87,7 @@ The current backend still stores generic incidents. First-class incident types, 
 - No PostgreSQL metadata backend
 - No S3-compatible object storage backend
 - No Valkey/Redis-compatible coordination backend
-- No cluster-safe upload operation or idempotency model
+- No implemented cluster-safe upload operation or idempotency API
 - No backend/browser decryption, key sharing, server escrow, break-glass key access, or playable media export
 - No push notifications, SMS, or Messenger integration
 - No user accounts, OAuth, JWT, or public admin dashboard
@@ -169,6 +169,7 @@ Container defaults bind to `0.0.0.0` inside the container. Restrict host exposur
 - [Configuration](docs/configuration.md)
 - [Production cluster scope](docs/production-cluster-scope.md)
 - [PostgreSQL metadata migration path](docs/postgresql-metadata-migration.md)
+- [Cluster-safe upload operation semantics](docs/cluster-safe-upload-semantics.md)
 - [Incident capture modes](docs/incident-modes.md)
 - [Encryption](docs/encryption.md)
 - [iOS local recorder prototype](docs/ios-local-recorder-prototype.md)
@@ -225,7 +226,7 @@ Please see [SECURITY.md](SECURITY.md) for supported versions and vulnerability r
 - Add optional PostgreSQL metadata support while preserving SQLite local/default support
 - Add optional S3-compatible encrypted blob storage while preserving local filesystem support
 - Add optional Valkey/Redis-compatible coordination for leases, idempotency, and retry handling without making it durable evidence storage
-- Add cluster-safe upload operation semantics before multi-node production deployment
+- Implement cluster-safe upload operation semantics before multi-node production deployment
 - WireGuard-only bind/firewall deployment guidance
 - Server-side support for first-class incident types and escalation policies after protocol design
 - Server-side support for trusted-contact dead-man switch workflows after access-control design

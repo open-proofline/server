@@ -67,6 +67,9 @@ go run ./cmd/simclient --chunks 12 --interval 2s --simulate-failure-every 4
 ```
 
 Every fourth chunk intentionally fails SHA-256 verification before being retried.
+The simulator does not yet exercise future idempotency-key or equivalent retry
+success semantics for ambiguous upload outcomes. Those future simulator changes
+are planned in [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md).
 
 ## Useful Flags
 

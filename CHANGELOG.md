@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added a cluster-safe upload operation semantics design covering future
+  idempotency keys, durable operation state, commit ordering, equivalent retry
+  success, conflict handling, cleanup, and backend-specific follow-up work.
 - Published trusted Docker images from `develop` pushes using the mutable
   `develop` GHCR image tag, while keeping release binary publishing limited to
   `v*` tag workflows.

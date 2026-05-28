@@ -42,6 +42,9 @@ Future PostgreSQL metadata support must preserve these controls with equivalent
 or stronger constraints, duplicate guards, token-hash storage, and transaction
 boundaries. The planning design is documented in
 [postgresql-metadata-migration.md](postgresql-metadata-migration.md).
+Future cluster-safe upload operation semantics are planned separately in
+[cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md), but no
+idempotency-key or upload-operation API is implemented yet.
 
 ## Bundle Controls
 
@@ -99,6 +102,9 @@ Normal file removal is not treated as guaranteed secure erasure. Deployments tha
 - No built-in app-level rate limiting or abuse throttling
 - No implemented PostgreSQL metadata backend; the future migration path is only
   planned in [postgresql-metadata-migration.md](postgresql-metadata-migration.md)
+- No implemented cluster-safe upload operation or idempotency API; the future
+  semantics are only planned in
+  [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md)
 - No implemented first-class incident types, escalation policies, trusted-contact accounts, dead-man switch notifications, or account-based access model
 - No implemented production client key storage, key sharing, browser decryption, server-assisted break-glass key access, or emergency-contact key access model; the future designs are documented in [key-custody.md](key-custody.md), [browser-decryption.md](browser-decryption.md), and [break-glass-key-access.md](break-glass-key-access.md)
 - No automated retention/deletion enforcement or built-in disk encryption; the operational policy is documented in [retention-backup-deletion.md](retention-backup-deletion.md)

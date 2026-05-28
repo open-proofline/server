@@ -310,8 +310,9 @@ For future object storage, cleanup may mean deleting a staging object or a
 server-controlled final object only when the operation identity proves this
 request created it.
 
-PostgreSQL does not by itself make the current upload flow cluster-safe. The
-future upload-operation and idempotency design still needs separate work before
+PostgreSQL does not by itself make the current upload flow cluster-safe.
+Cluster-safe upload operation and idempotency semantics are planned separately
+in [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md) before
 multi-node production deployment.
 
 ### Token Creation, Lookup, And Revocation
@@ -479,8 +480,9 @@ Recommended future implementation order for PostgreSQL metadata work:
 5. Add configuration support for `SAFE_METADATA_BACKEND=postgresql`, still
    keeping SQLite as the default.
 6. Add restore documentation for PostgreSQL plus encrypted blobs.
-7. Separately design explicit upload-operation/idempotency behavior for
-   multi-node cluster safety.
+7. Implement the explicit upload-operation/idempotency behavior designed in
+   [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md) before
+   multi-node cluster safety is recommended.
 8. Separately design any SQLite-to-PostgreSQL migration tool or runbook.
 
 Each step should be small and reviewable. Do not bundle PostgreSQL support with
