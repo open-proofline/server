@@ -43,6 +43,13 @@ PostgreSQL metadata, S3-compatible object storage, and Valkey/Redis-compatible c
 
 `SAFE_DB_PATH` and `SAFE_DATA_DIR` keep their current behavior for the supported `sqlite` and `local` backends.
 
+The future PostgreSQL metadata configuration shape is planned in
+[PostgreSQL metadata migration path](postgresql-metadata-migration.md). Until
+that backend exists, do not configure PostgreSQL connection strings for the
+server and do not expect `SAFE_DB_PATH` to apply to anything except SQLite.
+Future PostgreSQL DSNs or credentials must be treated as secret-bearing values
+and must not be logged.
+
 ## Bind Address Lists
 
 `SAFE_PRIVATE_BIND_ADDRS` and `SAFE_PUBLIC_BIND_ADDRS` are comma-separated `host:port` lists.

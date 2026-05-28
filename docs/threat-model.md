@@ -8,6 +8,9 @@ Planned future incident modes include emergency incidents, non-emergency interac
 
 - Already-encrypted uploaded chunk files under `SAFE_DATA_DIR`
 - Incident, media stream, chunk, checkin, and viewer/incident-token metadata in SQLite
+- Future optional PostgreSQL metadata is planned but not implemented; schema,
+  migration, transaction, test, and restore expectations are documented in
+  [postgresql-metadata-migration.md](postgresql-metadata-migration.md)
 - On-demand encrypted evidence ZIP bundles generated from completed streams
 - Raw viewer/incident tokens returned once at creation time
 - Incident viewer URLs containing bearer tokens
@@ -64,6 +67,10 @@ The current backend does not implement incident-mode-specific controls yet, so f
 - No iOS app, Android app, web client, local recording, production client key storage, key sharing, push notifications, SMS, Messenger integration, or public admin dashboard.
 - No first-class incident types, escalation policies, interaction-record metadata, safety-check timers, dead-man switch notifications, or trusted-contact accounts.
 - No built-in TLS, app-level rate limiting, abuse throttling, or IP allowlist.
+- No implemented PostgreSQL metadata backend. Any future PostgreSQL support must
+  preserve the private `/v1` boundary, token hashing, ciphertext-only storage,
+  and backup/restore expectations described in
+  [postgresql-metadata-migration.md](postgresql-metadata-migration.md).
 - Retention, backup, restore, and deletion policy is documented in [retention-backup-deletion.md](retention-backup-deletion.md), but the backend does not yet implement automatic expiration, incident deletion APIs, or built-in disk encryption.
 - No malware/content scanning; uploaded bytes are assumed to be client-encrypted blobs.
 - Bundle downloads are encrypted chunk bundles, not decrypted or playable media exports.
