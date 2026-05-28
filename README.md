@@ -30,6 +30,8 @@ Evidence bundles are ZIP files containing encrypted chunks and JSON manifests. T
 
 The simulator encrypts fake chunks by default with the documented v1 AES-256-GCM envelope and verifies downloaded bundles locally. Keys remain client-side and are not uploaded to the backend. Future production key custody is expected to use a hybrid trusted-contact model; see [docs/key-custody.md](docs/key-custody.md).
 
+Planned production-cluster work is additive. SQLite metadata and local filesystem blob storage remain supported while future implementation may add optional PostgreSQL metadata, S3-compatible object storage, Valkey/Redis-compatible coordination, and cluster-safe idempotent upload semantics. See [docs/production-cluster-scope.md](docs/production-cluster-scope.md).
+
 ## Planned Open Proofline Repositories
 
 The intended organisation is `open-proofline`, with responsibilities split across repositories:
@@ -81,6 +83,10 @@ The current backend still stores generic incidents. First-class incident types, 
 - No recording implementation
 - No first-class incident-type or escalation-policy schema
 - No production client-side encryption implementation
+- No PostgreSQL metadata backend
+- No S3-compatible object storage backend
+- No Valkey/Redis-compatible coordination backend
+- No cluster-safe upload operation or idempotency model
 - No backend/browser decryption, key sharing, server escrow, break-glass key access, or playable media export
 - No push notifications, SMS, or Messenger integration
 - No user accounts, OAuth, JWT, or public admin dashboard
@@ -103,7 +109,7 @@ flowchart LR
     Public --> Bundles["Encrypted ZIP bundles<br/>completed streams only"]
 ```
 
-For more diagrams and package-level details, see [docs/architecture.md](docs/architecture.md) and [docs/code-map.md](docs/code-map.md).
+For more diagrams and package-level details, see [docs/architecture.md](docs/architecture.md) and [docs/code-map.md](docs/code-map.md). The planned cluster expansion is documented separately in [docs/production-cluster-scope.md](docs/production-cluster-scope.md).
 
 ## Quick Start
 
@@ -160,6 +166,7 @@ Container defaults bind to `0.0.0.0` inside the container. Restrict host exposur
 - [Getting started](docs/getting-started.md)
 - [Architecture](docs/architecture.md)
 - [Configuration](docs/configuration.md)
+- [Production cluster scope](docs/production-cluster-scope.md)
 - [Incident capture modes](docs/incident-modes.md)
 - [Encryption](docs/encryption.md)
 - [iOS local recorder prototype](docs/ios-local-recorder-prototype.md)
@@ -213,6 +220,10 @@ Please see [SECURITY.md](SECURITY.md) for supported versions and vulnerability r
 
 - Create future `open-proofline/web-client`, `open-proofline/ios-client`, `open-proofline/android-client`, and `open-proofline/protocol` repositories when their scopes are ready
 - Plan any future protocol or data-layout compatibility migrations separately from the completed repository/module/artifact rename
+- Add optional PostgreSQL metadata support while preserving SQLite local/default support
+- Add optional S3-compatible encrypted blob storage while preserving local filesystem support
+- Add optional Valkey/Redis-compatible coordination for leases, idempotency, and retry handling without making it durable evidence storage
+- Add cluster-safe upload operation semantics before multi-node production deployment
 - WireGuard-only bind/firewall deployment guidance
 - Server-side support for first-class incident types and escalation policies after protocol design
 - Server-side support for trusted-contact dead-man switch workflows after access-control design
