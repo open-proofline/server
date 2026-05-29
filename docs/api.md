@@ -98,7 +98,7 @@ Fields:
 - `started_at`: RFC3339 timestamp
 - `ended_at`: RFC3339 timestamp, not before `started_at`
 - `sha256_hex`: lowercase SHA-256 hex of the encrypted bytes
-- `original_filename`: optional display metadata
+- `original_filename`: optional client-supplied display metadata
 
 Response `201`:
 
@@ -130,6 +130,22 @@ Duplicate streamed `(incident_id, stream_id, chunk_index)` uploads and duplicate
 The repository rechecks incident and stream state when chunk metadata is inserted. If an upload races with incident close or stream completion, the final metadata insert is rejected and the committed blob path is removed.
 
 For clients using the v1 encryption envelope, `sha256_hex` is the SHA-256 of the complete uploaded envelope bytes, not the plaintext.
+
+`original_filename` is metadata, not a storage path. The server trims the value,
+normalizes slash and backslash separators to a basename, falls back to the
+multipart upload filename when the explicit field is empty, and stores the
+resulting basename with chunk metadata. The value may be returned by private
+chunk metadata routes, token-scoped public incident viewer summaries, and
+completed stream or incident bundle manifests. Server stored paths, staging
+paths, local filesystem paths, and object-storage keys are separate
+server-controlled values and are not derived from `original_filename`.
+
+Future clients should omit `original_filename` by default or send a generic,
+non-identifying basename unless the user or a future protocol mode explicitly
+chooses to preserve filename context as evidence metadata. Filenames can still
+contain personal or contextual information even after path stripping. Do not use
+`original_filename` for identity, authorization, storage lookup, decryption,
+legal-record guarantees, or download path construction.
 
 The current API does not implement resumable uploads, upload leases, or
 client-side queue summary endpoints. Future clients should retry complete
@@ -399,7 +415,10 @@ chunks/audio_000001.enc
 chunks/audio_000002.enc
 ```
 
-The manifest is generated from trusted database metadata and includes incident ID, stream ID, media type, status, chunk count, total bytes, and chunk SHA-256 metadata. Server filesystem paths are not included.
+The manifest is generated from trusted database metadata and includes incident
+ID, stream ID, media type, status, chunk count, total bytes, chunk SHA-256
+metadata, and any stored `original_filename` basename for each chunk. Server
+filesystem paths are not included.
 It also includes a non-secret `encryption` hint indicating expected client-side encryption and `server_decrypts: false`.
 
 ### `GET /v1/incidents/{incident_id}/download`
