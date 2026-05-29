@@ -8,6 +8,7 @@ import (
 
 const (
 	MetadataBackendSQLite   = "sqlite"
+	MetadataBackendPostgres = "postgresql"
 	BlobBackendLocal        = "local"
 	BlobBackendS3           = "s3"
 	CoordinationBackendNone = "none"
@@ -17,7 +18,7 @@ func backendSelectionFromEnv() (BackendSelection, error) {
 	metadata, err := backendFromEnv(
 		"SAFE_METADATA_BACKEND",
 		MetadataBackendSQLite,
-		[]string{MetadataBackendSQLite},
+		[]string{MetadataBackendSQLite, MetadataBackendPostgres},
 	)
 	if err != nil {
 		return BackendSelection{}, err

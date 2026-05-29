@@ -4,17 +4,17 @@ This document designs future cluster-safe upload operation semantics for
 Proofline Server.
 
 It is a planning document only. It does not implement idempotency, upload
-leases, resumable uploads, PostgreSQL, S3-compatible object storage,
-Valkey/Redis-compatible coordination, public `/v1` authentication, account
-management, browser decryption, backend decryption, key custody, or playable
-media export.
+leases, resumable uploads, Valkey/Redis-compatible coordination, public `/v1`
+authentication, account management, browser decryption, backend decryption, key
+custody, or playable media export.
 
 ## Current Behavior
 
 The current backend accepts one complete encrypted chunk in a multipart upload,
 streams it to local temporary storage while computing SHA-256, verifies the
 client-provided ciphertext hash, commits the file to an immutable
-server-controlled local path, and inserts chunk metadata into SQLite.
+server-controlled path, and inserts chunk metadata into the configured metadata
+backend.
 
 Accepted chunks are immutable. Duplicate chunk identities currently return
 `409 duplicate_chunk`, and the storage layer refuses to overwrite an existing
@@ -41,8 +41,8 @@ storage backends.
 - No resumable upload protocol or partial committed chunks.
 - No duplicate-chunk reconciliation API implementation. The client-facing
   reconciliation design is documented in [api.md](api.md).
-- No PostgreSQL implementation, no changes to the optional S3-compatible
-  storage backend, and no Valkey implementation.
+- No changes to optional PostgreSQL metadata, no changes to the optional
+  S3-compatible storage backend, and no Valkey implementation.
 - No public `/v1` exposure or account/authentication model.
 - No client repository, protocol repository, or mobile implementation.
 - No backend decryption, raw server-held keys, key escrow, key sharing, or

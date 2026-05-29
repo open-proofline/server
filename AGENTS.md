@@ -41,7 +41,8 @@
 - Planned future companion repositories: `open-proofline/web-client`, `open-proofline/ios-client`, `open-proofline/android-client`, and `open-proofline/protocol`.
 - The Go module path is `github.com/open-proofline/server` at the repository root, release binaries use `proofline-server-*` names, and the published GHCR image is `ghcr.io/open-proofline/server`.
 - Some compatibility identifiers, including the v1 simulator encryption envelope and default SQLite filename, may still use earlier `safety-recorder` names until separate protocol or data-layout migrations are explicitly performed.
-- SQLite metadata.
+- SQLite metadata by default.
+- Optional PostgreSQL metadata when explicitly configured.
 - Local disk blob storage by default.
 - Optional S3-compatible encrypted blob storage for committed chunks.
 - Private API listener group for `/v1` routes.
@@ -53,7 +54,7 @@
 - The current simulator encryption envelope is development/test oriented.
 - Future product scope includes emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes.
 - The current backend does not yet implement first-class incident types, escalation policies, account management, trusted-contact accounts, dead-man switch notifications, or public `/v1` authentication.
-- Planned production-cluster scope may add optional PostgreSQL metadata, Valkey/Redis-compatible coordination, and cluster-safe idempotent upload semantics. These are additive future backends and must not remove SQLite, local filesystem support, or the optional S3-compatible blob backend.
+- Planned production-cluster scope may add Valkey/Redis-compatible coordination and cluster-safe idempotent upload semantics. These are additive future backends and must not remove SQLite, optional PostgreSQL metadata, local filesystem support, or the optional S3-compatible blob backend.
 - Future encryption direction should be a hybrid key custody model.
 - Docker and GitHub Actions/GHCR publishing exist, but deployment expansion should not be added unless explicitly requested.
 

@@ -81,6 +81,35 @@ write to the same final key.
 
 Final object keys are derived by the server from stored chunk metadata and the optional safe prefix. Do not create proxy routes, dashboards, logs, or support workflows that expose raw object keys, bucket URLs, request bodies, uploaded bytes, plaintext, raw keys, raw viewer tokens, or private deployment details.
 
+## Optional PostgreSQL Metadata
+
+SQLite metadata remains the default. To use PostgreSQL for metadata in a new
+deployment, explicitly set `SAFE_METADATA_BACKEND=postgresql` and provide a
+PostgreSQL DSN:
+
+```bash
+SAFE_METADATA_BACKEND=postgresql \
+SAFE_POSTGRES_DSN='postgres://proofline:example-password@db.example.invalid:5432/proofline?sslmode=require' \
+SAFE_BLOB_BACKEND=local \
+SAFE_COORDINATION_BACKEND=none \
+go run ./cmd/api
+```
+
+Treat `SAFE_POSTGRES_DSN`, credentials, database hostnames, and private network
+details as secret-bearing deployment data. Do not place them in public issues,
+logs, dashboards, screenshots, or support tickets. PostgreSQL stores metadata
+only; encrypted chunk bytes still live in the configured blob backend.
+
+Initial PostgreSQL support is for new metadata deployments. The server does not
+automatically migrate existing SQLite metadata into PostgreSQL at startup. A
+SQLite-to-PostgreSQL migration should be a separate quiesced operation with
+metadata and encrypted blobs backed up and verified together.
+
+PostgreSQL does not add public `/v1` authentication, cluster-safe idempotency,
+Valkey/Redis-compatible coordination, cloud deployment automation, backend
+decryption, key escrow, or production readiness. Keep private `/v1` listeners
+behind localhost, LAN, WireGuard, firewall rules, or a strict private proxy.
+
 ## Private API Through WireGuard Or A Private Network
 
 For a private API reachable from a WireGuard peer or private LAN, publish or bind `/v1` only on that private interface. This example uses `10.66.0.1` as a placeholder WireGuard interface address:
@@ -139,8 +168,9 @@ Before exposing the public incident viewer:
 - [ ] Retention, backup, restore, and deletion expectations are documented for
       this deployment and reviewed against
       [retention-backup-deletion.md](retention-backup-deletion.md).
-- [ ] Restore testing confirms SQLite metadata and encrypted local blobs or S3
-      objects can be restored together without exposing `/v1` publicly.
+- [ ] Restore testing confirms SQLite or PostgreSQL metadata and encrypted
+      local blobs or S3 objects can be restored together without exposing `/v1`
+      publicly.
 - [ ] Monitoring and timeout settings cover public viewer errors, storage or
       database failures, and long encrypted ZIP downloads without logging raw
       tokens, request bodies, uploaded bytes, plaintext, raw keys, or private
@@ -150,12 +180,13 @@ The Go app still has no built-in app-level rate limiter. Apply rate limits at th
 
 Future server-assisted break-glass, dead-man-switch key access, account access, or trusted-contact workflows would add stronger operator and deployment trust requirements. They should remain disabled unless explicitly designed and configured; see [break-glass-key-access.md](break-glass-key-access.md), [key-custody.md](key-custody.md), and [incident-modes.md](incident-modes.md).
 
-Future PostgreSQL metadata deployment remains planning-only. The intended
-schema parity, migration tracking, transaction boundaries, configuration shape,
-and restore expectations are documented in
+Optional PostgreSQL metadata deployment remains experimental. Schema parity,
+migration tracking, transaction boundaries, configuration shape, integration
+test setup, and restore expectations are documented in
 [PostgreSQL metadata migration path](postgresql-metadata-migration.md).
-PostgreSQL support must not be treated as implemented or production-ready until
-the backend, tests, and restore guidance exist.
+PostgreSQL support must not be treated as production-cluster readiness until
+idempotency, coordination, backup/restore drills, access-control, and
+operational hardening are also addressed.
 
 The Go app does not set `Strict-Transport-Security` by default because local development uses plain HTTP. Enable HSTS at the HTTPS reverse proxy only after TLS is working for the production hostname.
 

@@ -70,6 +70,80 @@ func TestLoadExplicitSupportedBackends(t *testing.T) {
 	}
 }
 
+func TestLoadPostgresMetadataBackendConfig(t *testing.T) {
+	cfg := loadConfigForTest(t, map[string]string{
+		"SAFE_METADATA_BACKEND":              " PostgreSQL ",
+		"SAFE_POSTGRES_DSN":                  "postgres://proofline:secret@example.invalid/proofline",
+		"SAFE_POSTGRES_MAX_OPEN_CONNS":       "20",
+		"SAFE_POSTGRES_MAX_IDLE_CONNS":       "8",
+		"SAFE_POSTGRES_CONN_MAX_LIFETIME":    "45m",
+		"SAFE_POSTGRES_UNUSED_IGNORED_VALUE": "ignored",
+	})
+
+	if cfg.Backends.Metadata != MetadataBackendPostgres {
+		t.Fatalf("metadata backend = %q, want postgresql", cfg.Backends.Metadata)
+	}
+	want := PostgresConfig{
+		DSN:             "postgres://proofline:secret@example.invalid/proofline",
+		MaxOpenConns:    20,
+		MaxIdleConns:    8,
+		ConnMaxLifetime: 45 * time.Minute,
+	}
+	if cfg.Postgres != want {
+		t.Fatalf("postgres config = %+v, want %+v", cfg.Postgres, want)
+	}
+}
+
+func TestLoadPostgresMetadataBackendRequiresExplicitConfig(t *testing.T) {
+	tests := map[string]map[string]string{
+		"dsn": {
+			"SAFE_METADATA_BACKEND": "postgresql",
+		},
+		"empty max open conns": {
+			"SAFE_METADATA_BACKEND":        "postgresql",
+			"SAFE_POSTGRES_DSN":            "postgres://example.invalid/proofline",
+			"SAFE_POSTGRES_MAX_OPEN_CONNS": "",
+		},
+		"negative max idle conns": {
+			"SAFE_METADATA_BACKEND":        "postgresql",
+			"SAFE_POSTGRES_DSN":            "postgres://example.invalid/proofline",
+			"SAFE_POSTGRES_MAX_IDLE_CONNS": "-1",
+		},
+		"invalid lifetime": {
+			"SAFE_METADATA_BACKEND":           "postgresql",
+			"SAFE_POSTGRES_DSN":               "postgres://example.invalid/proofline",
+			"SAFE_POSTGRES_CONN_MAX_LIFETIME": "soon",
+		},
+	}
+
+	for name, env := range tests {
+		t.Run(name, func(t *testing.T) {
+			_, err := loadConfigForTestErr(t, env)
+			if err == nil {
+				t.Fatal("expected postgres config error")
+			}
+			if !strings.Contains(err.Error(), "SAFE_POSTGRES_") {
+				t.Fatalf("expected SAFE_POSTGRES error, got %v", err)
+			}
+			if strings.Contains(err.Error(), "example.invalid") {
+				t.Fatalf("postgres config error exposed DSN: %v", err)
+			}
+		})
+	}
+}
+
+func TestLoadSQLiteMetadataBackendIgnoresPostgresConfig(t *testing.T) {
+	cfg := loadConfigForTest(t, map[string]string{
+		"SAFE_METADATA_BACKEND":           "sqlite",
+		"SAFE_POSTGRES_MAX_OPEN_CONNS":    "",
+		"SAFE_POSTGRES_CONN_MAX_LIFETIME": "not-a-duration",
+	})
+
+	if cfg.Backends.Metadata != MetadataBackendSQLite {
+		t.Fatalf("metadata backend = %q, want sqlite", cfg.Backends.Metadata)
+	}
+}
+
 func TestLoadS3BlobBackendConfig(t *testing.T) {
 	cfg := loadConfigForTest(t, map[string]string{
 		"SAFE_BLOB_BACKEND":         "S3",
@@ -472,6 +546,11 @@ func loadConfigForTestErr(t *testing.T, env map[string]string) (Config, error) {
 		"SAFE_PUBLIC_READ_TIMEOUT",
 		"SAFE_PUBLIC_WRITE_TIMEOUT",
 		"SAFE_PUBLIC_IDLE_TIMEOUT",
+		"SAFE_POSTGRES_DSN",
+		"SAFE_POSTGRES_MAX_OPEN_CONNS",
+		"SAFE_POSTGRES_MAX_IDLE_CONNS",
+		"SAFE_POSTGRES_CONN_MAX_LIFETIME",
+		"SAFE_POSTGRES_UNUSED_IGNORED_VALUE",
 		"SAFE_S3_ENDPOINT",
 		"SAFE_S3_REGION",
 		"SAFE_S3_BUCKET",

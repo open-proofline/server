@@ -8,10 +8,9 @@ import (
 )
 
 // MetadataRepository is the incident metadata boundary required by the HTTP
-// handlers. The current implementation is the SQLite-backed
-// incidents.Repository; PostgreSQL support is future additive work and must
-// preserve token hashing, duplicate guards, state checks, and stream completion
-// validation.
+// handlers. SQLite remains the default implementation, and optional PostgreSQL
+// support must preserve token hashing, duplicate guards, state checks, and
+// stream completion validation.
 type MetadataRepository interface {
 	CreateIncident(ctx context.Context, clientLabel, notes string) (incidents.Incident, error)
 	GetIncident(ctx context.Context, id string) (incidents.Incident, error)

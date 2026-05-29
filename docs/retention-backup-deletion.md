@@ -8,7 +8,8 @@ Proofline is still experimental and not production-ready public infrastructure. 
 
 The current backend stores:
 
-- SQLite metadata at `SAFE_DB_PATH`
+- SQLite metadata at `SAFE_DB_PATH` by default, or PostgreSQL metadata when
+  `SAFE_METADATA_BACKEND=postgresql`
 - encrypted chunk blobs under `SAFE_DATA_DIR` for the local backend, or committed encrypted objects in the configured S3-compatible bucket for the S3 backend
 - temporary upload files under `SAFE_DATA_DIR/tmp`
 - on-demand encrypted ZIP bundle responses generated from completed streams
@@ -20,9 +21,9 @@ Future incident modes such as emergency incidents, interaction records, safety c
 ## Retention Principles
 
 - Preserve uploaded evidence unless there is an explicit deletion decision.
-- Keep SQLite metadata and encrypted blobs in sync; either both are retained, or both are removed by a future deletion workflow.
+- Keep metadata and encrypted blobs in sync; either both are retained, or both are removed by a future deletion workflow.
 - Treat failed and open streams as possible evidence. Do not discard them just because they are not downloadable as completed stream bundles.
-- Keep raw viewer/incident tokens out of storage and logs. Only token hashes are retained in SQLite.
+- Keep raw viewer/incident tokens out of storage and logs. Only token hashes are retained in metadata.
 - Treat non-emergency interaction records as potentially sensitive even when they are not urgent safety incidents.
 - Do not promise unrecoverable deletion from normal file removal.
 - Use disk or volume encryption so eventual deletion can rely on cryptographic key destruction, backup expiry, and media retirement instead of overwrite claims.
@@ -52,16 +53,17 @@ Before real-world use, choose explicit local policy values such as:
 
 ## Backup Policy
 
-Backups must preserve the relationship between SQLite metadata and encrypted blobs. A database backup without the matching local blob tree or S3 object set may leave bundles unusable. A blob backup without the matching database may leave evidence hard to locate, verify, or serve.
+Backups must preserve the relationship between metadata and encrypted blobs. A database backup without the matching local blob tree or S3 object set may leave bundles unusable. A blob backup without the matching database may leave evidence hard to locate, verify, or serve.
 
-Future PostgreSQL metadata support has the same consistency requirement. The
-planned PostgreSQL schema, migration, and restore expectations are documented in
-[postgresql-metadata-migration.md](postgresql-metadata-migration.md). Until that
-backend is implemented, SQLite remains the only supported metadata store.
+Optional PostgreSQL metadata has the same consistency requirement. The
+PostgreSQL schema, migration, and restore expectations are documented in
+[postgresql-metadata-migration.md](postgresql-metadata-migration.md). SQLite
+remains the default metadata store.
 
 Back up at least:
 
 - `SAFE_DB_PATH`
+- the PostgreSQL database when `SAFE_METADATA_BACKEND=postgresql`
 - `SAFE_DATA_DIR/incidents` when `SAFE_BLOB_BACKEND=local`
 - the configured S3 bucket and `SAFE_S3_PREFIX` object set when `SAFE_BLOB_BACKEND=s3`
 - SQLite sidecar files if copying a live database directly, such as WAL files
@@ -97,7 +99,7 @@ The restore target must preserve the private/public listener split. Do not use a
 
 For S3-compatible storage, restore drills must verify the configured bucket,
 prefix, credentials, and endpoint can reconstruct completed stream and incident
-bundles without exposing object-store URLs. For a future PostgreSQL deployment,
+bundles without exposing object-store URLs. For a PostgreSQL deployment,
 restore drills must also restore the PostgreSQL metadata database and encrypted
 blob storage as one logical evidence set, then verify completed stream and
 incident bundles before any public viewer exposure.

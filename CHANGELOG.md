@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added optional PostgreSQL metadata storage with a separate migration path,
+  explicit `SAFE_METADATA_BACKEND=postgresql` configuration, and opt-in
+  integration tests while keeping SQLite as the default.
 - Added optional S3-compatible encrypted blob storage for committed chunks while
   keeping local filesystem storage as the default.
 - Added a resumable upload and upload lease protocol plan that defers

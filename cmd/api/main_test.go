@@ -76,7 +76,7 @@ func TestStartupErrorLogIncludesSafeBackendConfigDetail(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(&logs, nil))
 	err := config.UnsupportedBackendError{
 		EnvName:   "SAFE_METADATA_BACKEND",
-		Supported: []string{config.MetadataBackendSQLite},
+		Supported: []string{config.MetadataBackendSQLite, config.MetadataBackendPostgres},
 	}
 
 	logStartupError(logger, err)
@@ -87,7 +87,7 @@ func TestStartupErrorLogIncludesSafeBackendConfigDetail(t *testing.T) {
 	if !bytes.Contains(logs.Bytes(), []byte("SAFE_METADATA_BACKEND")) {
 		t.Fatalf("startup log omitted backend env name: %s", logs.String())
 	}
-	if !bytes.Contains(logs.Bytes(), []byte("supported values: sqlite")) {
+	if !bytes.Contains(logs.Bytes(), []byte("supported values: sqlite, postgresql")) {
 		t.Fatalf("startup log omitted supported backend values: %s", logs.String())
 	}
 }
