@@ -64,6 +64,12 @@ PostgreSQL schema, migration, and restore expectations are documented in
 [postgresql-metadata-migration.md](postgresql-metadata-migration.md). SQLite
 remains the default metadata store.
 
+For cluster-style deployments using optional PostgreSQL metadata,
+S3-compatible encrypted blobs, and optional Valkey/Redis-compatible
+coordination, use the
+[cluster backup, restore, and failure runbook](cluster-backup-restore-runbook.md)
+alongside this policy.
+
 Back up at least:
 
 - `SAFE_DB_PATH`

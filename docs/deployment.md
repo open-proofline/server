@@ -200,6 +200,10 @@ Before exposing the public incident viewer:
 - [ ] Retention, backup, restore, and deletion expectations are documented for
       this deployment and reviewed against
       [retention-backup-deletion.md](retention-backup-deletion.md).
+- [ ] Cluster backup, restore, and failure handling has been reviewed against
+      [cluster-backup-restore-runbook.md](cluster-backup-restore-runbook.md)
+      when optional PostgreSQL, S3-compatible storage, or Valkey/Redis
+      coordination is configured.
 - [ ] Restore testing confirms SQLite or PostgreSQL metadata and encrypted
       local blobs or S3 objects can be restored together without exposing `/v1`
       publicly.

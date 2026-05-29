@@ -89,6 +89,10 @@ Before public exposure, review and add:
 - rate limits and abuse controls
 - TLS and reverse-proxy settings for the public incident viewer, if reachable over a network
 - deployment-specific enforcement of the documented [retention, backup, and deletion policy](retention-backup-deletion.md)
+- cluster backup, restore, and failure drills for optional PostgreSQL metadata,
+  S3-compatible encrypted blobs, and Valkey/Redis-compatible coordination as
+  documented in
+  [cluster-backup-restore-runbook.md](cluster-backup-restore-runbook.md)
 - operational monitoring for failed uploads and storage/DB errors
 - a production review of viewer-token sharing, expiry defaults, and revocation operations
 - first-class incident type, escalation-policy, account, and trusted-contact authorization design before implementing public account workflows

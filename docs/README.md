@@ -10,6 +10,7 @@ This directory contains the detailed documentation for Proofline Server, the Go 
 | [Architecture](architecture.md) | System diagrams, listener boundaries, repository split, and server data flow. |
 | [Configuration](configuration.md) | Environment variables, backend selectors, bind addresses, upload limits, and data layout. |
 | [Production cluster scope](production-cluster-scope.md) | Additive path for optional PostgreSQL metadata, optional S3-compatible object storage, and optional Valkey/Redis-compatible coordination. |
+| [Cluster backup, restore, and failure runbook](cluster-backup-restore-runbook.md) | Operational guidance for optional PostgreSQL metadata, S3-compatible encrypted blobs, configuration, coordination, restore validation, and cluster failure modes. |
 | [PostgreSQL metadata migration path](postgresql-metadata-migration.md) | PostgreSQL metadata backend schema parity, migrations, transaction boundaries, tests, migration limits, and restore expectations. |
 | [Cluster-safe upload operation semantics](cluster-safe-upload-semantics.md) | Planning design for future upload operation identity, idempotency state, commit ordering, retry success, conflict handling, and cleanup across metadata and blob backends. |
 | [Resumable upload and upload lease protocol](resumable-upload-lease-protocol.md) | Planning decision to defer resumable uploads and upload leases for a local desktop recorder simulator client while preserving complete encrypted chunk retry semantics, poor-network simulation, and future account-flow shape. |
@@ -85,6 +86,13 @@ The future iOS incident-capture prototype is planned in [ios-local-recorder-prot
 Evidence bundles are encrypted chunk bundles with JSON manifests. They are not decrypted, playable, or merged media exports.
 
 Retention, backup, and deletion policy is documented in [retention-backup-deletion.md](retention-backup-deletion.md), but the backend does not yet implement automatic expiration or incident deletion APIs.
+
+Cluster-style backup, restore, and failure handling for optional PostgreSQL,
+S3-compatible blob storage, and Valkey/Redis-compatible coordination is
+documented in
+[cluster-backup-restore-runbook.md](cluster-backup-restore-runbook.md). That
+runbook is operational guidance only and does not make Proofline
+production-ready public infrastructure.
 
 ## Security Reminder
 

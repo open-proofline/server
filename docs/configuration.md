@@ -102,6 +102,11 @@ PostgreSQL schema, migration, test, and restore expectations are documented in
 PostgreSQL support is for new metadata deployments only. The server does not
 automatically migrate an existing SQLite database to PostgreSQL at startup.
 
+Cluster backup, restore, and failure-mode guidance for PostgreSQL metadata,
+S3-compatible encrypted blobs, and Valkey/Redis-compatible coordination is
+documented in
+[Cluster backup, restore, and failure runbook](cluster-backup-restore-runbook.md).
+
 ## S3-Compatible Blob Storage
 
 The S3-compatible backend stores only opaque encrypted chunk bytes. It does not add backend decryption, raw media keys, key escrow, browser decryption, public `/v1` authentication, or production-readiness guarantees.
