@@ -76,6 +76,12 @@ Weaknesses:
 
 Fit: strong long-term fit if setup happens before an emergency or safety check and the contact UX is simple under stress.
 
+The simulator-only wrapped-key metadata design in
+[contact-wrapped-key-metadata-simulator.md](contact-wrapped-key-metadata-simulator.md)
+can prototype the non-secret key IDs and wrapped media-key records that a future
+browser or trusted-contact client would consume. That prototype does not add
+browser decryption or change the current incident viewer.
+
 ### 3. One-Time Recovery Phrase Or File Import
 
 The trusted contact or account owner receives a recovery phrase, QR code, or key file through an out-of-band process. During authorised access, the browser imports that material and uses it to unwrap or derive the media key.

@@ -23,8 +23,12 @@ server/tmp/
 !.env.sample
 !.env.template
 
-# Local simulator encryption keys and generated evidence bundles.
+# Local simulator encryption keys, wrapped-key metadata, and generated evidence
+# bundles.
 *.key.json
+proofline-sim-wrapped-keys.json
+*-wrapped-keys.json
+*.wrapped-keys.json
 *.zip
 
 # Build artifacts, local binaries, test binaries, and profiler output.

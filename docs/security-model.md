@@ -1,6 +1,6 @@
 # Security Model
 
-This document summarizes the current Proofline backend security assumptions and controls. For a threat-oriented view, see [threat-model.md](threat-model.md). For planned incident-mode behavior, see [incident-modes.md](incident-modes.md). For future `/v1` role and grant boundaries, see [v1-access-control.md](v1-access-control.md). For future production key custody and emergency access design, see [key-custody.md](key-custody.md), [browser-decryption.md](browser-decryption.md), and [break-glass-key-access.md](break-glass-key-access.md). For vulnerability reporting, see [../SECURITY.md](../SECURITY.md).
+This document summarizes the current Proofline backend security assumptions and controls. For a threat-oriented view, see [threat-model.md](threat-model.md). For planned incident-mode behavior, see [incident-modes.md](incident-modes.md). For future `/v1` role and grant boundaries, see [v1-access-control.md](v1-access-control.md). For future production key custody and emergency access design, see [key-custody.md](key-custody.md), the simulator-only wrapped-key metadata prototype in [contact-wrapped-key-metadata-simulator.md](contact-wrapped-key-metadata-simulator.md), [browser-decryption.md](browser-decryption.md), and [break-glass-key-access.md](break-glass-key-access.md). For vulnerability reporting, see [../SECURITY.md](../SECURITY.md).
 
 ## Maturity
 

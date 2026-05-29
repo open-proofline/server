@@ -154,3 +154,10 @@ Future incident modes do not change the backend ciphertext-only posture by thems
 The intended Apple-side equivalent is CryptoKit or Swift Crypto AES-GCM. This repository does not include iOS or Swift code yet.
 
 Future work includes production client key storage, Keychain integration, trusted-contact key access, key sharing, browser/client-side decryption, account-based access, incident-mode sharing, and playable export. The intended production key custody direction is a hybrid trusted-contact model documented in [key-custody.md](key-custody.md), with future access boundaries in [v1-access-control.md](v1-access-control.md), browser decryption constraints in [browser-decryption.md](browser-decryption.md), and optional break-glass design in [break-glass-key-access.md](break-glass-key-access.md). Password-derived keys, passphrases, public-key wrapping, key escrow, backend decryption, and browser decryption are not implemented in this milestone.
+
+The simulator-only contact-wrapped key metadata prototype is planned separately
+in
+[contact-wrapped-key-metadata-simulator.md](contact-wrapped-key-metadata-simulator.md).
+That design may model contact public keys, non-secret key IDs, and wrapped
+stream media keys in local development artifacts, but it does not change the
+current v1 envelope or make the backend store raw keys or decrypt media.

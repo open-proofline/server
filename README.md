@@ -178,6 +178,7 @@ Container defaults bind to `0.0.0.0` inside the container. Restrict host exposur
 - [Encryption](docs/encryption.md)
 - [iOS local recorder prototype](docs/ios-local-recorder-prototype.md)
 - [Key custody and emergency access](docs/key-custody.md)
+- [Contact-wrapped key metadata simulator prototype](docs/contact-wrapped-key-metadata-simulator.md)
 - [Browser-side decryption design](docs/browser-decryption.md)
 - [Break-glass key access design](docs/break-glass-key-access.md)
 - [API reference](docs/api.md)

@@ -19,6 +19,11 @@
 # Local simulator encryption keys
 *.key.json
 
+# Local simulator wrapped-key metadata artifacts
+proofline-sim-wrapped-keys.json
+*-wrapped-keys.json
+*.wrapped-keys.json
+
 # Go build and test output
 /bin/
 /server/bin/

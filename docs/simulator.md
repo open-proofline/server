@@ -28,6 +28,13 @@ identity should remain local test metadata only. Adding the simulator must not
 incidentally add user accounts, OAuth, JWT, public `/v1` authentication, or
 account-management routes.
 
+The simulator may also prototype contact-wrapped key metadata in local
+development artifacts. That design is documented in
+[contact-wrapped-key-metadata-simulator.md](contact-wrapped-key-metadata-simulator.md)
+and must keep raw media keys, contact private keys, plaintext, and decryption
+capabilities out of server storage, logs, and bundle manifests unless a later
+explicit production key-custody task changes the boundary.
+
 Do not add resumable uploads, upload leases, or server-visible queue summary
 routes just to support that simulator. The resumable-upload decision is planned
 separately in
