@@ -2,7 +2,7 @@
 
 Proofline is intended to be broader than an emergency-only recorder. The long-term product direction is private, encrypted incident capture for moments where a user wants a durable record, with emergency escalation available only when the user chooses it or a configured safety check is missed.
 
-This is a planning document. It does not add mobile clients, account management, public `/v1` authentication, push notifications, emergency-services integration, incident-mode schema, key custody, browser decryption, or new backend routes.
+This is a planning document. It does not add mobile clients, account management, public `/v1` authentication, push notifications, emergency-services integration, incident-mode schema, key custody, browser decryption, or new backend routes. Future account-owner, trusted-contact, public-link, admin/operator, and optional escrow role boundaries are documented in [v1-access-control.md](v1-access-control.md).
 
 ## Product Framing
 
@@ -108,7 +108,15 @@ Future account-enabled clients should distinguish:
 - administrative/operator access, which should not casually expose user safety data
 - legal/export workflows controlled by the account owner
 
-The current token-scoped incident viewer is a temporary read-only access model. A future web client may replace it after account management, authorization, key custody, and trusted-contact access are designed.
+Incident type labels must not silently grant access. Emergency incidents,
+interaction records, safety checks, and evidence notes need explicit sharing,
+escalation, and grant policy before implementation.
+
+The current token-scoped incident viewer is a temporary read-only access model.
+A future web client may replace it after account management, authorization, key
+custody, and trusted-contact access are designed. The future `/v1` role, grant,
+and route-exposure direction is documented in
+[v1-access-control.md](v1-access-control.md).
 
 ## Current Implementation Status
 
@@ -145,6 +153,7 @@ When future work touches incident modes, update the relevant source-of-truth doc
 - [Architecture](architecture.md)
 - [API](api.md)
 - [iOS local recorder prototype](ios-local-recorder-prototype.md)
+- [Future /v1 access control](v1-access-control.md)
 - [Security model](security-model.md)
 - [Threat model](threat-model.md)
 - [Key custody](key-custody.md), if sharing or decryption behavior changes

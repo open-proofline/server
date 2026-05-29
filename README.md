@@ -173,6 +173,7 @@ Container defaults bind to `0.0.0.0` inside the container. Restrict host exposur
 - [Cluster-safe upload operation semantics](docs/cluster-safe-upload-semantics.md)
 - [Resumable upload and upload lease protocol](docs/resumable-upload-lease-protocol.md)
 - [Incident capture modes](docs/incident-modes.md)
+- [Future /v1 access control](docs/v1-access-control.md)
 - [Encryption](docs/encryption.md)
 - [iOS local recorder prototype](docs/ios-local-recorder-prototype.md)
 - [Key custody and emergency access](docs/key-custody.md)
@@ -236,7 +237,7 @@ Please see [SECURITY.md](SECURITY.md) for supported versions and vulnerability r
 - Optional break-glass/dead-man-switch key access
 - Playable media export
 - Reverse-proxy/TLS hardening for incident viewer exposure
-- Explicit `/v1` access-control story before any public control-plane deployment
+- Explicit [`/v1` access-control story](docs/v1-access-control.md) before any public product API deployment
 
 ## License
 

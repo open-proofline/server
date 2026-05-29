@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Added a future `/v1` access-control design covering a public authenticated
+  product API, a separately bound private authenticated admin API, and
+  account-owner, trusted-contact, public-link, admin/operator, and optional
+  escrow access boundaries while preserving the current private
+  unauthenticated `/v1` model.
 - Added a cluster backup, restore, and failure runbook covering durable
   PostgreSQL metadata, S3-compatible encrypted blobs, coordination-only
   Valkey/Redis state, private restore validation, and conservative failure

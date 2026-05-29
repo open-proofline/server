@@ -19,6 +19,11 @@ The preferred long-term direction is a hybrid key custody model:
 
 Server-side decryption is not forbidden forever, but it must never be introduced accidentally. Any future key custody, recovery, escrow, browser decryption, or server decryption work must be deliberate, documented, tested, and threat-modeled.
 
+Future key custody also depends on the role and grant boundaries in
+[v1-access-control.md](v1-access-control.md). Account-owner,
+trusted-contact, public-link, admin/operator, and optional escrow access must
+be designed separately from the encryption envelope itself.
+
 ## Goals
 
 - Preserve evidence confidentiality where practical.
@@ -56,7 +61,9 @@ Planned incident modes change access policy expectations, not the current cipher
 | Safety check | Missed check-ins may trigger trusted-contact access. False positives and cancellation behavior need explicit policy before implementation. |
 | Evidence note | Usually private by default. Export, retention, and deletion policy may matter more than live access. |
 
-Do not treat incident-mode labels as sufficient access control. Account-owner, trusted-contact, public-link, admin/operator, and optional escrow access must be designed separately.
+Do not treat incident-mode labels as sufficient access control. Account-owner,
+trusted-contact, public-link, admin/operator, and optional escrow access must be
+designed separately; see [v1-access-control.md](v1-access-control.md).
 
 ## Key Custody Models Considered
 
@@ -155,7 +162,11 @@ Possible flow:
 6. The viewer or future trusted contact app downloads ciphertext chunks, bundle manifests, and contact-wrapped key material.
 7. The contact private key unwraps the media key and decrypts evidence client-side.
 
-The viewer token should authorize read access to incident metadata and encrypted evidence. It should not, by itself, be the only decryption capability unless the system intentionally chooses a weaker bearer-token-only emergency mode.
+The viewer token should authorize read access to incident metadata and
+encrypted evidence. It should not, by itself, be the only decryption capability
+unless the system intentionally chooses a weaker bearer-token-only emergency
+mode. Future account-owner, trusted-contact, and public-link grant rules are
+tracked in [v1-access-control.md](v1-access-control.md).
 
 Lost contact keys must be handled explicitly. If a contact loses their private key, existing media keys wrapped only to that contact may be unrecoverable by that contact. Future schema and API design should distinguish removing a contact from future incidents, stopping new key wrapping, revoking viewer tokens, rotating media keys, and marking older wrapped keys as no longer offered by the server.
 

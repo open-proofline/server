@@ -9,7 +9,7 @@ evidence bundle downloads.
 
 This repository is the server/backend component only. In the planned `open-proofline` organisation layout it corresponds to `open-proofline/server`. Future web-client, iOS-client, Android-client, and protocol implementation should live in separate repositories.
 
-The current backend stores generic incidents only. Planned future clients may classify incidents as emergency incidents, non-emergency interaction records, timed safety checks, or evidence notes after the protocol, schema, access-control, and client designs exist. See [incident-modes.md](incident-modes.md).
+The current backend stores generic incidents only. Planned future clients may classify incidents as emergency incidents, non-emergency interaction records, timed safety checks, or evidence notes after the protocol, schema, access-control, and client designs exist. See [incident-modes.md](incident-modes.md) and [v1-access-control.md](v1-access-control.md).
 
 ## Package Layout
 
@@ -85,7 +85,9 @@ This repository should stay focused on server/backend work:
 
 Before public exposure, review and add:
 
-- real access control for `/v1` or a strict WireGuard/firewall-only deployment
+- the public product API and separately bound private admin API access-control
+  design in [v1-access-control.md](v1-access-control.md), or a strict
+  WireGuard/firewall-only deployment for the current private API
 - rate limits and abuse controls
 - TLS and reverse-proxy settings for the public incident viewer, if reachable over a network
 - deployment-specific enforcement of the documented [retention, backup, and deletion policy](retention-backup-deletion.md)
@@ -95,7 +97,9 @@ Before public exposure, review and add:
   [cluster-backup-restore-runbook.md](cluster-backup-restore-runbook.md)
 - operational monitoring for failed uploads and storage/DB errors
 - a production review of viewer-token sharing, expiry defaults, and revocation operations
-- first-class incident type, escalation-policy, account, and trusted-contact authorization design before implementing public account workflows
+- first-class incident type, escalation-policy, account, trusted-contact, and
+  admin/operator authorization design before implementing public account
+  workflows or private admin API routes
 
 ## Out Of Scope Today
 
