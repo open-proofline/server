@@ -9,7 +9,7 @@ explicitly configured.
 
 This repository is the server/backend component only. In the planned multi-repo layout it corresponds to `open-proofline/server`. Web, iOS, Android, and shared protocol work are expected to live in separate future repositories.
 
-The long-term product direction is broader than emergency-only recording. Future clients may support emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes. The current backend still stores generic incidents; first-class incident types, escalation policies, account access, trusted-contact accounts, notification delivery, and mobile/web clients are not implemented yet. Planned modes are documented in [incident-modes.md](incident-modes.md), and future public product API, separately bound private admin API, role, and grant boundaries are documented in [v1-access-control.md](v1-access-control.md).
+The long-term product direction is broader than emergency-only recording. Future clients may support emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes. The current backend still stores generic incidents; first-class incident modes, capture profiles, escalation policies, sharing state, account access, trusted-contact accounts, notification delivery, and mobile/web clients are not implemented yet. Planned mode, escalation, migration, and viewer-wording boundaries are documented in [incident-modes.md](incident-modes.md), and future public product API, separately bound private admin API, role, and grant boundaries are documented in [v1-access-control.md](v1-access-control.md).
 
 The repository does not contain an iOS app, Android app, web client, protocol package, recording implementation, production client key storage, key sharing, browser/client-side decryption, server-assisted break-glass key access, notification system, user account model, future public product API, future separately bound private admin API, or playable media export. The Go simulator can produce the documented v1 client-side encryption envelope for development and test flows. Future key custody and emergency access design is documented in [key-custody.md](key-custody.md), [browser-decryption.md](browser-decryption.md), and [break-glass-key-access.md](break-glass-key-access.md).
 
@@ -118,7 +118,7 @@ sequenceDiagram
     Public->>Blob: Stream completed encrypted bundle
 ```
 
-Future clients may classify the same generic backend incident as an emergency incident, interaction record, safety check, or evidence note in client/protocol metadata after that design exists. The current API does not yet store a first-class incident type.
+Future clients may classify the same generic backend incident as an emergency incident, interaction record, safety check, or evidence note in client/protocol metadata after that design exists. The current API does not yet store a first-class incident mode, capture profile, escalation policy, or sharing state.
 
 ## Private/Public Server Boundary
 

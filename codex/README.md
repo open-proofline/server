@@ -144,7 +144,9 @@ Core constraints:
 - Server storage of wrapped/encrypted keys may be acceptable if explicitly designed.
 - Raw server-side key access or server-side decryption may be acceptable only as a deliberate break-glass/dead-man-switch/emergency-access mode with clear access controls, audit expectations, and deployment warnings.
 - Future product scope includes emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes, but the current backend only stores generic incidents.
-- First-class incident types, escalation policies, account access, trusted-contact accounts, dead-man switch notifications, and public `/v1` authentication are not implemented yet.
+- First-class incident modes, capture profiles, escalation policies, sharing
+  state, account access, trusted-contact accounts, dead-man switch
+  notifications, and public `/v1` authentication are not implemented yet.
 - Do not add React, Node, npm, OAuth, JWT, user accounts, SMS, Messenger, push notifications, public admin dashboards, Docker Compose, Kubernetes, or cloud integrations unless explicitly requested.
 - Put newly discovered future work into issues/backlog items unless it is required for the current task.
 - Backlog scanning creates draft Markdown files first, not GitHub issues directly.
@@ -160,7 +162,7 @@ When project scope, architecture, security posture, or workflow changes, update 
 | Project change | Prompt/doc action |
 |---|---|
 | Product rename or repository/artifact namespace migration | Update `README.md`, `AGENTS.md`, `SECURITY.md`, relevant `docs/`, `codex/README.md`, and reusable prompts that mention product or artifact names. Keep docs-only renames separate from repository/module/Docker/GHCR migrations. |
-| First-class incident types, escalation policies, safety checks, interaction records, or evidence notes | Update `docs/incident-modes.md`, `README.md`, API docs, security/threat docs, client prototype docs, and relevant review prompts. |
+| First-class incident modes, capture profiles, escalation policies, sharing state, safety checks, interaction records, or evidence notes | Update `docs/incident-modes.md`, `README.md`, API docs, security/threat docs, client prototype docs, and relevant review prompts. |
 | New API routes or listener exposure | Review `AGENTS.md`, `docs/api.md`, security/threat docs, and relevant review prompts. |
 | Private `/v1` exposure or authentication model changes | Review `AGENTS.md`, `docs/deployment.md`, `docs/security-model.md`, `docs/threat-model.md`, and every reusable prompt that references private/public route separation. |
 | Encryption envelope changes | Update `docs/encryption.md`, `60-simulator-maintenance.md`, `30-security-review.md`, and Deep Research review scope. |

@@ -4,7 +4,7 @@ This is the current backend-only HTTP surface for Proofline. The API binary star
 
 Media bundle downloads are encrypted chunk bundles. The backend does not decrypt, merge, or produce playable media. The simulator's current encrypted uploads use the envelope documented in [encryption.md](encryption.md), but the API treats uploaded bytes as opaque ciphertext.
 
-The current API stores generic incidents only. Planned incident modes such as emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes are documented in [incident-modes.md](incident-modes.md), but first-class `incident_type`, escalation-policy, account, and trusted-contact APIs do not exist yet.
+The current API stores generic incidents only. Planned incident modes such as emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes are documented in [incident-modes.md](incident-modes.md), along with future capture-profile, escalation-policy, sharing-state, and migration boundaries. First-class incident-mode, escalation-policy, account, and trusted-contact APIs do not exist yet.
 
 Default bind addresses:
 
@@ -34,7 +34,7 @@ Incident routes are mounted only on the private API server.
 
 ### `POST /v1/incidents`
 
-Creates an open generic incident. Future clients may classify incidents as emergency incidents, interaction records, safety checks, or evidence notes in client/protocol metadata after that design exists. The current request does not accept an incident type or escalation policy.
+Creates an open generic incident. Future clients may classify incidents as emergency incidents, interaction records, safety checks, or evidence notes only after the protocol, access-control, migration, and viewer-wording design is implemented. The current request does not accept an incident mode, capture profile, escalation policy, or sharing state.
 
 Request:
 

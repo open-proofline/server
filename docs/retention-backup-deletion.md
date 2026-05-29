@@ -140,7 +140,9 @@ Future deletion policy should distinguish:
 
 - deleting one incident
 - expiring closed incidents after an operator-defined retention window
-- applying different retention to emergency incidents, interaction records, safety checks, and evidence notes after incident types exist
+- applying different retention to emergency incidents, interaction records,
+  safety checks, and evidence notes after incident-mode, capture-profile,
+  escalation-policy, and sharing-state fields exist
 - pruning expired or revoked token metadata after an audit window
 - cleaning orphaned temporary upload files under `SAFE_DATA_DIR/tmp` after crashes
 - identifying orphaned blobs or rows after interrupted manual operations
@@ -191,7 +193,8 @@ Likely future work includes:
 - incident deletion repository methods that transactionally remove metadata
 - storage deletion helpers that operate only on server-stored relative paths
 - private/admin deletion routes or CLI commands with clear authorization assumptions
-- retention policy fields or settings for first-class incident modes after they exist
+- retention policy fields or settings for first-class incident modes, capture
+  profiles, escalation policies, and sharing state after they exist
 - tests for database/blob consistency during deletion failures
 - orphan temp-file cleanup with a conservative age threshold
 - optional retention configuration for closed incidents and token metadata

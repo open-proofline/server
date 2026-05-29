@@ -237,8 +237,9 @@ Future incident modes may require different defaults:
 | Evidence note | May need separate retention for lightweight notes and attached encrypted media. |
 
 No incident-mode-specific retention should be implemented until first-class
-incident types exist and the retention policy is updated before or alongside
-that implementation.
+incident-mode, capture-profile, escalation-policy, and sharing-state fields
+exist and the retention policy is updated before or alongside that
+implementation.
 
 ## Public And Private Entry Points
 
@@ -365,7 +366,8 @@ Retention tasks:
   tombstones, and orphaned temporary upload files
 - add a manual or scheduled retention runner only after dry-run behavior and
   operator review are documented
-- defer incident-mode-specific retention until first-class incident types exist
+- defer incident-mode-specific retention until first-class incident-mode,
+  capture-profile, escalation-policy, and sharing-state fields exist
 
 Test tasks:
 
