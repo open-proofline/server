@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added a live partial stream access boundary design covering future role-scoped
+  live access, open/failed stream exposure, partial manifests, no-store
+  behavior, and key-custody dependencies without adding routes or decryption.
 - Added SQLite WAL operational guidance covering sidecar files, local storage
   expectations, backup and restore handling, and simple checkpoint-pressure
   checks without changing database behavior.

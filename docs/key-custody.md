@@ -378,7 +378,12 @@ Media chunk encryption does not automatically protect all incident data. Inciden
 
 Live GPS data may need a different privacy model from encrypted media chunks. A dashboard that shows current location to trusted contacts may require backend visibility, contact-side decryption, or a mixed design where coarse status is server-visible and sensitive details are encrypted.
 
-Live audio/video streaming may also require a different key/session model than completed chunk bundles. Long-running streams need key rotation, late contact enrollment behavior, partial stream access, reconnect handling, and clear rules for when wrapped keys are uploaded.
+Live audio/video streaming may also require a different key/session model than
+completed chunk bundles. Long-running streams need key rotation, late contact
+enrollment behavior, partial stream access, reconnect handling, and clear rules
+for when wrapped keys are uploaded. The live or partial access boundary is
+documented in
+[live-partial-stream-access-boundary.md](live-partial-stream-access-boundary.md).
 
 Interaction records may be non-emergency but still highly sensitive. Do not assume lower urgency means lower confidentiality.
 

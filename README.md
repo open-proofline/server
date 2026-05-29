@@ -89,6 +89,7 @@ The current backend still stores generic incidents. First-class incident modes, 
 - No production client-side encryption implementation
 - No implemented cluster-safe upload operation, idempotency API, or upload-lease use of coordination
 - No implemented resumable upload or upload lease protocol
+- No implemented live or partial stream chunk access before stream completion
 - No backend/browser decryption, key sharing, server escrow, break-glass key access, or playable media export
 - No push notifications, SMS, or Messenger integration
 - No user accounts, OAuth, JWT, or public admin dashboard
@@ -180,6 +181,7 @@ Container defaults bind to `0.0.0.0` inside the container. Restrict host exposur
 - [Key custody and emergency access](docs/key-custody.md)
 - [Contact-wrapped key metadata simulator prototype](docs/contact-wrapped-key-metadata-simulator.md)
 - [Browser-side decryption design](docs/browser-decryption.md)
+- [Live partial stream access boundary](docs/live-partial-stream-access-boundary.md)
 - [Break-glass key access design](docs/break-glass-key-access.md)
 - [API reference](docs/api.md)
 - [Deployment notes](docs/deployment.md), including SQLite WAL operations

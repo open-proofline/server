@@ -421,6 +421,10 @@ metadata, and any stored `original_filename` basename for each chunk. Server
 filesystem paths are not included.
 It also includes a non-secret `encryption` hint indicating expected client-side encryption and `server_decrypts: false`.
 
+Future live or partial stream access is planning-only and should not be inferred
+from this completed bundle route. See
+[live-partial-stream-access-boundary.md](live-partial-stream-access-boundary.md).
+
 ### `GET /v1/incidents/{incident_id}/download`
 
 Downloads a ZIP bundle containing all completed streams for an incident:
@@ -565,6 +569,11 @@ The Go app does not set `Strict-Transport-Security` in local/dev HTTP mode. Set 
 ### `GET /i/{token}/streams/{stream_id}/download`
 
 Downloads a completed stream bundle for the token's incident. The route is read-only and never accepts a client-provided file path. Invalid, expired, and revoked tokens return `404 incident_token_invalid`.
+
+Open and failed streams are visible only as metadata in the current viewer
+summary. The current token-scoped viewer does not expose live chunk bytes or
+partial stream manifests. See
+[live-partial-stream-access-boundary.md](live-partial-stream-access-boundary.md).
 
 ### `GET /i/{token}/incident/download`
 
