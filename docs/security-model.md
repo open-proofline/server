@@ -1,12 +1,19 @@
 # Security Model
 
-This document summarizes the current Proofline backend security assumptions and controls. For a threat-oriented view, see [threat-model.md](threat-model.md). For planned incident-mode behavior, see [incident-modes.md](incident-modes.md). For future production key custody and emergency access design, see [key-custody.md](key-custody.md), [browser-decryption.md](browser-decryption.md), and [break-glass-key-access.md](break-glass-key-access.md). For vulnerability reporting, see [../SECURITY.md](../SECURITY.md).
+This document summarizes the current Proofline backend security assumptions and controls. For a threat-oriented view, see [threat-model.md](threat-model.md). For planned incident-mode behavior, see [incident-modes.md](incident-modes.md). For future `/v1` role and grant boundaries, see [v1-access-control.md](v1-access-control.md). For future production key custody and emergency access design, see [key-custody.md](key-custody.md), [browser-decryption.md](browser-decryption.md), and [break-glass-key-access.md](break-glass-key-access.md). For vulnerability reporting, see [../SECURITY.md](../SECURITY.md).
 
 ## Maturity
 
 Proofline is experimental and not production-ready public infrastructure. The private `/v1` API has no public user authentication, no user accounts, no OAuth, and no JWT protection.
 
 The current backend stores generic incidents only. It does not yet implement first-class incident types, escalation policies, trusted-contact accounts, dead-man switch notifications, or account-based access to personal incident data.
+
+The future `/v1` access-control direction is documented in
+[v1-access-control.md](v1-access-control.md). That document is planning-only
+and does not make the current unauthenticated `/v1` API safe to expose
+publicly. Its future topology separates a public authenticated product API from
+a separately bound private admin API listener that still requires
+authentication and authorization.
 
 ## Listener Boundary
 
@@ -86,6 +93,11 @@ Future escalation policies should keep capture separate from notification and em
 
 The current backend does not decide whether an incident is an emergency, does not notify trusted contacts, and does not contact emergency services.
 
+Future incident-mode access must follow the role and grant boundaries in
+[v1-access-control.md](v1-access-control.md). Incident labels must not silently
+grant trusted-contact, public-link, admin/operator, escrow, key, or plaintext
+access.
+
 ## Logging And Headers
 
 Request logging records method, redacted route pattern, status, byte count, and duration. It does not log request bodies, uploaded bytes, Authorization headers, raw viewer tokens, raw incident tokens, plaintext, or raw keys.
@@ -119,7 +131,8 @@ Normal file or object removal is not treated as guaranteed secure erasure. Deplo
 
 ## Known Security Gaps
 
-- No public authentication or authorization model for `/v1`
+- No implemented public authentication or authorization model for `/v1`; the
+  future design is planning-only in [v1-access-control.md](v1-access-control.md)
 - No built-in TLS
 - No built-in app-level rate limiting or abuse throttling
 - PostgreSQL metadata and Valkey/Redis-compatible coordination are optional
@@ -138,4 +151,4 @@ Normal file or object removal is not treated as guaranteed secure erasure. Deplo
 - No implemented production client key storage, key sharing, browser decryption, server-assisted break-glass key access, or emergency-contact key access model; the future designs are documented in [key-custody.md](key-custody.md), [browser-decryption.md](browser-decryption.md), and [break-glass-key-access.md](break-glass-key-access.md)
 - No automated retention/deletion enforcement or built-in disk encryption; the operational policy is documented in [retention-backup-deletion.md](retention-backup-deletion.md)
 - No malware/content scanning for uploaded encrypted blobs
-- No multi-user authorization model
+- No implemented multi-user authorization model

@@ -15,6 +15,7 @@ This directory contains the detailed documentation for Proofline Server, the Go 
 | [Cluster-safe upload operation semantics](cluster-safe-upload-semantics.md) | Planning design for future upload operation identity, idempotency state, commit ordering, retry success, conflict handling, and cleanup across metadata and blob backends. |
 | [Resumable upload and upload lease protocol](resumable-upload-lease-protocol.md) | Planning decision to defer resumable uploads and upload leases for a local desktop recorder simulator client while preserving complete encrypted chunk retry semantics, poor-network simulation, and future account-flow shape. |
 | [Incident capture modes](incident-modes.md) | Planned emergency, interaction-record, safety-check, and evidence-note modes. |
+| [Future /v1 access control](v1-access-control.md) | Future role, grant, public product API, private admin API listener, audit, and migration boundaries for account-owner, trusted-contact, public-link, admin/operator, and optional escrow access. |
 | [Encryption](encryption.md) | Client-side chunk envelope, simulator key file, and local bundle verification. |
 | [iOS local recorder prototype](ios-local-recorder-prototype.md) | Future native incident-capture scope, chunking, encrypted staging, retry, and API mapping. |
 | [Key custody and emergency access](key-custody.md) | Future production key custody, trusted-contact access, and break-glass design. |
@@ -79,9 +80,9 @@ future desktop simulator should include adjustable poor-network simulation and
 be ready for account-aware flows once the account and access-control model
 exists.
 
-The long-term Proofline product direction is broader than emergency-only recording. Future clients should support emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes while keeping capture, escalation, sharing, and legal/export actions separate. The planned incident modes are documented in [incident-modes.md](incident-modes.md).
+The long-term Proofline product direction is broader than emergency-only recording. Future clients should support emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes while keeping capture, escalation, sharing, and legal/export actions separate. The planned incident modes are documented in [incident-modes.md](incident-modes.md), and the future account-owner, trusted-contact, public-link, admin/operator, and optional escrow access boundaries are documented in [v1-access-control.md](v1-access-control.md).
 
-The future iOS incident-capture prototype is planned in [ios-local-recorder-prototype.md](ios-local-recorder-prototype.md). Future production key custody is documented in [key-custody.md](key-custody.md), with browser decryption and break-glass follow-up designs in [browser-decryption.md](browser-decryption.md) and [break-glass-key-access.md](break-glass-key-access.md).
+The future iOS incident-capture prototype is planned in [ios-local-recorder-prototype.md](ios-local-recorder-prototype.md). Future production key custody is documented in [key-custody.md](key-custody.md), with browser decryption and break-glass follow-up designs in [browser-decryption.md](browser-decryption.md) and [break-glass-key-access.md](break-glass-key-access.md). None of those future designs make the current `/v1` API safe to expose publicly before [v1-access-control.md](v1-access-control.md) is implemented.
 
 Evidence bundles are encrypted chunk bundles with JSON manifests. They are not decrypted, playable, or merged media exports.
 

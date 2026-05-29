@@ -30,7 +30,16 @@ Planned future incident modes include emergency incidents, non-emergency interac
 - Raw viewer/incident tokens returned once at creation time
 - Incident viewer URLs containing bearer tokens
 - Simulator-only local encryption key files when developers opt into `--key-file`
-- Future mobile/web recordings, interaction-record metadata, safety-check state, trusted-contact access, production client-side keys, key sharing, browser decryption, and break-glass key access are out of scope for the current implementation. Planned incident modes are documented in [incident-modes.md](incident-modes.md), the intended future key custody direction is documented in [key-custody.md](key-custody.md), browser decryption constraints are documented in [browser-decryption.md](browser-decryption.md), and server-assisted access design is documented in [break-glass-key-access.md](break-glass-key-access.md).
+- Future mobile/web recordings, interaction-record metadata, safety-check
+  state, account-owner access, trusted-contact access, production client-side
+  keys, key sharing, browser decryption, and break-glass key access are out of
+  scope for the current implementation. Planned incident modes are documented
+  in [incident-modes.md](incident-modes.md), future role and grant boundaries
+  are documented in [v1-access-control.md](v1-access-control.md), the intended
+  future key custody direction is documented in [key-custody.md](key-custody.md),
+  browser decryption constraints are documented in
+  [browser-decryption.md](browser-decryption.md), and server-assisted access
+  design is documented in [break-glass-key-access.md](break-glass-key-access.md).
 
 ## Trust Boundaries
 
@@ -72,13 +81,17 @@ Future incident-mode work should treat these as explicit design risks rather tha
 - sharing, export, publication, and legal submission are distinct actions and should not be collapsed into capture
 - safety-check or dead-man switch notifications may create false alarms if timers, connectivity, or contact workflows are poorly designed
 - trusted contacts need clear context and should decide whether to contact emergency services unless a future emergency-services integration is explicitly implemented
-- account-owner, trusted-contact, admin/operator, and public-link access must be separated before public account systems exist
+- account-owner, trusted-contact, admin/operator, public-link, and optional
+  escrow access must be separated before public account systems exist; see
+  [v1-access-control.md](v1-access-control.md)
 
 The current backend does not implement incident-mode-specific controls yet, so future work must update this threat model before or alongside implementation.
 
 ## Known Limitations
 
-- No public authentication, user accounts, OAuth, JWT, sessions, or CSRF protection.
+- No implemented public authentication, user accounts, OAuth, JWT, sessions, or
+  CSRF protection. The future `/v1` access-control design is planning-only in
+  [v1-access-control.md](v1-access-control.md).
 - Separate private/public ports reduce accidental route exposure, but they are not a complete security model.
 - `/v1` must not be publicly exposed as-is.
 - No iOS app, Android app, web client, local recording, production client key storage, key sharing, push notifications, SMS, Messenger integration, or public admin dashboard.
@@ -106,13 +119,13 @@ The current backend does not implement incident-mode-specific controls yet, so f
   themselves.
 - No malware/content scanning; uploaded bytes are assumed to be client-encrypted blobs.
 - Bundle downloads are encrypted chunk bundles, not decrypted or playable media exports.
-- No multi-user authorization model.
+- No implemented multi-user authorization model.
 - Viewer links are bearer tokens and must be shared carefully.
 - No implemented production key-sharing, key recovery, Keychain storage, trusted-contact access, browser decryption, break-glass key access, or playable export. The future key custody and emergency access design is documented in [key-custody.md](key-custody.md), with browser decryption design in [browser-decryption.md](browser-decryption.md) and break-glass design in [break-glass-key-access.md](break-glass-key-access.md).
 
 ## Deployment Guidance
 
-For local/private use, bind the private API server to localhost or a private network and restrict access with WireGuard, firewall rules, or a reverse proxy. If any part is exposed publicly, expose only the incident viewer server unless `/v1` has an additional authenticated control plane in front of it. Inside Docker containers, bind to container addresses such as `0.0.0.0:8080` and restrict host exposure with port publishing, firewall rules, WireGuard, or reverse proxy configuration.
+For local/private use, bind the private API server to localhost or a private network and restrict access with WireGuard, firewall rules, or a reverse proxy. If any part is exposed publicly today, expose only the incident viewer server. Future non-admin product routes may become public only after authenticated and authorized product API work exists. Future admin/operator routes should use a separately bound private admin API listener, configured for VPN or another private boundary where appropriate, while still requiring admin authentication. Inside Docker containers, bind to container addresses such as `0.0.0.0:8080` and restrict host exposure with port publishing, firewall rules, WireGuard, or reverse proxy configuration.
 
 Use TLS at the edge for any network access. Apply deployment-edge rate limiting for public incident viewer routes and any private reverse-proxy boundary. Keep reverse-proxy logs, metrics, dashboards, and rate-limit keys from recording raw `/i/{token}` paths and pre-rename compatibility `/e/{token}` paths.
 
@@ -120,9 +133,13 @@ The Go app does not set `Strict-Transport-Security` by default because local dev
 
 ## Next Security Steps
 
-- Add an explicit access-control story for `/v1`.
+- Implement the explicit `/v1` access-control story from
+  [v1-access-control.md](v1-access-control.md) before any public product API
+  exposure or private admin API implementation.
 - Design first-class incident types and escalation policies before implementing non-emergency interaction records, safety checks, or dead-man switch workflows.
-- Define account-owner, trusted-contact, web-client, and admin/operator authorization boundaries.
+- Define the future public product API and separately bound private admin API,
+  including account-owner, trusted-contact, web-client, and admin/operator
+  authorization boundaries.
 - Tune deployment-edge rate limits for token guesses, uploads, downloads, and admin actions, and consider app-level rate limiting separately.
 - Review viewer-token expiry tuning and revocation workflows.
 - Implement documented retention, backup, restore, and deletion operations.

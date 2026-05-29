@@ -6,6 +6,14 @@ Proofline is experimental and not production-ready public infrastructure. Treat 
 >
 > Keep private listeners behind localhost, LAN, WireGuard, firewall rules, or a strict reverse proxy. Separate bind addresses are a deployment boundary, not a complete security model.
 
+The future `/v1` access-control direction is documented in
+[v1-access-control.md](v1-access-control.md). That document is planning-only
+and does not change the current deployment rule: unauthenticated `/v1` routes
+must remain private. Future admin/operator routes should use their own private
+listener that can be bound to loopback, LAN, WireGuard, VPN, firewall, or a
+private reverse proxy, but that private placement must not replace admin
+authentication.
+
 The current module and artifact names use the `open-proofline/server` repository namespace. The published GHCR image is `ghcr.io/open-proofline/server`, local examples use the `proofline-server` image name, and release binaries use `proofline-server-*` names. Compatibility identifiers such as the v1 encryption envelope scheme and default SQLite filename may still use earlier `safety-recorder` names until separate protocol or data-layout migrations are explicitly performed.
 
 ## Local Development
@@ -174,7 +182,12 @@ Reverse proxies should still set their own connection, request, and upstream tim
 
 ## Public Incident Viewer Exposure
 
-If exposing any part of the system publicly, expose only the incident viewer listener unless `/v1` has a separate authenticated control plane in front of it.
+If exposing any part of the current system publicly, expose only the incident
+viewer listener. Future non-admin product routes may become a public
+authenticated API only after satisfying the role, grant, audit, logging, and
+migration expectations in [v1-access-control.md](v1-access-control.md). Future
+admin/operator routes should remain on a separately bound private admin API
+listener and still authenticate operators.
 
 The checklist below is a deployment review aid. Completing it does not make
 Proofline production-ready public infrastructure, and it does not make `/v1`
@@ -214,7 +227,12 @@ Before exposing the public incident viewer:
 
 The Go app still has no built-in app-level rate limiter. Apply rate limits at the deployment edge for now, and tune them for the expected recording, polling, and download patterns.
 
-Future server-assisted break-glass, dead-man-switch key access, account access, or trusted-contact workflows would add stronger operator and deployment trust requirements. They should remain disabled unless explicitly designed and configured; see [break-glass-key-access.md](break-glass-key-access.md), [key-custody.md](key-custody.md), and [incident-modes.md](incident-modes.md).
+Future server-assisted break-glass, dead-man-switch key access, account access,
+or trusted-contact workflows would add stronger operator and deployment trust
+requirements. They should remain disabled unless explicitly designed and
+configured; see [v1-access-control.md](v1-access-control.md),
+[break-glass-key-access.md](break-glass-key-access.md),
+[key-custody.md](key-custody.md), and [incident-modes.md](incident-modes.md).
 
 Optional PostgreSQL metadata deployment remains experimental. Schema parity,
 migration tracking, transaction boundaries, configuration shape, integration

@@ -12,7 +12,7 @@ The current envelope scheme and associated-data prefix still use `safety-recorde
 
 The v1 envelope protects chunk plaintext from the backend, SQLite, configured blob storage, and evidence bundle readers who do not have the client-held key. It does not protect metadata that is already sent to the backend, such as incident ID, stream ID, media type, chunk index, timestamps, byte size, and ciphertext hashes.
 
-The simulator key handling in this repository is for development and test use only. Future production client key storage, sharing, recovery, trusted-contact access, and incident-mode sharing are out of scope for the current implementation and are designed separately in [key-custody.md](key-custody.md) and [incident-modes.md](incident-modes.md).
+The simulator key handling in this repository is for development and test use only. Future production client key storage, sharing, recovery, trusted-contact access, account-owner access, and incident-mode sharing are out of scope for the current implementation and are designed separately in [key-custody.md](key-custody.md), [incident-modes.md](incident-modes.md), and [v1-access-control.md](v1-access-control.md).
 
 ## Scheme v1
 
@@ -153,4 +153,4 @@ Future incident modes do not change the backend ciphertext-only posture by thems
 
 The intended Apple-side equivalent is CryptoKit or Swift Crypto AES-GCM. This repository does not include iOS or Swift code yet.
 
-Future work includes production client key storage, Keychain integration, trusted-contact key access, key sharing, browser/client-side decryption, account-based access, incident-mode sharing, and playable export. The intended production key custody direction is a hybrid trusted-contact model documented in [key-custody.md](key-custody.md), with browser decryption constraints in [browser-decryption.md](browser-decryption.md) and optional break-glass design in [break-glass-key-access.md](break-glass-key-access.md). Password-derived keys, passphrases, public-key wrapping, key escrow, backend decryption, and browser decryption are not implemented in this milestone.
+Future work includes production client key storage, Keychain integration, trusted-contact key access, key sharing, browser/client-side decryption, account-based access, incident-mode sharing, and playable export. The intended production key custody direction is a hybrid trusted-contact model documented in [key-custody.md](key-custody.md), with future access boundaries in [v1-access-control.md](v1-access-control.md), browser decryption constraints in [browser-decryption.md](browser-decryption.md), and optional break-glass design in [break-glass-key-access.md](break-glass-key-access.md). Password-derived keys, passphrases, public-key wrapping, key escrow, backend decryption, and browser decryption are not implemented in this milestone.
