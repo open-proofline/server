@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added a cluster backup, restore, and failure runbook covering durable
+  PostgreSQL metadata, S3-compatible encrypted blobs, coordination-only
+  Valkey/Redis state, private restore validation, and conservative failure
+  handling.
 - Added optional PostgreSQL metadata storage with a separate migration path,
   explicit `SAFE_METADATA_BACKEND=postgresql` configuration, and opt-in
   integration tests while keeping SQLite as the default.

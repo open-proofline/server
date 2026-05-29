@@ -168,6 +168,7 @@ Container defaults bind to `0.0.0.0` inside the container. Restrict host exposur
 - [Architecture](docs/architecture.md)
 - [Configuration](docs/configuration.md)
 - [Production cluster scope](docs/production-cluster-scope.md)
+- [Cluster backup, restore, and failure runbook](docs/cluster-backup-restore-runbook.md)
 - [PostgreSQL metadata migration path](docs/postgresql-metadata-migration.md)
 - [Cluster-safe upload operation semantics](docs/cluster-safe-upload-semantics.md)
 - [Resumable upload and upload lease protocol](docs/resumable-upload-lease-protocol.md)
@@ -227,6 +228,7 @@ Please see [SECURITY.md](SECURITY.md) for supported versions and vulnerability r
 - Continue hardening optional PostgreSQL metadata support while preserving SQLite local/default support
 - Wire optional Valkey/Redis-compatible coordination into future leases, idempotency, and retry handling without making it durable evidence storage
 - Implement cluster-safe upload operation semantics before multi-node production deployment
+- Keep cluster backup, restore, and failure runbooks current as optional PostgreSQL, S3-compatible storage, and coordination behavior evolve
 - WireGuard-only bind/firewall deployment guidance
 - Server-side support for first-class incident types and escalation policies after protocol design
 - Server-side support for trusted-contact dead-man switch workflows after access-control design

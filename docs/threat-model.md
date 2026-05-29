@@ -22,6 +22,10 @@ Planned future incident modes include emergency incidents, non-emergency interac
   implemented; a local desktop recorder simulator client should use complete
   encrypted chunk retries as documented in
   [resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md)
+- Cluster backup, restore, and failure-mode guidance for optional PostgreSQL
+  metadata, S3-compatible encrypted blobs, and Valkey/Redis-compatible
+  coordination is documented in
+  [cluster-backup-restore-runbook.md](cluster-backup-restore-runbook.md)
 - On-demand encrypted evidence ZIP bundles generated from completed streams
 - Raw viewer/incident tokens returned once at creation time
 - Incident viewer URLs containing bearer tokens
@@ -96,6 +100,10 @@ The current backend does not implement incident-mode-specific controls yet, so f
   should retry complete encrypted chunk uploads; the future design is planned
   in [resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md).
 - Retention, backup, restore, and deletion policy is documented in [retention-backup-deletion.md](retention-backup-deletion.md), but the backend does not yet implement automatic expiration, incident deletion APIs, built-in disk encryption, or object-bucket lifecycle policy enforcement.
+- Cluster backup, restore, and failure runbooks are operational guidance only
+  and do not make optional PostgreSQL, S3-compatible storage, or
+  Valkey/Redis-compatible coordination production-cluster readiness by
+  themselves.
 - No malware/content scanning; uploaded bytes are assumed to be client-encrypted blobs.
 - Bundle downloads are encrypted chunk bundles, not decrypted or playable media exports.
 - No multi-user authorization model.

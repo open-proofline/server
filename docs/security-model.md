@@ -110,6 +110,11 @@ The Go app does not include an app-level rate limiter. Deployment-edge rate limi
 
 Retention, backup, restore, secure deletion limits, and disk encryption posture are documented in [retention-backup-deletion.md](retention-backup-deletion.md). The current backend preserves accepted evidence by default and does not automatically expire incidents or expose incident deletion APIs.
 
+Cluster backup, restore, and failure-mode guidance for optional PostgreSQL
+metadata, S3-compatible encrypted blobs, and Valkey/Redis-compatible
+coordination is documented in
+[Cluster backup, restore, and failure runbook](cluster-backup-restore-runbook.md).
+
 Normal file or object removal is not treated as guaranteed secure erasure. Deployments that store real incident evidence should use encrypted disks, encrypted volumes, encrypted object buckets, logs, and backups, then rely on explicit backup expiry and encryption-key retirement for stronger deletion outcomes.
 
 ## Known Security Gaps
@@ -120,6 +125,9 @@ Normal file or object removal is not treated as guaranteed secure erasure. Deplo
 - PostgreSQL metadata and Valkey/Redis-compatible coordination are optional
   and experimental; they do not by themselves make the upload path cluster-safe
   or make `/v1` safe for public exposure
+- Cluster backup, restore, and failure runbooks are operational guidance only;
+  they do not add access control, retention enforcement, observability, abuse
+  controls, or production readiness
 - No implemented cluster-safe upload operation or idempotency API; the future
   semantics are only planned in
   [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md)

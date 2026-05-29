@@ -108,6 +108,10 @@ Object-storage support includes:
 
 The implementation stages upload bytes under `SAFE_DATA_DIR/tmp`, computes SHA-256 over the uploaded ciphertext, verifies the client-provided hash, and then writes the final S3 object with `If-None-Match: *`. It does not create S3 staging objects. The local filesystem backend remains supported and continues to use relative server-controlled stored paths.
 
+Backup, restore, and failure-mode guidance for PostgreSQL metadata plus
+S3-compatible encrypted blobs is documented in the
+[cluster backup, restore, and failure runbook](cluster-backup-restore-runbook.md).
+
 ## Valkey / Redis-Compatible Coordination Scope
 
 Valkey or another Redis-compatible service is implemented as optional
@@ -189,7 +193,10 @@ Preferred implementation sequence:
 5. Add explicit idempotency and upload-operation semantics for cluster-safe retries.
 6. Add optional Valkey/Redis-compatible coordination. Implemented for explicit
    configuration and startup checks; upload-operation use remains future work.
-7. Update deployment, backup, restore, security, and threat-model docs before recommending any production cluster deployment.
+7. Update deployment, backup, restore, security, and threat-model docs before
+   recommending any production cluster deployment. Initial cluster backup,
+   restore, and failure guidance is documented in
+   [Cluster backup, restore, and failure runbook](cluster-backup-restore-runbook.md).
 
 Each step should be small, reviewable, and tested against the existing SQLite/filesystem path before adding new backend-specific behavior.
 
