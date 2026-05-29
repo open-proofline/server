@@ -220,10 +220,18 @@ By default:
 ```text
 data/
   safety.db
+  safety.db-wal
+  safety.db-shm
   tmp/
   incidents/{incident_id}/streams/{stream_id}/{media_type}_{zero_padded_chunk_index}.enc
   incidents/{incident_id}/{media_type}_{zero_padded_chunk_index}.enc
 ```
+
+The `safety.db-wal` and `safety.db-shm` sidecar files appear while SQLite is
+running in WAL mode. Keep them on the same local filesystem as the main
+database and include them when making a direct live copy. See
+[SQLite WAL operations](deployment.md#sqlite-wal-operations) for deployment,
+backup, restore, and checkpoint-pressure guidance.
 
 Uploaded chunks are staged in `tmp/`, hashed while streaming, and hard-linked into the final incident path only after SHA-256 verification. New streamed uploads use the stream-scoped path. Legacy unstreamed chunks keep the older incident-level path. Stored chunk paths are relative server-controlled paths, not client-provided paths.
 

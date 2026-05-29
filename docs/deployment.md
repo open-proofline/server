@@ -63,6 +63,62 @@ Container defaults:
 
 Inside containers, bind to container addresses such as `0.0.0.0`, then restrict host exposure with Docker port publishing, firewall rules, WireGuard, or a reverse proxy.
 
+## SQLite WAL Operations
+
+SQLite metadata remains the default backend. At startup, the server enables
+foreign-key enforcement and verifies that SQLite accepted WAL journal mode.
+This is a local-disk deployment shape, not a cluster database mode.
+
+For SQLite deployments, `SAFE_DB_PATH` is the main database file. The default
+path is `./data/safety.db` locally and `/data/safety.db` in the container. The
+default file name still uses `safety.db` until a separate data-layout migration
+is explicitly designed.
+
+While the server is running in WAL mode, SQLite may also create sidecar files
+next to the database:
+
+```text
+<SAFE_DB_PATH>-wal
+<SAFE_DB_PATH>-shm
+```
+
+Keep the main database file and these sidecar files on the same local host,
+local filesystem, and durable volume. Avoid network filesystems, unusual
+shared volumes, or backup agents that cannot preserve SQLite locking,
+shared-memory, and snapshot behavior correctly. If a deployment uses a bind
+mount, virtualized volume, or storage layer with non-standard filesystem
+semantics, test startup, upload, stream completion, bundle download, restart,
+backup, and restore before relying on it for real evidence.
+
+For backups, prefer one of the consistency strategies in
+[retention, backup, and deletion](retention-backup-deletion.md): stop the API
+process, take an atomic filesystem or volume snapshot that includes SQLite and
+encrypted blobs together, or use SQLite's backup mechanism while coordinating
+with a paused blob snapshot. Do not copy only the main `safety.db` file from a
+running WAL-mode database and assume it is complete.
+
+Growing deployments should watch for WAL/checkpoint pressure. Useful symptoms
+include a `*-wal` file that keeps growing, low free space on the database
+volume, rising write latency, repeated database busy/locked errors, or restore
+tests that cannot reconstruct expected bundles from the database and encrypted
+blobs.
+
+Simple local checks can inspect file sizes and free space without exposing
+incident contents:
+
+```bash
+db=${SAFE_DB_PATH:-./data/safety.db}
+ls -lh "$db" "$db-wal" "$db-shm" 2>/dev/null || true
+df -h "$(dirname "$db")"
+```
+
+Treat deployment paths, hostnames, screenshots, logs, and backup locations as
+private operational details. Do not paste raw viewer tokens, request bodies,
+uploaded bytes, plaintext, raw keys, credentials, private deployment details,
+or real user safety data into public issues or support channels. If code-level
+SQLite observability or automated checkpoint tuning is needed later, handle it
+as a separate scoped implementation task with tests.
+
 ## Optional S3-Compatible Blob Storage
 
 Local filesystem encrypted blob storage remains the default. To store committed encrypted chunks in an S3-compatible object store, explicitly set `SAFE_BLOB_BACKEND=s3` and configure the S3 endpoint and bucket:

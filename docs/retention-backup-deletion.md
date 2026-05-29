@@ -79,7 +79,8 @@ Back up at least:
 - the PostgreSQL database when `SAFE_METADATA_BACKEND=postgresql`
 - `SAFE_DATA_DIR/incidents` when `SAFE_BLOB_BACKEND=local`
 - the configured S3 bucket and `SAFE_S3_PREFIX` object set when `SAFE_BLOB_BACKEND=s3`
-- SQLite sidecar files if copying a live database directly, such as WAL files
+- SQLite sidecar files if copying a live database directly, including
+  `<SAFE_DB_PATH>-wal` and `<SAFE_DB_PATH>-shm` when present
 - deployment configuration needed to restore backend selectors, bind addresses, data paths, upload limits, token TTL defaults, and reverse-proxy routing
 
 Do not treat Valkey/Redis-compatible coordination data as a substitute for
@@ -95,7 +96,13 @@ Use one of these consistency strategies:
 - use SQLite's backup mechanism for the database and coordinate it with a blob snapshot taken while uploads are paused
 - pause uploads, back up SQLite with its live state, and take an S3 bucket or prefix inventory/copy for the matching committed objects
 
-Do not copy only `safety.db` from a running WAL-mode database and assume that is a complete backup. Include the live SQLite state correctly, or use a database backup operation. The file name still uses `safety.db` until a separate data-layout migration is performed.
+Do not copy only `safety.db` from a running WAL-mode database and assume that
+is a complete backup. Include the live SQLite state correctly, including WAL
+sidecar files when using a direct live copy, or use a database backup
+operation. The file name still uses `safety.db` until a separate data-layout
+migration is performed. SQLite WAL operational notes, same-host storage
+expectations, and simple local size checks are documented in
+[deployment.md](deployment.md#sqlite-wal-operations).
 
 Backups should be encrypted at rest and access-controlled. Backup logs, filenames, tickets, and monitoring should not contain raw viewer tokens, private deployment details, request bodies, uploaded bytes, plaintext, or raw keys.
 
@@ -105,7 +112,8 @@ Restores must be tested before relying on the system for real incidents.
 
 A restore test should:
 
-1. Restore SQLite and blobs into an isolated staging path or isolated S3 bucket/prefix.
+1. Restore SQLite, including any needed WAL live state, and blobs into an
+   isolated staging path or isolated S3 bucket/prefix.
 2. Start the API with private/local bind addresses only.
 3. Load known incident metadata through private routes.
 4. Verify completed stream or incident bundle downloads can be generated.

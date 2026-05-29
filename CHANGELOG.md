@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added SQLite WAL operational guidance covering sidecar files, local storage
+  expectations, backup and restore handling, and simple checkpoint-pressure
+  checks without changing database behavior.
 - Added a simulator-only contact-wrapped key metadata prototype design covering
   local model contact keys, non-secret key IDs, wrapped-key metadata shape,
   bundle-manifest relationship, and future server metadata boundaries without

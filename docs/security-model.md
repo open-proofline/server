@@ -138,6 +138,10 @@ incident deletion and retention enforcement design is documented in
 The current backend preserves accepted evidence by default and does not
 automatically expire incidents or expose incident deletion APIs.
 
+SQLite WAL file expectations, same-host storage constraints, checkpoint
+pressure symptoms, and local file-size checks are documented in
+[deployment.md](deployment.md#sqlite-wal-operations).
+
 Cluster backup, restore, and failure-mode guidance for optional PostgreSQL
 metadata, S3-compatible encrypted blobs, and Valkey/Redis-compatible
 coordination is documented in
