@@ -7,9 +7,9 @@ Planned future incident modes include emergency incidents, non-emergency interac
 ## Assets
 
 - Already-encrypted uploaded chunk files under `SAFE_DATA_DIR` for local storage, or committed encrypted objects in the configured S3-compatible bucket
-- Incident, media stream, chunk, checkin, and viewer/incident-token metadata in SQLite
-- Future optional PostgreSQL metadata is planned but not implemented; schema,
-  migration, transaction, test, and restore expectations are documented in
+- Incident, media stream, chunk, checkin, and viewer/incident-token metadata in SQLite by default or optional PostgreSQL
+- Optional PostgreSQL metadata schema, migration, transaction, test, and
+  restore expectations are documented in
   [postgresql-metadata-migration.md](postgresql-metadata-migration.md)
 - Future cluster-safe upload operation semantics are planned but not
   implemented; idempotency, retry-success, conflict, and cleanup expectations
@@ -41,7 +41,7 @@ Planned future incident modes include emergency incidents, non-emergency interac
 - Final local chunk storage uses no-overwrite hard links. Optional S3-compatible storage uses conditional no-overwrite final object writes.
 - The simulator encrypts fake chunk plaintext by default using the documented v1 AES-256-GCM envelope.
 - Encryption keys remain client-side; they are not uploaded, stored in SQLite, or added to evidence bundles.
-- SQLite enforces media type, chunk index, byte size, SHA-256 shape, foreign keys, and unique chunk identity.
+- SQLite and optional PostgreSQL metadata enforce media type, chunk index, byte size, SHA-256 shape, foreign keys, and unique chunk identity.
 - Media streams must be open before new chunks can be attached. The repository rechecks incident and stream state when chunk metadata is inserted.
 - Stream completion verifies contiguous chunks plus readable stored files, and the repository revalidates chunk rows before committing the stream to `complete`.
 - Viewer tokens use 256 bits from `crypto/rand`; only SHA-256 token hashes are stored. Tokens created without an explicit `expires_at` default to a 24-hour lifetime unless `SAFE_DEFAULT_INCIDENT_TOKEN_TTL` is configured differently.
@@ -75,10 +75,10 @@ The current backend does not implement incident-mode-specific controls yet, so f
 - No iOS app, Android app, web client, local recording, production client key storage, key sharing, push notifications, SMS, Messenger integration, or public admin dashboard.
 - No first-class incident types, escalation policies, interaction-record metadata, safety-check timers, dead-man switch notifications, or trusted-contact accounts.
 - No built-in TLS, app-level rate limiting, abuse throttling, or IP allowlist.
-- No implemented PostgreSQL metadata backend. Any future PostgreSQL support must
-  preserve the private `/v1` boundary, token hashing, ciphertext-only storage,
-  and backup/restore expectations described in
-  [postgresql-metadata-migration.md](postgresql-metadata-migration.md).
+- Optional PostgreSQL metadata does not change the private `/v1` boundary,
+  token hashing, ciphertext-only storage, or backup/restore expectations
+  described in [postgresql-metadata-migration.md](postgresql-metadata-migration.md).
+  It also does not make the current upload flow cluster-safe on its own.
 - No implemented cluster-safe upload operation or idempotency API. Future
   semantics are planned in
   [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md), but

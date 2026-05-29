@@ -10,9 +10,13 @@ Configuration is read from environment variables when the Proofline API starts.
 | `SAFE_PUBLIC_BIND_ADDRS` | `127.0.0.1:8081` | Comma-separated public incident viewer listener addresses. |
 | `SAFE_DATA_DIR` | `./data` | Local directory for SQLite, temp uploads, and encrypted blobs unless `SAFE_DB_PATH` points elsewhere. |
 | `SAFE_DB_PATH` | `./data/safety.db` | SQLite database path. The default file name still uses `safety.db` until a separate data-layout migration is performed. |
-| `SAFE_METADATA_BACKEND` | `sqlite` | Metadata backend selector. Only `sqlite` is currently implemented. |
+| `SAFE_METADATA_BACKEND` | `sqlite` | Metadata backend selector. Supported values are `sqlite` and `postgresql`. |
 | `SAFE_BLOB_BACKEND` | `local` | Encrypted blob backend selector. Supported values are `local` and `s3`. |
 | `SAFE_COORDINATION_BACKEND` | `none` | Coordination backend selector. Only `none` is currently implemented. |
+| `SAFE_POSTGRES_DSN` | unset | PostgreSQL connection string. Required when `SAFE_METADATA_BACKEND=postgresql`; treat as secret-bearing. |
+| `SAFE_POSTGRES_MAX_OPEN_CONNS` | `10` | Maximum open PostgreSQL connections when the PostgreSQL metadata backend is selected. |
+| `SAFE_POSTGRES_MAX_IDLE_CONNS` | `5` | Maximum idle PostgreSQL connections when the PostgreSQL metadata backend is selected. |
+| `SAFE_POSTGRES_CONN_MAX_LIFETIME` | `30m` | Maximum lifetime for PostgreSQL connections. |
 | `SAFE_S3_ENDPOINT` | unset | S3-compatible endpoint URL. Required when `SAFE_BLOB_BACKEND=s3`. |
 | `SAFE_S3_REGION` | `us-east-1` | S3 signing region used when `SAFE_BLOB_BACKEND=s3`. |
 | `SAFE_S3_BUCKET` | unset | S3 bucket for committed encrypted chunks. Required when `SAFE_BLOB_BACKEND=s3`. |
@@ -47,6 +51,21 @@ go run ./cmd/api
 
 Values are matched case-insensitively after trimming surrounding whitespace. Unsupported names fail startup with a clear configuration error.
 
+PostgreSQL metadata is implemented as an optional backend for new deployments:
+
+```bash
+SAFE_METADATA_BACKEND=postgresql \
+SAFE_POSTGRES_DSN='postgres://proofline:example-password@db.example.invalid:5432/proofline?sslmode=require' \
+SAFE_BLOB_BACKEND=local \
+SAFE_COORDINATION_BACKEND=none \
+go run ./cmd/api
+```
+
+`SAFE_POSTGRES_DSN` may contain credentials and private hostnames. Do not log it
+or include it in public issues, support tickets, screenshots, shell history, or
+deployment notes. `SAFE_DB_PATH` remains the SQLite database path and is ignored
+by the PostgreSQL metadata backend.
+
 S3-compatible object storage is implemented as an optional encrypted blob backend for committed chunks:
 
 ```bash
@@ -62,16 +81,14 @@ SAFE_S3_SECRET_ACCESS_KEY=example-secret-key \
 go run ./cmd/api
 ```
 
-PostgreSQL metadata and Valkey/Redis-compatible coordination are still planned but not implemented. Setting future values such as `postgresql`, `valkey`, or `redis` will fail until those backends are deliberately added and documented.
+Valkey/Redis-compatible coordination is still planned but not implemented. Setting future values such as `valkey` or `redis` will fail until those backends are deliberately added and documented.
 
-`SAFE_DB_PATH` and `SAFE_DATA_DIR` keep their current behavior for the supported `sqlite` and `local` backends. When `SAFE_BLOB_BACKEND=s3`, `SAFE_DATA_DIR/tmp` is still used for local temporary upload staging before final object writes.
+`SAFE_DB_PATH` and `SAFE_DATA_DIR` keep their current behavior for the supported `sqlite` and `local` backends. When `SAFE_METADATA_BACKEND=postgresql`, `SAFE_DB_PATH` is not used for metadata. When `SAFE_BLOB_BACKEND=s3`, `SAFE_DATA_DIR/tmp` is still used for local temporary upload staging before final object writes.
 
-The future PostgreSQL metadata configuration shape is planned in
-[PostgreSQL metadata migration path](postgresql-metadata-migration.md). Until
-that backend exists, do not configure PostgreSQL connection strings for the
-server and do not expect `SAFE_DB_PATH` to apply to anything except SQLite.
-Future PostgreSQL DSNs or credentials must be treated as secret-bearing values
-and must not be logged.
+PostgreSQL schema, migration, test, and restore expectations are documented in
+[PostgreSQL metadata migration path](postgresql-metadata-migration.md). Initial
+PostgreSQL support is for new metadata deployments only. The server does not
+automatically migrate an existing SQLite database to PostgreSQL at startup.
 
 ## S3-Compatible Blob Storage
 
@@ -157,6 +174,6 @@ data/
 
 Uploaded chunks are staged in `tmp/`, hashed while streaming, and hard-linked into the final incident path only after SHA-256 verification. New streamed uploads use the stream-scoped path. Legacy unstreamed chunks keep the older incident-level path. Stored chunk paths are relative server-controlled paths, not client-provided paths.
 
-SQLite schema changes are tracked in a `schema_migrations` table in the configured database.
+SQLite schema changes are tracked in a `schema_migrations` table in the configured SQLite database. PostgreSQL schema changes use a separate PostgreSQL migration path and `schema_migrations` table in the configured PostgreSQL database.
 
 With `SAFE_BLOB_BACKEND=s3`, committed encrypted chunks use the same stored path values in SQLite, but those values are resolved to S3 object keys under `SAFE_S3_PREFIX` instead of local files under `SAFE_DATA_DIR/incidents`.

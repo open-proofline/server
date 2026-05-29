@@ -1,15 +1,15 @@
 # PostgreSQL Metadata Backend Migration Path
 
-This document designs the future PostgreSQL metadata backend path for
-Proofline Server. It is planning only. It does not implement PostgreSQL,
-change the current SQLite default, change blob storage, expose `/v1`
-publicly, add account management, or change the backend ciphertext-only
-encryption posture.
+This document records the PostgreSQL metadata backend path for Proofline
+Server. PostgreSQL metadata is implemented as an optional backend for new
+deployments. This does not change the current SQLite default, change blob
+storage, expose `/v1` publicly, add account management, or change the backend
+ciphertext-only encryption posture.
 
 SQLite metadata and local encrypted blob storage remain supported. Optional
 S3-compatible encrypted blob storage is implemented separately from this
-metadata design. PostgreSQL is planned as an optional metadata backend for
-deployments that need a cluster-safe database behind more than one API node.
+metadata backend. PostgreSQL is available as an optional metadata backend for
+new deployments that need a database suitable for later multi-node work.
 
 ## Goals
 
@@ -19,13 +19,11 @@ deployments that need a cluster-safe database behind more than one API node.
 - Keep schema constraints equivalent to or stronger than the current SQLite
   schema.
 - Keep PostgreSQL migrations separate from the existing SQLite migration path.
-- Define repository transaction boundaries before implementing a second
-  metadata store.
+- Document repository transaction boundaries for the second metadata store.
 - Define parity and restore expectations before production-cluster use.
 
 ## Non-Goals
 
-- No implementation in this planning task.
 - No change to current `SAFE_METADATA_BACKEND=sqlite` behavior.
 - No migration of existing deployments by default.
 - No PostgreSQL requirement for local development or simulator flows.
@@ -201,24 +199,24 @@ The existing SQLite migration path must remain stable:
   SQLite compatibility migration helpers
 - keep existing SQLite migration IDs and checksums unchanged
 
-PostgreSQL should use a separate migration source and runner. Acceptable future
-layouts include:
+PostgreSQL uses a separate migration source and runner:
 
 ```text
 migrations/postgres/*.sql
 internal/postgresdb
 ```
 
-or another clearly backend-scoped package. The important rule is that the
-SQLite `migrations.FS` and `internal/db` compatibility migrations must not be
+The SQLite `migrations.FS` and `internal/db` compatibility migrations are not
 repurposed for PostgreSQL.
 
-PostgreSQL migration tracking should:
+PostgreSQL migration tracking:
 
 - create `schema_migrations` inside the PostgreSQL database
 - record migration ID, checksum, and applied time
 - calculate checksums over the exact embedded PostgreSQL migration body
 - reject checksum mismatches on already-applied migrations
+- serialize migration application with a PostgreSQL advisory lock so concurrent
+  API starts do not race on `schema_migrations`
 - apply each migration in a transaction where PostgreSQL supports it
 - keep migration IDs ordered and backend-specific, for example
   `001_init.sql`, `002_add_upload_operations.sql`, or
@@ -276,7 +274,7 @@ Failure:
 - preserve uploaded chunk rows
 - clear `completed_at`
 
-PostgreSQL should use row-level locking around stream state transitions so a
+PostgreSQL uses row-level locking around stream state transitions so a
 chunk insert and stream completion cannot both make decisions from stale stream
 state.
 
@@ -292,7 +290,7 @@ Current upload order is:
 5. insert chunk metadata
 6. remove the committed blob if the metadata insert fails
 
-The PostgreSQL repository insert must wrap state checks and metadata insert in
+The PostgreSQL repository insert wraps state checks and metadata insert in
 one transaction:
 
 - lock or otherwise serialize against the incident row
@@ -341,23 +339,25 @@ Revocation:
 
 ## Configuration Shape
 
-The current configuration scaffold accepts only:
+The current configuration scaffold accepts:
 
 ```bash
 SAFE_METADATA_BACKEND=sqlite
+SAFE_METADATA_BACKEND=postgresql
 SAFE_BLOB_BACKEND=local
+SAFE_BLOB_BACKEND=s3
 SAFE_COORDINATION_BACKEND=none
 ```
 
-Future PostgreSQL support should keep SQLite as the default and deliberately
-add a new accepted metadata backend value only when the implementation exists:
+PostgreSQL support keeps SQLite as the default and requires explicit
+configuration:
 
 ```bash
 SAFE_METADATA_BACKEND=postgresql
 ```
 
-The PostgreSQL connection configuration should be explicit and treated as
-secret-bearing if it includes credentials. A likely shape is:
+The PostgreSQL connection configuration is explicit and must be treated as
+secret-bearing if it includes credentials:
 
 ```text
 SAFE_POSTGRES_DSN
@@ -366,13 +366,12 @@ SAFE_POSTGRES_MAX_IDLE_CONNS
 SAFE_POSTGRES_CONN_MAX_LIFETIME
 ```
 
-Names can change during implementation, but the final docs must state:
+The configuration docs state:
 
 - `SAFE_DB_PATH` remains the SQLite path and is not a PostgreSQL setting
 - PostgreSQL DSNs and credentials must not be logged
 - unsupported backend names still fail startup without echoing rejected values
-- setting `SAFE_METADATA_BACKEND=postgresql` fails startup until the backend is
-  implemented
+- setting `SAFE_METADATA_BACKEND=postgresql` requires `SAFE_POSTGRES_DSN`
 
 ## SQLite-To-PostgreSQL Data Migration
 
@@ -408,25 +407,67 @@ separate reverse migration design.
 PostgreSQL support should not be accepted on schema creation alone. Tests need
 to prove repository behavior stays aligned.
 
-Required test groups:
+Implemented test groups:
 
-- migration tests for fresh PostgreSQL schema creation
-- migration idempotence and checksum-mismatch tests
-- schema constraint tests for statuses, media types, SHA-256 shape, byte sizes,
-  token-hash uniqueness, and foreign keys
-- partial unique-index tests for streamed chunks and legacy unstreamed chunks
-- repository contract tests that run against SQLite and PostgreSQL
+- opt-in migration tests for fresh PostgreSQL schema creation
+- opt-in migration idempotence and checksum-mismatch tests
+- opt-in schema constraint tests for statuses, media types, SHA-256 shape,
+  stream media matching, token-hash uniqueness, and foreign keys
+- opt-in repository behavior tests covering streamed and legacy chunk identity,
+  stream completion, closed-incident rejection, token hashing, and revocation
+
+Additional expected test groups before recommending production-cluster use:
+
+- repository contract tests that run against SQLite and PostgreSQL when a
+  PostgreSQL test DSN is available
 - HTTP handler tests using the metadata repository boundary where practical
 - concurrency tests for upload versus incident close, upload versus stream
   completion, duplicate chunk races, and token revocation
 - restore-oriented tests or scripted validation that proves metadata plus blobs
   can reconstruct completed bundles
 
-PostgreSQL integration tests should be opt-in when they require an external
-database, for example with a test DSN environment variable. This repository
-should not add Docker Compose or cloud dependencies just to run the default
-test suite. If a test DSN contains credentials, test setup, failure output, and
-CI logs must treat it as secret-bearing and avoid printing it.
+PostgreSQL integration tests are opt-in with `SAFE_POSTGRES_TEST_DSN`. This
+repository does not add Docker Compose or cloud dependencies just to run the
+default test suite. If a test DSN contains credentials, test setup, failure
+output, and CI logs must treat it as secret-bearing and avoid printing it.
+
+Example local invocation with a deployment-specific test database:
+
+```bash
+SAFE_POSTGRES_TEST_DSN='<secret test database DSN>' go test ./internal/postgresdb
+```
+
+The integration tests create and drop isolated schemas inside the configured
+database. Do not point the test DSN at a database where schema creation or
+dropping is not acceptable.
+
+For a disposable local test database, a one-off Docker container is enough; the
+repository does not use Docker Compose for this path:
+
+```bash
+set -euo pipefail
+
+docker run --rm -d --name proofline-postgres-test \
+  -e POSTGRES_DB=proofline_test \
+  -e POSTGRES_USER=proofline \
+  -e POSTGRES_HOST_AUTH_METHOD=trust \
+  -p 127.0.0.1:55432:5432 \
+  postgres:16-alpine
+
+trap 'docker rm -f proofline-postgres-test >/dev/null 2>&1 || true' EXIT
+
+until docker exec proofline-postgres-test \
+  pg_isready -U proofline -d proofline_test >/dev/null 2>&1; do
+  sleep 1
+done
+
+SAFE_POSTGRES_TEST_DSN='postgres://proofline@127.0.0.1:55432/proofline_test?sslmode=disable' \
+  go test ./internal/postgresdb -count=1
+```
+
+The `trust` authentication setting above is only for a disposable local test
+container bound to loopback. Do not use it for shared, remote, or production
+PostgreSQL deployments.
 
 Behavior that should remain SQLite-specific:
 
@@ -471,16 +512,18 @@ private/public listener split and token redaction expectations apply.
 
 ## PostgreSQL-Specific Implementation Sequence
 
-Recommended future implementation order for PostgreSQL metadata work:
+PostgreSQL implementation status and remaining work:
 
 1. Keep this design current with the SQLite schema and repository boundary.
-2. Add PostgreSQL migration files and a PostgreSQL migration runner.
-3. Add a PostgreSQL repository implementation behind the existing metadata
+2. PostgreSQL migration files and a PostgreSQL migration runner are implemented.
+3. A PostgreSQL repository implementation exists behind the existing metadata
    repository behavior.
-4. Add opt-in PostgreSQL integration tests and shared repository contract tests.
-5. Add configuration support for `SAFE_METADATA_BACKEND=postgresql`, still
-   keeping SQLite as the default.
-6. Add restore documentation for PostgreSQL plus encrypted blobs.
+4. Opt-in PostgreSQL integration tests exist for migrations, constraints, and
+   repository behavior. Broader shared contract tests can still be expanded.
+5. `SAFE_METADATA_BACKEND=postgresql` is implemented while SQLite remains the
+   default.
+6. Restore documentation for PostgreSQL plus encrypted blobs exists as
+   operational guidance and should be strengthened by deployment-specific drills.
 7. Implement the explicit upload-operation/idempotency behavior designed in
    [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md) before
    multi-node cluster safety is recommended.

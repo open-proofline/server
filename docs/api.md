@@ -444,7 +444,7 @@ Incident-token creation and revocation routes are mounted only on the private AP
 
 ### `POST /v1/incidents/{incident_id}/incident-tokens`
 
-Creates a read-only viewer token for one incident. The raw token is returned only in this response; SQLite stores only a SHA-256 hash.
+Creates a read-only viewer token for one incident. The raw token is returned only in this response; the configured metadata backend stores only a SHA-256 hash.
 
 `expires_at` is optional. When omitted, the API applies the configured default token lifetime, which is 24 hours unless `SAFE_DEFAULT_INCIDENT_TOKEN_TTL` is changed. Explicit `expires_at` values are preserved; send `null` to explicitly create a token that remains valid until revoked. Setting `SAFE_DEFAULT_INCIDENT_TOKEN_TTL=0` disables the default and lets omitted expiries remain valid until revoked.
 

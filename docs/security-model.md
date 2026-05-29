@@ -21,7 +21,7 @@ Private write/admin routes must not be mounted on public incident viewer listene
 
 ## Token Handling
 
-Incident viewer tokens are scoped to one incident. The raw token is returned only at creation time; SQLite stores only a SHA-256 hash. Tokens created without an explicit `expires_at` default to a 24-hour lifetime unless `SAFE_DEFAULT_INCIDENT_TOKEN_TTL` is configured differently. Expired, revoked, and invalid tokens return the same public error.
+Incident viewer tokens are scoped to one incident. The raw token is returned only at creation time; the configured metadata backend stores only a SHA-256 hash. Tokens created without an explicit `expires_at` default to a 24-hour lifetime unless `SAFE_DEFAULT_INCIDENT_TOKEN_TTL` is configured differently. Expired, revoked, and invalid tokens return the same public error.
 
 Viewer URLs contain bearer tokens and should be treated as secrets. Reverse proxies and operational logs should avoid recording raw `/i/{token}` paths. During upgrades from pre-rename releases, `/e/{token}` compatibility links may also reach the edge proxy and should be redacted.
 
@@ -35,7 +35,7 @@ Viewer URLs contain bearer tokens and should be treated as secrets. Reverse prox
 - Streamed uploads require positive chunk indexes, while legacy unstreamed uploads may still use index `0`.
 - The simulator can wrap chunks in the documented v1 AES-256-GCM client-side encryption envelope before upload.
 - The backend validates and stores ciphertext bytes only; it does not store encryption keys or decrypt chunk contents.
-- SQLite enforces media type, chunk index, byte size, SHA-256 shape, foreign keys, and unique chunk identity.
+- SQLite and optional PostgreSQL metadata enforce media type, chunk index, byte size, SHA-256 shape, foreign keys, and unique chunk identity.
 - Chunk metadata inserts recheck incident and stream state in the repository so uploads racing with close or completion are rejected.
 - Media stream completion verifies contiguous chunks and readable stored files, then rechecks chunk rows transactionally before committing completion.
 
@@ -44,10 +44,10 @@ encrypted chunks. It uses server-controlled object keys, does not expose object
 store URLs in evidence bundles, and does not add backend decryption or key
 custody.
 
-Future PostgreSQL metadata support must preserve these controls with equivalent
-or stronger constraints, duplicate guards, token-hash storage, and transaction
-boundaries. The planning design is documented in
-[postgresql-metadata-migration.md](postgresql-metadata-migration.md).
+Optional PostgreSQL metadata support preserves these controls with equivalent
+or stronger constraints, duplicate guards, token-hash storage, and row-locking
+transaction boundaries. The implementation and remaining migration limits are
+documented in [postgresql-metadata-migration.md](postgresql-metadata-migration.md).
 Future cluster-safe upload operation semantics are planned separately in
 [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md), but no
 idempotency-key or upload-operation API is implemented yet.
@@ -110,8 +110,8 @@ Normal file or object removal is not treated as guaranteed secure erasure. Deplo
 - No public authentication or authorization model for `/v1`
 - No built-in TLS
 - No built-in app-level rate limiting or abuse throttling
-- No implemented PostgreSQL metadata backend; the future migration path is only
-  planned in [postgresql-metadata-migration.md](postgresql-metadata-migration.md)
+- PostgreSQL metadata is optional and experimental; it does not by itself make
+  the upload path cluster-safe or make `/v1` safe for public exposure
 - No implemented cluster-safe upload operation or idempotency API; the future
   semantics are only planned in
   [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md)

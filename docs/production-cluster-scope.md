@@ -2,13 +2,14 @@
 
 This document records the production-cluster expansion path for Proofline Server.
 
-It is a planning and scope document for cluster-related work. Optional S3-compatible object storage is implemented for committed encrypted chunks, but PostgreSQL, Valkey/Redis-compatible coordination, public `/v1` authentication, account management, cloud deployment automation, and production hardening are not implemented.
+It is a planning and scope document for cluster-related work. Optional PostgreSQL metadata and optional S3-compatible object storage are implemented, but Valkey/Redis-compatible coordination, public `/v1` authentication, account management, cloud deployment automation, and production hardening are not implemented.
 
 ## Current Local-First Scope
 
 The current backend remains local-first and experimental:
 
-- SQLite metadata remains supported.
+- SQLite metadata remains supported and remains the default.
+- Optional PostgreSQL metadata is available only when explicitly configured.
 - Local filesystem encrypted blob storage remains supported.
 - Optional S3-compatible encrypted blob storage is available only when explicitly configured.
 - The simulator and local development flow remain supported.
@@ -26,13 +27,13 @@ Planned optional cluster backends:
 
 | Capability | Local/default backend | Planned cluster backend |
 |---|---|---|
-| Metadata | SQLite | PostgreSQL |
+| Metadata | SQLite | PostgreSQL, implemented as an optional backend |
 | Committed encrypted chunks | Local filesystem | S3-compatible object storage, implemented as an optional backend |
 | Short-lived coordination | None | Valkey/Redis-compatible coordination |
 
 These backends should be additive. They must not remove or weaken SQLite and local filesystem support.
 
-The current configuration scaffold exposes backend selectors for these capability groups. It accepts implemented values: `SAFE_METADATA_BACKEND=sqlite`, `SAFE_BLOB_BACKEND=local` or `s3`, and `SAFE_COORDINATION_BACKEND=none`. Planned values for PostgreSQL metadata or Valkey/Redis-compatible coordination must continue to fail startup until those backends exist.
+The current configuration scaffold exposes backend selectors for these capability groups. It accepts implemented values: `SAFE_METADATA_BACKEND=sqlite` or `postgresql`, `SAFE_BLOB_BACKEND=local` or `s3`, and `SAFE_COORDINATION_BACKEND=none`. Planned values for Valkey/Redis-compatible coordination must continue to fail startup until those backends exist.
 
 ## Cluster-Safety Principles
 
@@ -51,34 +52,34 @@ Valkey or another Redis-compatible service may reduce duplicate work, hold short
 
 ## PostgreSQL Scope
 
-PostgreSQL support is planned as the production metadata backend.
+PostgreSQL support is implemented as the optional production-oriented metadata backend for new deployments.
 
-PostgreSQL should store:
+PostgreSQL stores:
 
 - incidents
 - media streams
 - chunk metadata
 - checkins
 - viewer-token metadata
-- future retention/deletion state
+- future retention/deletion state, after that design exists
 - future account and access-control metadata, after that design exists
 - upload operation and idempotency state when cluster uploads are implemented
 
-PostgreSQL support should include:
+PostgreSQL support includes:
 
 - a separate PostgreSQL migration path
 - schema constraints equivalent to or stronger than the SQLite schema
 - uniqueness constraints for stream-scoped and legacy chunk identities
 - transaction boundaries for chunk metadata insertion and stream completion
-- restore and migration documentation before production use
+- restore and migration documentation for new deployments
 
 SQLite should remain supported for local development, simulator workflows, and small deployments.
 
-The detailed planning design for this backend is
+The detailed design and implementation notes for this backend are
 [PostgreSQL metadata migration path](postgresql-metadata-migration.md). That
 document maps the current SQLite tables and constraints, migration tracking,
 transaction boundaries, parity testing, configuration shape, and restore
-expectations before implementation begins.
+expectations.
 
 ## S3-Compatible Object Storage Scope
 
@@ -167,7 +168,7 @@ Preferred implementation sequence:
 1. Add configuration scaffolding for backend selection while preserving current defaults. Implemented for `sqlite`, `local`, `s3`, and `none`.
 2. Introduce metadata and blob-store interfaces around the current SQLite and filesystem implementations. Implemented.
 3. Add S3-compatible blob storage as an optional backend. Implemented for committed encrypted chunks.
-4. Add PostgreSQL metadata support as an optional backend.
+4. Add PostgreSQL metadata support as an optional backend. Implemented.
 5. Add explicit idempotency and upload-operation semantics for cluster-safe retries.
 6. Add optional Valkey/Redis-compatible coordination.
 7. Update deployment, backup, restore, security, and threat-model docs before recommending any production cluster deployment.

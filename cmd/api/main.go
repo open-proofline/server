@@ -13,6 +13,7 @@ import (
 	"github.com/open-proofline/server/internal/db"
 	"github.com/open-proofline/server/internal/httpapi"
 	"github.com/open-proofline/server/internal/incidents"
+	"github.com/open-proofline/server/internal/postgresdb"
 	"github.com/open-proofline/server/internal/storage"
 )
 
@@ -33,18 +34,17 @@ func run(logger *slog.Logger) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	conn, err := db.Open(ctx, cfg.DBPath)
+	repo, closeRepo, err := newMetadataRepository(ctx, cfg)
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer closeRepo()
 
 	blobStore, err := newBlobStore(cfg)
 	if err != nil {
 		return err
 	}
 
-	repo := incidents.NewRepository(conn)
 	apiOptions := httpapi.Options{
 		MaxUploadBytes:          cfg.MaxUploadBytes,
 		DefaultIncidentTokenTTL: &cfg.DefaultIncidentTokenTTL,
@@ -65,6 +65,25 @@ func run(logger *slog.Logger) error {
 	case err := <-errCh:
 		_ = shutdownServers(servers)
 		return err
+	}
+}
+
+func newMetadataRepository(ctx context.Context, cfg config.Config) (httpapi.MetadataRepository, func(), error) {
+	switch cfg.Backends.Metadata {
+	case config.MetadataBackendSQLite:
+		conn, err := db.Open(ctx, cfg.DBPath)
+		if err != nil {
+			return nil, nil, err
+		}
+		return incidents.NewRepository(conn), func() { _ = conn.Close() }, nil
+	case config.MetadataBackendPostgres:
+		conn, err := postgresdb.Open(ctx, cfg.Postgres)
+		if err != nil {
+			return nil, nil, err
+		}
+		return postgresdb.NewRepository(conn), func() { _ = conn.Close() }, nil
+	default:
+		return nil, nil, fmt.Errorf("unsupported metadata backend %q", cfg.Backends.Metadata)
 	}
 }
 

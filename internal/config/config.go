@@ -31,6 +31,7 @@ type Config struct {
 	PrivateBindAddrs        []string
 	PublicBindAddrs         []string
 	Backends                BackendSelection
+	Postgres                PostgresConfig
 	S3Blob                  S3BlobConfig
 	DataDir                 string
 	DBPath                  string
@@ -59,6 +60,14 @@ type S3BlobConfig struct {
 	ForcePathStyle  bool
 }
 
+// PostgresConfig contains optional PostgreSQL metadata backend settings.
+type PostgresConfig struct {
+	DSN             string
+	MaxOpenConns    int
+	MaxIdleConns    int
+	ConnMaxLifetime time.Duration
+}
+
 // HTTPTimeouts groups net/http server timeout settings.
 type HTTPTimeouts struct {
 	ReadHeaderTimeout time.Duration
@@ -80,6 +89,10 @@ func Load() (Config, error) {
 	}
 
 	backends, err := backendSelectionFromEnv()
+	if err != nil {
+		return Config{}, err
+	}
+	postgres, err := postgresConfigFromEnv(backends.Metadata)
 	if err != nil {
 		return Config{}, err
 	}
@@ -110,6 +123,7 @@ func Load() (Config, error) {
 		PrivateBindAddrs:        privateBindAddrs,
 		PublicBindAddrs:         publicBindAddrs,
 		Backends:                backends,
+		Postgres:                postgres,
 		S3Blob:                  s3Blob,
 		DataDir:                 envOrDefault("SAFE_DATA_DIR", defaultDataDir),
 		DBPath:                  envOrDefault("SAFE_DB_PATH", defaultDBPath),

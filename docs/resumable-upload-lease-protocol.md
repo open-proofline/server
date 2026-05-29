@@ -42,7 +42,7 @@ The handler:
 4. Compares the computed ciphertext hash with `sha256_hex`.
 5. Validates incident and stream state.
 6. Commits the verified temp file to a server-controlled immutable blob path.
-7. Inserts chunk metadata in SQLite.
+7. Inserts chunk metadata in the configured metadata backend.
 
 An accepted chunk is an immutable ciphertext blob. Streamed chunk identity is
 `(incident_id, stream_id, chunk_index)`. Legacy unstreamed chunk identity is

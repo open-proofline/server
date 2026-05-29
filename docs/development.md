@@ -22,9 +22,11 @@ internal/config   environment configuration, backend selectors, and HTTP timeout
 internal/db       SQLite setup, schema_migrations, and compatibility migrations
 internal/envelope client-side chunk encryption envelope helpers
 internal/httpapi  HTTP handlers, muxes, middleware, bundles, web assets
-internal/incidents incident, stream, chunk, checkin, and token repository code
+internal/incidents incident, stream, chunk, checkin, and token models plus SQLite repository code
+internal/postgresdb optional PostgreSQL metadata setup, migrations, and repository code
 internal/storage  blob-store boundary, local immutable storage, and optional S3-compatible storage
 migrations        embedded SQLite schema
+migrations/postgres embedded PostgreSQL schema
 docs/              project documentation
 docs/reports/      public technical review reports and report prompts
 .dockerignore      root Docker build-context ignore file for Dockerfile
@@ -59,6 +61,18 @@ Use `go vet ./...` when reviewing larger changes:
 ```bash
 go vet ./...
 ```
+
+PostgreSQL metadata integration tests are opt-in so the default local test
+suite does not require a database:
+
+```bash
+SAFE_POSTGRES_TEST_DSN='<test database DSN>' go test ./internal/postgresdb -count=1
+```
+
+The PostgreSQL tests create and drop isolated schemas inside the configured
+database. Use a disposable local database or a dedicated test database only.
+For a one-off Docker container example, see
+[PostgreSQL metadata migration path](postgresql-metadata-migration.md#testing-expectations).
 
 ## Go Readability Standards
 
