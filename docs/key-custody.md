@@ -74,11 +74,49 @@ The recording client generates media keys and stores them only on the phone, for
 
 This protects against passive backend, database, and blob-storage compromise, but it fails the core availability requirement if the phone is lost, destroyed, seized, or unavailable. It remains useful as a development starting point and confidentiality baseline, but it is not sufficient as the production model.
 
+Tradeoffs:
+
+- Protects against: passive server, database, blob-store, and bundle compromise
+  when the attacker does not have the phone or local key backup.
+- Does not protect against: phone compromise, local key extraction, or loss of
+  all usable key copies.
+- Availability impact: poor for emergencies because the phone is the only
+  decryption path.
+- Operational complexity: low for the server, higher for support because key
+  loss is unrecoverable.
+- Implementation complexity: moderate in clients because Keychain or platform
+  key-storage behavior must be tested across lock, reboot, backup, and restore
+  states.
+- Emergency UX impact: weak; trusted contacts cannot use uploaded evidence if
+  the phone is gone.
+- Trust assumptions: the client device remains available and uncompromised.
+- Fit: acceptable only as a development baseline or optional private-only mode,
+  not as the production default.
+
 ### 2. Contact-Wrapped Keys
 
 The user pre-registers trusted contacts. Each contact has a public key. For each incident or stream, the client encrypts media with a media key and wraps that media key to one or more contact public keys. The backend stores ciphertext chunks and wrapped media keys, but not raw keys.
 
 This is the strongest default fit for Proofline. It preserves ordinary backend ciphertext-only operation while allowing trusted contacts to decrypt authorised evidence if the phone is gone. It requires careful design for contact enrollment, public-key verification, revocation, key loss, and contact-device compromise.
+
+Tradeoffs:
+
+- Protects against: passive backend and storage compromise, as long as contact
+  private keys remain private.
+- Does not protect against: compromised trusted-contact devices, malicious
+  viewer code that receives private keys or plaintext, or incorrect contact-key
+  enrollment.
+- Availability impact: strong when contacts are pre-enrolled and can access the
+  wrapped keys.
+- Operational complexity: medium; enrollment, public-key verification,
+  revocation, rotation, and lost-contact-key support must be understandable.
+- Implementation complexity: medium to high; it needs stable public-key wrapping
+  formats, metadata, access-control, and client-side unwrap flows.
+- Emergency UX impact: good if setup happens before the incident; poor if the
+  user tries to add contacts for the first time during an emergency.
+- Trust assumptions: selected contacts and their devices are trusted for the
+  incidents or modes where access is granted.
+- Fit: recommended default direction.
 
 ### 3. Browser Or Client-Side Viewer Decryption
 
@@ -88,6 +126,25 @@ This can make trusted-contact access easier, but it does not protect against an 
 
 See [browser-decryption.md](browser-decryption.md).
 
+Tradeoffs:
+
+- Protects against: passive database, blob-storage, and bundle compromise when
+  raw keys are not sent to the backend.
+- Does not protect against: a compromised backend serving malicious JavaScript,
+  compromised browsers, extensions, or endpoint malware.
+- Availability impact: good because contacts can use a normal browser, but only
+  if they have the right key material or decryption capability.
+- Operational complexity: medium; deployment must control CSP, static assets,
+  caching, logging, and user guidance for secret material.
+- Implementation complexity: high for large bundles, memory safety, ZIP parsing,
+  worker behavior, and cross-browser crypto compatibility.
+- Emergency UX impact: potentially strong because it avoids installing a native
+  contact app during a crisis.
+- Trust assumptions: the browser, delivered JavaScript, and device are trusted
+  at access time.
+- Fit: useful follow-up after contact-wrapped keys, not a reason to weaken the
+  current backend.
+
 ### 4. Server Escrow / Break-Glass Access
 
 The backend or deployment environment stores an encrypted or otherwise protected way to recover media keys. During an explicit emergency, dead-man-switch, or break-glass event, the server can obtain key access or perform server-side decryption according to configured policy.
@@ -96,17 +153,71 @@ This improves availability when the phone and trusted-contact keys are unavailab
 
 See [break-glass-key-access.md](break-glass-key-access.md).
 
+Tradeoffs:
+
+- Protects against: total loss of the phone and trusted-contact keys when a
+  reviewed emergency policy permits recovery.
+- Does not protect against: malicious operators, compromised hosting, weak
+  policy triggers, or excessive server privilege.
+- Availability impact: strongest for dead-man-switch and disaster-recovery
+  cases.
+- Operational complexity: high; it needs secure key storage, audit, approval,
+  incident review, rate limiting, monitoring, deployment warnings, and operator
+  training.
+- Implementation complexity: high; server-assisted access touches API,
+  storage, authorization, audit, deployment, and threat-model boundaries.
+- Emergency UX impact: strong if policy is correct; harmful if false positives
+  or misuse expose sensitive non-emergency evidence.
+- Trust assumptions: the deployment operator, escrow mechanism, and access
+  policy are trusted under explicit break-glass conditions.
+- Fit: optional future mode only, never the default ordinary path.
+
 ### 5. Threshold Or Multi-Party Recovery
 
 Key recovery requires multiple parties or shares, such as two trusted contacts, one contact plus server escrow, or another threshold arrangement. No single party can recover the media key alone.
 
 This may reduce unilateral misuse but can hurt emergency availability if enough parties are not reachable. It may be useful later for high-risk users or escrow modes, but it should not be the first production default.
 
+Tradeoffs:
+
+- Protects against: unilateral compromise or misuse by one contact or one
+  escrow holder, depending on the threshold design.
+- Does not protect against: collusion, enough compromised parties, bad share
+  backup practices, or user confusion.
+- Availability impact: mixed; stronger misuse resistance can make emergency
+  access slower or impossible if parties are unreachable.
+- Operational complexity: high; enrollment, recovery rehearsal, share rotation,
+  and support flows are difficult.
+- Implementation complexity: high and should use reviewed libraries or
+  protocols only.
+- Emergency UX impact: risky for urgent access unless the user has rehearsed
+  the contact workflow.
+- Trust assumptions: enough independent parties remain reachable and honest.
+- Fit: future advanced option, not an initial production default.
+
 ### 6. Hybrid Model
 
 The client encrypts media before upload. The backend stores ciphertext chunks and wrapped media keys. Trusted contacts are the default recovery path. Browser or app-based client-side decryption is preferred where practical. Optional server escrow or break-glass access can be added as a separate explicit mode for dead-man-switch and emergency-access cases.
 
 This is the recommended direction.
+
+Tradeoffs:
+
+- Protects against: passive backend and storage compromise in default mode,
+  while preserving availability when the phone is unavailable.
+- Does not protect against: all active-server, malicious-client, compromised
+  contact, or operator-risk cases; each mode still needs scoped controls.
+- Availability impact: best balance because normal access uses contact-wrapped
+  keys and optional emergency access can be designed separately.
+- Operational complexity: medium in default mode and high for any escrow mode.
+- Implementation complexity: incremental; simulator wrapped-key metadata,
+  access-control, client key storage, browser/native decrypt, and break-glass
+  policy can be phased.
+- Emergency UX impact: strongest practical fit because contacts can be prepared
+  before the incident and escalation policy can vary by incident mode.
+- Trust assumptions: clients encrypt correctly, contacts keep private keys
+  secure, and any optional escrow mode is separately governed.
+- Fit: recommended ultimate model.
 
 ## Recommended Ultimate Model
 
@@ -149,6 +260,21 @@ Each encrypted chunk must use a unique nonce for its media key. Key IDs and non-
 
 Future implementation must use stable, reviewed cryptographic libraries. Do not implement custom AEAD, block modes, padding, MACs, KDFs, random generators, public-key wrapping, threshold recovery, or secret-sharing primitives.
 
+Initial production direction:
+
+- Prefer one stream media key per stream.
+- Use an optional incident-level key only if it simplifies rotation,
+  late-contact enrollment, or multi-stream policy without widening compromise
+  impact.
+- Bind encrypted chunks to incident ID, stream ID, media type, and chunk index
+  through authenticated metadata, as the current simulator envelope already
+  does for development chunks.
+- Treat key IDs, contact IDs, algorithm names, and public wrapping metadata as
+  non-secret identifiers, but treat wrapped-key ciphertext as access-enabling
+  metadata that must not be logged.
+- Keep raw media keys and contact private keys in client or trusted-contact
+  environments only, except for separately approved break-glass modes.
+
 ## Trusted Contact Access
 
 Trusted contact access should be designed around pre-registration.
@@ -170,6 +296,81 @@ mode. Future account-owner, trusted-contact, and public-link grant rules are
 tracked in [v1-access-control.md](v1-access-control.md).
 
 Lost contact keys must be handled explicitly. If a contact loses their private key, existing media keys wrapped only to that contact may be unrecoverable by that contact. Future schema and API design should distinguish removing a contact from future incidents, stopping new key wrapping, revoking viewer tokens, rotating media keys, and marking older wrapped keys as no longer offered by the server.
+
+## Browser Decryption Considerations
+
+Browser decryption can help trusted contacts review evidence without installing
+a native app, but it is not a complete end-to-end security answer when the same
+backend serves the decrypting JavaScript.
+
+Important constraints:
+
+- URL fragment key delivery can keep raw key material out of normal HTTP
+  requests, reverse-proxy paths, and server access logs.
+- JavaScript delivered by the backend can still read URL fragments, imported
+  keys, unwrapped media keys, and plaintext.
+- A compromised backend can potentially serve malicious JavaScript even if the
+  encrypted chunks and wrapped-key records are sound.
+- Strict CSP, static assets, no-store responses, no inline script, signed or
+  pinned viewer bundles, and offline verification tools can reduce risk, but
+  they do not fully solve malicious-server risk.
+- Browser decryption is stronger against passive storage compromise than
+  active server compromise.
+- Large encrypted ZIP bundles need careful parsing, streaming, cancellation,
+  memory limits, and plaintext handling.
+
+The browser path should follow [browser-decryption.md](browser-decryption.md)
+and should not be implemented until the key custody, access-control, and
+viewer trust model are accepted.
+
+## Server Escrow And Break-Glass Considerations
+
+Server-side key access may be acceptable only for explicit emergency,
+dead-man-switch, or break-glass modes. It must not be introduced as an
+incidental convenience for normal viewing.
+
+Any future server-assisted mode needs:
+
+- explicit deployment configuration, disabled by default or isolated from
+  normal contact-wrapped access
+- policy for dead-man-switch triggers, emergency escalation, cancellation, and
+  false positives or false negatives
+- authentication and authorization for account-owner, trusted-contact,
+  admin/operator, and optional escrow roles
+- audit logging that avoids raw tokens, raw keys, plaintext, and sensitive
+  safety details
+- rate limiting and abuse controls around key access and decrypted export
+- operational warnings about the extra trust placed in the deployment
+- incident-review expectations after break-glass access
+- reviewed key storage choices such as KMS, HSM, a locked local secret store, or
+  another deployment-specific secret-management system
+
+See [break-glass-key-access.md](break-glass-key-access.md). Do not implement
+server escrow until the policy, audit, deployment, and threat-model changes are
+approved together.
+
+## Future API And Storage Changes
+
+The current API has no trusted-contact account model, no key-registration API,
+and no route for storing wrapped media keys. Before iOS or production
+trusted-contact work starts, future design should define:
+
+- contact public-key registration, verification, replacement, and revocation
+- device identity and recovery-key enrollment
+- where wrapped media-key metadata is accepted, stored, listed, and removed
+- how wrapped keys attach to incident IDs, stream IDs, media key IDs, contact
+  key IDs, and future sharing grants
+- whether wrapped-key metadata appears in bundle manifests, authenticated API
+  responses, or both
+- how access-control grants interact with decryption capabilities
+- retention, backup, restore, and deletion behavior for wrapped keys
+- audit fields that are useful without exposing tokens, raw keys, plaintext, or
+  sensitive safety data
+
+These API and schema changes must be separate implementation work. They should
+update this document, [security-model.md](security-model.md),
+[threat-model.md](threat-model.md), [encryption.md](encryption.md), and
+deployment guidance before or alongside code changes.
 
 ## Metadata And Live Dashboard Implications
 
@@ -225,7 +426,9 @@ Define first-class incident modes, capture profiles, escalation policies, sharin
 
 Phase 3: contact-wrapped key prototype in the simulator.
 
-Prototype media-key wrapping and bundle metadata in development flows only. Do not add production server decryption.
+Prototype media-key wrapping and bundle metadata in development flows only. Do
+not add production server decryption. The simulator-only design is documented
+in [contact-wrapped-key-metadata-simulator.md](contact-wrapped-key-metadata-simulator.md).
 
 Phase 4: browser/client-side decrypt prototype.
 

@@ -40,6 +40,8 @@ Planned future incident modes include emergency incidents, non-emergency interac
   in [incident-modes.md](incident-modes.md), future role and grant boundaries
   are documented in [v1-access-control.md](v1-access-control.md), the intended
   future key custody direction is documented in [key-custody.md](key-custody.md),
+  the simulator-only contact-wrapped key metadata prototype is documented in
+  [contact-wrapped-key-metadata-simulator.md](contact-wrapped-key-metadata-simulator.md),
   browser decryption constraints are documented in
   [browser-decryption.md](browser-decryption.md), and server-assisted access
   design is documented in [break-glass-key-access.md](break-glass-key-access.md).

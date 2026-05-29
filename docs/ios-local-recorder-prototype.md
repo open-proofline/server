@@ -244,6 +244,11 @@ Do not implement these as part of the prototype plan. Track them as future backe
 
 For the first prototype, avoid expanding the backend unless a gap blocks the basic simulator-equivalent flow.
 
+The simulator-only contact-wrapped key metadata design is documented in
+[contact-wrapped-key-metadata-simulator.md](contact-wrapped-key-metadata-simulator.md).
+It can help evaluate model contact public keys, non-secret key IDs, and wrapped
+stream media keys before native client or production key-custody work begins.
+
 ## Validation Plan
 
 Before iOS implementation starts:

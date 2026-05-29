@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added a simulator-only contact-wrapped key metadata prototype design covering
+  local model contact keys, non-secret key IDs, wrapped-key metadata shape,
+  bundle-manifest relationship, and future server metadata boundaries without
+  adding production key custody or backend decryption.
 - Added a first-class incident-mode and escalation schema design covering future
   capture profiles, sharing state, migration from generic incidents, viewer
   wording, retention implications, and access-control/key-custody dependencies
