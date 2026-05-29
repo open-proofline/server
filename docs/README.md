@@ -23,7 +23,7 @@ This directory contains the detailed documentation for Proofline Server, the Go 
 | [Browser-side decryption](browser-decryption.md) | Future incident viewer decryption options, risks, and phased direction. |
 | [Break-glass key access](break-glass-key-access.md) | Future optional server-assisted emergency key access and dead-man-switch design. |
 | [API](api.md) | Current HTTP routes, request examples, response examples, and bundle formats. |
-| [Deployment](deployment.md) | Local, Docker, reverse proxy, TLS, and public exposure notes. |
+| [Deployment](deployment.md) | Local, Docker, SQLite WAL operations, reverse proxy, TLS, and public exposure notes. |
 | [Retention, backup, and deletion](retention-backup-deletion.md) | Operational policy for evidence lifecycle, backups, restores, and deletion limits. |
 | [Incident deletion and retention enforcement design](incident-deletion-retention-enforcement.md) | Future design for private/admin deletion decisions, retention jobs, tombstones, blob deletion retry, and safe audit boundaries. |
 | [Security model](security-model.md) | Current controls, browser headers, logging posture, and security assumptions. |

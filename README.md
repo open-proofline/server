@@ -182,7 +182,7 @@ Container defaults bind to `0.0.0.0` inside the container. Restrict host exposur
 - [Browser-side decryption design](docs/browser-decryption.md)
 - [Break-glass key access design](docs/break-glass-key-access.md)
 - [API reference](docs/api.md)
-- [Deployment notes](docs/deployment.md)
+- [Deployment notes](docs/deployment.md), including SQLite WAL operations
 - [Retention, backup, and deletion](docs/retention-backup-deletion.md)
 - [Incident deletion and retention enforcement design](docs/incident-deletion-retention-enforcement.md)
 - [Security model](docs/security-model.md)
