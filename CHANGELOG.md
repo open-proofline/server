@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added an incident deletion and retention enforcement design covering future
+  private/admin deletion decisions, tombstones, metadata/blob consistency,
+  idempotent retry, retention windows, backup interaction, and safe audit
+  fields without implementing deletion behavior.
 - Added a future `/v1` access-control design covering a public authenticated
   product API, a separately bound private authenticated admin API, and
   account-owner, trusted-contact, public-link, admin/operator, and optional

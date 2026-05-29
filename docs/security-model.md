@@ -120,7 +120,13 @@ The Go app does not include an app-level rate limiter. Deployment-edge rate limi
 
 ## Retention, Backups, And Deletion
 
-Retention, backup, restore, secure deletion limits, and disk encryption posture are documented in [retention-backup-deletion.md](retention-backup-deletion.md). The current backend preserves accepted evidence by default and does not automatically expire incidents or expose incident deletion APIs.
+Retention, backup, restore, secure deletion limits, and disk encryption posture
+are documented in
+[retention-backup-deletion.md](retention-backup-deletion.md). The future
+incident deletion and retention enforcement design is documented in
+[incident-deletion-retention-enforcement.md](incident-deletion-retention-enforcement.md).
+The current backend preserves accepted evidence by default and does not
+automatically expire incidents or expose incident deletion APIs.
 
 Cluster backup, restore, and failure-mode guidance for optional PostgreSQL
 metadata, S3-compatible encrypted blobs, and Valkey/Redis-compatible
@@ -149,6 +155,10 @@ Normal file or object removal is not treated as guaranteed secure erasure. Deplo
   [resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md)
 - No implemented first-class incident types, escalation policies, trusted-contact accounts, dead-man switch notifications, or account-based access model
 - No implemented production client key storage, key sharing, browser decryption, server-assisted break-glass key access, or emergency-contact key access model; the future designs are documented in [key-custody.md](key-custody.md), [browser-decryption.md](browser-decryption.md), and [break-glass-key-access.md](break-glass-key-access.md)
-- No automated retention/deletion enforcement or built-in disk encryption; the operational policy is documented in [retention-backup-deletion.md](retention-backup-deletion.md)
+- No automated retention/deletion enforcement or built-in disk encryption; the
+  operational policy is documented in
+  [retention-backup-deletion.md](retention-backup-deletion.md), with future
+  enforcement design in
+  [incident-deletion-retention-enforcement.md](incident-deletion-retention-enforcement.md)
 - No malware/content scanning for uploaded encrypted blobs
 - No implemented multi-user authorization model

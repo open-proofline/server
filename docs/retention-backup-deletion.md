@@ -2,6 +2,9 @@
 
 This document defines the operational retention, backup, restore, and deletion policy for the current Proofline backend shape. It is a design and operations document only. It does not add deletion APIs, background jobs, cloud backups, key escrow, or backend decryption.
 
+The future incident deletion and retention enforcement design is documented in
+[incident-deletion-retention-enforcement.md](incident-deletion-retention-enforcement.md).
+
 Proofline is still experimental and not production-ready public infrastructure. Before real-world use, an operator must choose concrete retention windows, backup locations, encryption settings, and restore checks that match the user's safety, privacy, and legal risk model.
 
 ## Scope
@@ -180,7 +183,10 @@ Disk encryption does not protect data while the host is running and unlocked, an
 
 ## Future Implementation Work
 
-Implementing this policy requires separate, explicit issues. Likely future work includes:
+Implementing this policy requires separate, explicit issues. The future design
+is expanded in
+[incident-deletion-retention-enforcement.md](incident-deletion-retention-enforcement.md).
+Likely future work includes:
 
 - incident deletion repository methods that transactionally remove metadata
 - storage deletion helpers that operate only on server-stored relative paths

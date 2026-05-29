@@ -182,6 +182,7 @@ Container defaults bind to `0.0.0.0` inside the container. Restrict host exposur
 - [API reference](docs/api.md)
 - [Deployment notes](docs/deployment.md)
 - [Retention, backup, and deletion](docs/retention-backup-deletion.md)
+- [Incident deletion and retention enforcement design](docs/incident-deletion-retention-enforcement.md)
 - [Security model](docs/security-model.md)
 - [Threat model](docs/threat-model.md)
 - [Simulator](docs/simulator.md)
