@@ -2,7 +2,12 @@
 
 This document records the production-cluster expansion path for Proofline Server.
 
-It is a planning and scope document for cluster-related work. Optional PostgreSQL metadata and optional S3-compatible object storage are implemented, but Valkey/Redis-compatible coordination, public `/v1` authentication, account management, cloud deployment automation, and production hardening are not implemented.
+It is a planning and scope document for cluster-related work. Optional
+PostgreSQL metadata, optional S3-compatible object storage, and optional
+Valkey/Redis-compatible coordination startup checks are implemented, but public
+`/v1` authentication, account management, cloud deployment automation,
+production hardening, and upload-operation use of coordination are not
+implemented.
 
 ## Current Local-First Scope
 
@@ -12,6 +17,8 @@ The current backend remains local-first and experimental:
 - Optional PostgreSQL metadata is available only when explicitly configured.
 - Local filesystem encrypted blob storage remains supported.
 - Optional S3-compatible encrypted blob storage is available only when explicitly configured.
+- No coordination backend remains the default; Valkey/Redis-compatible
+  coordination is available only when explicitly configured.
 - The simulator and local development flow remain supported.
 - The private `/v1` API remains private and unauthenticated.
 - The public incident viewer remains token-gated and read-only.
@@ -29,11 +36,14 @@ Planned optional cluster backends:
 |---|---|---|
 | Metadata | SQLite | PostgreSQL, implemented as an optional backend |
 | Committed encrypted chunks | Local filesystem | S3-compatible object storage, implemented as an optional backend |
-| Short-lived coordination | None | Valkey/Redis-compatible coordination |
+| Short-lived coordination | None | Valkey/Redis-compatible coordination, implemented as an optional startup-checked backend |
 
 These backends should be additive. They must not remove or weaken SQLite and local filesystem support.
 
-The current configuration scaffold exposes backend selectors for these capability groups. It accepts implemented values: `SAFE_METADATA_BACKEND=sqlite` or `postgresql`, `SAFE_BLOB_BACKEND=local` or `s3`, and `SAFE_COORDINATION_BACKEND=none`. Planned values for Valkey/Redis-compatible coordination must continue to fail startup until those backends exist.
+The current configuration scaffold exposes backend selectors for these
+capability groups. It accepts implemented values:
+`SAFE_METADATA_BACKEND=sqlite` or `postgresql`, `SAFE_BLOB_BACKEND=local` or
+`s3`, and `SAFE_COORDINATION_BACKEND=none`, `valkey`, or `redis`.
 
 ## Cluster-Safety Principles
 
@@ -100,7 +110,10 @@ The implementation stages upload bytes under `SAFE_DATA_DIR/tmp`, computes SHA-2
 
 ## Valkey / Redis-Compatible Coordination Scope
 
-Valkey or another Redis-compatible service is planned as optional production coordination, not durable storage.
+Valkey or another Redis-compatible service is implemented as optional
+production coordination, not durable storage. The current backend opens and
+checks the configured service at startup; future upload-operation work may use
+it for short-lived leases, in-progress hints, and retry coordination.
 
 It may be used for:
 
@@ -119,7 +132,11 @@ It must not be used as the final source of truth for:
 - viewer-token metadata
 - retention or deletion decisions
 
-If Valkey is unavailable, the system should fail closed or return retryable errors for affected operations. PostgreSQL constraints and object-storage no-overwrite behavior must still protect committed state from duplicates.
+If configured Valkey is unavailable at startup, the system fails closed.
+Future operation-level coordination failures should fail closed or return
+retryable errors for affected operations. PostgreSQL constraints and
+object-storage no-overwrite behavior must still protect committed state from
+duplicates.
 
 ## Upload Operation Semantics
 
@@ -170,7 +187,8 @@ Preferred implementation sequence:
 3. Add S3-compatible blob storage as an optional backend. Implemented for committed encrypted chunks.
 4. Add PostgreSQL metadata support as an optional backend. Implemented.
 5. Add explicit idempotency and upload-operation semantics for cluster-safe retries.
-6. Add optional Valkey/Redis-compatible coordination.
+6. Add optional Valkey/Redis-compatible coordination. Implemented for explicit
+   configuration and startup checks; upload-operation use remains future work.
 7. Update deployment, backup, restore, security, and threat-model docs before recommending any production cluster deployment.
 
 Each step should be small, reviewable, and tested against the existing SQLite/filesystem path before adding new backend-specific behavior.

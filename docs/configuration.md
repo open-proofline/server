@@ -12,7 +12,7 @@ Configuration is read from environment variables when the Proofline API starts.
 | `SAFE_DB_PATH` | `./data/safety.db` | SQLite database path. The default file name still uses `safety.db` until a separate data-layout migration is performed. |
 | `SAFE_METADATA_BACKEND` | `sqlite` | Metadata backend selector. Supported values are `sqlite` and `postgresql`. |
 | `SAFE_BLOB_BACKEND` | `local` | Encrypted blob backend selector. Supported values are `local` and `s3`. |
-| `SAFE_COORDINATION_BACKEND` | `none` | Coordination backend selector. Only `none` is currently implemented. |
+| `SAFE_COORDINATION_BACKEND` | `none` | Coordination backend selector. Supported values are `none`, `valkey`, and `redis`. |
 | `SAFE_POSTGRES_DSN` | unset | PostgreSQL connection string. Required when `SAFE_METADATA_BACKEND=postgresql`; treat as secret-bearing. |
 | `SAFE_POSTGRES_MAX_OPEN_CONNS` | `10` | Maximum open PostgreSQL connections when the PostgreSQL metadata backend is selected. |
 | `SAFE_POSTGRES_MAX_IDLE_CONNS` | `5` | Maximum idle PostgreSQL connections when the PostgreSQL metadata backend is selected. |
@@ -25,6 +25,14 @@ Configuration is read from environment variables when the Proofline API starts.
 | `SAFE_S3_SECRET_ACCESS_KEY` | unset | Static S3 secret access key. Required when `SAFE_BLOB_BACKEND=s3`; treat as a secret. |
 | `SAFE_S3_SESSION_TOKEN` | unset | Optional static S3 session token. Requires static S3 credentials. |
 | `SAFE_S3_FORCE_PATH_STYLE` | `true` | Use path-style bucket addressing for S3-compatible services. Set to `false` for virtual-hosted-style services that require it. |
+| `SAFE_VALKEY_ADDR` | unset | Valkey/Redis-compatible `host:port`. Required when `SAFE_COORDINATION_BACKEND=valkey` or `redis`. |
+| `SAFE_VALKEY_USERNAME` | unset | Optional Valkey ACL username. |
+| `SAFE_VALKEY_PASSWORD` | unset | Optional Valkey password; treat as a secret. |
+| `SAFE_VALKEY_DB` | `0` | Non-negative Valkey database number. |
+| `SAFE_VALKEY_TLS` | `false` | Use TLS for the Valkey connection. |
+| `SAFE_VALKEY_DIAL_TIMEOUT` | `5s` | Valkey dial timeout. |
+| `SAFE_VALKEY_READ_TIMEOUT` | `5s` | Valkey read timeout. |
+| `SAFE_VALKEY_WRITE_TIMEOUT` | `5s` | Valkey write timeout. |
 | `SAFE_MAX_UPLOAD_BYTES` | `250MB` | Maximum encrypted file bytes per upload. |
 | `SAFE_DEFAULT_INCIDENT_TOKEN_TTL` | `24h` | Default lifetime for viewer tokens created without `expires_at`. Set to `0` to disable the default for omitted `expires_at` values. |
 | `SAFE_PRIVATE_READ_HEADER_TIMEOUT` | `10s` | Private API HTTP read-header timeout. |
@@ -81,7 +89,11 @@ SAFE_S3_SECRET_ACCESS_KEY=example-secret-key \
 go run ./cmd/api
 ```
 
-Valkey/Redis-compatible coordination is still planned but not implemented. Setting future values such as `valkey` or `redis` will fail until those backends are deliberately added and documented.
+Valkey/Redis-compatible coordination is implemented as an optional, explicit
+backend. The current server validates the configured service at startup, but
+current upload routes still use complete encrypted chunk uploads and do not yet
+implement upload leases, idempotency keys, resumable uploads, application-level
+rate limiting, or cluster-safe retry semantics.
 
 `SAFE_DB_PATH` and `SAFE_DATA_DIR` keep their current behavior for the supported `sqlite` and `local` backends. When `SAFE_METADATA_BACKEND=postgresql`, `SAFE_DB_PATH` is not used for metadata. When `SAFE_BLOB_BACKEND=s3`, `SAFE_DATA_DIR/tmp` is still used for local temporary upload staging before final object writes.
 
@@ -115,6 +127,42 @@ This implementation does not create S3 staging objects. Failed uploads and hash 
 `SAFE_S3_ACCESS_KEY_ID` and `SAFE_S3_SECRET_ACCESS_KEY` are required when the S3 backend is selected. `SAFE_S3_SESSION_TOKEN` is optional. Credentials, endpoints, bucket names, object keys, and private deployment details should not be written to public issue drafts, logs, or support tickets.
 
 Bundle downloads continue to generate server-controlled ZIP entry names such as `chunks/audio_000001.enc`; they do not expose object-store URLs, bucket names, configured prefixes, or filesystem paths.
+
+## Optional Valkey / Redis-Compatible Coordination
+
+No coordination backend is used by default. To enable Valkey or another
+Redis-compatible service for short-lived coordination, explicitly set the
+coordination selector and connection settings:
+
+```bash
+SAFE_COORDINATION_BACKEND=valkey \
+SAFE_VALKEY_ADDR=valkey.example.invalid:6379 \
+SAFE_VALKEY_USERNAME=proofline \
+SAFE_VALKEY_PASSWORD=example-password \
+SAFE_VALKEY_TLS=true \
+go run ./cmd/api
+```
+
+`SAFE_COORDINATION_BACKEND=redis` is accepted as an alias for Redis-compatible
+deployments. `SAFE_VALKEY_ADDR` must be a `host:port`, not a URL, so passwords
+and database numbers stay in their dedicated settings.
+
+Treat Valkey passwords, private hostnames, private network details, and any
+future coordination keys as private deployment details. Do not put them in
+public issues, logs, dashboards, screenshots, support tickets, or metrics
+labels.
+
+Coordination is not durable evidence storage. Incident metadata and
+viewer-token metadata remain in the selected metadata backend, and committed
+encrypted bytes remain in the selected blob backend. If a configured Valkey
+backend cannot be checked at startup, the server fails closed instead of
+silently running with a misleading cluster configuration.
+
+The current implementation does not store upload leases or idempotency results
+in Valkey yet. Future upload-operation work must keep Valkey keys
+server-controlled and must not include raw viewer tokens, incident tokens,
+request bodies, uploaded bytes, plaintext, raw keys, private deployment
+details, raw idempotency keys, or user safety data.
 
 ## Bind Address Lists
 

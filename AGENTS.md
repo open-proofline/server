@@ -45,6 +45,8 @@
 - Optional PostgreSQL metadata when explicitly configured.
 - Local disk blob storage by default.
 - Optional S3-compatible encrypted blob storage for committed chunks.
+- No coordination backend by default.
+- Optional Valkey/Redis-compatible coordination when explicitly configured.
 - Private API listener group for `/v1` routes.
 - Public incident viewer listener group for canonical `/i/{token}` routes and legacy `/e/{token}` compatibility aliases.
 - Uploaded chunks may be grouped into media streams.
@@ -54,7 +56,7 @@
 - The current simulator encryption envelope is development/test oriented.
 - Future product scope includes emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes.
 - The current backend does not yet implement first-class incident types, escalation policies, account management, trusted-contact accounts, dead-man switch notifications, or public `/v1` authentication.
-- Planned production-cluster scope may add Valkey/Redis-compatible coordination and cluster-safe idempotent upload semantics. These are additive future backends and must not remove SQLite, optional PostgreSQL metadata, local filesystem support, or the optional S3-compatible blob backend.
+- Planned production-cluster scope may add cluster-safe idempotent upload semantics and operation-level use of coordination. These additions must not remove SQLite, optional PostgreSQL metadata, local filesystem support, the optional S3-compatible blob backend, or the optional Valkey/Redis-compatible coordination backend.
 - Future encryption direction should be a hybrid key custody model.
 - Docker and GitHub Actions/GHCR publishing exist, but deployment expansion should not be added unless explicitly requested.
 

@@ -48,6 +48,13 @@ Optional PostgreSQL metadata support preserves these controls with equivalent
 or stronger constraints, duplicate guards, token-hash storage, and row-locking
 transaction boundaries. The implementation and remaining migration limits are
 documented in [postgresql-metadata-migration.md](postgresql-metadata-migration.md).
+
+Optional Valkey/Redis-compatible coordination can be configured for
+short-lived coordination checks. It is not durable evidence storage, does not
+hold incident metadata, viewer-token metadata, committed encrypted bytes,
+retention decisions, plaintext, or keys, and does not change the private
+`/v1` boundary.
+
 Future cluster-safe upload operation semantics are planned separately in
 [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md), but no
 idempotency-key or upload-operation API is implemented yet.
@@ -110,8 +117,9 @@ Normal file or object removal is not treated as guaranteed secure erasure. Deplo
 - No public authentication or authorization model for `/v1`
 - No built-in TLS
 - No built-in app-level rate limiting or abuse throttling
-- PostgreSQL metadata is optional and experimental; it does not by itself make
-  the upload path cluster-safe or make `/v1` safe for public exposure
+- PostgreSQL metadata and Valkey/Redis-compatible coordination are optional
+  and experimental; they do not by themselves make the upload path cluster-safe
+  or make `/v1` safe for public exposure
 - No implemented cluster-safe upload operation or idempotency API; the future
   semantics are only planned in
   [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md)

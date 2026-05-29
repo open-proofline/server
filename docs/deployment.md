@@ -106,9 +106,41 @@ SQLite-to-PostgreSQL migration should be a separate quiesced operation with
 metadata and encrypted blobs backed up and verified together.
 
 PostgreSQL does not add public `/v1` authentication, cluster-safe idempotency,
-Valkey/Redis-compatible coordination, cloud deployment automation, backend
-decryption, key escrow, or production readiness. Keep private `/v1` listeners
-behind localhost, LAN, WireGuard, firewall rules, or a strict private proxy.
+cloud deployment automation, backend decryption, key escrow, or production
+readiness. Keep private `/v1` listeners behind localhost, LAN, WireGuard,
+firewall rules, or a strict private proxy.
+
+## Optional Valkey / Redis-Compatible Coordination
+
+No coordination backend is used by default. To connect to Valkey or another
+Redis-compatible service for short-lived coordination, explicitly set the
+coordination backend and connection settings:
+
+```bash
+SAFE_COORDINATION_BACKEND=valkey \
+SAFE_VALKEY_ADDR=valkey.example.invalid:6379 \
+SAFE_VALKEY_USERNAME=proofline \
+SAFE_VALKEY_PASSWORD=example-password \
+SAFE_VALKEY_TLS=true \
+go run ./cmd/api
+```
+
+The server checks the configured service during startup. If Valkey is
+configured but unavailable, startup fails closed instead of silently running
+with a misleading cluster configuration.
+
+Valkey coordination is not durable evidence storage and is not a backup source
+of truth. Incident metadata, viewer-token metadata, committed encrypted chunks,
+retention decisions, and deletion decisions remain in the metadata and blob
+backends. Current upload routes do not yet use coordination for upload leases,
+idempotency result caching, resumable uploads, or application-level rate
+limiting.
+
+Treat Valkey passwords, private hostnames, network topology, and future
+coordination keys as private deployment details. Do not expose them in public
+issues, logs, dashboards, screenshots, support tickets, or metrics labels.
+Valkey does not add public `/v1` authentication, cloud deployment automation,
+backend decryption, key escrow, or production readiness.
 
 ## Private API Through WireGuard Or A Private Network
 
@@ -184,9 +216,10 @@ Optional PostgreSQL metadata deployment remains experimental. Schema parity,
 migration tracking, transaction boundaries, configuration shape, integration
 test setup, and restore expectations are documented in
 [PostgreSQL metadata migration path](postgresql-metadata-migration.md).
-PostgreSQL support must not be treated as production-cluster readiness until
-idempotency, coordination, backup/restore drills, access-control, and
-operational hardening are also addressed.
+PostgreSQL and Valkey support must not be treated as production-cluster
+readiness until idempotency, operation-level coordination behavior,
+backup/restore drills, access-control, and operational hardening are also
+addressed.
 
 The Go app does not set `Strict-Transport-Security` by default because local development uses plain HTTP. Enable HSTS at the HTTPS reverse proxy only after TLS is working for the production hostname.
 

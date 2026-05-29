@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/open-proofline/server/internal/config"
+	"github.com/open-proofline/server/internal/coordination"
 )
 
 func TestNewHTTPServersCreatesOneServerPerBindAddress(t *testing.T) {
@@ -89,6 +90,20 @@ func TestStartupErrorLogIncludesSafeBackendConfigDetail(t *testing.T) {
 	}
 	if !bytes.Contains(logs.Bytes(), []byte("supported values: sqlite, postgresql")) {
 		t.Fatalf("startup log omitted supported backend values: %s", logs.String())
+	}
+}
+
+func TestStartupErrorLogDoesNotExposeCoordinationConnectionDetail(t *testing.T) {
+	var logs bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&logs, nil))
+
+	logStartupError(logger, coordination.ErrUnavailable)
+
+	if !bytes.Contains(logs.Bytes(), []byte("error_category=coordination_unavailable")) {
+		t.Fatalf("startup log omitted coordination category: %s", logs.String())
+	}
+	if bytes.Contains(logs.Bytes(), []byte("error_detail")) {
+		t.Fatalf("startup log exposed coordination detail: %s", logs.String())
 	}
 }
 

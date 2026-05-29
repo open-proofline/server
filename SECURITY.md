@@ -52,6 +52,8 @@ Reports are in scope when they affect the current backend, documentation, or dep
 - filesystem path disclosure
 - Docker bind exposure
 - reverse proxy/TLS deployment
+- optional Valkey/Redis-compatible coordination configuration and failure
+  behavior
 - evidence retention/deletion policy
 - documentation that could mislead users about emergency-services contact, legal reporting, production readiness, or access-control guarantees
 

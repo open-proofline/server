@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	"github.com/open-proofline/server/internal/config"
+	"github.com/open-proofline/server/internal/coordination"
 	"github.com/open-proofline/server/internal/db"
 	"github.com/open-proofline/server/internal/httpapi"
 	"github.com/open-proofline/server/internal/incidents"
@@ -33,6 +34,15 @@ func run(logger *slog.Logger) error {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	coord, err := newCoordinator(cfg)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = coord.Close() }()
+	if err := coord.Check(ctx); err != nil {
+		return err
+	}
 
 	repo, closeRepo, err := newMetadataRepository(ctx, cfg)
 	if err != nil {
@@ -65,6 +75,26 @@ func run(logger *slog.Logger) error {
 	case err := <-errCh:
 		_ = shutdownServers(servers)
 		return err
+	}
+}
+
+func newCoordinator(cfg config.Config) (coordination.Coordinator, error) {
+	switch cfg.Backends.Coordination {
+	case config.CoordinationBackendNone:
+		return coordination.NewNone(), nil
+	case config.CoordinationBackendValkey, config.CoordinationBackendRedis:
+		return coordination.NewValkeyClient(coordination.ValkeyOptions{
+			Addr:         cfg.Valkey.Addr,
+			Username:     cfg.Valkey.Username,
+			Password:     cfg.Valkey.Password,
+			DB:           cfg.Valkey.DB,
+			UseTLS:       cfg.Valkey.UseTLS,
+			DialTimeout:  cfg.Valkey.DialTimeout,
+			ReadTimeout:  cfg.Valkey.ReadTimeout,
+			WriteTimeout: cfg.Valkey.WriteTimeout,
+		})
+	default:
+		return nil, fmt.Errorf("unsupported coordination backend %q", cfg.Backends.Coordination)
 	}
 }
 
