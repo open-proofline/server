@@ -7,11 +7,13 @@ import (
 )
 
 const (
-	MetadataBackendSQLite   = "sqlite"
-	MetadataBackendPostgres = "postgresql"
-	BlobBackendLocal        = "local"
-	BlobBackendS3           = "s3"
-	CoordinationBackendNone = "none"
+	MetadataBackendSQLite     = "sqlite"
+	MetadataBackendPostgres   = "postgresql"
+	BlobBackendLocal          = "local"
+	BlobBackendS3             = "s3"
+	CoordinationBackendNone   = "none"
+	CoordinationBackendValkey = "valkey"
+	CoordinationBackendRedis  = "redis"
 )
 
 func backendSelectionFromEnv() (BackendSelection, error) {
@@ -34,7 +36,7 @@ func backendSelectionFromEnv() (BackendSelection, error) {
 	coordination, err := backendFromEnv(
 		"SAFE_COORDINATION_BACKEND",
 		CoordinationBackendNone,
-		[]string{CoordinationBackendNone},
+		[]string{CoordinationBackendNone, CoordinationBackendValkey, CoordinationBackendRedis},
 	)
 	if err != nil {
 		return BackendSelection{}, err

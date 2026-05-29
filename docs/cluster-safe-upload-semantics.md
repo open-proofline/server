@@ -4,9 +4,9 @@ This document designs future cluster-safe upload operation semantics for
 Proofline Server.
 
 It is a planning document only. It does not implement idempotency, upload
-leases, resumable uploads, Valkey/Redis-compatible coordination, public `/v1`
-authentication, account management, browser decryption, backend decryption, key
-custody, or playable media export.
+leases, resumable uploads, operation-level use of Valkey/Redis-compatible
+coordination, public `/v1` authentication, account management, browser
+decryption, backend decryption, key custody, or playable media export.
 
 ## Current Behavior
 
@@ -42,7 +42,8 @@ storage backends.
 - No duplicate-chunk reconciliation API implementation. The client-facing
   reconciliation design is documented in [api.md](api.md).
 - No changes to optional PostgreSQL metadata, no changes to the optional
-  S3-compatible storage backend, and no Valkey implementation.
+  S3-compatible storage backend, and no operation-level Valkey coordination
+  behavior.
 - No public `/v1` exposure or account/authentication model.
 - No client repository, protocol repository, or mobile implementation.
 - No backend decryption, raw server-held keys, key escrow, key sharing, or
@@ -365,7 +366,7 @@ Backend-specific work:
 - extend the blob-store boundary for operation-specific staging and conditional
   final object commit
 - add S3-compatible object-storage implementation with no-overwrite final keys
-- decide whether Valkey/Redis-compatible coordination is needed for leases or
-  only for reducing duplicate in-progress work
+- decide how Valkey/Redis-compatible coordination should be used for leases or
+  reducing duplicate in-progress work
 - update deployment, backup, restore, security, threat-model, retention, and
   code-map docs before recommending production cluster deployment

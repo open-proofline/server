@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/open-proofline/server/internal/config"
+	"github.com/open-proofline/server/internal/coordination"
 	"github.com/open-proofline/server/internal/storage"
 )
 
@@ -34,6 +35,8 @@ func safeStartupErrorCategory(err error) string {
 		return "too_large"
 	case errors.Is(err, storage.ErrAlreadyExists):
 		return "already_exists"
+	case errors.Is(err, coordination.ErrUnavailable):
+		return "coordination_unavailable"
 	case errors.Is(err, os.ErrNotExist):
 		return "not_found"
 	case errors.Is(err, os.ErrExist):

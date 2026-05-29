@@ -5,6 +5,9 @@
 - Added optional PostgreSQL metadata storage with a separate migration path,
   explicit `SAFE_METADATA_BACKEND=postgresql` configuration, and opt-in
   integration tests while keeping SQLite as the default.
+- Added optional Valkey/Redis-compatible coordination configuration and startup
+  health checking while keeping no coordination as the default and deferring
+  upload leases and idempotency use to future upload-operation work.
 - Added optional S3-compatible encrypted blob storage for committed chunks while
   keeping local filesystem storage as the default.
 - Added a resumable upload and upload lease protocol plan that defers
@@ -25,9 +28,9 @@
   incident repository implementation.
 - Introduced a narrow blob-store interface around the existing local filesystem
   encrypted blob storage implementation.
-- Added backend-selection configuration scaffolding for the current SQLite,
-  local filesystem, and no-coordination backends while rejecting unsupported
-  future backend values.
+- Added backend-selection configuration scaffolding for SQLite, PostgreSQL,
+  local filesystem, S3-compatible blob storage, no coordination, and optional
+  Valkey/Redis-compatible coordination backends.
 - Added a PostgreSQL metadata backend migration-path design covering schema
   parity, migrations, transaction boundaries, tests, and restore expectations.
 - Added CI runtime smoke tests for the built Linux binary and Docker image.

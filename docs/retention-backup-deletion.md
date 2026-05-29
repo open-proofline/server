@@ -14,6 +14,10 @@ The current backend stores:
 - temporary upload files under `SAFE_DATA_DIR/tmp`
 - on-demand encrypted ZIP bundle responses generated from completed streams
 
+Optional Valkey/Redis-compatible coordination is not durable evidence storage
+and is not a backup source of truth. Any current or future coordination keys
+must be treated as short-lived operational state.
+
 The backend stores ciphertext only. It does not store raw media keys, decrypt chunks, produce playable media, or persist generated ZIP bundle files.
 
 Future incident modes such as emergency incidents, interaction records, safety checks, and evidence notes may need different retention defaults. Those modes are not implemented yet and must update this policy before or alongside implementation.
@@ -68,6 +72,10 @@ Back up at least:
 - the configured S3 bucket and `SAFE_S3_PREFIX` object set when `SAFE_BLOB_BACKEND=s3`
 - SQLite sidecar files if copying a live database directly, such as WAL files
 - deployment configuration needed to restore backend selectors, bind addresses, data paths, upload limits, token TTL defaults, and reverse-proxy routing
+
+Do not treat Valkey/Redis-compatible coordination data as a substitute for
+metadata or blob backups. Loss of coordination state must be recoverable through
+durable metadata, immutable committed blobs, and client retry behavior.
 
 If `SAFE_DB_PATH` points outside `SAFE_DATA_DIR`, include both locations in the same backup set.
 

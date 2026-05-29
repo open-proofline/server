@@ -5,9 +5,9 @@ or upload leases for partially sent encrypted chunks.
 
 It is a planning document only. It does not implement resumable uploads, upload
 leases, upload operations, idempotency keys, PostgreSQL, S3-compatible object
-storage, Valkey/Redis-compatible coordination, public `/v1` authentication,
-account management, browser decryption, backend decryption, key custody, or
-playable media export.
+storage, operation-level use of Valkey/Redis-compatible coordination, public
+`/v1` authentication, account management, browser decryption, backend
+decryption, key custody, or playable media export.
 
 ## Decision
 
@@ -327,8 +327,8 @@ Until then, the simulator should keep using complete encrypted chunk uploads.
 - Implementing upload leases.
 - Adding public `/v1` authentication or exposing `/v1` publicly.
 - Adding web, iOS, Android, or protocol repository code.
-- Adding PostgreSQL, S3-compatible object storage, Valkey, or background
-  workers.
+- Adding PostgreSQL, S3-compatible object storage, operation-level Valkey
+  coordination behavior, or background workers.
 - Adding backend decryption, raw server-held keys, key escrow, key sharing, or
   playable media export.
 - Allowing partial files to appear as committed evidence.

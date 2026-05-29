@@ -33,6 +33,7 @@ type Config struct {
 	Backends                BackendSelection
 	Postgres                PostgresConfig
 	S3Blob                  S3BlobConfig
+	Valkey                  ValkeyConfig
 	DataDir                 string
 	DBPath                  string
 	MaxUploadBytes          int64
@@ -58,6 +59,18 @@ type S3BlobConfig struct {
 	SecretAccessKey string
 	SessionToken    string
 	ForcePathStyle  bool
+}
+
+// ValkeyConfig contains optional Valkey/Redis-compatible coordination settings.
+type ValkeyConfig struct {
+	Addr         string
+	Username     string
+	Password     string
+	DB           int
+	UseTLS       bool
+	DialTimeout  time.Duration
+	ReadTimeout  time.Duration
+	WriteTimeout time.Duration
 }
 
 // PostgresConfig contains optional PostgreSQL metadata backend settings.
@@ -100,6 +113,10 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	valkey, err := valkeyConfigFromEnv(backends.Coordination)
+	if err != nil {
+		return Config{}, err
+	}
 
 	maxUploadBytes, err := maxUploadBytesFromEnv()
 	if err != nil {
@@ -125,6 +142,7 @@ func Load() (Config, error) {
 		Backends:                backends,
 		Postgres:                postgres,
 		S3Blob:                  s3Blob,
+		Valkey:                  valkey,
 		DataDir:                 envOrDefault("SAFE_DATA_DIR", defaultDataDir),
 		DBPath:                  envOrDefault("SAFE_DB_PATH", defaultDBPath),
 		MaxUploadBytes:          maxUploadBytes,

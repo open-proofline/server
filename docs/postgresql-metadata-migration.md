@@ -27,8 +27,8 @@ new deployments that need a database suitable for later multi-node work.
 - No change to current `SAFE_METADATA_BACKEND=sqlite` behavior.
 - No migration of existing deployments by default.
 - No PostgreSQL requirement for local development or simulator flows.
-- No changes to S3-compatible blob storage and no Valkey/Redis-compatible
-  coordination implementation.
+- No changes to S3-compatible blob storage and no operation-level
+  Valkey/Redis-compatible coordination behavior.
 - No public `/v1` exposure, user accounts, OAuth, JWT, public admin dashboard,
   cloud deployment automation, Docker Compose, Kubernetes, or Terraform.
 - No backend decryption, raw server-held media keys, key escrow, browser
@@ -530,5 +530,5 @@ PostgreSQL implementation status and remaining work:
 8. Separately design any SQLite-to-PostgreSQL migration tool or runbook.
 
 Each step should be small and reviewable. Do not bundle PostgreSQL support with
-S3-compatible blob storage, Valkey/Redis-compatible coordination, public
-account access, or key custody work.
+S3-compatible blob storage, operation-level Valkey/Redis-compatible
+coordination behavior, public account access, or key custody work.

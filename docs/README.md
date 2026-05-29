@@ -9,7 +9,7 @@ This directory contains the detailed documentation for Proofline Server, the Go 
 | [Getting started](getting-started.md) | Run the backend locally and exercise the simulator flow. |
 | [Architecture](architecture.md) | System diagrams, listener boundaries, repository split, and server data flow. |
 | [Configuration](configuration.md) | Environment variables, backend selectors, bind addresses, upload limits, and data layout. |
-| [Production cluster scope](production-cluster-scope.md) | Additive path for optional PostgreSQL metadata, optional S3-compatible object storage, and planned Valkey/Redis-compatible coordination. |
+| [Production cluster scope](production-cluster-scope.md) | Additive path for optional PostgreSQL metadata, optional S3-compatible object storage, and optional Valkey/Redis-compatible coordination. |
 | [PostgreSQL metadata migration path](postgresql-metadata-migration.md) | PostgreSQL metadata backend schema parity, migrations, transaction boundaries, tests, migration limits, and restore expectations. |
 | [Cluster-safe upload operation semantics](cluster-safe-upload-semantics.md) | Planning design for future upload operation identity, idempotency state, commit ordering, retry success, conflict handling, and cleanup across metadata and blob backends. |
 | [Resumable upload and upload lease protocol](resumable-upload-lease-protocol.md) | Planning decision to defer resumable uploads and upload leases for a local desktop recorder simulator client while preserving complete encrypted chunk retry semantics, poor-network simulation, and future account-flow shape. |
@@ -51,9 +51,15 @@ Those repositories do not exist in this repository and should not be implemented
 
 ## Current Backend Scope
 
-Proofline Server receives already-encrypted chunks, stores metadata in SQLite by default or optional PostgreSQL, stores encrypted blobs on local disk by default or in optional S3-compatible object storage, groups chunks into media streams, and exposes a token-scoped read-only incident viewer. The Go simulator can produce the documented v1 client-side encryption envelope for development and test flows.
+Proofline Server receives already-encrypted chunks, stores metadata in SQLite by default or optional PostgreSQL, stores encrypted blobs on local disk by default or in optional S3-compatible object storage, performs a startup check against optional Valkey/Redis-compatible coordination when explicitly configured, groups chunks into media streams, and exposes a token-scoped read-only incident viewer. The Go simulator can produce the documented v1 client-side encryption envelope for development and test flows.
 
-The planned production-cluster scope is additive: SQLite and local filesystem storage remain supported, optional PostgreSQL metadata can store incident metadata, optional S3-compatible object storage can store committed encrypted chunks, and future work may add Valkey/Redis-compatible coordination. Current backend selector configuration accepts implemented values and rejects planned future backend values until those backends exist. See [production-cluster-scope.md](production-cluster-scope.md).
+The planned production-cluster scope is additive: SQLite and local filesystem
+storage remain supported, optional PostgreSQL metadata can store incident
+metadata, optional S3-compatible object storage can store committed encrypted
+chunks, and optional Valkey/Redis-compatible coordination can be configured for
+startup-checked short-lived coordination. Current backend selector
+configuration accepts only implemented values. See
+[production-cluster-scope.md](production-cluster-scope.md).
 
 The PostgreSQL metadata path is implemented for explicit opt-in configuration;
 see [postgresql-metadata-migration.md](postgresql-metadata-migration.md). It
@@ -62,8 +68,8 @@ SQLite-to-PostgreSQL data migration.
 
 The future cluster-safe upload operation path is a planning design only; see
 [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md). It does
-not implement idempotency keys, upload operations, resumable uploads,
-PostgreSQL or Valkey/Redis-compatible coordination.
+not implement idempotency keys, upload operations, resumable uploads, or
+operation-level use of Valkey/Redis-compatible coordination.
 The resumable upload and upload lease path is also planning-only; see
 [resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md). It
 defers resumable uploads and leases for a local desktop recorder simulator

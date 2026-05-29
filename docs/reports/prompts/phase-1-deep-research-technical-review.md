@@ -50,7 +50,12 @@ OpenAI ChatGPT Deep Research using <MODEL_NAME>
 
 ## Repository Context
 
-Proofline is an experimental Go backend for private encrypted incident capture. It receives already-encrypted recording chunks, stores metadata in SQLite by default or optional PostgreSQL, keeps encrypted blobs on local disk by default or in optional S3-compatible object storage, and exposes a token-scoped read-only incident viewer.
+Proofline is an experimental Go backend for private encrypted incident capture.
+It receives already-encrypted recording chunks, stores metadata in SQLite by
+default or optional PostgreSQL, keeps encrypted blobs on local disk by default
+or in optional S3-compatible object storage, supports optional
+Valkey/Redis-compatible short-lived coordination, and exposes a token-scoped
+read-only incident viewer.
 
 The product documentation now uses the name Proofline. Repository URLs, the Go module path, Docker image names, GHCR package names, and release binary names use the `open-proofline/server` repository namespace. Compatibility identifiers such as the v1 simulator encryption envelope, default SQLite filename, legacy `/e/{token}` aliases, and historical migration names may still use `safety-recorder` or `emergency` until separate protocol or data-layout migrations are explicitly performed.
 

@@ -1,6 +1,11 @@
 # Architecture
 
-Proofline Server is currently a single Go backend binary with separate private and public HTTP listener groups. It stores incident metadata in SQLite by default or optional PostgreSQL, and encrypted uploaded chunks on local disk by default with optional S3-compatible object storage for committed encrypted chunks.
+Proofline Server is currently a single Go backend binary with separate private
+and public HTTP listener groups. It stores incident metadata in SQLite by
+default or optional PostgreSQL, encrypted uploaded chunks on local disk by
+default with optional S3-compatible object storage for committed encrypted
+chunks, and optional Valkey/Redis-compatible short-lived coordination when
+explicitly configured.
 
 This repository is the server/backend component only. In the planned multi-repo layout it corresponds to `open-proofline/server`. Web, iOS, Android, and shared protocol work are expected to live in separate future repositories.
 
@@ -18,6 +23,7 @@ flowchart LR
     Repo --> DB[(SQLite or PostgreSQL metadata)]
     PrivateAPI --> Store["Blob storage"]
     Store --> Files[(Encrypted chunk files)]
+    PrivateAPI --> Coord["Optional coordination<br/>startup-checked Valkey/Redis"]
     PrivateAPI --> Token["Viewer token creation"]
     Contact["Trusted contact"] --> Viewer["Public incident viewer<br/>/i/{token}"]
     Viewer --> Repo
@@ -73,7 +79,8 @@ flowchart TB
         FuturePhone["Future mobile client<br/>separate repo"] --> WireGuard["WireGuard / LAN / firewall"]
         Simulator["Simulator CLI"] --> PrivateListener["Private API listener<br/>SAFE_PRIVATE_BIND_ADDRS"]
         WireGuard --> PrivateListener
-        PrivateListener --> Storage["SQLite + local or S3 encrypted blobs"]
+        PrivateListener --> Storage["SQLite or PostgreSQL + local or S3 encrypted blobs"]
+        PrivateListener --> Coordination["Optional Valkey/Redis coordination"]
     end
 
     subgraph PublicEdge["Public incident viewer exposure"]

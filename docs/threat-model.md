@@ -11,6 +11,9 @@ Planned future incident modes include emergency incidents, non-emergency interac
 - Optional PostgreSQL metadata schema, migration, transaction, test, and
   restore expectations are documented in
   [postgresql-metadata-migration.md](postgresql-metadata-migration.md)
+- Optional Valkey/Redis-compatible coordination is startup-checked when
+  explicitly configured, but it is short-lived coordination state only and is
+  not durable evidence storage
 - Future cluster-safe upload operation semantics are planned but not
   implemented; idempotency, retry-success, conflict, and cleanup expectations
   are documented in
@@ -42,6 +45,8 @@ Planned future incident modes include emergency incidents, non-emergency interac
 - The simulator encrypts fake chunk plaintext by default using the documented v1 AES-256-GCM envelope.
 - Encryption keys remain client-side; they are not uploaded, stored in SQLite, or added to evidence bundles.
 - SQLite and optional PostgreSQL metadata enforce media type, chunk index, byte size, SHA-256 shape, foreign keys, and unique chunk identity.
+- Optional Valkey/Redis-compatible coordination fails closed at startup when
+  explicitly configured but unavailable.
 - Media streams must be open before new chunks can be attached. The repository rechecks incident and stream state when chunk metadata is inserted.
 - Stream completion verifies contiguous chunks plus readable stored files, and the repository revalidates chunk rows before committing the stream to `complete`.
 - Viewer tokens use 256 bits from `crypto/rand`; only SHA-256 token hashes are stored. Tokens created without an explicit `expires_at` default to a 24-hour lifetime unless `SAFE_DEFAULT_INCIDENT_TOKEN_TTL` is configured differently.
@@ -79,6 +84,9 @@ The current backend does not implement incident-mode-specific controls yet, so f
   token hashing, ciphertext-only storage, or backup/restore expectations
   described in [postgresql-metadata-migration.md](postgresql-metadata-migration.md).
   It also does not make the current upload flow cluster-safe on its own.
+- Optional Valkey/Redis-compatible coordination does not change the private
+  `/v1` boundary, does not hold durable evidence state, and does not make the
+  current upload flow cluster-safe on its own.
 - No implemented cluster-safe upload operation or idempotency API. Future
   semantics are planned in
   [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md), but
