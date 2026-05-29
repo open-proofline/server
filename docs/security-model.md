@@ -40,6 +40,11 @@ Viewer URLs contain bearer tokens and should be treated as secrets. Reverse prox
 - Stored chunks are immutable and never overwritten.
 - Local storage commits use no-overwrite hard links. Optional S3-compatible storage commits final objects with conditional no-overwrite writes.
 - Streamed uploads require positive chunk indexes, while legacy unstreamed uploads may still use index `0`.
+- `original_filename` is optional client-supplied display metadata. The server
+  strips it to a basename and may return it in private chunk metadata,
+  token-scoped public incident viewer summaries, and bundle manifests. Future
+  clients should omit it by default or use a generic basename unless preserving
+  filename context is an explicit user or protocol decision.
 - The simulator can wrap chunks in the documented v1 AES-256-GCM client-side encryption envelope before upload.
 - The backend validates and stores ciphertext bytes only; it does not store encryption keys or decrypt chunk contents.
 - SQLite and optional PostgreSQL metadata enforce media type, chunk index, byte size, SHA-256 shape, foreign keys, and unique chunk identity.
@@ -73,6 +78,11 @@ chunk. See
 ## Bundle Controls
 
 Completed stream and incident bundles are generated on demand as ZIP responses. ZIP entry names are controlled by the server. Manifests are generated from database metadata and do not expose server filesystem paths.
+
+Bundle manifests may include `original_filename` basenames because those values
+are current chunk display metadata. They are user/client metadata, not server
+stored paths, staging paths, object-storage keys, ZIP entry names, or download
+paths.
 
 Incident bundle generation fails closed if any completed stream cannot be reconstructed. It does not silently omit inconsistent completed streams from the ZIP or manifest.
 

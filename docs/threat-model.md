@@ -8,6 +8,9 @@ Planned future incident modes include emergency incidents, non-emergency interac
 
 - Already-encrypted uploaded chunk files under `SAFE_DATA_DIR` for local storage, or committed encrypted objects in the configured S3-compatible bucket
 - Incident, media stream, chunk, checkin, and viewer/incident-token metadata in SQLite by default or optional PostgreSQL
+- Optional chunk `original_filename` display metadata. The server strips it to a
+  basename, but it can still contain user-supplied contextual or personal
+  information and may appear in viewer summaries and bundle manifests.
 - Optional PostgreSQL metadata schema, migration, transaction, test, and
   restore expectations are documented in
   [postgresql-metadata-migration.md](postgresql-metadata-migration.md)
@@ -64,7 +67,10 @@ Planned future incident modes include emergency incidents, non-emergency interac
 - Stream completion verifies contiguous chunks plus readable stored files, and the repository revalidates chunk rows before committing the stream to `complete`.
 - Viewer tokens use 256 bits from `crypto/rand`; only SHA-256 token hashes are stored. Tokens created without an explicit `expires_at` default to a 24-hour lifetime unless `SAFE_DEFAULT_INCIDENT_TOKEN_TTL` is configured differently.
 - Expired, revoked, and invalid viewer tokens return the same public error.
-- Incident summaries do not expose `stored_path`. Viewer bundle downloads expose only encrypted chunk bytes and generated manifests for completed streams.
+- Incident summaries do not expose `stored_path`. Viewer summaries and bundle
+  manifests may expose user-supplied `original_filename` basenames when clients
+  provided them. Viewer bundle downloads expose only encrypted chunk bytes and
+  generated manifests for completed streams.
 - ZIP bundle entry names are server-controlled and generated from metadata; clients do not provide stored paths for download.
 - Public viewer responses use a strict same-origin `Content-Security-Policy` with `frame-ancestors 'none'`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, and a restrictive camera/microphone/geolocation `Permissions-Policy`.
 - Token-protected pages, JSON, errors, private responses, private chunk reads, and bundle downloads use `Cache-Control: no-store`.

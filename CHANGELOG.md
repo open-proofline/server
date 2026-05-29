@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Documented the current and future-client policy for `original_filename`
+  metadata in viewer summaries and bundle manifests.
 - Added an incident deletion and retention enforcement design covering future
   private/admin deletion decisions, tombstones, metadata/blob consistency,
   idempotent retry, retention windows, backup interaction, and safe audit
