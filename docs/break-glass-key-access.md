@@ -191,7 +191,7 @@ Self-hosted deployments may intentionally accept stronger operator trust. Public
 Likely implementation phases:
 
 1. Keep the current backend ciphertext-only.
-2. Design first-class incident types and escalation policies.
+2. Design first-class incident modes, capture profiles, escalation policies, and sharing state.
 3. Prototype contact-wrapped keys without server decryption.
 4. Prototype trusted-contact client-side decryption.
 5. Design dead-man switch triggers, cancellation, notification, and audit policy.

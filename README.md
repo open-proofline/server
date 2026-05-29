@@ -59,7 +59,7 @@ Planned incident categories include:
 | Safety check | Timed check-in flow for walking home, meeting someone, travel, fieldwork, or other elevated-risk situations. | Trusted contacts alerted if the user misses the check-in. |
 | Evidence note | Quick photo, audio, location, or note bundle for damage, harassment, threats, or disputes. | No automatic escalation by default. |
 
-The current backend still stores generic incidents. First-class incident types, escalation policies, account access, and trusted-contact workflows are future protocol/client/server work. See [docs/incident-modes.md](docs/incident-modes.md).
+The current backend still stores generic incidents. First-class incident modes, capture profiles, escalation policies, sharing state, account access, and trusted-contact workflows are future protocol/client/server work. See [docs/incident-modes.md](docs/incident-modes.md).
 
 ## What Works Today
 
@@ -84,7 +84,8 @@ The current backend still stores generic incidents. First-class incident types, 
 - No web client or account portal
 - No protocol repository or shared conformance test suite
 - No recording implementation
-- No first-class incident-type or escalation-policy schema
+- No first-class incident-mode, capture-profile, escalation-policy, or
+  sharing-state schema
 - No production client-side encryption implementation
 - No implemented cluster-safe upload operation, idempotency API, or upload-lease use of coordination
 - No implemented resumable upload or upload lease protocol
@@ -232,7 +233,8 @@ Please see [SECURITY.md](SECURITY.md) for supported versions and vulnerability r
 - Implement cluster-safe upload operation semantics before multi-node production deployment
 - Keep cluster backup, restore, and failure runbooks current as optional PostgreSQL, S3-compatible storage, and coordination behavior evolve
 - WireGuard-only bind/firewall deployment guidance
-- Server-side support for first-class incident types and escalation policies after protocol design
+- Server-side support for first-class incident modes, capture profiles,
+  escalation policies, and sharing state after protocol design
 - Server-side support for trusted-contact dead-man switch workflows after access-control design
 - Production key custody, trusted-contact access, and browser/client-side decryption
 - Optional break-glass/dead-man-switch key access

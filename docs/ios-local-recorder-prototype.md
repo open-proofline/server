@@ -219,7 +219,8 @@ The prototype should include manual or automated test notes for these cases:
 Do not implement these as part of the prototype plan. Track them as future backend issues if they become necessary:
 
 - no app-level `/v1` authentication or authorization suitable for public networks
-- no first-class incident type or escalation-policy field
+- no first-class incident-mode, capture-profile, escalation-policy, or
+  sharing-state field
 - no account-owner, trusted-contact, or web-client access model
 - no implemented idempotency-key or equivalent retry-success API for ambiguous
   chunk upload outcomes; future semantics are planned in

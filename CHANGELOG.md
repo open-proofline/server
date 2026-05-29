@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added a first-class incident-mode and escalation schema design covering future
+  capture profiles, sharing state, migration from generic incidents, viewer
+  wording, retention implications, and access-control/key-custody dependencies
+  without adding schema or route behavior.
 - Documented the current and future-client policy for `original_filename`
   metadata in viewer summaries and bundle manifests.
 - Added an incident deletion and retention enforcement design covering future

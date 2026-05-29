@@ -2,7 +2,7 @@
 
 Proofline is intended to be broader than an emergency-only recorder. The long-term product direction is private, encrypted incident capture for moments where a user wants a durable record, with emergency escalation available only when the user chooses it or a configured safety check is missed.
 
-This is a planning document. It does not add mobile clients, account management, public `/v1` authentication, push notifications, emergency-services integration, incident-mode schema, key custody, browser decryption, or new backend routes. Future account-owner, trusted-contact, public-link, admin/operator, and optional escrow role boundaries are documented in [v1-access-control.md](v1-access-control.md).
+This is a planning and schema-design document. It does not add mobile clients, account management, public `/v1` authentication, push notifications, emergency-services integration, incident-mode schema, key custody, browser decryption, or new backend routes. Future account-owner, trusted-contact, public-link, admin/operator, and optional escrow role boundaries are documented in [v1-access-control.md](v1-access-control.md).
 
 ## Product Framing
 
@@ -18,16 +18,28 @@ Core principles:
 
 ## Planned Incident Types
 
-Future clients may expose incident types such as:
+Future clients may expose incident modes such as:
 
-| Type | Purpose | Default escalation |
-|---|---|---|
-| Emergency incident | Active safety risk where the user wants recording, upload, and urgent trusted-contact access. | Trusted contacts alerted immediately or after a short configured delay. |
-| Interaction record | Non-emergency record of an important interaction, such as with police, security, landlords, employers, service providers, or other authorities. | No automatic escalation by default. |
-| Safety check | Timed check-in flow for walking home, meeting someone, travel, fieldwork, or other elevated-risk situations. | Trusted contacts alerted if the user misses the check-in. |
-| Evidence note | Quick photo, audio, location, or note bundle for damage, harassment, threats, or disputes. | No automatic escalation by default. |
+| Incident mode | Purpose | Typical capture profile | Default escalation |
+|---|---|---|---|
+| Emergency incident | Active safety risk where the user wants recording, upload, and urgent trusted-contact access. | Audio/video/location where available. | Trusted contacts alerted immediately or after a short configured delay. |
+| Interaction record | Non-emergency record of an important interaction, such as with police, security, landlords, employers, service providers, or other authorities. | Audio/video/location and notes where user-selected. | No automatic escalation by default. |
+| Safety check | Timed check-in flow for walking home, meeting someone, travel, fieldwork, or other elevated-risk situations. | Location/check-in status, with optional media. | Trusted contacts alerted if the user misses the check-in. |
+| Evidence note | Quick photo, audio, location, or note bundle for damage, harassment, threats, or disputes. | Note or attachment-oriented capture, with optional media. | No automatic escalation by default. |
 
 Avoid product labels such as `police mode`. Use neutral language like `Interaction record` and optional user-selected tags.
+
+## Design Vocabulary
+
+Future implementation should keep these concepts separate:
+
+- `incident_mode` is the user-visible reason for capture, such as emergency incident, interaction record, safety check, or evidence note.
+- `capture_profile` describes what the client intends to capture, such as audio/video/location, audio/location, location check-ins, notes, attachments, or a custom combination.
+- `escalation_policy` describes if and when trusted contacts or future emergency-access workflows are triggered.
+- `sharing_state` describes what access has actually been granted or exported.
+- User tags and notes are context metadata. They must not silently change access, key custody, notification, retention, or legal/export behavior.
+
+The exact public protocol field names may differ, but the distinction between mode, capture, escalation, and sharing should remain.
 
 ## Interaction Records
 
@@ -45,18 +57,64 @@ Future client behavior should support:
 
 The app should not imply that it reports alleged criminal activity, contacts law enforcement, guarantees admissibility, or provides legal advice.
 
-## Emergency And Dead-Man Escalation
+## Future Data Model Direction
+
+The current backend only has generic incidents, streams, chunks, checkins, and incident tokens. Do not add first-class incident-mode fields to the current backend incident schema until protocol shape, access-control behavior, client behavior, migration behavior, retention behavior, and viewer wording are explicitly accepted.
+
+Future protocol work may add a durable incident record shaped around these concepts:
+
+```text
+incident_mode:
+  emergency
+  interaction_record
+  safety_check
+  evidence_note
+
+capture_profile:
+  audio_video_location
+  audio_location
+  location_checkin
+  note_or_attachment
+  custom
+
+escalation_policy:
+  kind:
+    none
+    trusted_contacts_on_start
+    trusted_contacts_on_missed_checkin
+    urgent_trusted_contact_alert
+  delay_seconds: optional non-negative integer
+  contact_set_id: optional role-scoped identifier
+  grant_scope:
+    metadata_only
+    ciphertext_bundle
+    wrapped_keys
+  cancel_until: optional timestamp for delayed or missed-check-in policies
+
+sharing_state:
+  private
+  trusted_contact_access
+  public_link_created
+  legal_export_created
+  revoked_or_expired
+```
+
+The schema should prefer explicit state over implied behavior. For example, `incident_mode: emergency` does not by itself notify anyone, return wrapped keys, expose plaintext, or create a public link. Those actions require an explicit escalation policy, sharing grant, and key-custody decision.
+
+## Escalation Semantics
 
 Emergency escalation should be a policy attached to an incident, not a property of all recording.
 
-Possible escalation policies:
+Expected policy behavior:
 
-| Policy | Behavior |
-|---|---|
-| `none` | Keep the incident private unless the user shares or exports it. |
-| `trusted_contacts_on_start` | Notify selected trusted contacts when the incident starts. |
-| `trusted_contacts_on_missed_checkin` | Notify selected trusted contacts only if the user misses a configured check-in. |
-| `urgent_trusted_contact_alert` | Notify selected trusted contacts urgently and provide emergency review guidance. |
+| Policy | Behavior | Default fit |
+|---|---|---|
+| `none` | Keep the incident private unless the account owner shares or exports it. | Interaction records and evidence notes. |
+| `trusted_contacts_on_start` | Notify selected trusted contacts when the incident starts or after an accepted short delay. | Emergency incidents. |
+| `trusted_contacts_on_missed_checkin` | Notify selected trusted contacts only if a configured check-in deadline plus grace period is missed. | Safety checks. |
+| `urgent_trusted_contact_alert` | Notify selected trusted contacts urgently and provide emergency review guidance. | Explicit high-risk emergency mode. |
+
+Safety-check escalation needs additional state before implementation, such as check-in due time, grace period, cancellation rules, missed-check-in timestamp, and whether network loss pauses, extends, or triggers escalation. False positives and false negatives are product and safety risks, not only timer bugs.
 
 Dead-man switch handling should rely on trusted contacts to interpret the context and decide whether to contact emergency services. Proofline should not claim that help is on the way or that emergency services have been notified unless a future jurisdiction-specific integration explicitly implements and documents that behavior.
 
@@ -67,56 +125,94 @@ A Proofline safety check was missed.
 Review the incident, try to contact the user, and call emergency services if you believe there is immediate danger.
 ```
 
-## Future Data Model Direction
+## Server Schema Versus Client Metadata
 
-The current backend only has generic incidents, streams, chunks, checkins, and incident tokens. Future protocol work may add first-class fields such as:
+Future server schema may need fields when the backend must enforce policy, return consistent summaries, or coordinate grants:
 
-```text
-incident_type:
-  emergency
-  interaction
-  safety_check
-  evidence_note
+- incident mode and capture profile identifiers
+- escalation policy kind, state, and relevant timestamps
+- owner, device, trusted-contact, public-link, admin/operator, and optional escrow grant references from the access-control model
+- non-secret sharing state derived from grants, exports, and revocations
+- retention policy class or explicit retention override, after retention enforcement is designed
+- safe audit fields such as actor ID, action type, incident ID, policy version, and non-sensitive outcome
 
-escalation_policy:
-  none
-  trusted_contacts_on_start
-  trusted_contacts_on_missed_checkin
-  urgent_trusted_contact_alert
+Future client or protocol metadata should hold values that do not need server enforcement or should remain encrypted where practical:
 
-capture_profile:
-  audio_video_location
-  audio_location
-  location_checkin
-  note_only
+- user-facing tags, local labels, timeline markers, and detailed notes
+- platform permission choices and local recording UI state
+- jurisdiction-specific guidance text, which must avoid legal advice
+- plaintext note content, transcripts, media descriptions, and sensitive context
+- local notification wording and device-only state until server delivery is explicitly designed
 
-sharing_state:
-  private
-  trusted_contact_access
-  legal_export_created
-```
-
-Do not add these fields to the current backend incident schema until the protocol, access-control model, mobile client behavior, and migration path are explicitly designed.
+Fields that affect access, wrapped-key release, token creation, notification, retention, deletion, or public viewer wording belong in a reviewed protocol/server design. Fields that are only display or evidence context should be minimized, encrypted where practical, and omitted from public summaries unless deliberately shared.
 
 ## Access And Sharing Direction
 
 Future account-enabled clients should distinguish:
 
 - account-owner access to their own incident data
-- trusted-contact access granted by the account owner or emergency policy
-- emergency access links or grants for specific incidents
+- capture-device upload authority for one account and incident
+- trusted-contact access granted by the account owner or by an explicit escalation policy
+- public-link access for a single incident
 - administrative/operator access, which should not casually expose user safety data
+- optional escrow or break-glass access, only if separately configured and audited
 - legal/export workflows controlled by the account owner
 
-Incident type labels must not silently grant access. Emergency incidents,
-interaction records, safety checks, and evidence notes need explicit sharing,
-escalation, and grant policy before implementation.
+Incident labels must not silently grant access. Emergency incidents, interaction records, safety checks, and evidence notes need explicit sharing, escalation, and grant policy before implementation.
 
-The current token-scoped incident viewer is a temporary read-only access model.
-A future web client may replace it after account management, authorization, key
-custody, and trusted-contact access are designed. The future `/v1` role, grant,
-and route-exposure direction is documented in
-[v1-access-control.md](v1-access-control.md).
+The current token-scoped incident viewer is a temporary read-only access model. A future web client may replace it after account management, authorization, key custody, and trusted-contact access are designed. The future `/v1` role, grant, and route-exposure direction is documented in [v1-access-control.md](v1-access-control.md).
+
+## Migration From Generic Incidents
+
+The migration path from the current backend should be additive and conservative:
+
+1. Keep existing incidents readable as generic legacy incidents with no incident-mode value.
+2. Do not backfill old incidents as emergencies, interaction records, safety checks, or evidence notes without an account-owner-controlled classification flow.
+3. Add nullable or versioned fields only after SQLite, PostgreSQL, API, bundle manifest, viewer, retention, and access-control compatibility rules are designed together.
+4. Keep old clients working against generic incident creation until an explicit API version or compatibility plan replaces it.
+5. Make future viewer and bundle behavior tolerate missing mode, capture-profile, escalation, and sharing fields.
+6. Do not infer key access, trusted-contact grants, public links, or retention windows from a legacy generic incident.
+
+Because current JSON handlers reject unknown fields, clients cannot safely send future incident-mode fields before the server implements them. A future API task must decide whether to extend `POST /v1/incidents`, add versioned product API routes, or accept mode metadata through another explicit protocol path.
+
+## API Compatibility And Viewer Wording
+
+Future API changes should keep current behavior clear:
+
+- Current `/v1/incidents` creates generic incidents only.
+- Future public product API routes must wait for implemented authentication and authorization.
+- Future private/admin routes must remain on private listener groups and still require authentication after the future admin API exists.
+- Public incident viewer routes must stay read-only and must not become write, grant-management, admin, escrow, or decryption routes.
+- Bundle manifests may eventually include non-secret incident-mode summaries, but they must not include raw tokens, raw keys, plaintext, private deployment details, server paths, object keys, or unreviewed sensitive context.
+
+Viewer wording should be mode-aware after modes exist. Interaction records and evidence notes should not use emergency-only copy. Safety-check wording should explain the missed-check-in context without implying emergency services were contacted. Emergency incidents can use urgent trusted-contact guidance only when the escalation policy actually grants urgent access.
+
+## Retention And Deletion Implications
+
+Incident modes may influence retention defaults, but they do not override evidence-preservation and deletion controls by label alone.
+
+Future design should decide:
+
+- whether emergency incidents, interaction records, safety checks, and evidence notes need different default retention windows
+- whether safety-check retention changes after the check is completed, canceled, or missed
+- how legal/export state interacts with deletion, tombstones, backups, and revocation
+- how retention applies to wrapped keys, public links, trusted-contact grants, and bundle manifests
+- what audit fields can be retained without leaking raw tokens, raw keys, plaintext, request bodies, uploaded bytes, or private deployment details
+
+The current backend does not implement automatic expiration or incident deletion APIs. Future work should align with [retention-backup-deletion.md](retention-backup-deletion.md) and [incident-deletion-retention-enforcement.md](incident-deletion-retention-enforcement.md).
+
+## Dependencies Before Implementation
+
+First-class incident modes depend on other designs and must not be implemented as a standalone schema label:
+
+- [Future `/v1` access control](v1-access-control.md) for account-owner, capture-device, trusted-contact, public-link, admin/operator, and optional escrow roles
+- [Key custody and emergency access](key-custody.md) for contact-wrapped keys, wrapped-key delivery, and phone-unavailable assumptions
+- [Browser-side decryption](browser-decryption.md) before any web viewer decrypts evidence
+- [Break-glass key access](break-glass-key-access.md) before any server-assisted emergency key access exists
+- client and protocol repository planning before mobile or shared protocol behavior is implemented outside this server repository
+- notification delivery design before push, SMS, Messenger, email, or other trusted-contact delivery is added
+
+Any implementation that changes key custody, wrapped-key delivery, browser decryption, server-side decryption, or break-glass access is separate security-sensitive work and must update the security model, threat model, encryption docs, operational guidance, tests, and deployment warnings before or alongside code.
 
 ## Current Implementation Status
 
@@ -133,7 +229,8 @@ Implemented today:
 
 Not implemented today:
 
-- first-class incident types
+- first-class incident modes, capture profiles, escalation policies, or sharing
+  state
 - account management
 - public `/v1` authentication
 - trusted-contact accounts
@@ -147,15 +244,17 @@ Not implemented today:
 
 ## Documentation And Review Rules
 
-When future work touches incident modes, update the relevant source-of-truth docs together:
+When future implementation touches incident modes, update the relevant source-of-truth docs together:
 
-- [README](../README.md)
-- [Architecture](architecture.md)
-- [API](api.md)
+- [README](../README.md), to keep the top-level implemented/future scope clear
+- [Architecture](architecture.md), to show any new data flow, listener, or repository boundary
+- [API](api.md), to document any accepted route, request, response, viewer, or bundle-manifest field
 - [iOS local recorder prototype](ios-local-recorder-prototype.md)
 - [Future /v1 access control](v1-access-control.md)
-- [Security model](security-model.md)
-- [Threat model](threat-model.md)
-- [Key custody](key-custody.md), if sharing or decryption behavior changes
+- [Security model](security-model.md), to preserve storage, logging, listener, access, and ciphertext-only assumptions
+- [Threat model](threat-model.md), to cover mode-specific sharing, escalation, false-positive, and access risks
+- [Key custody](key-custody.md), if sharing, wrapped-key delivery, or decryption behavior changes
+- [Retention, backup, and deletion](retention-backup-deletion.md) and [incident deletion and retention enforcement](incident-deletion-retention-enforcement.md), if mode-specific retention behavior changes
+- [Browser-side decryption](browser-decryption.md) and [break-glass key access](break-glass-key-access.md), if a mode affects decryption or emergency key access
 
 New ideas discovered while documenting incident modes should become backlog items unless they are required for the scoped task.

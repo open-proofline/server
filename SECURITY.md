@@ -61,7 +61,7 @@ Reports are in scope when they affect the current backend, documentation, or dep
 
 The following are generally out of scope unless they demonstrate a concrete vulnerability in this repository:
 
-- missing features already documented as absent, such as user accounts, OAuth, JWT, SMS, push notifications, trusted-contact accounts, Android/iOS clients, a web client, first-class incident types, escalation policies, or a public admin dashboard
+- missing features already documented as absent, such as user accounts, OAuth, JWT, SMS, push notifications, trusted-contact accounts, Android/iOS clients, a web client, first-class incident modes, escalation policies, or a public admin dashboard
 - lack of production hardening already documented as a known limitation, without a new exploit path
 - reports requiring public exposure of the private `/v1` API contrary to documented deployment guidance
 - denial-of-service reports based only on unrealistic local access or unbounded physical access

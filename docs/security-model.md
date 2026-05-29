@@ -6,7 +6,7 @@ This document summarizes the current Proofline backend security assumptions and 
 
 Proofline is experimental and not production-ready public infrastructure. The private `/v1` API has no public user authentication, no user accounts, no OAuth, and no JWT protection.
 
-The current backend stores generic incidents only. It does not yet implement first-class incident types, escalation policies, trusted-contact accounts, dead-man switch notifications, or account-based access to personal incident data.
+The current backend stores generic incidents only. It does not yet implement first-class incident modes, capture profiles, escalation policies, sharing state, trusted-contact accounts, dead-man switch notifications, or account-based access to personal incident data.
 
 The future `/v1` access-control direction is documented in
 [v1-access-control.md](v1-access-control.md). That document is planning-only
@@ -92,7 +92,7 @@ Bundle manifests may include a non-secret client-side encryption hint. They do n
 
 ## Incident Modes And Escalation Boundary
 
-Planned incident modes are a future client/protocol layer. Emergency incidents, interaction records, safety checks, and evidence notes must not weaken the current storage, encryption, listener, or logging boundaries.
+Planned incident modes are a future client/protocol layer. Emergency incidents, interaction records, safety checks, and evidence notes must not weaken the current storage, encryption, listener, or logging boundaries. The future schema design keeps incident mode, capture profile, escalation policy, and sharing state separate; see [incident-modes.md](incident-modes.md).
 
 Future escalation policies should keep capture separate from notification and emergency response:
 
@@ -104,9 +104,9 @@ Future escalation policies should keep capture separate from notification and em
 The current backend does not decide whether an incident is an emergency, does not notify trusted contacts, and does not contact emergency services.
 
 Future incident-mode access must follow the role and grant boundaries in
-[v1-access-control.md](v1-access-control.md). Incident labels must not silently
-grant trusted-contact, public-link, admin/operator, escrow, key, or plaintext
-access.
+[v1-access-control.md](v1-access-control.md). Incident labels, capture profiles,
+or sharing-state summaries must not silently grant trusted-contact, public-link,
+admin/operator, escrow, key, or plaintext access.
 
 ## Logging And Headers
 
@@ -163,7 +163,9 @@ Normal file or object removal is not treated as guaranteed secure erasure. Deplo
 - No implemented resumable upload or upload lease protocol; the future design
   is planned in
   [resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md)
-- No implemented first-class incident types, escalation policies, trusted-contact accounts, dead-man switch notifications, or account-based access model
+- No implemented first-class incident modes, capture profiles, escalation
+  policies, sharing state, trusted-contact accounts, dead-man switch
+  notifications, or account-based access model
 - No implemented production client key storage, key sharing, browser decryption, server-assisted break-glass key access, or emergency-contact key access model; the future designs are documented in [key-custody.md](key-custody.md), [browser-decryption.md](browser-decryption.md), and [break-glass-key-access.md](break-glass-key-access.md)
 - No automated retention/deletion enforcement or built-in disk encryption; the
   operational policy is documented in
