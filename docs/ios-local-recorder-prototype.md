@@ -238,7 +238,9 @@ Do not implement these as part of the prototype plan. Track them as future backe
 - no API for registering or storing contact-wrapped media keys
 - no production key custody, recovery, or trusted-contact decryption API
 - no server-side retention or incident deletion API
-- no endpoint for live partial-stream bundle viewing before stream completion
+- no endpoint for live partial-stream bundle viewing before stream completion;
+  the future access boundary is documented in
+  [live-partial-stream-access-boundary.md](live-partial-stream-access-boundary.md)
 - no first-class upload telemetry endpoint for client storage pressure, interruption reasons, or retry state
 - no notification or dead-man switch delivery system
 

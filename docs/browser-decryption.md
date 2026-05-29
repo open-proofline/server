@@ -339,6 +339,9 @@ Phase 5: live stream/session key model.
 
 Define how live chunks, reconnects, late contact enrollment, stream key rotation, and partial manifests work before adding browser live decryption.
 
+The live or partial stream access boundary is documented separately in
+[live-partial-stream-access-boundary.md](live-partial-stream-access-boundary.md).
+
 Phase 6: production browser viewer decision.
 
 Decide whether the browser viewer is acceptable as the main trusted-contact UX, or whether a separate trusted contact app or offline decrypt tool should be the higher-assurance path.

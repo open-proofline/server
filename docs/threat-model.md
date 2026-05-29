@@ -73,6 +73,9 @@ Planned future incident modes include emergency incidents, non-emergency interac
   manifests may expose user-supplied `original_filename` basenames when clients
   provided them. Viewer bundle downloads expose only encrypted chunk bytes and
   generated manifests for completed streams.
+- Open and failed streams are exposed to the current public viewer only as
+  metadata summaries. Live or partial stream access is planning-only in
+  [live-partial-stream-access-boundary.md](live-partial-stream-access-boundary.md).
 - ZIP bundle entry names are server-controlled and generated from metadata; clients do not provide stored paths for download.
 - Public viewer responses use a strict same-origin `Content-Security-Policy` with `frame-ancestors 'none'`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, and a restrictive camera/microphone/geolocation `Permissions-Policy`.
 - Token-protected pages, JSON, errors, private responses, private chunk reads, and bundle downloads use `Cache-Control: no-store`.
@@ -135,6 +138,7 @@ The current backend does not implement incident-mode-specific controls yet, so f
   themselves.
 - No malware/content scanning; uploaded bytes are assumed to be client-encrypted blobs.
 - Bundle downloads are encrypted chunk bundles, not decrypted or playable media exports.
+- No implemented live or partial stream chunk access before stream completion.
 - No implemented multi-user authorization model.
 - Viewer links are bearer tokens and must be shared carefully.
 - No implemented production key-sharing, key recovery, Keychain storage, trusted-contact access, browser decryption, break-glass key access, or playable export. The future key custody and emergency access design is documented in [key-custody.md](key-custody.md), with browser decryption design in [browser-decryption.md](browser-decryption.md) and break-glass design in [break-glass-key-access.md](break-glass-key-access.md).
