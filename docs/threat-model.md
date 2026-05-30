@@ -57,6 +57,12 @@ Planned future incident modes include emergency incidents, non-emergency interac
   incidents, create streams, upload chunks, complete/fail streams, close
   incidents, create viewer tokens, revoke tokens, manage local accounts, and
   read encrypted bytes. They are mounted only on the private API server.
+- `/admin`, `/admin/login`, `/admin/bootstrap`, `/admin/logout`,
+  `/admin/password`, and `/admin/accounts/{account_id}/password` are private
+  admin web routes. They use the same server-side session store as `/v1`
+  authentication, require the admin role after login, and are mounted only on
+  the private API server. The token-neutral `/admin/static/...` CSS route is
+  unauthenticated.
 - `/i/{token}`, `/i/{token}/data`, and viewer bundle download routes are public-shaped read-only routes gated by a bearer token. Pre-rename `/e/{token}` viewer, data, and download paths remain as compatibility aliases. These routes are mounted only on the public incident viewer server.
 - Static assets under `/static/` are embedded and token-neutral.
 
@@ -80,6 +86,16 @@ Planned future incident modes include emergency incidents, non-emergency interac
   users can access their own incidents. Admins can access incidents across
   accounts and use `/v1/admin/...` account routes. Legacy unowned incidents are
   admin-only until a future migration or reassignment workflow exists.
+- The private admin web surface uses `html/template`, stores browser admin
+  sessions in an HttpOnly SameSite cookie scoped to `/admin`, serves embedded
+  token-neutral CSS from the private admin prefix without authentication, and
+  shows route-boundary status plus local account-management data rather than
+  incident evidence, tokens, password hashes, stored paths, object keys,
+  plaintext, raw keys, or private deployment details. Its authenticated
+  state-changing forms use a session-bound CSRF token. Admin own-password
+  changes require the current password and revoke other sessions; admin resets
+  for other accounts revoke that account's sessions; logout revokes the current
+  admin web session.
 - Viewer tokens use 256 bits from `crypto/rand`; only SHA-256 token hashes are stored. Tokens created without an explicit `expires_at` default to a 24-hour lifetime unless `SAFE_DEFAULT_INCIDENT_TOKEN_TTL` is configured differently.
 - Expired, revoked, and invalid viewer tokens return the same public error.
 - Incident summaries do not expose `stored_path`. Viewer summaries and bundle
@@ -115,11 +131,13 @@ The current backend does not implement incident-mode-specific controls yet, so f
 
 - No implemented public product API exposure model for `/v1`; local accounts
   and sessions are private API controls, not a complete public security model.
-  Browser-session CSRF rules are not implemented because the current `/v1`
-  credential is an Authorization bearer session for private API callers.
+  The `/v1` credential is an Authorization bearer session for private API
+  callers. The private `/admin` web authenticated state-changing forms use an
+  HttpOnly SameSite cookie with a session-bound CSRF token. Broader browser
+  admin flows still need explicit browser credential and CSRF review.
 - Separate private/public ports reduce accidental route exposure, but they are not a complete security model.
 - `/v1` must not be publicly exposed as-is.
-- No iOS app, Android app, web client, local recording, production client key storage, key sharing, push notifications, SMS, Messenger integration, or public admin dashboard.
+- No iOS app, Android app, web client, local recording, production client key storage, key sharing, push notifications, SMS, Messenger integration, or public admin dashboard. The private `/admin` surface is not a complete operator UI.
 - No first-class incident modes, capture profiles, escalation policies, sharing
   state, interaction-record metadata, safety-check timers, dead-man switch
   notifications, or trusted-contact accounts.

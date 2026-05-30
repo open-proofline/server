@@ -240,8 +240,17 @@ func TestPublicServerDoesNotMountPrivateRoutes(t *testing.T) {
 		{http.MethodPost, "/v1/auth/logout"},
 		{http.MethodGet, "/v1/account"},
 		{http.MethodPost, "/v1/account/password"},
+		{http.MethodGet, "/admin"},
+		{http.MethodPost, "/admin/login"},
+		{http.MethodPost, "/admin/bootstrap"},
+		{http.MethodPost, "/admin/logout"},
+		{http.MethodPost, "/admin/password"},
+		{http.MethodPost, "/admin/accounts/acct_missing/password"},
+		{http.MethodGet, "/admin/static/styles.css"},
 		{http.MethodGet, "/v1/admin/accounts"},
 		{http.MethodPost, "/v1/admin/accounts"},
+		{http.MethodPost, "/v1/admin/accounts/acct_missing/password"},
+		{http.MethodPost, "/v1/admin/accounts/acct_missing/sessions/revoke"},
 	}
 
 	for _, tt := range tests {

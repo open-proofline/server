@@ -9,7 +9,7 @@ explicitly configured.
 
 This repository is the server/backend component only. In the planned multi-repo layout it corresponds to `open-proofline/server`. Web, iOS, Android, and shared protocol work are expected to live in separate future repositories.
 
-The long-term product direction is broader than emergency-only recording. Future clients may support emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes. The current backend still stores generic incidents and now has local username/password accounts with opaque server-side sessions for the private `/v1` API. First-class incident modes, capture profiles, escalation policies, sharing state, trusted-contact accounts, notification delivery, and mobile/web clients are not implemented yet. Planned mode, escalation, migration, and viewer-wording boundaries are documented in [incident-modes.md](incident-modes.md), and current local session behavior plus future public product API, separately bound private admin API, role, and grant boundaries are documented in [v1-access-control.md](v1-access-control.md).
+The long-term product direction is broader than emergency-only recording. Future clients may support emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes. The current backend still stores generic incidents and now has local username/password accounts with opaque server-side sessions for the private `/v1` API plus a private admin web surface under `/admin`. First-class incident modes, capture profiles, escalation policies, sharing state, trusted-contact accounts, notification delivery, and mobile/web clients are not implemented yet. Planned mode, escalation, migration, and viewer-wording boundaries are documented in [incident-modes.md](incident-modes.md), and current local session behavior plus future public product API, separately bound private admin API, role, and grant boundaries are documented in [v1-access-control.md](v1-access-control.md).
 
 The repository does not contain an iOS app, Android app, web client, protocol package, recording implementation, production client key storage, key sharing, browser/client-side decryption, server-assisted break-glass key access, notification system, trusted-contact account model, future public product API, future separately bound private admin API, OAuth/JWT identity integration, or playable media export. The Go simulator can produce the documented v1 client-side encryption envelope for development and test flows. Future key custody and emergency access design is documented in [key-custody.md](key-custody.md), [browser-decryption.md](browser-decryption.md), and [break-glass-key-access.md](break-glass-key-access.md).
 
@@ -18,9 +18,11 @@ The repository does not contain an iOS app, Android app, web client, protocol pa
 ```mermaid
 flowchart LR
     FutureClients["Future clients<br/>separate repos"] -->|"future encrypted chunks"| PrivateAPI["Private /v1 API<br/>local session auth"]
+    Operator["Admin browser<br/>private network"] -->|"bootstrap/login/account passwords"| AdminWeb["Private /admin web<br/>admin cookie session"]
     Simulator["Simulator CLI<br/>implemented here"] -->|"login + upload"| PrivateAPI
     PrivateAPI --> Repo["Incident repository"]
     Repo --> DB[(SQLite or PostgreSQL metadata)]
+    AdminWeb -->|"local accounts"| DB
     PrivateAPI --> Store["Blob storage"]
     Store --> Files[(Encrypted chunk files)]
     PrivateAPI --> Coord["Optional coordination<br/>startup-checked Valkey/Redis"]
@@ -49,7 +51,7 @@ Responsibilities:
 
 | Repository | Responsibility |
 |---|---|
-| `server` | Go backend, private API, public incident viewer, SQLite migrations, encrypted blob storage, deployment docs, and server release workflow. |
+| `server` | Go backend, private API, private admin web surface, public incident viewer, SQLite migrations, encrypted blob storage, deployment docs, and server release workflow. |
 | `web-client` | Account portal, authorised incident review, trusted-contact access, and eventual replacement for the current token-only viewer. |
 | `ios-client` | iOS incident capture, encrypted staging, upload, local account flows, and platform-specific recording behavior. |
 | `android-client` | Android incident capture, encrypted staging, upload, local account flows, and platform-specific recording behavior. |
@@ -79,7 +81,10 @@ flowchart TB
         FuturePhone["Future mobile client<br/>separate repo"] --> WireGuard["WireGuard / LAN / firewall"]
         Simulator["Simulator CLI"] --> PrivateListener["Private API listener<br/>SAFE_PRIVATE_BIND_ADDRS"]
         WireGuard --> PrivateListener
-        PrivateListener --> Auth["Local account sessions"]
+        PrivateListener --> V1["/v1 API"]
+        PrivateListener --> AdminWeb["/admin web"]
+        V1 --> Auth["Local account sessions"]
+        AdminWeb --> Auth
         Auth --> Storage["SQLite or PostgreSQL + local or S3 encrypted blobs"]
         PrivateListener --> Coordination["Optional Valkey/Redis coordination"]
     end
@@ -129,6 +134,7 @@ Future clients may classify the same generic backend incident as an emergency in
 flowchart LR
     subgraph PrivateMux["Private mux"]
         V1["/v1 routes<br/>create incidents, upload chunks,<br/>create/revoke tokens, complete streams"]
+        AdminWeb["/admin routes<br/>bootstrap, login, account list,<br/>password workflows"]
     end
 
     subgraph PublicMux["Public mux"]
@@ -140,7 +146,7 @@ flowchart LR
     PrivateMux --> PrivateBind["SAFE_PRIVATE_BIND_ADDRS"]
     PublicMux --> PublicBind["SAFE_PUBLIC_BIND_ADDRS"]
 
-    Warning["Do not mount /v1 on public viewer listeners"]
+    Warning["Do not mount /v1 or /admin on public viewer listeners"]
 ```
 
 ## Evidence Bundles

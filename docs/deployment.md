@@ -46,6 +46,24 @@ bootstrap route is disabled after an admin account exists. Treat the bootstrap
 secret, account passwords, raw session tokens, and Authorization headers as
 secrets.
 
+The same private listener serves the admin web interface at:
+
+```text
+http://127.0.0.1:8080/admin
+```
+
+When no admin exists and `SAFE_AUTH_BOOTSTRAP_SECRET` is set, `/admin` shows a
+first-admin bootstrap screen. After an admin exists, it shows an admin login
+screen and stores the resulting admin web session in an HttpOnly SameSite
+cookie scoped to `/admin`. Authenticated admin pages list local accounts and
+provide logout, password-change, and account password-reset forms with CSRF
+checks. The CSS under `/admin/static/...` is unauthenticated because it is
+token-neutral static source, but the admin pages and form handlers remain
+private-listener routes.
+
+This is not a public admin dashboard. Do not expose `/admin`, `/admin/...`, or
+`/v1` outside the private boundary.
+
 ## Docker
 
 Build from the repository root:

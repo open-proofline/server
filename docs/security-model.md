@@ -22,7 +22,7 @@ The API binary starts separate listener groups:
 
 | Listener group | Routes | Intended exposure |
 |---|---|---|
-| Private API | Authenticated `/v1/...` | Localhost, LAN, WireGuard, firewall, or strict reverse proxy only. |
+| Private API | Authenticated `/v1/...` plus private `/admin` web routes | Localhost, LAN, WireGuard, firewall, or strict reverse proxy only. |
 | Public incident viewer | `/i/{token}` and related read-only routes, plus pre-rename `/e/{token}` compatibility aliases | HTTPS/reverse proxy when exposed. |
 
 Private write/admin routes must not be mounted on public incident viewer listeners. Incident viewer routes are read-only.
@@ -41,6 +41,17 @@ The server fails closed on startup unless an admin account exists or
 bootstrap route is disabled once an admin account exists. Treat the bootstrap
 secret, account passwords, session tokens, and Authorization headers as
 secrets.
+
+The private `/admin` page, login form, bootstrap form, and account password
+workflows are mounted only on the private API mux, not on the public incident
+viewer mux. The browser flow uses the same server-side session store as `/v1`
+authentication and stores the raw session token in an HttpOnly SameSite=Strict
+cookie scoped to `/admin`. Authenticated `/admin` pages require the `admin`
+role. Authenticated state-changing admin web forms use a session-bound CSRF
+token. The token-neutral CSS under `/admin/static/...` is unauthenticated
+because it is public source code and contains no incident data, secrets, tokens,
+keys, or deployment details. This does not add a public admin dashboard or
+public product API exposure model.
 
 Incident viewer tokens are scoped to one incident. The raw token is returned only at creation time; the configured metadata backend stores only a SHA-256 hash. Tokens created without an explicit `expires_at` default to a 24-hour lifetime unless `SAFE_DEFAULT_INCIDENT_TOKEN_TTL` is configured differently. Expired, revoked, and invalid tokens return the same public error.
 
@@ -133,7 +144,7 @@ admin/operator, escrow, key, or plaintext access.
 
 Request logging records method, redacted route pattern, status, byte count, and duration. It does not log request bodies, uploaded bytes, Authorization headers, raw session tokens, raw viewer tokens, raw incident tokens, plaintext, or raw keys.
 
-The Go app sets these headers on public incident viewer pages, JSON responses, static assets, and ZIP downloads:
+The Go app sets these headers on public incident viewer pages, JSON responses, static assets, ZIP downloads, and private admin web responses:
 
 - `Content-Security-Policy`
 - `X-Content-Type-Options: nosniff`
@@ -141,7 +152,7 @@ The Go app sets these headers on public incident viewer pages, JSON responses, s
 - `Permissions-Policy: geolocation=(), microphone=(), camera=()`
 - `X-Frame-Options: DENY`
 
-Token-protected incident pages, JSON responses, errors, and ZIP downloads also use `Cache-Control: no-store`, including automatic method-mismatch errors on token-bearing paths. Private API responses use `X-Content-Type-Options: nosniff` and `Cache-Control: no-store`; JSON responses also use `Content-Type: application/json`.
+Token-protected incident pages, JSON responses, errors, ZIP downloads, and admin web pages also use `Cache-Control: no-store`, including automatic method-mismatch errors on token-bearing paths. Private API responses use `X-Content-Type-Options: nosniff` and `Cache-Control: no-store`; JSON responses also use `Content-Type: application/json`.
 
 HSTS is not enabled by default in the Go app because local development uses plain HTTP and HSTS should only be sent over HTTPS. Set `Strict-Transport-Security` at the production HTTPS reverse proxy after TLS is established for the public hostname. After deployment, test the public incident viewer with the MDN HTTP Observatory.
 

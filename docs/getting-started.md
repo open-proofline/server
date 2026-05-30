@@ -25,6 +25,11 @@ Default listeners:
 | Private API | `127.0.0.1:8080` |
 | Public incident viewer | `127.0.0.1:8081` |
 
+The private admin web surface is available at
+`http://127.0.0.1:8080/admin`. When `SAFE_AUTH_BOOTSTRAP_SECRET` is set and no
+admin exists, that page shows the first-admin bootstrap screen; after an admin
+exists, it shows the admin login screen and local account password workflows.
+
 The backend writes local data under `./data` by default:
 
 ```text

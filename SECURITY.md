@@ -1,6 +1,6 @@
 # Security Policy
 
-Proofline is a private encrypted incident-capture backend. It is not production-ready public infrastructure. The private `/v1` API uses local account sessions, but it is not a public product API and must stay behind localhost, WireGuard, a firewall, or an equivalent private boundary.
+Proofline is a private encrypted incident-capture backend. It is not production-ready public infrastructure. The private `/v1` API uses local account sessions, and the private `/admin` web surface uses admin cookie sessions, but neither is a public product API and both must stay behind localhost, WireGuard, a firewall, or an equivalent private boundary.
 
 The current implementation supports generic incident capture and token-scoped read-only incident review. Planned future modes include emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes. Those modes do not change the current vulnerability-reporting process until they are implemented.
 
@@ -36,8 +36,9 @@ Because this project is not yet public-production-ready, response timelines are 
 
 Reports are in scope when they affect the current backend, documentation, or deployment guidance, including:
 
-- private `/v1` route exposure
-- local account and session authentication for private `/v1` routes
+- private `/v1` and `/admin` route exposure
+- local account and session authentication for private `/v1` routes and the
+  private `/admin` web surface
 - public incident viewer read-only access
 - viewer/incident token leakage
 - raw token logging
