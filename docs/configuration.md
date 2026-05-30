@@ -6,7 +6,7 @@ Configuration is read from environment variables when the Proofline API starts.
 
 | Variable | Default | Notes |
 |---|---|---|
-| `SAFE_PRIVATE_BIND_ADDRS` | `127.0.0.1:8080` | Comma-separated private `/v1` listener addresses. |
+| `SAFE_PRIVATE_BIND_ADDRS` | `127.0.0.1:8080` | Comma-separated private listener addresses for `/v1` and `/admin`. |
 | `SAFE_PUBLIC_BIND_ADDRS` | `127.0.0.1:8081` | Comma-separated public incident viewer listener addresses. |
 | `SAFE_DATA_DIR` | `./data` | Local directory for SQLite, temp uploads, and encrypted blobs unless `SAFE_DB_PATH` points elsewhere. |
 | `SAFE_DB_PATH` | `./data/safety.db` | SQLite database path. The default file name still uses `safety.db` until a separate data-layout migration is performed. |
@@ -213,11 +213,14 @@ Set `SAFE_DEFAULT_INCIDENT_TOKEN_TTL=0` only when you deliberately want omitted 
 
 The private `/v1` API requires local account sessions. Sessions created by
 `POST /v1/auth/login` expire after `SAFE_SESSION_TTL`, which defaults to `12h`.
-The value uses Go duration strings such as `6h` or `30m`.
+The private `/admin` browser flow uses the same session store and TTL, with the
+raw session token held in an HttpOnly SameSite cookie scoped to `/admin`. The
+value uses Go duration strings such as `6h` or `30m`.
 
 For a new metadata database, startup fails until an admin account exists unless
 `SAFE_AUTH_BOOTSTRAP_SECRET` is set. Use that secret only long enough to call
-`POST /v1/bootstrap/admin`, then remove it from the environment and restart.
+`POST /v1/bootstrap/admin` or create the first admin through `/admin`, then
+remove it from the environment and restart.
 Treat the bootstrap secret, account passwords, session tokens, and
 Authorization headers as secrets. They must not appear in public issues,
 logs, dashboards, screenshots, support tickets, or shell history.

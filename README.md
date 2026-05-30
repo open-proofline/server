@@ -16,7 +16,7 @@ Proofline Server is the experimental Go server backend for private encrypted inc
 
 ## Security Warning
 
-> This project is not production-ready public infrastructure. The private `/v1` API now requires local account sessions, but it is still a private control plane and must stay behind localhost, LAN, WireGuard, a firewall, or a strict reverse proxy. Separate bind addresses are a deployment boundary, not a complete security model.
+> This project is not production-ready public infrastructure. The private `/v1` API now requires local account sessions, and `/admin` requires an admin web session, but both are still private control surfaces and must stay behind localhost, LAN, WireGuard, a firewall, or a strict reverse proxy. Separate bind addresses are a deployment boundary, not a complete security model.
 
 ## What It Is
 
@@ -38,7 +38,7 @@ The intended organisation is `open-proofline`, with responsibilities split acros
 
 | Future repository | Responsibility |
 |---|---|
-| `open-proofline/server` | Go backend, private API, public incident viewer, storage, migrations, deployment docs, and server release workflow. |
+| `open-proofline/server` | Go backend, private API, private admin web surface, public incident viewer, storage, migrations, deployment docs, and server release workflow. |
 | `open-proofline/web-client` | Account portal, authorised incident review, trusted-contact access, and eventual replacement for the current token-only viewer. |
 | `open-proofline/ios-client` | iOS incident capture, encrypted staging, upload, local account flows, and platform-specific recording behavior. |
 | `open-proofline/android-client` | Android incident capture, encrypted staging, upload, local account flows, and platform-specific recording behavior. |
@@ -67,6 +67,8 @@ The current backend still stores generic incidents. First-class incident modes, 
 - Public read-only incident viewer listener group
 - Local username/password accounts for regular users and admins
 - Opaque server-side sessions with expiry and revocation
+- Private admin-only HTML surface under `/admin` for bootstrap, login, local
+  account listing, and password workflows
 - SQLite metadata and local disk encrypted blob storage by default
 - Optional PostgreSQL metadata backend for new deployments
 - Optional S3-compatible encrypted blob storage for committed chunks
@@ -100,7 +102,7 @@ The current backend still stores generic incidents. First-class incident modes, 
 
 ## Architecture
 
-Proofline Server runs separate private and public HTTP listener groups from the same Go binary. Private `/v1` routes handle authenticated writes and admin-style operations. Public viewer routes are token-gated and read-only.
+Proofline Server runs separate private and public HTTP listener groups from the same Go binary. Private `/v1` routes handle authenticated writes and admin-style API operations. The same private listener also serves the admin-only HTML surface under `/admin`. Public viewer routes are token-gated and read-only.
 
 ```mermaid
 flowchart LR
@@ -137,6 +139,9 @@ By default this starts:
 |---|---|
 | Private API | `127.0.0.1:8080` |
 | Public incident viewer | `127.0.0.1:8081` |
+
+The private admin web surface is available on the private listener at
+`http://127.0.0.1:8080/admin`.
 
 In another terminal, create the first admin account:
 

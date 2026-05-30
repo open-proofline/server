@@ -23,7 +23,7 @@ The current backend stores generic incidents only. Planned future clients may cl
 - `internal/db`: opens SQLite, enables foreign keys and WAL mode, applies embedded SQLite migrations, records `schema_migrations`, and runs named compatibility migrations.
 - `internal/envelope`: implements the simulator/test AES-256-GCM client-side chunk envelope, associated data builder, and local simulator key file helpers.
 - `internal/auth`: normalizes local account usernames, validates passwords, hashes passwords with bcrypt, and hashes opaque session tokens before storage.
-- `internal/httpapi`: owns separate private/public muxes, JSON responses, request logging, recovery, private account/session authentication, request validation, upload handling, stream state handlers, ZIP bundle streaming, the incident viewer, and the narrow metadata repository boundary consumed by handlers.
+- `internal/httpapi`: owns separate private/public muxes, JSON responses, request logging, recovery, private account/session authentication, request validation, upload handling, stream state handlers, ZIP bundle streaming, the private admin web surface, the incident viewer, and the narrow metadata repository boundary consumed by handlers.
 - `internal/incidents`: defines incident/stream/chunk/checkin/account/session models and provides the SQLite metadata repository implementation.
 - `internal/postgresdb`: opens optional PostgreSQL metadata connections, applies PostgreSQL migrations, and implements the metadata repository behavior with PostgreSQL transaction and constraint semantics.
 - `internal/storage`: defines the blob-store boundary used by HTTP handlers and provides local filesystem and optional S3-compatible implementations, including temp uploads, hashing while streaming, server-controlled stored paths, and immutable final commits.
@@ -72,6 +72,36 @@ Metadata is written after the file is safely committed, through the configured m
 New clients can create a media stream with `POST /v1/incidents/{incident_id}/streams` and include the returned `stream_id` during chunk upload. Streamed chunk indexes start at `1`, and streamed chunk identity is `incident_id + stream_id + chunk_index`. Existing chunks without `stream_id` remain valid and readable as legacy chunk metadata, including older index `0` chunks; legacy unstreamed identity remains `incident_id + media_type + chunk_index`. Legacy unstreamed chunks are not included in completed-stream evidence bundles.
 
 Stream completion is handled by `internal/httpapi.completeMediaStream`. Before a stream moves from `open` to `complete`, the handler verifies that chunks `1..expected_chunk_count` exist contiguously for that stream and that each stored blob can be opened from the configured blob store. `internal/incidents.Repository.CompleteMediaStream` then revalidates the chunk rows in the completion transaction before committing the state change. Failed streams preserve uploaded chunks but are not offered as normal downloads.
+
+## Admin Web Flow
+
+`GET /admin` is mounted only on the private API server, outside the `/v1` API
+namespace. When no admin account exists and `SAFE_AUTH_BOOTSTRAP_SECRET` is
+configured, it renders a first-admin bootstrap screen. After an admin exists,
+it renders an admin login screen until a valid admin web session cookie is
+present. `POST /admin/login`, `POST /admin/bootstrap`, and
+`POST /admin/logout` use the same account and server-side session repository
+as the JSON API, with the raw session token stored in an HttpOnly
+SameSite=Strict cookie scoped to `/admin`.
+
+Authenticated admin pages list local accounts and support limited password
+workflows. `POST /admin/password` changes the current admin account password
+after verifying the current password, keeping the current session and revoking
+other sessions. `POST /admin/accounts/{account_id}/password` resets another
+local account password and revokes that account's sessions. `POST
+/admin/logout` revokes the current admin web session. These authenticated
+state-changing forms use a session-bound CSRF token.
+
+The page renders `internal/httpapi/web/templates/admin.html` with Go
+`html/template`. Token-neutral CSS is embedded from
+`internal/httpapi/web/admin/static` and served without authentication under
+`/admin/static/...`.
+
+The admin web surface shows only safe route-boundary status, navigation stubs,
+and local account-management data. It does not read incident data, expose
+tokens or password hashes, expose stored paths or object keys, show uploaded
+bytes, decrypt evidence, or add public dashboard behavior. Admin web responses
+use no-store behavior and conservative browser security headers.
 
 ## Incident Viewer Flow
 

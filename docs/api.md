@@ -116,7 +116,51 @@ Returns the authenticated account.
 
 Changes the authenticated account password after verifying `current_password`; other sessions for the account are revoked.
 
-### Admin Account Routes
+### Private Admin Web Routes
+
+The private API listener also serves a small admin web surface outside the
+`/v1` API namespace:
+
+- `GET /admin`
+- `POST /admin/login`
+- `POST /admin/bootstrap`
+- `POST /admin/logout`
+- `POST /admin/password`
+- `POST /admin/accounts/{account_id}/password`
+- `GET /admin/static/styles.css`
+
+`GET /admin` renders either the first-admin bootstrap form, the admin login
+form, or the authenticated admin dashboard. The form handlers reuse the same
+local account records and opaque server-side session store as the JSON API, but
+the browser flow stores the raw session token in an HttpOnly, SameSite=Strict
+cookie scoped to `/admin`.
+
+The bootstrap screen is available only when no admin account exists and
+`SAFE_AUTH_BOOTSTRAP_SECRET` is configured. It requires the bootstrap secret,
+admin username, and admin password. After an admin exists, `/admin` shows the
+login screen and requires an admin account. Non-admin sessions are rejected.
+
+The authenticated dashboard lists local accounts and offers password workflows.
+`POST /admin/logout` revokes the current admin web session. `POST
+/admin/password` changes the current admin account password after verifying the
+current password, then revokes other sessions for that account. `POST
+/admin/accounts/{account_id}/password` lets an admin reset another local
+account password and revokes all sessions for that account. These authenticated
+state-changing forms use a session-bound CSRF token.
+
+`/admin/static/styles.css` is unauthenticated because it is token-neutral static
+CSS from the AGPL-licensed source tree. It does not contain incident data,
+tokens, deployment details, keys, or evidence metadata. The admin HTML pages
+use `Cache-Control: no-store` and conservative browser security headers.
+
+The admin web surface shows only route-boundary status, safe navigation stubs,
+and local account-management data. It does not expose incident evidence, viewer
+tokens, session tokens, password hashes, request bodies, uploaded bytes,
+Authorization headers, plaintext, raw keys, stored paths, object keys, private
+deployment details, or sensitive evidence metadata. It is not a public admin
+dashboard and must stay on the private listener.
+
+### Admin Account API Routes
 
 The following routes require an admin account session:
 

@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>{{.Title}}</title>
+  <link rel="stylesheet" href="/admin/static/styles.css">
+</head>
+<body>
+  <main class="admin-shell" data-admin-mode="{{.Mode}}">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Private admin</p>
+        <h1>Proofline Admin</h1>
+      </div>
+      {{if eq .Mode "dashboard"}}
+      <form method="post" action="/admin/logout">
+        <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+        <button type="submit" class="secondary-action">Sign out</button>
+      </form>
+      {{end}}
+    </header>
+
+    {{if .Error}}
+    <p class="form-error" role="alert">{{.Error}}</p>
+    {{end}}
+    {{if .Notice}}
+    <p class="form-notice" role="status">{{.Notice}}</p>
+    {{end}}
+
+    {{if eq .Mode "bootstrap"}}
+    <section class="panel form-panel">
+      <h2>Create First Admin</h2>
+      <form method="post" action="/admin/bootstrap">
+        <label>
+          <span>Bootstrap secret</span>
+          <input name="bootstrap_secret" type="password" autocomplete="off" required>
+        </label>
+        <label>
+          <span>Username</span>
+          <input name="username" type="text" autocomplete="username" required>
+        </label>
+        <label>
+          <span>Password</span>
+          <input name="password" type="password" autocomplete="new-password" required>
+        </label>
+        <button type="submit">Create admin</button>
+      </form>
+    </section>
+    {{else if eq .Mode "login"}}
+    <section class="panel form-panel">
+      <h2>Admin Login</h2>
+      <form method="post" action="/admin/login">
+        <label>
+          <span>Username</span>
+          <input name="username" type="text" autocomplete="username" required>
+        </label>
+        <label>
+          <span>Password</span>
+          <input name="password" type="password" autocomplete="current-password" required>
+        </label>
+        <button type="submit">Sign in</button>
+      </form>
+    </section>
+    {{else if eq .Mode "forbidden"}}
+    <section class="panel">
+      <h2>Access Denied</h2>
+      <p>This account cannot open the admin interface.</p>
+    </section>
+    {{else}}
+    <nav class="admin-nav" aria-label="Admin sections">
+      {{range .NavItems}}
+      <span class="nav-item {{if eq .State "Active"}}is-active{{else}}is-disabled{{end}}">
+        <span>{{.Label}}</span>
+        <small>{{.State}}</small>
+      </span>
+      {{end}}
+    </nav>
+
+    <section class="status-grid" aria-label="Admin boundary status">
+      {{range .StatusItems}}
+      <div class="status-card {{.Tone}}">
+        <div class="label">{{.Label}}</div>
+        <div class="value">{{.Value}}</div>
+      </div>
+      {{end}}
+    </section>
+
+    <section class="panel">
+      <h2>Admin Password</h2>
+      <p class="muted">Change the password for {{.Account.Username}}.</p>
+      <form method="post" action="/admin/password" class="inline-form">
+        <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+        <label>
+          <span>Current password</span>
+          <input name="current_password" type="password" autocomplete="current-password" required>
+        </label>
+        <label>
+          <span>New password</span>
+          <input name="new_password" type="password" autocomplete="new-password" required>
+        </label>
+        <button type="submit">Change password</button>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>User Accounts</h2>
+      <div class="account-list">
+        {{range .Accounts}}
+        <article class="account-item">
+          <div class="account-summary">
+            <div>
+              <div class="value">{{.Username}}{{if .IsCurrent}} <span class="tag">You</span>{{end}}</div>
+              <div class="muted">{{.Role}} · created {{humanTime .CreatedAt}} · password changed {{humanTime .PasswordChangedAt}}</div>
+            </div>
+          </div>
+          {{if .IsCurrent}}
+          <p class="muted">Use the admin password form above to change this account.</p>
+          {{else}}
+          <form method="post" action="/admin/accounts/{{.ID}}/password" class="inline-form compact-form">
+            <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+            <label>
+              <span>New password</span>
+              <input name="new_password" type="password" autocomplete="new-password" required>
+            </label>
+            <button type="submit">Reset password</button>
+          </form>
+          {{end}}
+        </article>
+        {{end}}
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Boundaries</h2>
+      <ul class="boundary-list">
+        <li>No incident evidence, bearer tokens, raw keys, plaintext, stored paths, object keys, or private deployment details are shown.</li>
+        <li>Public incident viewer routes stay read-only and separate from this private admin route group.</li>
+        <li>Incident and operator workflows remain on the JSON API until separate scoped implementation work adds them here.</li>
+      </ul>
+    </section>
+    {{end}}
+  </main>
+</body>
+</html>

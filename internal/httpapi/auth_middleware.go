@@ -47,6 +47,9 @@ func (a *API) privateAuthMiddleware(next http.Handler) http.Handler {
 }
 
 func isPrivateAuthBypass(r *http.Request) bool {
+	if r.URL.Path == "/admin" || strings.HasPrefix(r.URL.Path, "/admin/") {
+		return true
+	}
 	if r.Method != http.MethodPost {
 		return false
 	}

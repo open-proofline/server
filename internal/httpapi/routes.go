@@ -5,6 +5,7 @@ import "net/http"
 func (a *API) privateRoutes() http.Handler {
 	mux := http.NewServeMux()
 	a.registerPrivateAuthRoutes(mux)
+	a.registerPrivateAdminWebRoutes(mux)
 	a.registerPrivateIncidentRoutes(mux)
 	a.registerPrivateStreamRoutes(mux)
 	a.registerPrivateIncidentTokenRoutes(mux)
@@ -23,6 +24,16 @@ func (a *API) registerPrivateAuthRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /v1/admin/accounts", a.createAccount)
 	mux.HandleFunc("POST /v1/admin/accounts/{account_id}/password", a.resetAccountPassword)
 	mux.HandleFunc("POST /v1/admin/accounts/{account_id}/sessions/revoke", a.revokeAccountSessions)
+}
+
+func (a *API) registerPrivateAdminWebRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("GET /admin", a.adminWebPage)
+	mux.HandleFunc("POST /admin/bootstrap", a.adminWebBootstrap)
+	mux.HandleFunc("POST /admin/login", a.adminWebLogin)
+	mux.HandleFunc("POST /admin/logout", a.adminWebLogout)
+	mux.HandleFunc("POST /admin/password", a.adminWebChangeOwnPassword)
+	mux.HandleFunc("POST /admin/accounts/{account_id}/password", a.adminWebResetAccountPassword)
+	mux.Handle("GET /admin/static/", a.adminWebStaticHandler())
 }
 
 func (a *API) registerPrivateIncidentRoutes(mux *http.ServeMux) {

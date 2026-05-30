@@ -1,0 +1,297 @@
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body {
+  background: #f6f7f9;
+  color: #17202a;
+  margin: 0;
+}
+
+.admin-shell {
+  margin: 0 auto;
+  max-width: 960px;
+  padding: 24px;
+}
+
+.topbar {
+  align-items: flex-start;
+  border-bottom: 1px solid #cbd5e1;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  padding-bottom: 16px;
+}
+
+.eyebrow {
+  color: #5b6573;
+  font-size: .78rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  margin: 0 0 6px;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  font-size: 1.65rem;
+  margin-bottom: 0;
+}
+
+h2 {
+  font-size: 1rem;
+  margin-bottom: 12px;
+}
+
+button,
+.secondary-action {
+  background: #17202a;
+  border: 1px solid #17202a;
+  border-radius: 6px;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  padding: 9px 12px;
+}
+
+.secondary-action {
+  background: #ffffff;
+  color: #17202a;
+}
+
+.admin-nav,
+.status-grid,
+.account-list {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-nav,
+.status-grid {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.admin-nav {
+  margin-bottom: 16px;
+}
+
+.nav-item,
+.status-card,
+.account-item,
+.panel {
+  background: #ffffff;
+  border: 1px solid #d5dbe3;
+  border-radius: 6px;
+}
+
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px;
+}
+
+.nav-item span,
+.tag,
+.value {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.nav-item small,
+.label {
+  color: #64748b;
+  font-size: .8rem;
+}
+
+.nav-item.is-active {
+  border-color: #3b82f6;
+}
+
+.nav-item.is-disabled {
+  color: #526070;
+}
+
+.panel {
+  margin: 16px 0;
+  padding: 14px;
+}
+
+.form-panel {
+  max-width: 420px;
+}
+
+label {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+label span {
+  color: #475569;
+  font-size: .86rem;
+  font-weight: 700;
+}
+
+input {
+  background: #ffffff;
+  border: 1px solid #aeb8c5;
+  border-radius: 6px;
+  color: inherit;
+  font: inherit;
+  padding: 10px;
+}
+
+.form-error,
+.form-notice {
+  background: #fff7ed;
+  border: 1px solid #fdba74;
+  border-radius: 6px;
+  color: #7c2d12;
+  font-weight: 700;
+  padding: 12px;
+}
+
+.form-notice {
+  background: #ecfdf5;
+  border-color: #86efac;
+  color: #14532d;
+}
+
+.inline-form {
+  align-items: end;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.compact-form {
+  margin-top: 12px;
+}
+
+.account-item {
+  padding: 12px;
+}
+
+.account-summary {
+  align-items: start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.tag {
+  background: #e0f2fe;
+  border-radius: 999px;
+  color: #075985;
+  display: inline-block;
+  font-size: .74rem;
+  margin-left: 6px;
+  padding: 2px 7px;
+}
+
+.status-grid {
+  margin: 16px 0;
+}
+
+.status-card {
+  padding: 12px;
+}
+
+.status-card.ok {
+  border-left: 4px solid #16a34a;
+}
+
+.status-card.neutral {
+  border-left: 4px solid #3b82f6;
+}
+
+.status-card.warn {
+  border-left: 4px solid #f59e0b;
+}
+
+.boundary-list {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.boundary-list li + li {
+  margin-top: 8px;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #111827;
+    color: #f8fafc;
+  }
+
+  .topbar,
+  .nav-item,
+  .status-card,
+  .account-item,
+  .panel {
+    border-color: #334155;
+  }
+
+  .nav-item,
+  .status-card,
+  .account-item,
+  .panel,
+  input {
+    background: #1f2937;
+  }
+
+  .eyebrow,
+  .nav-item small,
+  .label,
+  .nav-item.is-disabled,
+  label span {
+    color: #cbd5e1;
+  }
+
+  button {
+    background: #f8fafc;
+    border-color: #f8fafc;
+    color: #111827;
+  }
+
+  .secondary-action {
+    background: #111827;
+    color: #f8fafc;
+  }
+
+  .form-error {
+    background: #431407;
+    border-color: #9a3412;
+    color: #fed7aa;
+  }
+
+  .form-notice {
+    background: #052e16;
+    border-color: #15803d;
+    color: #bbf7d0;
+  }
+
+  .tag {
+    background: #0c4a6e;
+    color: #e0f2fe;
+  }
+}
+
+@media (max-width: 560px) {
+  .admin-shell {
+    padding: 16px;
+  }
+
+  .topbar {
+    flex-direction: column;
+  }
+}

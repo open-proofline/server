@@ -50,8 +50,8 @@ Related source-of-truth docs:
 ## Non-Goals
 
 - No public exposure of the current private `/v1` API.
-- No OAuth, JWT, public account portal, CSRF, or identity-provider
-  implementation.
+- No OAuth, JWT, public account portal, broad CSRF framework, or
+  identity-provider implementation.
 - No web-client, iOS-client, Android-client, or protocol implementation.
 - No push notification, SMS, Messenger, email, or emergency-services
   integration.
@@ -66,7 +66,7 @@ Today the backend has two listener groups:
 
 | Listener group | Current routes | Exposure |
 |---|---|---|
-| Private API | `/v1/...` with local account/session auth, except bootstrap and login | Localhost, LAN, WireGuard, firewall, or strict private reverse proxy only. |
+| Private API | `/v1/...` with local account/session auth, except bootstrap and login; private `/admin` web surface with login/bootstrap/logout forms, account list, password forms, and admin session cookie | Localhost, LAN, WireGuard, firewall, or strict private reverse proxy only. |
 | Public incident viewer | `/i/{token}` plus legacy `/e/{token}` aliases and `/static/...` | Public HTTPS/reverse proxy may expose this read-only viewer. |
 
 All current `/v1` write/admin routes remain private. The implemented local auth
@@ -75,6 +75,16 @@ hashed session-token storage, session expiry, logout, account password change,
 admin account creation, and admin session revocation. Reverse-proxy rate
 limiting, separate bind addresses, and private network placement are useful
 boundaries, but they are not a public authorization model.
+
+The private `/admin` surface is outside the `/v1` API namespace but remains on
+the private listener. Its login and bootstrap forms reuse the same local account
+and server-side session store, with the raw session token held in an HttpOnly
+SameSite cookie scoped to `/admin`. The authenticated dashboard lists local
+accounts and supports current-admin password changes plus admin password resets
+for other local accounts. Authenticated state-changing forms use a
+session-bound CSRF token. The token-neutral CSS under `/admin/static/...` is
+unauthenticated because it contains no incident data, tokens, keys, or
+deployment details.
 
 ## Future Listener Topology
 
@@ -130,7 +140,7 @@ describe policy shape; they are not implementation commitments.
 
 | Route class | Future exposure | Notes |
 |---|---|---|
-| Current `/v1` write/admin routes | Private only with local account/session authentication. | Includes bootstrap, login/logout, account/password routes, admin account routes, incident creation, stream creation, chunk upload, checkins, close/fail/complete actions, incident-token creation/revocation, and private chunk reads. |
+| Current `/v1` write/admin routes and private `/admin` web routes | Private only with local account/session authentication. | Includes bootstrap, login/logout, account/password routes, admin account routes, `/admin` account-list and password forms, incident creation, stream creation, chunk upload, checkins, close/fail/complete actions, incident-token creation/revocation, and private chunk reads. |
 | Public product API routes | Public-authenticated only after account/device/contact authz, upload abuse controls, request-size controls, and audit are implemented. | Should cover non-admin product flows: account-owner incidents, capture uploads, trusted-contact access, account-owner public-link grant issuance/revocation, sharing, and wrapped-key delivery. |
 | Public-link viewer routes | Public read-only viewer routes can remain separate from the public product API. | Current `/i/{token}` and `/e/{token}` paths are bearer-token URLs and must not become write or admin routes. |
 | Private admin API routes | Own private listener and route tree, authenticated and authorized even when bound only to VPN, WireGuard, LAN, loopback, firewall, or a private proxy. | Should be narrow, audited, and safe for support without exposing evidence contents, raw tokens, raw keys, or plaintext by default. |
@@ -167,7 +177,9 @@ Authentication must provide:
 - revocation for lost devices, removed contacts, leaked links, and operator
   access changes
 - replay and token-theft risk analysis
-- CSRF protection if browser cookies are added in a future browser flow
+- CSRF protection for browser-cookie flows that perform state-changing actions;
+  the current private `/admin` authenticated state-changing forms use a
+  session-bound token
 - avoidance of raw credential logging, including Authorization headers and
   token-bearing URLs
 - clear handling for offline or intermittent capture devices

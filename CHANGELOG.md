@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Added a private admin-only HTML surface under `/admin`, using Go
+  templates, unauthenticated token-neutral CSS, browser login/bootstrap forms,
+  HttpOnly admin-session cookies, a local account list, admin password-change
+  and account password-reset workflows, authenticated state-changing form CSRF
+  checks, no-store page behavior, and public mux separation.
 - Added local username/password accounts for the private `/v1` API, using bcrypt
   password hashes, opaque server-side session tokens stored only as hashes,
   owner/admin incident authorization, admin account management routes, and a
