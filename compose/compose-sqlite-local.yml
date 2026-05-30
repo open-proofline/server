@@ -12,8 +12,8 @@ services:
       SAFE_BLOB_BACKEND: local
       SAFE_COORDINATION_BACKEND: none
     ports:
-      - "${PROOFLINE_PRIVATE_PORT:-18080}:8080"
-      - "${PROOFLINE_PUBLIC_PORT:-18081}:8081"
+      - "127.0.0.1:${PROOFLINE_PRIVATE_PORT:-18080}:8080"
+      - "127.0.0.1:${PROOFLINE_PUBLIC_PORT:-18081}:8081"
     volumes:
       - server-data:/data
 

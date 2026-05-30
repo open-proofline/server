@@ -191,6 +191,7 @@ Container defaults bind to `0.0.0.0` inside the container. Restrict host exposur
 - [Threat model](docs/threat-model.md)
 - [Simulator](docs/simulator.md)
 - [Development](docs/development.md)
+- [Compose smoke tests](compose/README.md)
 - [Code map](docs/code-map.md)
 - [Technical review reports](docs/reports/README.md)
 

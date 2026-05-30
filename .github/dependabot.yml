@@ -21,6 +21,16 @@ updates:
         patterns:
           - "*"
 
+  - package-ecosystem: "docker-compose"
+    directory: "/compose"
+    target-branch: "develop"
+    schedule:
+      interval: "weekly"
+    groups:
+      docker-compose-dev-images:
+        patterns:
+          - "*"
+
   - package-ecosystem: "github-actions"
     directory: "/"
     target-branch: "develop"

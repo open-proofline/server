@@ -34,16 +34,16 @@ fi
 
 case "$variant" in
   full)
-    compose_file="$script_dir/smoke-full.yml"
+    compose_file="$script_dir/compose-full.yml"
     ;;
   sqlite-local)
-    compose_file="$script_dir/smoke-sqlite-local.yml"
+    compose_file="$script_dir/compose-sqlite-local.yml"
     ;;
   postgresql-local)
-    compose_file="$script_dir/smoke-postgresql-local.yml"
+    compose_file="$script_dir/compose-postgresql-local.yml"
     ;;
   sqlite-s3)
-    compose_file="$script_dir/smoke-sqlite-s3.yml"
+    compose_file="$script_dir/compose-sqlite-s3.yml"
     ;;
   *)
     usage >&2

@@ -11,10 +11,10 @@ Proofline production-ready public infrastructure.
 
 | Variant | File | Metadata | Blob storage | Coordination |
 |---|---|---|---|---|
-| `full` | `smoke-full.yml` | PostgreSQL | MinIO S3-compatible bucket | Valkey |
-| `sqlite-local` | `smoke-sqlite-local.yml` | SQLite | Local filesystem | none |
-| `postgresql-local` | `smoke-postgresql-local.yml` | PostgreSQL | Local filesystem | none |
-| `sqlite-s3` | `smoke-sqlite-s3.yml` | SQLite | MinIO S3-compatible bucket | none |
+| `full` | `compose-full.yml` | PostgreSQL | MinIO S3-compatible bucket | Valkey |
+| `sqlite-local` | `compose-sqlite-local.yml` | SQLite | Local filesystem | none |
+| `postgresql-local` | `compose-postgresql-local.yml` | PostgreSQL | Local filesystem | none |
+| `sqlite-s3` | `compose-sqlite-s3.yml` | SQLite | MinIO S3-compatible bucket | none |
 
 Run the default full-stack smoke test from the repository root:
 
