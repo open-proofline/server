@@ -31,6 +31,7 @@ This directory contains the detailed documentation for Proofline Server, the Go 
 | [Threat model](threat-model.md) | Assets, trust boundaries, controls, limitations, and next security steps. |
 | [Simulator](simulator.md) | Simulator commands and test flows. |
 | [Development](development.md) | Repository layout, commands, AI assistance note, branch rulesets, checks, and release checklist notes. |
+| [Compose smoke tests](../compose/README.md) | Local release-smoke stacks for SQLite/local, PostgreSQL/local, SQLite/S3-compatible MinIO, and full PostgreSQL/MinIO/Valkey combinations. |
 | [Codex change control](codex-change-control.md) | Rollback points, scoped Codex tasks, review steps, and issue-first backlog rules. |
 | [Code map](code-map.md) | Package layout and main backend request flows. |
 | [Reports](reports/README.md) | Public technical review reports and report-generation workflow notes. |

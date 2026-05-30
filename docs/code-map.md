@@ -28,6 +28,10 @@ The current backend stores generic incidents only. Planned future clients may cl
 - `internal/storage`: defines the blob-store boundary used by HTTP handlers and provides local filesystem and optional S3-compatible implementations, including temp uploads, hashing while streaming, server-controlled stored paths, and immutable final commits.
 - `migrations`: embeds the SQLite schema.
 - `migrations/postgres`: embeds the PostgreSQL schema.
+- `compose`: contains local Docker Compose smoke-test stacks and a runner script
+  for disposable SQLite/local, PostgreSQL/local, SQLite/S3-compatible MinIO, and
+  full PostgreSQL/MinIO/Valkey validation. These files are local release-smoke
+  helpers, not production deployment manifests.
 
 ## Main Request Flow
 

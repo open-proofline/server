@@ -27,6 +27,7 @@ internal/postgresdb optional PostgreSQL metadata setup, migrations, and reposito
 internal/storage  blob-store boundary, local immutable storage, and optional S3-compatible storage
 migrations        embedded SQLite schema
 migrations/postgres embedded PostgreSQL schema
+compose/          local Docker Compose release-smoke stacks and runner script
 docs/              project documentation
 docs/reports/      public technical review reports and report prompts
 .dockerignore      root Docker build-context ignore file for Dockerfile
@@ -73,6 +74,13 @@ The PostgreSQL tests create and drop isolated schemas inside the configured
 database. Use a disposable local database or a dedicated test database only.
 For a one-off Docker container example, see
 [PostgreSQL metadata migration path](postgresql-metadata-migration.md#testing-expectations).
+
+Local Docker Compose smoke stacks for release preparation live in
+[../compose/](../compose/). They exercise the simulator against disposable
+SQLite/local, PostgreSQL/local, SQLite/S3-compatible MinIO, and full
+PostgreSQL/MinIO/Valkey backend combinations. These stacks are local
+development helpers, use fixed test credentials, publish API ports on loopback
+by default, and do not make Proofline production-ready public infrastructure.
 
 ## Go Readability Standards
 
@@ -420,6 +428,8 @@ Before tagging:
 - verify README badges and links
 - verify `LICENSE` and `SECURITY.md`
 - verify Docker/GHCR notes
+- run the relevant local Compose smoke stack from [../compose/](../compose/)
+  when validating optional PostgreSQL, S3-compatible, or Valkey backend changes
 - verify the GitHub Release binary asset plus release binary and GHCR image attestations
 - verify Docker base-image digest pins still match the intended tag families
 - verify private/public route separation is documented
