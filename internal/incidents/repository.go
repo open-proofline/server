@@ -12,7 +12,7 @@ var (
 	// ErrNotFound indicates that a requested incident, chunk, or related row
 	// does not exist.
 	ErrNotFound = errors.New("not found")
-	// ErrDuplicate indicates that SQLite rejected a duplicate chunk identity.
+	// ErrDuplicate indicates that metadata storage rejected a duplicate chunk identity.
 	ErrDuplicate = errors.New("duplicate")
 	// ErrInvalidState indicates that a requested state transition is not
 	// allowed for the current stream state.

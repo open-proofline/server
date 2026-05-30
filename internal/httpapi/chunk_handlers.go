@@ -1,16 +1,21 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path"
 	"strconv"
+	"time"
 
 	"github.com/open-proofline/server/internal/incidents"
 	"github.com/open-proofline/server/internal/storage"
 )
+
+const rollbackBlobRemoveTimeout = 30 * time.Second
 
 func (a *API) uploadChunk(w http.ResponseWriter, r *http.Request) {
 	incidentID := r.PathValue("incident_id")
@@ -52,7 +57,7 @@ func (a *API) uploadChunk(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	storedPath, err := a.store.CommitTemp(upload.temp, incidentID, upload.streamID, upload.mediaType, upload.chunkIndex)
+	storedPath, err := a.store.CommitTemp(r.Context(), upload.temp, incidentID, upload.streamID, upload.mediaType, upload.chunkIndex)
 	if errors.Is(err, storage.ErrAlreadyExists) {
 		writeError(w, http.StatusConflict, "duplicate_chunk", "stored chunk already exists for this chunk identity")
 		return
@@ -75,22 +80,22 @@ func (a *API) uploadChunk(w http.ResponseWriter, r *http.Request) {
 		SHA256Hex:        upload.sha256Hex,
 	})
 	if errors.Is(err, incidents.ErrDuplicate) {
-		_ = a.store.Remove(storedPath)
+		a.removeCommittedBlobAfterMetadataFailure(storedPath)
 		writeError(w, http.StatusConflict, "duplicate_chunk", "chunk_index already exists for this chunk identity")
 		return
 	}
 	if errors.Is(err, incidents.ErrIncidentClosed) {
-		_ = a.store.Remove(storedPath)
+		a.removeCommittedBlobAfterMetadataFailure(storedPath)
 		writeError(w, http.StatusConflict, "incident_closed", "incident is closed")
 		return
 	}
 	if errors.Is(err, incidents.ErrInvalidState) {
-		_ = a.store.Remove(storedPath)
+		a.removeCommittedBlobAfterMetadataFailure(storedPath)
 		writeError(w, http.StatusConflict, "stream_not_open", "media stream is not open")
 		return
 	}
 	if errors.Is(err, incidents.ErrNotFound) {
-		_ = a.store.Remove(storedPath)
+		a.removeCommittedBlobAfterMetadataFailure(storedPath)
 		if upload.streamID != "" {
 			writeError(w, http.StatusNotFound, "stream_not_found", "media stream was not found")
 			return
@@ -99,7 +104,7 @@ func (a *API) uploadChunk(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		_ = a.store.Remove(storedPath)
+		a.removeCommittedBlobAfterMetadataFailure(storedPath)
 		a.internalError(w, "insert chunk metadata", err)
 		return
 	}
@@ -144,7 +149,7 @@ func (a *API) getChunkBytes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, err := a.store.Open(chunk.StoredPath)
+	file, err := a.store.Open(r.Context(), chunk.StoredPath)
 	if errors.Is(err, os.ErrNotExist) {
 		a.internalError(w, "open chunk bytes", fmt.Errorf("metadata exists but file is missing: %w", err))
 		return
@@ -159,7 +164,13 @@ func (a *API) getChunkBytes(w http.ResponseWriter, r *http.Request) {
 	setNoStore(w)
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Length", strconv.FormatInt(chunk.ByteSize, 10))
-	http.ServeContent(w, r, path.Base(chunk.StoredPath), chunk.CreatedAt, file)
+	if seeker, ok := file.(io.ReadSeeker); ok {
+		http.ServeContent(w, r, path.Base(chunk.StoredPath), chunk.CreatedAt, seeker)
+		return
+	}
+	if _, err := io.Copy(w, file); err != nil {
+		a.logInternalError("write chunk bytes", err)
+	}
 }
 
 func (a *API) validateChunkStream(w http.ResponseWriter, r *http.Request, incidentID string, upload chunkUpload) bool {
@@ -185,4 +196,10 @@ func (a *API) validateChunkStream(w http.ResponseWriter, r *http.Request, incide
 		return false
 	}
 	return true
+}
+
+func (a *API) removeCommittedBlobAfterMetadataFailure(storedPath string) {
+	ctx, cancel := context.WithTimeout(context.Background(), rollbackBlobRemoveTimeout)
+	defer cancel()
+	_ = a.store.Remove(ctx, storedPath)
 }

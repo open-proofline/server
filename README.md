@@ -8,7 +8,7 @@
 [![Security Policy](https://img.shields.io/badge/security-policy-blue.svg)](SECURITY.md)
 [![GHCR](https://img.shields.io/static/v1?label=GHCR&message=ghcr.io%2Fopen-proofline%2Fserver&color=blue&logo=github)](https://github.com/orgs/open-proofline/packages/container/package/server)
 
-Proofline Server is the experimental Go server backend for private encrypted incident capture. It receives already-encrypted recording chunks, stores metadata in SQLite, keeps encrypted blobs on local disk, and exposes a token-scoped read-only viewer for incident review.
+Proofline Server is the experimental Go server backend for private encrypted incident capture. It receives already-encrypted recording chunks, stores metadata in SQLite by default or optional PostgreSQL, keeps encrypted blobs on local disk by default or in optional S3-compatible object storage, performs a startup check against optional Valkey/Redis-compatible coordination when explicitly configured, and exposes a token-scoped read-only viewer for incident review.
 
 > Repository role: this repository is the server/backend component only. In the multi-repo layout it is `open-proofline/server`, not the full Proofline product suite.
 >
@@ -29,6 +29,8 @@ Future client repositories are expected to record audio/video and supporting met
 Evidence bundles are ZIP files containing encrypted chunks and JSON manifests. They are not decrypted, playable, or merged media exports.
 
 The simulator encrypts fake chunks by default with the documented v1 AES-256-GCM envelope and verifies downloaded bundles locally. Keys remain client-side and are not uploaded to the backend. Future production key custody is expected to use a hybrid trusted-contact model; see [docs/key-custody.md](docs/key-custody.md).
+
+Planned production-cluster work is additive. SQLite metadata and local filesystem blob storage remain supported. Optional PostgreSQL metadata, S3-compatible object storage, and Valkey/Redis-compatible coordination are available only when explicitly configured, while future upload-operation work may add cluster-safe idempotent upload semantics. See [docs/production-cluster-scope.md](docs/production-cluster-scope.md).
 
 ## Planned Open Proofline Repositories
 
@@ -57,18 +59,21 @@ Planned incident categories include:
 | Safety check | Timed check-in flow for walking home, meeting someone, travel, fieldwork, or other elevated-risk situations. | Trusted contacts alerted if the user misses the check-in. |
 | Evidence note | Quick photo, audio, location, or note bundle for damage, harassment, threats, or disputes. | No automatic escalation by default. |
 
-The current backend still stores generic incidents. First-class incident types, escalation policies, account access, and trusted-contact workflows are future protocol/client/server work. See [docs/incident-modes.md](docs/incident-modes.md).
+The current backend still stores generic incidents. First-class incident modes, capture profiles, escalation policies, sharing state, account access, and trusted-contact workflows are future protocol/client/server work. See [docs/incident-modes.md](docs/incident-modes.md).
 
 ## What Works Today
 
 - Private `/v1` write/admin API listener group
 - Public read-only incident viewer listener group
-- SQLite metadata and local disk encrypted blob storage
+- SQLite metadata and local disk encrypted blob storage by default
+- Optional PostgreSQL metadata backend for new deployments
+- Optional S3-compatible encrypted blob storage for committed chunks
 - Immutable chunk uploads with SHA-256 verification
 - Documented client-side chunk encryption envelope
 - Media streams with `open`, `complete`, and `failed` states
 - Completed encrypted stream and incident ZIP evidence bundle downloads
 - Scoped viewer tokens with a default 24-hour expiry
+- Validated backend-selection config defaults for SQLite metadata, optional PostgreSQL metadata, local encrypted blobs, optional S3-compatible encrypted blobs, no coordination by default, and optional Valkey/Redis-compatible coordination
 - Simulator CLI for encrypted upload, check-in, stream completion, and bundle download/decrypt-verification flows
 - Docker image build and GitHub Actions / GHCR publishing
 
@@ -79,8 +84,12 @@ The current backend still stores generic incidents. First-class incident types, 
 - No web client or account portal
 - No protocol repository or shared conformance test suite
 - No recording implementation
-- No first-class incident-type or escalation-policy schema
+- No first-class incident-mode, capture-profile, escalation-policy, or
+  sharing-state schema
 - No production client-side encryption implementation
+- No implemented cluster-safe upload operation, idempotency API, or upload-lease use of coordination
+- No implemented resumable upload or upload lease protocol
+- No implemented live or partial stream chunk access before stream completion
 - No backend/browser decryption, key sharing, server escrow, break-glass key access, or playable media export
 - No push notifications, SMS, or Messenger integration
 - No user accounts, OAuth, JWT, or public admin dashboard
@@ -94,8 +103,8 @@ Proofline Server runs separate private and public HTTP listener groups from the 
 ```mermaid
 flowchart LR
     FutureClients["Future clients<br/>separate repos"] --> Private["Private /v1 API<br/>localhost/LAN/WireGuard"]
-    Private --> DB[(SQLite metadata)]
-    Private --> Blobs[(Local encrypted blobs)]
+    Private --> DB[(SQLite or PostgreSQL metadata)]
+    Private --> Blobs[(Local or S3 encrypted blobs)]
     Private --> Tokens["Viewer token creation"]
     Contact["Trusted contact"] --> Public["Public incident viewer<br/>/i/{token}"]
     Public --> DB
@@ -103,7 +112,7 @@ flowchart LR
     Public --> Bundles["Encrypted ZIP bundles<br/>completed streams only"]
 ```
 
-For more diagrams and package-level details, see [docs/architecture.md](docs/architecture.md) and [docs/code-map.md](docs/code-map.md).
+For more diagrams and package-level details, see [docs/architecture.md](docs/architecture.md) and [docs/code-map.md](docs/code-map.md). The planned cluster expansion is documented separately in [docs/production-cluster-scope.md](docs/production-cluster-scope.md).
 
 ## Quick Start
 
@@ -111,7 +120,7 @@ Requirements:
 
 - Go 1.26.3
 - SQLite via the bundled Go SQLite driver dependency
-- Local disk storage for encrypted uploaded blobs
+- Local disk storage for encrypted uploaded blobs by default
 
 Run the backend:
 
@@ -160,19 +169,29 @@ Container defaults bind to `0.0.0.0` inside the container. Restrict host exposur
 - [Getting started](docs/getting-started.md)
 - [Architecture](docs/architecture.md)
 - [Configuration](docs/configuration.md)
+- [Production cluster scope](docs/production-cluster-scope.md)
+- [Cluster backup, restore, and failure runbook](docs/cluster-backup-restore-runbook.md)
+- [PostgreSQL metadata migration path](docs/postgresql-metadata-migration.md)
+- [Cluster-safe upload operation semantics](docs/cluster-safe-upload-semantics.md)
+- [Resumable upload and upload lease protocol](docs/resumable-upload-lease-protocol.md)
 - [Incident capture modes](docs/incident-modes.md)
+- [Future /v1 access control](docs/v1-access-control.md)
 - [Encryption](docs/encryption.md)
 - [iOS local recorder prototype](docs/ios-local-recorder-prototype.md)
 - [Key custody and emergency access](docs/key-custody.md)
+- [Contact-wrapped key metadata simulator prototype](docs/contact-wrapped-key-metadata-simulator.md)
 - [Browser-side decryption design](docs/browser-decryption.md)
+- [Live partial stream access boundary](docs/live-partial-stream-access-boundary.md)
 - [Break-glass key access design](docs/break-glass-key-access.md)
 - [API reference](docs/api.md)
-- [Deployment notes](docs/deployment.md)
+- [Deployment notes](docs/deployment.md), including SQLite WAL operations
 - [Retention, backup, and deletion](docs/retention-backup-deletion.md)
+- [Incident deletion and retention enforcement design](docs/incident-deletion-retention-enforcement.md)
 - [Security model](docs/security-model.md)
 - [Threat model](docs/threat-model.md)
 - [Simulator](docs/simulator.md)
 - [Development](docs/development.md)
+- [Compose smoke tests](compose/README.md)
 - [Code map](docs/code-map.md)
 - [Technical review reports](docs/reports/README.md)
 
@@ -213,14 +232,19 @@ Please see [SECURITY.md](SECURITY.md) for supported versions and vulnerability r
 
 - Create future `open-proofline/web-client`, `open-proofline/ios-client`, `open-proofline/android-client`, and `open-proofline/protocol` repositories when their scopes are ready
 - Plan any future protocol or data-layout compatibility migrations separately from the completed repository/module/artifact rename
+- Continue hardening optional PostgreSQL metadata support while preserving SQLite local/default support
+- Wire optional Valkey/Redis-compatible coordination into future leases, idempotency, and retry handling without making it durable evidence storage
+- Implement cluster-safe upload operation semantics before multi-node production deployment
+- Keep cluster backup, restore, and failure runbooks current as optional PostgreSQL, S3-compatible storage, and coordination behavior evolve
 - WireGuard-only bind/firewall deployment guidance
-- Server-side support for first-class incident types and escalation policies after protocol design
+- Server-side support for first-class incident modes, capture profiles,
+  escalation policies, and sharing state after protocol design
 - Server-side support for trusted-contact dead-man switch workflows after access-control design
 - Production key custody, trusted-contact access, and browser/client-side decryption
 - Optional break-glass/dead-man-switch key access
 - Playable media export
 - Reverse-proxy/TLS hardening for incident viewer exposure
-- Explicit `/v1` access-control story before any public control-plane deployment
+- Explicit [`/v1` access-control story](docs/v1-access-control.md) before any public product API deployment
 
 ## License
 

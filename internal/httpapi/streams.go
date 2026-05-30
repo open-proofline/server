@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"os"
@@ -91,7 +92,7 @@ func (a *API) completeMediaStream(w http.ResponseWriter, r *http.Request) {
 		a.internalError(w, "list stream chunks", err)
 		return
 	}
-	if !a.validateCompleteStreamChunks(w, chunks, *request.ExpectedChunkCount) {
+	if !a.validateCompleteStreamChunks(r.Context(), w, chunks, *request.ExpectedChunkCount) {
 		return
 	}
 
@@ -162,25 +163,25 @@ func (a *API) loadMediaStream(w http.ResponseWriter, r *http.Request) (incidents
 	return stream, true
 }
 
-func (a *API) validateCompleteStreamChunks(w http.ResponseWriter, chunks []incidents.Chunk, expectedChunkCount int) bool {
+func (a *API) validateCompleteStreamChunks(ctx context.Context, w http.ResponseWriter, chunks []incidents.Chunk, expectedChunkCount int) bool {
 	if len(chunks) != expectedChunkCount {
 		writeError(w, http.StatusConflict, "stream_chunks_incomplete", "stream does not have the expected number of chunks")
 		return false
 	}
 	for i, chunk := range chunks {
-		if !a.validateCompleteStreamChunk(w, chunk, i+1) {
+		if !a.validateCompleteStreamChunk(ctx, w, chunk, i+1) {
 			return false
 		}
 	}
 	return true
 }
 
-func (a *API) validateCompleteStreamChunk(w http.ResponseWriter, chunk incidents.Chunk, expectedIndex int) bool {
+func (a *API) validateCompleteStreamChunk(ctx context.Context, w http.ResponseWriter, chunk incidents.Chunk, expectedIndex int) bool {
 	if chunk.ChunkIndex != expectedIndex {
 		writeError(w, http.StatusConflict, "stream_chunks_not_contiguous", "stream chunks must be contiguous from 1 to expected_chunk_count")
 		return false
 	}
-	file, err := a.store.Open(chunk.StoredPath)
+	file, err := a.store.Open(ctx, chunk.StoredPath)
 	if errors.Is(err, os.ErrNotExist) {
 		writeError(w, http.StatusConflict, "stream_chunk_file_missing", "stream chunk file is missing")
 		return false

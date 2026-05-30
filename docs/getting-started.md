@@ -6,6 +6,7 @@ This guide starts the Proofline backend locally and runs the simulator against i
 
 - Go 1.26.3
 - SQLite through the bundled Go SQLite driver dependency
+- PostgreSQL only when explicitly using `SAFE_METADATA_BACKEND=postgresql`
 - Local disk storage for encrypted uploaded blobs
 
 ## Run The Backend

@@ -157,7 +157,10 @@ Retry expectations:
 - do not mutate staged ciphertext when retrying an upload
 - on `400 hash_mismatch`, treat the local staged record as corrupt and stop retrying that chunk until the user or developer can inspect it
 - on `400 invalid_chunk_index`, `400 invalid_media_type`, or time-range errors, treat the local metadata as a client bug
-- on `409 duplicate_chunk`, reconcile against local state before deciding that the upload already succeeded
+- on `409 duplicate_chunk`, reconcile against local state before deciding that
+  the upload already succeeded; after the planned duplicate-chunk
+  reconciliation API exists, compare the expected ciphertext hash and immutable
+  metadata through that private query workflow
 - on `409 stream_not_open`, stop uploads for that stream and surface a local stream-state error
 - on `413 upload_too_large`, reduce the chunk duration or encoded bitrate for future chunks; do not split or rewrite the already staged immutable chunk
 - on `5xx` or network loss, keep the chunk pending for retry
@@ -216,19 +219,37 @@ The prototype should include manual or automated test notes for these cases:
 Do not implement these as part of the prototype plan. Track them as future backend issues if they become necessary:
 
 - no app-level `/v1` authentication or authorization suitable for public networks
-- no first-class incident type or escalation-policy field
+- no first-class incident-mode, capture-profile, escalation-policy, or
+  sharing-state field
 - no account-owner, trusted-contact, or web-client access model
-- no client API for reconciling a duplicate chunk by expected ciphertext hash
-- no explicit resumable-upload protocol for partially sent large chunks
-- no endpoint for client-side local queue summaries or upload leases
+- no implemented idempotency-key or equivalent retry-success API for ambiguous
+  chunk upload outcomes; future semantics are planned in
+  [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md)
+- no implemented client API for reconciling a duplicate chunk by expected
+  ciphertext hash; the planned private query workflow is documented in
+  [api.md](api.md)
+- no explicit resumable-upload protocol for partially sent large chunks; the
+  current plan defers resumable uploads for a local desktop recorder simulator
+  client and should be revalidated before native iOS work, as documented in
+  [resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md)
+- no endpoint for client-side local queue summaries or upload leases; upload
+  leases are future coordination work, not account authentication or public
+  `/v1` access control
 - no API for registering or storing contact-wrapped media keys
 - no production key custody, recovery, or trusted-contact decryption API
 - no server-side retention or incident deletion API
-- no endpoint for live partial-stream bundle viewing before stream completion
+- no endpoint for live partial-stream bundle viewing before stream completion;
+  the future access boundary is documented in
+  [live-partial-stream-access-boundary.md](live-partial-stream-access-boundary.md)
 - no first-class upload telemetry endpoint for client storage pressure, interruption reasons, or retry state
 - no notification or dead-man switch delivery system
 
 For the first prototype, avoid expanding the backend unless a gap blocks the basic simulator-equivalent flow.
+
+The simulator-only contact-wrapped key metadata design is documented in
+[contact-wrapped-key-metadata-simulator.md](contact-wrapped-key-metadata-simulator.md).
+It can help evaluate model contact public keys, non-secret key IDs, and wrapped
+stream media keys before native client or production key-custody work begins.
 
 ## Validation Plan
 

@@ -1,0 +1,359 @@
+# Future /v1 Access-Control Design
+
+This document defines the future access-control direction for Proofline's
+private `/v1` control plane. It is a design document only. It does not
+implement authentication, authorization, user accounts, OAuth, JWT, sessions,
+new routes, database schema, notifications, browser decryption, key escrow, or
+server-side decryption.
+
+## Summary
+
+The current `/v1` API is private, unauthenticated, and intended only for
+localhost, LAN, WireGuard, firewall, or strict private reverse-proxy access.
+That boundary remains valid for the current experimental backend. It must stay
+in place until a separate implementation task adds an authenticated and
+authorized control plane.
+
+Future account-enabled clients, trusted-contact access, incident modes,
+notifications, production key custody, browser/client-side decryption, and
+optional break-glass access all need explicit role and grant boundaries before
+any public API exposure. This design sets those boundaries at the policy level
+without choosing an identity provider or implementing code.
+
+Related source-of-truth docs:
+
+- [Security model](security-model.md)
+- [Threat model](threat-model.md)
+- [Deployment](deployment.md)
+- [Incident capture modes](incident-modes.md)
+- [Key custody and emergency access](key-custody.md)
+- [Browser-side decryption](browser-decryption.md)
+- [Break-glass key access](break-glass-key-access.md)
+
+## Goals
+
+- Preserve the current private `/v1` boundary until implementation exists.
+- Separate account-owner, trusted-contact, public-link, admin/operator, and
+  optional escrow access.
+- Split future non-admin product API routes from a separately bound private
+  admin API listener.
+- Keep the public incident viewer read-only and separate from public product API
+  routes and private admin routes.
+- Distinguish access to metadata, ciphertext, wrapped keys, raw keys, and
+  plaintext.
+- Define token, session, grant, revocation, and audit expectations for future
+  implementation work.
+- Keep incident-mode, key-custody, deployment, security-model, and threat-model
+  docs aligned around one future access-control direction.
+
+## Non-Goals
+
+- No implementation in this repository as part of this design.
+- No public exposure of the current unauthenticated `/v1` API.
+- No OAuth, JWT, account, session, CSRF, or identity-provider implementation.
+- No web-client, iOS-client, Android-client, or protocol implementation.
+- No push notification, SMS, Messenger, email, or emergency-services
+  integration.
+- No backend decryption, browser decryption, key escrow, key-sharing, or
+  break-glass implementation.
+- No public admin dashboard.
+- No claim that Proofline is production-ready public infrastructure.
+
+## Current Boundary To Preserve
+
+Today the backend has two listener groups:
+
+| Listener group | Current routes | Exposure |
+|---|---|---|
+| Private API | `/v1/...` | Localhost, LAN, WireGuard, firewall, or strict private reverse proxy only. |
+| Public incident viewer | `/i/{token}` plus legacy `/e/{token}` aliases and `/static/...` | Public HTTPS/reverse proxy may expose this read-only viewer. |
+
+All current `/v1` routes remain private until a later task implements
+application-level authentication, authorization, abuse controls, audit behavior,
+and deployment guidance. Reverse-proxy rate limiting, separate bind addresses,
+and private network placement are useful boundaries, but they are not a public
+authorization model.
+
+## Future Listener Topology
+
+Future implementation should avoid treating `/v1` as one public control plane.
+The intended topology is separate listener groups with separate route trees:
+
+| Listener group | Future route scope | Exposure |
+|---|---|---|
+| Public product API | Account-owner, capture-device, trusted-contact, incident, upload, sharing, account-owner public-link grant issuance/revocation, and key-wrapping delivery routes that are safe for public authenticated access after implementation. | Public HTTPS only after authentication, authorization, abuse controls, and audit behavior exist. |
+| Private admin API | Operator/admin health, migration, support, abuse response, operational review, and optional deployment management routes. | Own listener and route tree, configurable for loopback, LAN, WireGuard, VPN, firewall, or private reverse proxy access. Still authenticated and authorized. |
+| Public incident viewer | Read-only incident viewer routes and token-neutral static assets. | Public HTTPS/reverse proxy when exposed. |
+| Optional escrow or break-glass API | Higher-trust emergency-access or server-assisted key access routes, if ever implemented. | Disabled by default; separate explicit configuration, strong authentication, audit, rate limiting, and deployment warnings. |
+
+Private network placement is not an authentication substitute. Even when the
+private admin API is reachable only over a VPN or WireGuard interface, every
+admin/operator route should still authenticate the operator and authorize the
+requested action. Public product API routes should not expose admin/operator
+actions.
+
+## Access Roles
+
+Future implementation should use explicit roles or equivalent grant types. A
+single actor may hold more than one role, but authorization checks should reason
+about the role used for the current action.
+
+| Role | Purpose | Default access direction |
+|---|---|---|
+| Account owner | The person who owns the incident record, devices, contacts, and sharing policy. | May create and manage their own incidents, contacts, grants, retention choices, and exports after authentication. |
+| Capture device | A device or client acting for an account owner during recording or upload. | May create incidents, streams, checkins, and encrypted chunk uploads only for the owning account and authorized incident. |
+| Trusted contact | A person pre-authorized by the account owner or an explicit escalation policy. | May access selected incident metadata, encrypted bundles, and wrapped key material only according to a grant or escalation policy. |
+| Public link | A bearer-link viewer capability for one incident, similar to the current incident viewer token. | Read-only, incident-scoped, time-bound where practical, and not a general account or `/v1` credential. |
+| Admin/operator | A deployment or service operator responsible for health, support, migration, and abuse response. | Should not casually access user safety data, raw tokens, raw keys, plaintext, or uploaded bytes. Administrative access must be least-privilege and audited. |
+| Optional escrow actor | A separately configured break-glass or dead-man-switch actor or policy. | Disabled by default; may access wrapped keys, raw keys, or plaintext only if an explicit future escrow mode is implemented and audited. |
+
+## Data Classes
+
+Authorization must distinguish what kind of data is being accessed. A grant to
+read incident metadata is not automatically a grant to decrypt media.
+
+| Data class | Examples | Access expectation |
+|---|---|---|
+| Public viewer shell | Static assets and token-neutral viewer UI | Publicly reachable when served by the incident viewer. |
+| Incident metadata | Incident status, stream state, timestamps, checkins, chunk counts, non-secret display metadata | Role-scoped; public-link access remains incident-scoped and read-only. |
+| Ciphertext evidence | Encrypted chunks and encrypted ZIP bundles | Role-scoped; access to ciphertext alone does not imply decryption capability. |
+| Wrapped key material | Media keys encrypted to contacts, devices, recovery methods, or escrow modes | Returned only to roles authorized for that wrapping target and incident. |
+| Raw keys | Media keys, contact private keys, escrow keys, key shares | Never logged; never exposed in default mode; only possible in an explicit future break-glass mode. |
+| Plaintext | Decrypted audio, video, notes, transcripts, or exports | Out of scope for the current backend; any future plaintext path requires separate design, audit, retention, and deployment warnings. |
+
+## Route Exposure Direction
+
+The future control plane should use explicit exposure classes. Route names below
+describe policy shape; they are not implementation commitments.
+
+| Route class | Future exposure | Notes |
+|---|---|---|
+| Current `/v1` write/admin routes | Private only until split, replaced, or guarded by implemented authz. | Includes incident creation, stream creation, chunk upload, checkins, close/fail/complete actions, incident-token creation/revocation, and private chunk reads. |
+| Public product API routes | Public-authenticated only after account/device/contact authz, upload abuse controls, request-size controls, and audit are implemented. | Should cover non-admin product flows: account-owner incidents, capture uploads, trusted-contact access, account-owner public-link grant issuance/revocation, sharing, and wrapped-key delivery. |
+| Public-link viewer routes | Public read-only viewer routes can remain separate from the public product API. | Current `/i/{token}` and `/e/{token}` paths are bearer-token URLs and must not become write or admin routes. |
+| Private admin API routes | Own private listener and route tree, authenticated and authorized even when bound only to VPN, WireGuard, LAN, loopback, firewall, or a private proxy. | Should be narrow, audited, and safe for support without exposing evidence contents, raw tokens, raw keys, or plaintext by default. |
+| Escrow/break-glass routes | Not present by default. | Require explicit configuration, policy, audit, warnings, strong authz, and separate implementation. They must not be part of the normal public product API. |
+
+Do not mount admin, operator, escrow, or break-glass routes on the public product
+API listener or the public incident viewer listener. Do not mount unauthenticated
+write, account, contact, admin, or escrow routes on any public listener.
+
+## Authentication Expectations
+
+This design does not choose a concrete authentication technology. A later
+implementation may choose cookie sessions, signed bearer credentials, delegated
+identity, device-bound credentials, or another reviewed mechanism. That choice
+must be made in a separate task with tests and deployment guidance.
+
+Future authentication must provide:
+
+- stable actor identity for account owners, trusted contacts, capture devices,
+  and operators
+- credential expiry and rotation
+- revocation for lost devices, removed contacts, leaked links, and operator
+  access changes
+- replay and token-theft risk analysis
+- CSRF protection if browser cookies are used
+- avoidance of raw credential logging, including Authorization headers and
+  token-bearing URLs
+- clear handling for offline or intermittent capture devices
+
+The private admin API should use authentication and authorization that is at
+least as strict as the public product API. A VPN, firewall, private bind
+address, or reverse-proxy allowlist can reduce exposure, but it must not be the
+only admin identity check.
+
+Public-link bearer tokens are not a general authentication system. They should
+remain scoped to a single incident, read-only, and revocable.
+
+## Authorization Expectations
+
+Future authorization should be deny-by-default and checked close to the
+operation being performed. The policy should bind:
+
+- actor or device identity
+- account owner
+- incident ID
+- role or grant type
+- requested action
+- incident mode and escalation policy, when implemented
+- grant expiry, revocation, and state
+- key-access scope, if wrapped keys or escrow access are involved
+
+Authorization decisions should not rely only on route prefix, listener address,
+or client-provided account or incident IDs. Repository or service-layer code
+that reads or mutates incident data should receive already-authorized scope, or
+perform an equivalent check before returning data.
+
+## Grant And Token Lifecycle
+
+Future implementation should separate durable account identity from
+incident-scoped grants.
+
+Expected grant types:
+
+- account-owner sessions or device credentials
+- capture-device upload authorization
+- trusted-contact access grants
+- public-link viewer tokens
+- optional operator support grants
+- optional break-glass or escrow grants
+
+Lifecycle requirements:
+
+- grants should have explicit creation time, actor, scope, and purpose
+- grants should have expiry where practical
+- explicit no-expiry grants should be visible and reviewable
+- revocation should take effect for future requests
+- raw token values should be returned only at creation time when bearer tokens
+  are used
+- stored token material should be hashed or otherwise protected where practical
+- grant state should distinguish active, expired, revoked, superseded, and
+  consumed one-time grants where applicable
+- deleting or removing a trusted contact should stop new access and new key
+  wrapping, but older wrapped keys need separate revocation semantics
+
+Viewer-token lifecycle rules from the current implementation are a useful
+starting point: store only token hashes, return raw tokens once, apply default
+expiry, and make expired, revoked, and invalid tokens indistinguishable to the
+public viewer.
+
+## Incident Mode Policy
+
+Incident type labels must not silently imply authorization. Future incident
+modes should attach explicit escalation and sharing policies.
+
+Expected defaults:
+
+| Incident mode | Access-control default |
+|---|---|
+| Emergency incident | May grant urgent trusted-contact access only under an explicit policy. |
+| Interaction record | Private by default; sharing and export should be deliberate account-owner actions. |
+| Safety check | May grant trusted-contact access after a missed check-in only under an explicit missed-check-in policy with cancellation and grace-period rules. |
+| Evidence note | Private by default unless explicitly shared or exported. |
+
+Proofline should not claim that emergency services were contacted unless a
+future jurisdiction-specific integration is explicitly implemented and
+documented. Trusted contacts should receive enough context to decide what to do,
+but the backend should not collapse capture, sharing, decryption, export, and
+emergency response into one implicit action.
+
+## Key Custody And Decryption Boundary
+
+Access control and key custody are related but separate.
+
+Default future direction:
+
+- clients encrypt media before upload
+- the backend stores ciphertext chunks
+- the backend may store wrapped or encrypted copies of media keys
+- trusted contacts receive wrapped key material only when authorized
+- decryption happens client-side or contact-side where practical
+- the server does not store raw media keys in default mode
+
+Optional server escrow or server-side decryption is a separate high-trust mode.
+It must be disabled by default or separately configured, audited, rate-limited,
+documented with deployment warnings, and implemented only after an explicit
+security-sensitive task.
+
+An actor allowed to download encrypted bundles is not automatically allowed to
+obtain wrapped keys. An actor allowed to obtain wrapped keys is not necessarily
+allowed to obtain raw keys or plaintext.
+
+## Audit And Logging Expectations
+
+Future access-control implementation should add auditability without turning
+logs into another copy of sensitive evidence.
+
+Useful audit fields may include:
+
+- timestamp
+- action type
+- actor ID, contact ID, device ID, or operator ID
+- role or grant type
+- incident ID
+- grant ID or policy version
+- decision or outcome
+- non-sensitive reason category
+
+Audit logs must not include:
+
+- raw viewer tokens or incident tokens
+- raw access tokens, session tokens, refresh tokens, or Authorization headers
+- request bodies
+- uploaded bytes
+- plaintext
+- raw keys, key shares, or recovery phrases
+- private deployment details
+- object-storage credentials, bucket names, private endpoints, or object keys
+- unnecessary user safety data
+
+Public issue drafts, support tickets, chat transcripts, screenshots, and
+operator dashboards must also avoid raw tokens, keys, plaintext, request bodies,
+uploaded bytes, and private deployment details.
+
+## Migration Path
+
+The migration from the current private deployment model should be incremental:
+
+1. Keep all current `/v1` routes private and unauthenticated.
+2. Define account, device, trusted-contact, public-link, operator, and optional
+   escrow data model requirements in a protocol/client design task.
+3. Introduce separate future route groups for public product API, private admin
+   API, and public incident viewer behavior in design and tests before changing
+   exposure.
+4. Add authentication and authorization scaffolding behind private deployments
+   first, without changing public exposure.
+5. Add audited grant lifecycle behavior for incident-scoped access.
+6. Add a separately bound private admin API listener before adding operator or
+   admin routes, and require admin authentication even for VPN-only deployments.
+7. Update security, threat, API, deployment, and operational docs before any
+   public-authenticated product API route is exposed.
+8. Expose only the smallest public-authenticated product route set needed for a
+   concrete client milestone.
+9. Keep public incident viewer routes read-only and separate from public product
+   API and private admin API routes unless a later design deliberately replaces
+   them.
+
+Any step that changes key custody, wrapped-key delivery, browser decryption,
+server escrow, or server-side decryption must also update the key-custody,
+browser-decryption, break-glass, security-model, threat-model, encryption, and
+deployment docs before or alongside implementation.
+
+## Implementation Prerequisites
+
+Before any public product API exposure or private admin API implementation, a
+future implementation task must define and test:
+
+- concrete authentication mechanism
+- authorization policy and role/grant model
+- account, contact, device, and incident ownership data model
+- session, token, or grant storage and revocation behavior
+- upload abuse controls and rate-limiting expectations
+- CSRF and browser credential rules, if browser sessions are used
+- audit log schema and redaction rules
+- migration behavior for existing incidents and viewer tokens
+- deployment guidance for reverse proxies, TLS, logs, VPN/private admin
+  binding, public product API exposure, and listener separation
+- tests proving public product API, private admin API, and public incident
+  viewer listener separation
+- tests proving denied cross-account, cross-incident, and non-admin-to-admin
+  access
+
+## Open Questions
+
+- Should the first public-authenticated upload path use account-owner sessions,
+  device credentials, or short-lived incident upload grants?
+- Should current incident viewer tokens remain long-term, or become a legacy
+  compatibility layer after account-based viewer access exists?
+- How should contact grants interact with contact-wrapped media keys when a
+  trusted contact is removed?
+- Which metadata can trusted contacts see before decryption or escalation?
+- Should operator support ever read incident metadata, or only health and
+  storage integrity state?
+- Should the private admin API live under a distinct route prefix, a distinct
+  port only, or both?
+- Should optional escrow access exist in the first production release, or wait
+  until contact-wrapped keys are proven?
+- How should authorization decisions be represented in future protocol or
+  conformance tests?

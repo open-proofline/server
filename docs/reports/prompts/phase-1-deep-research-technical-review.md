@@ -50,7 +50,12 @@ OpenAI ChatGPT Deep Research using <MODEL_NAME>
 
 ## Repository Context
 
-Proofline is an experimental Go backend for private encrypted incident capture. It receives already-encrypted recording chunks, stores metadata in SQLite, keeps encrypted blobs on local disk, and exposes a token-scoped read-only incident viewer.
+Proofline is an experimental Go backend for private encrypted incident capture.
+It receives already-encrypted recording chunks, stores metadata in SQLite by
+default or optional PostgreSQL, keeps encrypted blobs on local disk by default
+or in optional S3-compatible object storage, supports optional
+Valkey/Redis-compatible short-lived coordination, and exposes a token-scoped
+read-only incident viewer.
 
 The product documentation now uses the name Proofline. Repository URLs, the Go module path, Docker image names, GHCR package names, and release binary names use the `open-proofline/server` repository namespace. Compatibility identifiers such as the v1 simulator encryption envelope, default SQLite filename, legacy `/e/{token}` aliases, and historical migration names may still use `safety-recorder` or `emergency` until separate protocol or data-layout migrations are explicitly performed.
 
@@ -61,7 +66,7 @@ Core project boundaries:
 - The private `/v1` API has no public user authentication and must not be exposed publicly.
 - The current backend treats uploaded bytes as opaque ciphertext.
 - The current backend must not be described as production-ready public infrastructure.
-- Current backend incidents are generic unless the reviewed tree implements first-class incident types.
+- Current backend incidents are generic unless the reviewed tree implements first-class incident modes, capture profiles, escalation policies, or sharing state.
 - Backend decryption, browser decryption, production key custody, break-glass access, user accounts, OAuth/JWT, push notifications, SMS, Messenger, web/iOS/Android clients, and first-class escalation policies are future or out-of-scope items unless explicitly implemented in the reviewed tree.
 - Future key custody, browser decryption, break-glass, incident-mode, and client prototype documents are design/planning guardrails, not shipped implementation.
 - Do not treat documented future work as a current defect merely because it is not implemented.
@@ -85,6 +90,15 @@ Recommended validation evidence to request or use when available:
 - local or Codex output for `go test ./...`
 - local or Codex output for `go vet ./...`
 - local or CI output for `docker build -t proofline-server .`
+- local or Codex output for PostgreSQL integration tests:
+
+```bash
+SAFE_POSTGRES_TEST_DSN='<test database DSN>' go test ./internal/postgresdb -count=1
+```
+
+- local or Codex output for S3-compatible blob storage tests or smoke tests using non-secret local/test credentials only
+- local or Codex output for Valkey/Redis-compatible coordination startup-check tests or smoke tests
+- explicit note whether PostgreSQL, S3-compatible storage, and Valkey/Redis-compatible coordination were only reviewed from code/docs or also exercised with live disposable services
 - local or Codex output for the simulator smoke test:
 
 ```bash
@@ -109,6 +123,10 @@ Required external-source families when applicable:
 - Go/toolchain/standard-library/module claims: `go.dev` or `pkg.go.dev`
 - AES-GCM, nonce, randomness, authenticated encryption, or cryptographic-strength claims: NIST, Go official docs, or another primary standards/source document
 - SQLite WAL, foreign keys, migration, transaction, locking, backup, or restore claims: `sqlite.org`
+- PostgreSQL schema, migrations, transactions, isolation, advisory locks, connection pooling, backup, or restore claims: `postgresql.org` and `pkg.go.dev` for the Go PostgreSQL driver/library APIs used by the reviewed tree
+- S3-compatible object storage, object keys, conditional writes, checksum, consistency, delete behavior, lifecycle, versioning, or backup claims: AWS S3 official documentation for S3 API semantics, plus provider documentation only when reviewing provider-specific examples such as MinIO
+- Valkey/Redis-compatible coordination, ping/startup checks, TTLs, leases, locks, retry coordination, persistence, or non-durable coordination claims: Valkey, Redis, or relevant client-library primary documentation
+- MinIO/local S3-compatible testing claims: MinIO official documentation when the report discusses MinIO-specific setup or behavior
 - GitHub Actions security, permissions, SHA pinning, Dependabot, provenance, OIDC, workflow hardening, or CI/CD claims: `docs.github.com`
 - Docker image pinning, digest semantics, multi-stage builds, runtime image behavior, or container build/publish claims: `docs.docker.com`
 - dependency vulnerability/advisory claims: OSV, Go vulnerability database, GitHub Advisory Database, or another primary advisory source
@@ -217,14 +235,16 @@ Technical focus areas:
 5. Viewer/incident token generation, hashing, storage, expiry, redaction, and viewer behavior
 6. Logging, metrics, proxy examples, and sensitive data exposure
 7. Upload handling, hash verification, immutable storage, upload limits, and stream-scoped chunk identity
-8. SQLite migrations, foreign keys, WAL mode, schema migration tracking, and data integrity
-9. ZIP bundle generation, manifest completeness, fail-closed behavior, and path traversal handling
-10. Crypto-adjacent simulator envelope, ciphertext-only backend boundary, and naming-compatibility claims
-11. Future key custody, browser/client-side decryption, break-glass, trusted-contact access, and server escrow boundaries
-12. Future web/iOS/Android/protocol/client planning and platform assumptions
-13. Deployment guidance, Traefik examples, WireGuard/private boundary, rate limiting, and no `/v1` public exposure
-14. Docker/GHCR/GitHub Actions/supply-chain hygiene
-15. Public issue/report safety
+8. SQLite and PostgreSQL migrations, foreign keys, transactions, schema migration tracking, repository parity, and data integrity
+9. Local and S3-compatible encrypted blob storage, immutable commit behavior, object-key safety, missing-blob failure handling, and backup/restore assumptions
+10. Optional Valkey/Redis-compatible coordination startup checks, failure behavior, and non-durable coordination boundaries
+11. ZIP bundle generation, manifest completeness, fail-closed behavior, and path traversal handling
+12. Crypto-adjacent simulator envelope, ciphertext-only backend boundary, and naming-compatibility claims
+13. Future key custody, browser/client-side decryption, break-glass, trusted-contact access, and server escrow boundaries
+14. Future web/iOS/Android/protocol/client planning and platform assumptions
+15. Deployment guidance, Traefik examples, WireGuard/private boundary, rate limiting, and no `/v1` public exposure
+16. Docker/GHCR/GitHub Actions/supply-chain hygiene
+17. Public issue/report safety
 
 ## Finding Rules
 
@@ -236,7 +256,7 @@ For every finding, include:
 - current implementation vs future design
 - affected files and functions, or affected planning documents
 - repository evidence citation
-- authoritative external citation for applicable backend, security, CI/CD, Docker, SQLite, dependency, licence, standards, web-security, Apple/iOS, Swift, or legal-adjacent claim
+- authoritative external citation for applicable backend, security, CI/CD, Docker, SQLite, PostgreSQL, S3-compatible storage, Valkey/Redis-compatible coordination, dependency, licence, standards, web-security, Apple/iOS, Swift, or legal-adjacent claim
 - explicit `not independently verified` wording if required authoritative external sources were not consulted
 - reviewed branch/ref and commit context
 - why it matters
@@ -251,7 +271,7 @@ Do not recommend public GitHub issues for private vulnerabilities, raw tokens, s
 ## Common False Positives To Avoid
 
 - Do not say `/v1` lacks public auth as a vulnerability unless the docs claim it is safe to expose publicly.
-- Do not say missing iOS, Android, web-client, accounts, incident types, escalation policies, browser decryption, production key custody, or break-glass behavior is a defect when docs mark those as future work.
+- Do not say missing iOS, Android, web-client, accounts, incident modes, capture profiles, escalation policies, sharing state, browser decryption, production key custody, or break-glass behavior is a defect when docs mark those as future work.
 - Do not treat remaining `safety-recorder` or `emergency` compatibility identifiers as stale when docs explicitly state those names remain for protocol, data-layout, route-alias, or migration compatibility.
 - Do not claim emergency-services integration exists.
 - Do not imply Proofline reports crimes, contacts police, guarantees legal admissibility, or provides legal advice.

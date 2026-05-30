@@ -1,0 +1,81 @@
+package config
+
+import (
+	"fmt"
+	"os"
+	"strings"
+)
+
+const (
+	MetadataBackendSQLite     = "sqlite"
+	MetadataBackendPostgres   = "postgresql"
+	BlobBackendLocal          = "local"
+	BlobBackendS3             = "s3"
+	CoordinationBackendNone   = "none"
+	CoordinationBackendValkey = "valkey"
+	CoordinationBackendRedis  = "redis"
+)
+
+func backendSelectionFromEnv() (BackendSelection, error) {
+	metadata, err := backendFromEnv(
+		"SAFE_METADATA_BACKEND",
+		MetadataBackendSQLite,
+		[]string{MetadataBackendSQLite, MetadataBackendPostgres},
+	)
+	if err != nil {
+		return BackendSelection{}, err
+	}
+	blob, err := backendFromEnv(
+		"SAFE_BLOB_BACKEND",
+		BlobBackendLocal,
+		[]string{BlobBackendLocal, BlobBackendS3},
+	)
+	if err != nil {
+		return BackendSelection{}, err
+	}
+	coordination, err := backendFromEnv(
+		"SAFE_COORDINATION_BACKEND",
+		CoordinationBackendNone,
+		[]string{CoordinationBackendNone, CoordinationBackendValkey, CoordinationBackendRedis},
+	)
+	if err != nil {
+		return BackendSelection{}, err
+	}
+
+	return BackendSelection{
+		Metadata:     metadata,
+		Blob:         blob,
+		Coordination: coordination,
+	}, nil
+}
+
+func backendFromEnv(name, fallback string, supported []string) (string, error) {
+	raw, ok := os.LookupEnv(name)
+	if !ok {
+		return fallback, nil
+	}
+	value := strings.ToLower(strings.TrimSpace(raw))
+	for _, candidate := range supported {
+		if value == candidate {
+			return value, nil
+		}
+	}
+	return "", UnsupportedBackendError{
+		EnvName:   name,
+		Supported: supported,
+	}
+}
+
+// UnsupportedBackendError reports a rejected backend selector without exposing
+// the rejected value.
+type UnsupportedBackendError struct {
+	EnvName   string
+	Supported []string
+}
+
+func (e UnsupportedBackendError) Error() string {
+	return fmt.Sprintf("parse %s: unsupported backend; supported values: %s",
+		e.EnvName,
+		strings.Join(e.Supported, ", "),
+	)
+}

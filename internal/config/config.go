@@ -30,12 +30,55 @@ const (
 type Config struct {
 	PrivateBindAddrs        []string
 	PublicBindAddrs         []string
+	Backends                BackendSelection
+	Postgres                PostgresConfig
+	S3Blob                  S3BlobConfig
+	Valkey                  ValkeyConfig
 	DataDir                 string
 	DBPath                  string
 	MaxUploadBytes          int64
 	DefaultIncidentTokenTTL time.Duration
 	PrivateTimeouts         HTTPTimeouts
 	PublicTimeouts          HTTPTimeouts
+}
+
+// BackendSelection records the configured storage and coordination backends.
+type BackendSelection struct {
+	Metadata     string
+	Blob         string
+	Coordination string
+}
+
+// S3BlobConfig contains the optional S3-compatible blob backend settings.
+type S3BlobConfig struct {
+	Endpoint        string
+	Region          string
+	Bucket          string
+	Prefix          string
+	AccessKeyID     string
+	SecretAccessKey string
+	SessionToken    string
+	ForcePathStyle  bool
+}
+
+// ValkeyConfig contains optional Valkey/Redis-compatible coordination settings.
+type ValkeyConfig struct {
+	Addr         string
+	Username     string
+	Password     string
+	DB           int
+	UseTLS       bool
+	DialTimeout  time.Duration
+	ReadTimeout  time.Duration
+	WriteTimeout time.Duration
+}
+
+// PostgresConfig contains optional PostgreSQL metadata backend settings.
+type PostgresConfig struct {
+	DSN             string
+	MaxOpenConns    int
+	MaxIdleConns    int
+	ConnMaxLifetime time.Duration
 }
 
 // HTTPTimeouts groups net/http server timeout settings.
@@ -54,6 +97,23 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 	publicBindAddrs, err := bindAddrsFromEnv("SAFE_PUBLIC_BIND_ADDRS", "SAFE_PUBLIC_BIND_ADDR", defaultPublicBindAddr)
+	if err != nil {
+		return Config{}, err
+	}
+
+	backends, err := backendSelectionFromEnv()
+	if err != nil {
+		return Config{}, err
+	}
+	postgres, err := postgresConfigFromEnv(backends.Metadata)
+	if err != nil {
+		return Config{}, err
+	}
+	s3Blob, err := s3BlobConfigFromEnv(backends.Blob)
+	if err != nil {
+		return Config{}, err
+	}
+	valkey, err := valkeyConfigFromEnv(backends.Coordination)
 	if err != nil {
 		return Config{}, err
 	}
@@ -79,6 +139,10 @@ func Load() (Config, error) {
 	return Config{
 		PrivateBindAddrs:        privateBindAddrs,
 		PublicBindAddrs:         publicBindAddrs,
+		Backends:                backends,
+		Postgres:                postgres,
+		S3Blob:                  s3Blob,
+		Valkey:                  valkey,
 		DataDir:                 envOrDefault("SAFE_DATA_DIR", defaultDataDir),
 		DBPath:                  envOrDefault("SAFE_DB_PATH", defaultDBPath),
 		MaxUploadBytes:          maxUploadBytes,

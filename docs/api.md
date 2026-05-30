@@ -4,7 +4,7 @@ This is the current backend-only HTTP surface for Proofline. The API binary star
 
 Media bundle downloads are encrypted chunk bundles. The backend does not decrypt, merge, or produce playable media. The simulator's current encrypted uploads use the envelope documented in [encryption.md](encryption.md), but the API treats uploaded bytes as opaque ciphertext.
 
-The current API stores generic incidents only. Planned incident modes such as emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes are documented in [incident-modes.md](incident-modes.md), but first-class `incident_type`, escalation-policy, account, and trusted-contact APIs do not exist yet.
+The current API stores generic incidents only. Planned incident modes such as emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes are documented in [incident-modes.md](incident-modes.md), along with future capture-profile, escalation-policy, sharing-state, and migration boundaries. First-class incident-mode, escalation-policy, account, and trusted-contact APIs do not exist yet.
 
 Default bind addresses:
 
@@ -34,7 +34,7 @@ Incident routes are mounted only on the private API server.
 
 ### `POST /v1/incidents`
 
-Creates an open generic incident. Future clients may classify incidents as emergency incidents, interaction records, safety checks, or evidence notes in client/protocol metadata after that design exists. The current request does not accept an incident type or escalation policy.
+Creates an open generic incident. Future clients may classify incidents as emergency incidents, interaction records, safety checks, or evidence notes only after the protocol, access-control, migration, and viewer-wording design is implemented. The current request does not accept an incident mode, capture profile, escalation policy, or sharing state.
 
 Request:
 
@@ -98,7 +98,7 @@ Fields:
 - `started_at`: RFC3339 timestamp
 - `ended_at`: RFC3339 timestamp, not before `started_at`
 - `sha256_hex`: lowercase SHA-256 hex of the encrypted bytes
-- `original_filename`: optional display metadata
+- `original_filename`: optional client-supplied display metadata
 
 Response `201`:
 
@@ -130,6 +130,148 @@ Duplicate streamed `(incident_id, stream_id, chunk_index)` uploads and duplicate
 The repository rechecks incident and stream state when chunk metadata is inserted. If an upload races with incident close or stream completion, the final metadata insert is rejected and the committed blob path is removed.
 
 For clients using the v1 encryption envelope, `sha256_hex` is the SHA-256 of the complete uploaded envelope bytes, not the plaintext.
+
+`original_filename` is metadata, not a storage path. The server trims the value,
+normalizes slash and backslash separators to a basename, falls back to the
+multipart upload filename when the explicit field is empty, and stores the
+resulting basename with chunk metadata. The value may be returned by private
+chunk metadata routes, token-scoped public incident viewer summaries, and
+completed stream or incident bundle manifests. Server stored paths, staging
+paths, local filesystem paths, and object-storage keys are separate
+server-controlled values and are not derived from `original_filename`.
+
+Future clients should omit `original_filename` by default or send a generic,
+non-identifying basename unless the user or a future protocol mode explicitly
+chooses to preserve filename context as evidence metadata. Filenames can still
+contain personal or contextual information even after path stripping. Do not use
+`original_filename` for identity, authorization, storage lookup, decryption,
+legal-record guarantees, or download path construction.
+
+The current API does not implement resumable uploads, upload leases, or
+client-side queue summary endpoints. Future clients should retry complete
+encrypted chunks unless a later explicit resumable-upload protocol is
+implemented. The planning decision is documented in
+[resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md).
+
+### Planned Duplicate Chunk Reconciliation
+
+This section is a design contract for future implementation. The current server
+does not yet expose the reconciliation route described here; duplicate uploads
+still return `409 duplicate_chunk`.
+
+The planned API shape is a separate private query workflow, not a public route
+and not an enriched `409 duplicate_chunk` upload response. A separate route lets
+clients compare expected metadata without re-uploading ciphertext, keeps
+duplicate upload errors small, and can coexist with future idempotency-key
+retry success.
+
+Planned route:
+
+```http
+POST /v1/incidents/{incident_id}/chunks/reconcile
+```
+
+Request:
+
+```json
+{
+  "stream_id": "str_...",
+  "chunk_index": 1,
+  "media_type": "audio",
+  "started_at": "2026-05-21T10:00:00Z",
+  "ended_at": "2026-05-21T10:00:10Z",
+  "byte_size": 23,
+  "sha256_hex": "...",
+  "original_filename": "chunk.enc"
+}
+```
+
+For streamed chunks, `stream_id` is required and identity is
+`(incident_id, stream_id, chunk_index)`. `media_type` remains required and must
+match the stream media type. For legacy unstreamed chunks, omit `stream_id`;
+identity is `(incident_id, media_type, chunk_index)`, and `chunk_index = 0`
+remains valid for compatibility.
+
+The comparison fingerprint is:
+
+- normalized chunk identity
+- `media_type`
+- `started_at`
+- `ended_at`
+- normalized `original_filename`, including empty value
+- ciphertext `byte_size`
+- ciphertext `sha256_hex`
+
+The route should allow reconciliation after an incident is closed or a stream is
+complete or failed, because it is read-only and only confirms already accepted
+metadata. It must not overwrite, replace, delete, or rewrite stored chunks.
+
+Matched response `200`:
+
+```json
+{
+  "reconciliation": {
+    "status": "matched",
+    "identity": {
+      "incident_id": "inc_...",
+      "stream_id": "str_...",
+      "chunk_index": 1,
+      "media_type": "audio"
+    },
+    "chunk_id": "chk_...",
+    "byte_size": 23,
+    "sha256_hex": "...",
+    "started_at": "2026-05-21T10:00:00Z",
+    "ended_at": "2026-05-21T10:00:10Z",
+    "created_at": "2026-05-21T10:00:11Z"
+  }
+}
+```
+
+Conflict response `409`:
+
+```json
+{
+  "error": {
+    "code": "duplicate_chunk_conflict",
+    "message": "existing chunk does not match expected ciphertext or metadata"
+  },
+  "reconciliation": {
+    "status": "conflict",
+    "identity": {
+      "incident_id": "inc_...",
+      "stream_id": "str_...",
+      "chunk_index": 1,
+      "media_type": "audio"
+    },
+    "mismatched_fields": ["sha256_hex", "byte_size"]
+  }
+}
+```
+
+The conflict response should identify mismatched field names, not the existing
+stored values. If no accepted chunk exists for the requested identity, return
+`404 chunk_not_found`. Invalid identity or fingerprint fields should reuse the
+existing upload validation error codes where practical, such as
+`400 invalid_chunk_index`, `400 invalid_media_type`, or
+`400 invalid_sha256_hex`.
+
+Safe reconciliation responses may return server-generated chunk ID, normalized
+identity fields, timestamps, byte size, ciphertext hash, creation time, and
+field names that matched or mismatched. They must not return uploaded bytes,
+plaintext, raw keys, raw tokens, request bodies, local filesystem paths,
+`stored_path`, staging paths, object-storage keys, or object-storage
+credentials.
+
+Future implementation should extend `internal/httpapi/uploads_test.go` for:
+
+- matched streamed duplicate reconciliation
+- conflicting streamed duplicate reconciliation
+- matched and conflicting legacy unstreamed reconciliation
+- omission of `stored_path` and stored conflicting values from reconciliation
+  responses
+- read-only reconciliation after stream completion, stream failure, or incident
+  close
 
 ### `GET /v1/incidents/{incident_id}/chunks`
 
@@ -273,8 +415,15 @@ chunks/audio_000001.enc
 chunks/audio_000002.enc
 ```
 
-The manifest is generated from trusted database metadata and includes incident ID, stream ID, media type, status, chunk count, total bytes, and chunk SHA-256 metadata. Server filesystem paths are not included.
+The manifest is generated from trusted database metadata and includes incident
+ID, stream ID, media type, status, chunk count, total bytes, chunk SHA-256
+metadata, and any stored `original_filename` basename for each chunk. Server
+filesystem paths are not included.
 It also includes a non-secret `encryption` hint indicating expected client-side encryption and `server_decrypts: false`.
+
+Future live or partial stream access is planning-only and should not be inferred
+from this completed bundle route. See
+[live-partial-stream-access-boundary.md](live-partial-stream-access-boundary.md).
 
 ### `GET /v1/incidents/{incident_id}/download`
 
@@ -318,7 +467,7 @@ Incident-token creation and revocation routes are mounted only on the private AP
 
 ### `POST /v1/incidents/{incident_id}/incident-tokens`
 
-Creates a read-only viewer token for one incident. The raw token is returned only in this response; SQLite stores only a SHA-256 hash.
+Creates a read-only viewer token for one incident. The raw token is returned only in this response; the configured metadata backend stores only a SHA-256 hash.
 
 `expires_at` is optional. When omitted, the API applies the configured default token lifetime, which is 24 hours unless `SAFE_DEFAULT_INCIDENT_TOKEN_TTL` is changed. Explicit `expires_at` values are preserved; send `null` to explicitly create a token that remains valid until revoked. Setting `SAFE_DEFAULT_INCIDENT_TOKEN_TTL=0` disables the default and lets omitted expiries remain valid until revoked.
 
@@ -420,6 +569,11 @@ The Go app does not set `Strict-Transport-Security` in local/dev HTTP mode. Set 
 ### `GET /i/{token}/streams/{stream_id}/download`
 
 Downloads a completed stream bundle for the token's incident. The route is read-only and never accepts a client-provided file path. Invalid, expired, and revoked tokens return `404 incident_token_invalid`.
+
+Open and failed streams are visible only as metadata in the current viewer
+summary. The current token-scoped viewer does not expose live chunk bytes or
+partial stream manifests. See
+[live-partial-stream-access-boundary.md](live-partial-stream-access-boundary.md).
 
 ### `GET /i/{token}/incident/download`
 

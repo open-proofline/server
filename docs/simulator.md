@@ -4,6 +4,42 @@ The simulator CLI lives at `cmd/simclient`. It exercises the current Proofline i
 
 The simulator covers generic incidents only. It does not implement planned incident modes such as emergency incidents, interaction records, safety checks, or evidence notes.
 
+## Future Desktop Recorder Simulator
+
+A future local desktop recorder simulator client may be added in this
+repository as a backend reference flow. It should remain a simulator, not a
+production desktop app or a replacement for planned mobile clients.
+
+That simulator should use the current complete encrypted chunk upload contract:
+capture short local test intervals, encrypt each completed chunk, stage
+encrypted chunks locally, retry failed uploads by resending complete chunks, and
+complete or fail streams through the existing private `/v1` routes.
+
+It should include adjustable poor-network simulation rather than one fixed
+failure mode. Useful controls include latency, jitter, request timeouts,
+bandwidth ceilings, intermittent offline windows, upload failure rates, and
+process restart or resume drills. Those controls should exercise local staging,
+retry scheduling, and stream completion behavior without requiring partially
+uploaded bytes to become server-visible evidence.
+
+The desktop simulator should also be designed to support account-aware flows in
+the near future. Until the account and access-control model exists, account
+identity should remain local test metadata only. Adding the simulator must not
+incidentally add user accounts, OAuth, JWT, public `/v1` authentication, or
+account-management routes.
+
+The simulator may also prototype contact-wrapped key metadata in local
+development artifacts. That design is documented in
+[contact-wrapped-key-metadata-simulator.md](contact-wrapped-key-metadata-simulator.md)
+and must keep raw media keys, contact private keys, plaintext, and decryption
+capabilities out of server storage, logs, and bundle manifests unless a later
+explicit production key-custody task changes the boundary.
+
+Do not add resumable uploads, upload leases, or server-visible queue summary
+routes just to support that simulator. The resumable-upload decision is planned
+separately in
+[resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md).
+
 ## Basic Flow
 
 Start the backend first:
@@ -67,6 +103,9 @@ go run ./cmd/simclient --chunks 12 --interval 2s --simulate-failure-every 4
 ```
 
 Every fourth chunk intentionally fails SHA-256 verification before being retried.
+The simulator does not yet exercise future idempotency-key or equivalent retry
+success semantics for ambiguous upload outcomes. Those future simulator changes
+are planned in [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md).
 
 ## Useful Flags
 

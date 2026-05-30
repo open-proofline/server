@@ -1,11 +1,15 @@
 package main
 
 import (
+	"bytes"
+	"log/slog"
 	"net/http"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/open-proofline/server/internal/config"
+	"github.com/open-proofline/server/internal/coordination"
 )
 
 func TestNewHTTPServersCreatesOneServerPerBindAddress(t *testing.T) {
@@ -51,6 +55,56 @@ func TestNewHTTPServersAppliesPrivateAndPublicTimeouts(t *testing.T) {
 
 	assertServerTimeouts(t, servers[0].server, cfg.PrivateTimeouts)
 	assertServerTimeouts(t, servers[1].server, cfg.PublicTimeouts)
+}
+
+func TestStartupErrorLogDoesNotExposeFilesystemPath(t *testing.T) {
+	var logs bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&logs, nil))
+	err := &os.PathError{Op: "mkdir", Path: "/tmp/proofline/private/data", Err: os.ErrPermission}
+
+	logStartupError(logger, err)
+
+	if bytes.Contains(logs.Bytes(), []byte("/tmp/proofline/private/data")) {
+		t.Fatalf("startup log exposed filesystem path: %s", logs.String())
+	}
+	if !bytes.Contains(logs.Bytes(), []byte("error_category=permission")) {
+		t.Fatalf("startup log omitted safe error category: %s", logs.String())
+	}
+}
+
+func TestStartupErrorLogIncludesSafeBackendConfigDetail(t *testing.T) {
+	var logs bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&logs, nil))
+	err := config.UnsupportedBackendError{
+		EnvName:   "SAFE_METADATA_BACKEND",
+		Supported: []string{config.MetadataBackendSQLite, config.MetadataBackendPostgres},
+	}
+
+	logStartupError(logger, err)
+
+	if !bytes.Contains(logs.Bytes(), []byte("error_category=config")) {
+		t.Fatalf("startup log omitted config category: %s", logs.String())
+	}
+	if !bytes.Contains(logs.Bytes(), []byte("SAFE_METADATA_BACKEND")) {
+		t.Fatalf("startup log omitted backend env name: %s", logs.String())
+	}
+	if !bytes.Contains(logs.Bytes(), []byte("supported values: sqlite, postgresql")) {
+		t.Fatalf("startup log omitted supported backend values: %s", logs.String())
+	}
+}
+
+func TestStartupErrorLogDoesNotExposeCoordinationConnectionDetail(t *testing.T) {
+	var logs bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&logs, nil))
+
+	logStartupError(logger, coordination.ErrUnavailable)
+
+	if !bytes.Contains(logs.Bytes(), []byte("error_category=coordination_unavailable")) {
+		t.Fatalf("startup log omitted coordination category: %s", logs.String())
+	}
+	if bytes.Contains(logs.Bytes(), []byte("error_detail")) {
+		t.Fatalf("startup log exposed coordination detail: %s", logs.String())
+	}
 }
 
 func assertServer(t *testing.T, got namedServer, name, addr string, handler http.Handler) {

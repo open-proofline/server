@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -17,8 +18,12 @@ type TempUpload struct {
 
 // SaveTemp streams reader into a temporary file, enforcing maxBytes and
 // computing SHA-256 without buffering the upload in memory.
-func (s *Store) SaveTemp(reader io.Reader, maxBytes int64) (*TempUpload, error) {
-	file, err := os.CreateTemp(s.tempDir, "upload-*")
+func (s *Store) SaveTemp(_ context.Context, reader io.Reader, maxBytes int64) (*TempUpload, error) {
+	return saveTempToDir(s.tempDir, reader, maxBytes)
+}
+
+func saveTempToDir(tempDir string, reader io.Reader, maxBytes int64) (*TempUpload, error) {
+	file, err := os.CreateTemp(tempDir, "upload-*")
 	if err != nil {
 		return nil, fmt.Errorf("create temp upload: %w", err)
 	}

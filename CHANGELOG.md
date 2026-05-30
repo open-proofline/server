@@ -2,6 +2,80 @@
 
 ## Unreleased
 
+## v0.8.0 - 2026-05-30
+
+- Added local Docker Compose smoke-test stacks for SQLite/local,
+  PostgreSQL/local, SQLite/S3-compatible MinIO, and full
+  PostgreSQL/S3-compatible MinIO/Valkey backend combinations, with loopback-only
+  API port publishing and a script that runs the simulator against the
+  containerized server.
+- Added Dependabot tracking for local Docker Compose smoke-test image tags.
+- Added a live partial stream access boundary design covering future role-scoped
+  live access, open/failed stream exposure, partial manifests, no-store
+  behavior, and key-custody dependencies without adding routes or decryption.
+- Added SQLite WAL operational guidance covering sidecar files, local storage
+  expectations, backup and restore handling, and simple checkpoint-pressure
+  checks without changing database behavior.
+- Added a simulator-only contact-wrapped key metadata prototype design covering
+  local model contact keys, non-secret key IDs, wrapped-key metadata shape,
+  bundle-manifest relationship, and future server metadata boundaries without
+  adding production key custody or backend decryption.
+- Added a first-class incident-mode and escalation schema design covering future
+  capture profiles, sharing state, migration from generic incidents, viewer
+  wording, retention implications, and access-control/key-custody dependencies
+  without adding schema or route behavior.
+- Documented the current and future-client policy for `original_filename`
+  metadata in viewer summaries and bundle manifests.
+- Added an incident deletion and retention enforcement design covering future
+  private/admin deletion decisions, tombstones, metadata/blob consistency,
+  idempotent retry, retention windows, backup interaction, and safe audit
+  fields without implementing deletion behavior.
+- Added a future `/v1` access-control design covering a public authenticated
+  product API, a separately bound private authenticated admin API, and
+  account-owner, trusted-contact, public-link, admin/operator, and optional
+  escrow access boundaries while preserving the current private
+  unauthenticated `/v1` model.
+- Added a cluster backup, restore, and failure runbook covering durable
+  PostgreSQL metadata, S3-compatible encrypted blobs, coordination-only
+  Valkey/Redis state, private restore validation, and conservative failure
+  handling.
+- Added optional PostgreSQL metadata storage with a separate migration path,
+  explicit `SAFE_METADATA_BACKEND=postgresql` configuration, and opt-in
+  integration tests while keeping SQLite as the default.
+- Added optional Valkey/Redis-compatible coordination configuration and startup
+  health checking while keeping no coordination as the default and deferring
+  upload leases and idempotency use to future upload-operation work.
+- Added optional S3-compatible encrypted blob storage for committed chunks while
+  keeping local filesystem storage as the default.
+- Added a resumable upload and upload lease protocol plan that defers
+  resumable uploads for a local desktop recorder simulator client, preserves
+  complete encrypted chunk retry semantics, calls for adjustable poor-network
+  simulation and near-term account-aware simulator flows, and defines future
+  cleanup and validation boundaries.
+- Added a duplicate-chunk reconciliation API design for future clients to
+  compare expected ciphertext hashes and immutable metadata without overwriting
+  stored evidence.
+- Added a cluster-safe upload operation semantics design covering future
+  idempotency keys, durable operation state, commit ordering, equivalent retry
+  success, conflict handling, cleanup, and backend-specific follow-up work.
+- Published trusted Docker images from `develop` pushes using the mutable
+  `develop` GHCR image tag, while keeping release binary publishing limited to
+  `v*` tag workflows.
+- Introduced a narrow metadata repository interface around the existing SQLite
+  incident repository implementation.
+- Introduced a narrow blob-store interface around the existing local filesystem
+  encrypted blob storage implementation.
+- Added backend-selection configuration scaffolding for SQLite, PostgreSQL,
+  local filesystem, S3-compatible blob storage, no coordination, and optional
+  Valkey/Redis-compatible coordination backends.
+- Added a PostgreSQL metadata backend migration-path design covering schema
+  parity, migrations, transaction boundaries, tests, and restore expectations.
+- Added CI runtime smoke tests for the built Linux binary and Docker image.
+- Added a public incident viewer deployment checklist covering public route
+  exposure, TLS/HSTS, edge rate limiting, proxy log redaction, viewer-token
+  review, and retention/restore expectations.
+- Sanitized internal filesystem error logging
+
 ## v0.7.0 - 2026-05-28
 
 - Moved the Go module and backend source tree to the repository root as
@@ -63,74 +137,3 @@
 - Added deployment examples for localhost-only Docker, WireGuard/private-network `/v1` access, and Traefik HTTPS incident viewer exposure.
 - Added a configurable default 24-hour incident-token expiry for omitted `expires_at` values.
 - Added a public technical review report and report-validation prompt workflow.
-- Documented the active branch protection ruleset, required checks, and tag/release expectations.
-- Scoped GitHub Actions package write permission to the trusted Docker publish job while keeping workflow defaults read-only.
-- Added break-glass, browser-decryption, and production key-custody design documents.
-- Hardened streamed chunk identity, upload race handling, stream completion, schema migration tracking, and server timeout configuration.
-
-## v0.5.0-rc.2 - 2026-05-26
-
-- Added release binary and GHCR image artifact attestations to the CI workflow.
-- Verified SQLite WAL startup by checking the returned journal mode and failing when WAL cannot be enabled.
-- Aligned Docker base-image digest refresh documentation with the runtime Alpine tag family used by the Dockerfile.
-
-## v0.5.0-rc.1 - 2026-05-25
-
-- Pinned Docker base images by digest, added Dependabot Docker monitoring, and documented base-image digest refresh review steps.
-- Broadened the Docker build-context ignore policy for local-only artifacts under `server/`.
-- Pinned GitHub Actions workflow dependencies to full commit SHAs and documented the review process for action updates.
-- Added an iOS local recorder prototype plan covering chunking, encrypted staging, retry behavior, and current stream API mapping.
-- Added a retention, backup, restore, and secure deletion policy design document.
-- Added deployment-edge rate-limiting guidance and Traefik route-group examples.
-- Added deployment examples for localhost-only Docker, WireGuard/private-network `/v1` access, and Traefik HTTPS incident viewer exposure.
-- Added a configurable default 24-hour incident-token expiry for omitted `expires_at` values.
-- Added a public technical review report and report-validation prompt workflow.
-- Documented the active branch protection ruleset, required checks, and tag/release expectations.
-- Scoped GitHub Actions package write permission to the trusted Docker publish job while keeping workflow defaults read-only.
-- Added a break-glass and dead-man-switch key access design document.
-- Added a browser-side incident viewer decryption design spike.
-- Added a production key custody and emergency access design document covering the future hybrid trusted-contact model.
-- Rejected non-positive chunk indexes for streamed uploads while preserving legacy unstreamed compatibility.
-- Hardened chunk upload and stream completion against incident/stream state races.
-- Added explicit schema migration tracking with `schema_migrations`.
-- Added configurable private/public HTTP server timeout settings.
-- Refactored streamed chunk identity and storage paths to be stream-scoped while preserving legacy unstreamed chunk reads.
-
-## v0.4.0 - 2026-05-23
-
-- Added documented v1 client-side chunk encryption envelope using AES-256-GCM for simulator/test flows.
-- Updated the simulator to encrypt fake chunks by default, support local key files, and decrypt-verify downloaded stream bundles.
-- Added non-secret bundle manifest encryption hints while keeping backend storage and downloads opaque.
-- Split the simulator client into smaller files and added focused simulator helper tests.
-- Added MDN-aligned security header test coverage for emergency pages, JSON responses, static assets, ZIP downloads, and private API JSON responses.
-- Updated API, encryption, simulator, security, deployment, and code-map documentation to match the current backend.
-- Known limitation: the backend still does not decrypt chunks, share keys, produce playable media exports, or provide public-production hardening.
-
-## v0.3.0
-
-- Added media streams for grouping uploaded chunks.
-- Added stream completion/failure state transitions.
-- Added encrypted ZIP evidence bundle downloads for completed streams and completed incident streams.
-- Updated the incident viewer to show completed-stream download buttons.
-- Hardened incident viewer and API response security headers.
-- Hardened `SAFE_MAX_UPLOAD_BYTES` parsing and upload-limit overflow handling.
-- Added AGPL-3.0-only license.
-- Added repository security policy.
-- Documented current security assumptions, private/public listener separation, Docker/GHCR publishing, and evidence-bundle limitations.
-- Known limitation: evidence bundles remain encrypted chunk bundles, not decrypted or playable media exports, and the backend is not production-ready public infrastructure.
-
-## v0.2.1
-
-- Added multiple private/public bind address support.
-- Updated documentation.
-- Verified CI, binary build, and Docker image publishing.
-
-## v0.2.0
-
-- Added incident simulator client.
-
-## v0.1.0
-
-- Initial backend ingest API.
-- Incident viewer.
-- Docker/GHCR publishing.

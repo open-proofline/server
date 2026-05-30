@@ -6,6 +6,14 @@ Proofline is experimental and not production-ready public infrastructure. Treat 
 >
 > Keep private listeners behind localhost, LAN, WireGuard, firewall rules, or a strict reverse proxy. Separate bind addresses are a deployment boundary, not a complete security model.
 
+The future `/v1` access-control direction is documented in
+[v1-access-control.md](v1-access-control.md). That document is planning-only
+and does not change the current deployment rule: unauthenticated `/v1` routes
+must remain private. Future admin/operator routes should use their own private
+listener that can be bound to loopback, LAN, WireGuard, VPN, firewall, or a
+private reverse proxy, but that private placement must not replace admin
+authentication.
+
 The current module and artifact names use the `open-proofline/server` repository namespace. The published GHCR image is `ghcr.io/open-proofline/server`, local examples use the `proofline-server` image name, and release binaries use `proofline-server-*` names. Compatibility identifiers such as the v1 encryption envelope scheme and default SQLite filename may still use earlier `safety-recorder` names until separate protocol or data-layout migrations are explicitly performed.
 
 ## Local Development
@@ -55,6 +63,149 @@ Container defaults:
 
 Inside containers, bind to container addresses such as `0.0.0.0`, then restrict host exposure with Docker port publishing, firewall rules, WireGuard, or a reverse proxy.
 
+## SQLite WAL Operations
+
+SQLite metadata remains the default backend. At startup, the server enables
+foreign-key enforcement and verifies that SQLite accepted WAL journal mode.
+This is a local-disk deployment shape, not a cluster database mode.
+
+For SQLite deployments, `SAFE_DB_PATH` is the main database file. The default
+path is `./data/safety.db` locally and `/data/safety.db` in the container. The
+default file name still uses `safety.db` until a separate data-layout migration
+is explicitly designed.
+
+While the server is running in WAL mode, SQLite may also create sidecar files
+next to the database:
+
+```text
+<SAFE_DB_PATH>-wal
+<SAFE_DB_PATH>-shm
+```
+
+Keep the main database file and these sidecar files on the same local host,
+local filesystem, and durable volume. Avoid network filesystems, unusual
+shared volumes, or backup agents that cannot preserve SQLite locking,
+shared-memory, and snapshot behavior correctly. If a deployment uses a bind
+mount, virtualized volume, or storage layer with non-standard filesystem
+semantics, test startup, upload, stream completion, bundle download, restart,
+backup, and restore before relying on it for real evidence.
+
+For backups, prefer one of the consistency strategies in
+[retention, backup, and deletion](retention-backup-deletion.md): stop the API
+process, take an atomic filesystem or volume snapshot that includes SQLite and
+encrypted blobs together, or use SQLite's backup mechanism while coordinating
+with a paused blob snapshot. Do not copy only the main `safety.db` file from a
+running WAL-mode database and assume it is complete.
+
+Growing deployments should watch for WAL/checkpoint pressure. Useful symptoms
+include a `*-wal` file that keeps growing, low free space on the database
+volume, rising write latency, repeated database busy/locked errors, or restore
+tests that cannot reconstruct expected bundles from the database and encrypted
+blobs.
+
+Simple local checks can inspect file sizes and free space without exposing
+incident contents:
+
+```bash
+db=${SAFE_DB_PATH:-./data/safety.db}
+ls -lh "$db" "$db-wal" "$db-shm" 2>/dev/null || true
+df -h "$(dirname "$db")"
+```
+
+Treat deployment paths, hostnames, screenshots, logs, and backup locations as
+private operational details. Do not paste raw viewer tokens, request bodies,
+uploaded bytes, plaintext, raw keys, credentials, private deployment details,
+or real user safety data into public issues or support channels. If code-level
+SQLite observability or automated checkpoint tuning is needed later, handle it
+as a separate scoped implementation task with tests.
+
+## Optional S3-Compatible Blob Storage
+
+Local filesystem encrypted blob storage remains the default. To store committed encrypted chunks in an S3-compatible object store, explicitly set `SAFE_BLOB_BACKEND=s3` and configure the S3 endpoint and bucket:
+
+```bash
+SAFE_BLOB_BACKEND=s3 \
+SAFE_S3_ENDPOINT=https://s3.example.invalid \
+SAFE_S3_REGION=us-east-1 \
+SAFE_S3_BUCKET=proofline-evidence \
+SAFE_S3_PREFIX=prod/server \
+SAFE_S3_ACCESS_KEY_ID=example-access-key \
+SAFE_S3_SECRET_ACCESS_KEY=example-secret-key \
+go run ./cmd/api
+```
+
+The S3 backend requires `SAFE_S3_ACCESS_KEY_ID` and `SAFE_S3_SECRET_ACCESS_KEY`. `SAFE_S3_SESSION_TOKEN` is optional. Treat static credentials, bucket names, private endpoints, and deployment-specific prefixes as private deployment details.
+
+S3-compatible storage stores opaque encrypted chunk bytes only. It does not add backend decryption, key escrow, public `/v1` authentication, cloud deployment automation, or production readiness. Uploads still stage local temp files under `SAFE_DATA_DIR/tmp` before a final conditional object write, so the deployment must preserve enough local temp space for in-flight uploads and must include conservative cleanup for abandoned temp files after crashes.
+
+Use HTTPS for S3-compatible endpoints unless the endpoint is reachable only on a
+local or private test network. Before storing real evidence, verify the selected
+provider honors conditional no-overwrite object writes by rejecting a second
+write to the same final key.
+
+Final object keys are derived by the server from stored chunk metadata and the optional safe prefix. Do not create proxy routes, dashboards, logs, or support workflows that expose raw object keys, bucket URLs, request bodies, uploaded bytes, plaintext, raw keys, raw viewer tokens, or private deployment details.
+
+## Optional PostgreSQL Metadata
+
+SQLite metadata remains the default. To use PostgreSQL for metadata in a new
+deployment, explicitly set `SAFE_METADATA_BACKEND=postgresql` and provide a
+PostgreSQL DSN:
+
+```bash
+SAFE_METADATA_BACKEND=postgresql \
+SAFE_POSTGRES_DSN='postgres://proofline:example-password@db.example.invalid:5432/proofline?sslmode=require' \
+SAFE_BLOB_BACKEND=local \
+SAFE_COORDINATION_BACKEND=none \
+go run ./cmd/api
+```
+
+Treat `SAFE_POSTGRES_DSN`, credentials, database hostnames, and private network
+details as secret-bearing deployment data. Do not place them in public issues,
+logs, dashboards, screenshots, or support tickets. PostgreSQL stores metadata
+only; encrypted chunk bytes still live in the configured blob backend.
+
+Initial PostgreSQL support is for new metadata deployments. The server does not
+automatically migrate existing SQLite metadata into PostgreSQL at startup. A
+SQLite-to-PostgreSQL migration should be a separate quiesced operation with
+metadata and encrypted blobs backed up and verified together.
+
+PostgreSQL does not add public `/v1` authentication, cluster-safe idempotency,
+cloud deployment automation, backend decryption, key escrow, or production
+readiness. Keep private `/v1` listeners behind localhost, LAN, WireGuard,
+firewall rules, or a strict private proxy.
+
+## Optional Valkey / Redis-Compatible Coordination
+
+No coordination backend is used by default. To connect to Valkey or another
+Redis-compatible service for short-lived coordination, explicitly set the
+coordination backend and connection settings:
+
+```bash
+SAFE_COORDINATION_BACKEND=valkey \
+SAFE_VALKEY_ADDR=valkey.example.invalid:6379 \
+SAFE_VALKEY_USERNAME=proofline \
+SAFE_VALKEY_PASSWORD=example-password \
+SAFE_VALKEY_TLS=true \
+go run ./cmd/api
+```
+
+The server checks the configured service during startup. If Valkey is
+configured but unavailable, startup fails closed instead of silently running
+with a misleading cluster configuration.
+
+Valkey coordination is not durable evidence storage and is not a backup source
+of truth. Incident metadata, viewer-token metadata, committed encrypted chunks,
+retention decisions, and deletion decisions remain in the metadata and blob
+backends. Current upload routes do not yet use coordination for upload leases,
+idempotency result caching, resumable uploads, or application-level rate
+limiting.
+
+Treat Valkey passwords, private hostnames, network topology, and future
+coordination keys as private deployment details. Do not expose them in public
+issues, logs, dashboards, screenshots, support tickets, or metrics labels.
+Valkey does not add public `/v1` authentication, cloud deployment automation,
+backend decryption, key escrow, or production readiness.
+
 ## Private API Through WireGuard Or A Private Network
 
 For a private API reachable from a WireGuard peer or private LAN, publish or bind `/v1` only on that private interface. This example uses `10.66.0.1` as a placeholder WireGuard interface address:
@@ -87,21 +238,66 @@ Reverse proxies should still set their own connection, request, and upstream tim
 
 ## Public Incident Viewer Exposure
 
-If exposing any part of the system publicly, expose only the incident viewer listener unless `/v1` has a separate authenticated control plane in front of it.
+If exposing any part of the current system publicly, expose only the incident
+viewer listener. Future non-admin product routes may become a public
+authenticated API only after satisfying the role, grant, audit, logging, and
+migration expectations in [v1-access-control.md](v1-access-control.md). Future
+admin/operator routes should remain on a separately bound private admin API
+listener and still authenticate operators.
 
-Production-style public exposure still needs:
+The checklist below is a deployment review aid. Completing it does not make
+Proofline production-ready public infrastructure, and it does not make `/v1`
+safe to expose publicly.
 
-- TLS at the edge
-- rate limiting and abuse controls
-- reverse-proxy log redaction for `/i/{token}` paths
-- private `/v1` access controls
-- deployment-specific retention, backup, and deletion enforcement based on [retention-backup-deletion.md](retention-backup-deletion.md)
-- operational monitoring and restore testing
-- review of viewer-token sharing, expiry defaults, and revocation workflows
+Before exposing the public incident viewer:
+
+- [ ] The public route group forwards only to the public incident viewer
+      listener, for example the listener configured by `SAFE_PUBLIC_BIND_ADDRS`.
+- [ ] No public reverse-proxy route, service, wildcard rule, or fallback reaches
+      the private `/v1` listener or a private API bind address.
+- [ ] TLS is terminated at the deployment edge for the public hostname.
+- [ ] HSTS is enabled at the HTTPS edge only after TLS is working reliably for
+      the public hostname.
+- [ ] Edge rate limiting covers viewer page lookup, viewer JSON polling, ZIP
+      download starts, and public static assets with route-appropriate limits.
+- [ ] Reverse-proxy logs, metrics, dashboards, and rate-limit keys avoid raw
+      `/i/{token}` paths, legacy `/e/{token}` paths, query strings attached to
+      viewer URLs, request bodies, uploaded bytes, Authorization headers,
+      plaintext, raw keys, and future token-like values.
+- [ ] Viewer-token sharing, default expiry, explicit no-expiry tokens, and
+      revocation workflows have been reviewed for this deployment.
+- [ ] Retention, backup, restore, and deletion expectations are documented for
+      this deployment and reviewed against
+      [retention-backup-deletion.md](retention-backup-deletion.md).
+- [ ] Cluster backup, restore, and failure handling has been reviewed against
+      [cluster-backup-restore-runbook.md](cluster-backup-restore-runbook.md)
+      when optional PostgreSQL, S3-compatible storage, or Valkey/Redis
+      coordination is configured.
+- [ ] Restore testing confirms SQLite or PostgreSQL metadata and encrypted
+      local blobs or S3 objects can be restored together without exposing `/v1`
+      publicly.
+- [ ] Monitoring and timeout settings cover public viewer errors, storage or
+      database failures, and long encrypted ZIP downloads without logging raw
+      tokens, request bodies, uploaded bytes, plaintext, raw keys, or private
+      deployment details.
 
 The Go app still has no built-in app-level rate limiter. Apply rate limits at the deployment edge for now, and tune them for the expected recording, polling, and download patterns.
 
-Future server-assisted break-glass, dead-man-switch key access, account access, or trusted-contact workflows would add stronger operator and deployment trust requirements. They should remain disabled unless explicitly designed and configured; see [break-glass-key-access.md](break-glass-key-access.md), [key-custody.md](key-custody.md), and [incident-modes.md](incident-modes.md).
+Future server-assisted break-glass, dead-man-switch key access, account access,
+or trusted-contact workflows would add stronger operator and deployment trust
+requirements. They should remain disabled unless explicitly designed and
+configured; see [v1-access-control.md](v1-access-control.md),
+[break-glass-key-access.md](break-glass-key-access.md),
+[key-custody.md](key-custody.md), and [incident-modes.md](incident-modes.md).
+
+Optional PostgreSQL metadata deployment remains experimental. Schema parity,
+migration tracking, transaction boundaries, configuration shape, integration
+test setup, and restore expectations are documented in
+[PostgreSQL metadata migration path](postgresql-metadata-migration.md).
+PostgreSQL and Valkey support must not be treated as production-cluster
+readiness until idempotency, operation-level coordination behavior,
+backup/restore drills, access-control, and operational hardening are also
+addressed.
 
 The Go app does not set `Strict-Transport-Security` by default because local development uses plain HTTP. Enable HSTS at the HTTPS reverse proxy only after TLS is working for the production hostname.
 

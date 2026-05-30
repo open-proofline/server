@@ -2,22 +2,26 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
 	"github.com/open-proofline/server/internal/config"
+	"github.com/open-proofline/server/internal/coordination"
 	"github.com/open-proofline/server/internal/db"
 	"github.com/open-proofline/server/internal/httpapi"
 	"github.com/open-proofline/server/internal/incidents"
+	"github.com/open-proofline/server/internal/postgresdb"
 	"github.com/open-proofline/server/internal/storage"
 )
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	if err := run(logger); err != nil {
-		logger.Error("server stopped", "err", err)
+		logStartupError(logger, err)
 		os.Exit(1)
 	}
 }
@@ -31,18 +35,26 @@ func run(logger *slog.Logger) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	conn, err := db.Open(ctx, cfg.DBPath)
+	coord, err := newCoordinator(cfg)
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer func() { _ = coord.Close() }()
+	if err := coord.Check(ctx); err != nil {
+		return err
+	}
 
-	blobStore, err := storage.New(cfg.DataDir)
+	repo, closeRepo, err := newMetadataRepository(ctx, cfg)
+	if err != nil {
+		return err
+	}
+	defer closeRepo()
+
+	blobStore, err := newBlobStore(cfg)
 	if err != nil {
 		return err
 	}
 
-	repo := incidents.NewRepository(conn)
 	apiOptions := httpapi.Options{
 		MaxUploadBytes:          cfg.MaxUploadBytes,
 		DefaultIncidentTokenTTL: &cfg.DefaultIncidentTokenTTL,
@@ -63,5 +75,65 @@ func run(logger *slog.Logger) error {
 	case err := <-errCh:
 		_ = shutdownServers(servers)
 		return err
+	}
+}
+
+func newCoordinator(cfg config.Config) (coordination.Coordinator, error) {
+	switch cfg.Backends.Coordination {
+	case config.CoordinationBackendNone:
+		return coordination.NewNone(), nil
+	case config.CoordinationBackendValkey, config.CoordinationBackendRedis:
+		return coordination.NewValkeyClient(coordination.ValkeyOptions{
+			Addr:         cfg.Valkey.Addr,
+			Username:     cfg.Valkey.Username,
+			Password:     cfg.Valkey.Password,
+			DB:           cfg.Valkey.DB,
+			UseTLS:       cfg.Valkey.UseTLS,
+			DialTimeout:  cfg.Valkey.DialTimeout,
+			ReadTimeout:  cfg.Valkey.ReadTimeout,
+			WriteTimeout: cfg.Valkey.WriteTimeout,
+		})
+	default:
+		return nil, fmt.Errorf("unsupported coordination backend %q", cfg.Backends.Coordination)
+	}
+}
+
+func newMetadataRepository(ctx context.Context, cfg config.Config) (httpapi.MetadataRepository, func(), error) {
+	switch cfg.Backends.Metadata {
+	case config.MetadataBackendSQLite:
+		conn, err := db.Open(ctx, cfg.DBPath)
+		if err != nil {
+			return nil, nil, err
+		}
+		return incidents.NewRepository(conn), func() { _ = conn.Close() }, nil
+	case config.MetadataBackendPostgres:
+		conn, err := postgresdb.Open(ctx, cfg.Postgres)
+		if err != nil {
+			return nil, nil, err
+		}
+		return postgresdb.NewRepository(conn), func() { _ = conn.Close() }, nil
+	default:
+		return nil, nil, fmt.Errorf("unsupported metadata backend %q", cfg.Backends.Metadata)
+	}
+}
+
+func newBlobStore(cfg config.Config) (storage.BlobStore, error) {
+	switch cfg.Backends.Blob {
+	case config.BlobBackendLocal:
+		return storage.New(cfg.DataDir)
+	case config.BlobBackendS3:
+		return storage.NewS3(storage.S3Options{
+			Endpoint:        cfg.S3Blob.Endpoint,
+			Region:          cfg.S3Blob.Region,
+			Bucket:          cfg.S3Blob.Bucket,
+			Prefix:          cfg.S3Blob.Prefix,
+			AccessKeyID:     cfg.S3Blob.AccessKeyID,
+			SecretAccessKey: cfg.S3Blob.SecretAccessKey,
+			SessionToken:    cfg.S3Blob.SessionToken,
+			ForcePathStyle:  cfg.S3Blob.ForcePathStyle,
+			TempDir:         filepath.Join(cfg.DataDir, "tmp"),
+		})
+	default:
+		return nil, fmt.Errorf("unsupported blob backend %q", cfg.Backends.Blob)
 	}
 }
