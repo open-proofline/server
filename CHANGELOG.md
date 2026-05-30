@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added local Docker Compose smoke-test stacks for SQLite/local,
+  PostgreSQL/local, SQLite/S3-compatible MinIO, and full
+  PostgreSQL/S3-compatible MinIO/Valkey backend combinations, plus a script
+  that runs the simulator against the containerized server.
 - Added a live partial stream access boundary design covering future role-scoped
   live access, open/failed stream exposure, partial manifests, no-store
   behavior, and key-custody dependencies without adding routes or decryption.
