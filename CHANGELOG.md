@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Added local username/password accounts for the private `/v1` API, using bcrypt
+  password hashes, opaque server-side session tokens stored only as hashes,
+  owner/admin incident authorization, admin account management routes, and a
+  fail-closed first-admin bootstrap secret flow.
+
 ## v0.8.0 - 2026-05-30
 
 - Added local Docker Compose smoke-test stacks for SQLite/local,

@@ -11,6 +11,7 @@ const (
 	defaultDBPath           = "./data/safety.db"
 	defaultMaxUploadBytes   = int64(250 * 1024 * 1024)
 	defaultIncidentTokenTTL = 24 * time.Hour
+	defaultSessionTTL       = 12 * time.Hour
 	// Leave room for the multipart envelope added by the HTTP upload handler
 	// so configured upload limits cannot overflow request-size arithmetic.
 	maxConfiguredUploadBytes = int64(1<<63 - 1 - 1024*1024)
@@ -38,6 +39,8 @@ type Config struct {
 	DBPath                  string
 	MaxUploadBytes          int64
 	DefaultIncidentTokenTTL time.Duration
+	SessionTTL              time.Duration
+	AuthBootstrapSecret     string
 	PrivateTimeouts         HTTPTimeouts
 	PublicTimeouts          HTTPTimeouts
 }
@@ -126,6 +129,10 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	sessionTTL, err := durationFromEnv("SAFE_SESSION_TTL", defaultSessionTTL)
+	if err != nil {
+		return Config{}, err
+	}
 
 	privateTimeouts, err := privateTimeoutsFromEnv()
 	if err != nil {
@@ -147,6 +154,8 @@ func Load() (Config, error) {
 		DBPath:                  envOrDefault("SAFE_DB_PATH", defaultDBPath),
 		MaxUploadBytes:          maxUploadBytes,
 		DefaultIncidentTokenTTL: incidentTokenTTL,
+		SessionTTL:              sessionTTL,
+		AuthBootstrapSecret:     secretFromEnv("SAFE_AUTH_BOOTSTRAP_SECRET"),
 		PrivateTimeouts:         privateTimeouts,
 		PublicTimeouts:          publicTimeouts,
 	}, nil

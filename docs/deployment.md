@@ -1,18 +1,17 @@
 # Deployment
 
-Proofline is experimental and not production-ready public infrastructure. Treat the private `/v1` API as unauthenticated admin/write access.
+Proofline is experimental and not production-ready public infrastructure. Treat the private `/v1` API as an authenticated but still private admin/write control plane.
 
 > **Do not expose `/v1` publicly as-is.**
 >
 > Keep private listeners behind localhost, LAN, WireGuard, firewall rules, or a strict reverse proxy. Separate bind addresses are a deployment boundary, not a complete security model.
 
-The future `/v1` access-control direction is documented in
-[v1-access-control.md](v1-access-control.md). That document is planning-only
-and does not change the current deployment rule: unauthenticated `/v1` routes
-must remain private. Future admin/operator routes should use their own private
-listener that can be bound to loopback, LAN, WireGuard, VPN, firewall, or a
-private reverse proxy, but that private placement must not replace admin
-authentication.
+The `/v1` access-control direction is documented in
+[v1-access-control.md](v1-access-control.md). Current local account sessions
+do not change the deployment rule: `/v1` routes must remain private. Future
+admin/operator routes should use their own private listener that can be bound
+to loopback, LAN, WireGuard, VPN, firewall, or a private reverse proxy, but
+that private placement must not replace admin authentication.
 
 The current module and artifact names use the `open-proofline/server` repository namespace. The published GHCR image is `ghcr.io/open-proofline/server`, local examples use the `proofline-server` image name, and release binaries use `proofline-server-*` names. Compatibility identifiers such as the v1 encryption envelope scheme and default SQLite filename may still use earlier `safety-recorder` names until separate protocol or data-layout migrations are explicitly performed.
 
@@ -21,6 +20,7 @@ The current module and artifact names use the `open-proofline/server` repository
 From the repository root:
 
 ```bash
+SAFE_AUTH_BOOTSTRAP_SECRET='replace-with-local-bootstrap-secret' \
 go run ./cmd/api
 ```
 
@@ -30,6 +30,21 @@ Defaults:
 |---|---|
 | Private API | `127.0.0.1:8080` |
 | Public incident viewer | `127.0.0.1:8081` |
+
+The server fails closed until an admin account exists. For a new local
+database, create the first admin while `SAFE_AUTH_BOOTSTRAP_SECRET` is set:
+
+```bash
+curl -sS -X POST http://127.0.0.1:8080/v1/bootstrap/admin \
+  -H 'Content-Type: application/json' \
+  -H 'X-Proofline-Bootstrap-Secret: replace-with-local-bootstrap-secret' \
+  -d '{"username":"admin","password":"replace-with-a-long-local-password"}'
+```
+
+After bootstrap, remove `SAFE_AUTH_BOOTSTRAP_SECRET` and restart. The
+bootstrap route is disabled after an admin account exists. Treat the bootstrap
+secret, account passwords, raw session tokens, and Authorization headers as
+secrets.
 
 ## Docker
 
@@ -43,11 +58,15 @@ Run with localhost-only port publishing when everything that talks to the backen
 
 ```bash
 docker run --rm \
+  -e SAFE_AUTH_BOOTSTRAP_SECRET='replace-with-local-bootstrap-secret' \
   -p 127.0.0.1:8080:8080 \
   -p 127.0.0.1:8081:8081 \
   -v proofline-server-data:/data \
   proofline-server
 ```
+
+Create the first admin account through `POST /v1/bootstrap/admin`, then restart
+without `SAFE_AUTH_BOOTSTRAP_SECRET`.
 
 In this shape both listeners are reachable only through the host loopback interface. It is useful for local testing, SSH port forwarding, or a same-host reverse proxy. It does not expose the private `/v1` API or the incident viewer directly to the network.
 
@@ -136,7 +155,7 @@ go run ./cmd/api
 
 The S3 backend requires `SAFE_S3_ACCESS_KEY_ID` and `SAFE_S3_SECRET_ACCESS_KEY`. `SAFE_S3_SESSION_TOKEN` is optional. Treat static credentials, bucket names, private endpoints, and deployment-specific prefixes as private deployment details.
 
-S3-compatible storage stores opaque encrypted chunk bytes only. It does not add backend decryption, key escrow, public `/v1` authentication, cloud deployment automation, or production readiness. Uploads still stage local temp files under `SAFE_DATA_DIR/tmp` before a final conditional object write, so the deployment must preserve enough local temp space for in-flight uploads and must include conservative cleanup for abandoned temp files after crashes.
+S3-compatible storage stores opaque encrypted chunk bytes only. It does not add backend decryption, key escrow, public `/v1` exposure, public account workflows, cloud deployment automation, or production readiness. Uploads still stage local temp files under `SAFE_DATA_DIR/tmp` before a final conditional object write, so the deployment must preserve enough local temp space for in-flight uploads and must include conservative cleanup for abandoned temp files after crashes.
 
 Use HTTPS for S3-compatible endpoints unless the endpoint is reachable only on a
 local or private test network. Before storing real evidence, verify the selected
@@ -169,10 +188,10 @@ automatically migrate existing SQLite metadata into PostgreSQL at startup. A
 SQLite-to-PostgreSQL migration should be a separate quiesced operation with
 metadata and encrypted blobs backed up and verified together.
 
-PostgreSQL does not add public `/v1` authentication, cluster-safe idempotency,
-cloud deployment automation, backend decryption, key escrow, or production
-readiness. Keep private `/v1` listeners behind localhost, LAN, WireGuard,
-firewall rules, or a strict private proxy.
+PostgreSQL does not add public `/v1` exposure, public account workflows,
+cluster-safe idempotency, cloud deployment automation, backend decryption, key
+escrow, or production readiness. Keep private `/v1` listeners behind localhost,
+LAN, WireGuard, firewall rules, or a strict private proxy.
 
 ## Optional Valkey / Redis-Compatible Coordination
 
@@ -203,8 +222,8 @@ limiting.
 Treat Valkey passwords, private hostnames, network topology, and future
 coordination keys as private deployment details. Do not expose them in public
 issues, logs, dashboards, screenshots, support tickets, or metrics labels.
-Valkey does not add public `/v1` authentication, cloud deployment automation,
-backend decryption, key escrow, or production readiness.
+Valkey does not add public `/v1` exposure, public account workflows, cloud
+deployment automation, backend decryption, key escrow, or production readiness.
 
 ## Private API Through WireGuard Or A Private Network
 
@@ -212,6 +231,7 @@ For a private API reachable from a WireGuard peer or private LAN, publish or bin
 
 ```bash
 docker run --rm \
+  -e SAFE_AUTH_BOOTSTRAP_SECRET='replace-with-local-bootstrap-secret' \
   -p 10.66.0.1:8080:8080 \
   -p 127.0.0.1:8081:8081 \
   -v proofline-server-data:/data \
@@ -228,7 +248,7 @@ SAFE_PUBLIC_BIND_ADDRS=127.0.0.1:8081 \
 go run ./cmd/api
 ```
 
-This does not add authentication to `/v1`; it only chooses where the unauthenticated private API listens.
+This keeps authenticated `/v1` routes on a private network boundary. Local account sessions reduce accidental unauthenticated access, but they do not make `/v1` suitable for public exposure.
 
 ## Timeout Tuning
 
@@ -283,10 +303,10 @@ Before exposing the public incident viewer:
 
 The Go app still has no built-in app-level rate limiter. Apply rate limits at the deployment edge for now, and tune them for the expected recording, polling, and download patterns.
 
-Future server-assisted break-glass, dead-man-switch key access, account access,
-or trusted-contact workflows would add stronger operator and deployment trust
-requirements. They should remain disabled unless explicitly designed and
-configured; see [v1-access-control.md](v1-access-control.md),
+Future server-assisted break-glass, dead-man-switch key access, public account
+workflows, or trusted-contact workflows would add stronger operator and
+deployment trust requirements. They should remain disabled unless explicitly
+designed and configured; see [v1-access-control.md](v1-access-control.md),
 [break-glass-key-access.md](break-glass-key-access.md),
 [key-custody.md](key-custody.md), and [incident-modes.md](incident-modes.md).
 
@@ -315,6 +335,7 @@ One same-host shape is:
 
 ```bash
 docker run --rm \
+  -e SAFE_AUTH_BOOTSTRAP_SECRET='replace-with-local-bootstrap-secret' \
   -p 127.0.0.1:8080:8080 \
   -p 127.0.0.1:8081:8081 \
   -v proofline-server-data:/data \
@@ -399,7 +420,7 @@ Suggested route groups:
 | Viewer ZIP downloads | `GET /i/{token}/streams/{stream_id}/download`, `GET /i/{token}/incident/download` | Limit download starts without cutting off long encrypted ZIP responses; coordinate with proxy and app timeouts. |
 | Public static assets | `GET /static/...` | Static assets are token-neutral and can usually tolerate a looser limit. |
 | Private chunk uploads | `POST /v1/incidents/{incident_id}/chunks` | If routed through a private proxy, tune for expected chunk cadence and upload retries. |
-| Private incident, stream, check-in, token, and admin-style actions | Other `/v1/...` routes | Keep behind a private boundary and use limits as an abuse backstop, not as public authentication. |
+| Private incident, stream, check-in, token, and admin-style actions | Other `/v1/...` routes | Keep behind a private boundary and use limits as an abuse backstop, not as the only security control. |
 
 Rate limiting does not make `/v1` safe to expose publicly. Keep the private API on localhost, LAN, WireGuard, firewall rules, or a private reverse-proxy entry point even when limits are configured.
 

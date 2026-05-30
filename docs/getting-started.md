@@ -14,6 +14,7 @@ This guide starts the Proofline backend locally and runs the simulator against i
 From the repository root:
 
 ```bash
+SAFE_AUTH_BOOTSTRAP_SECRET='replace-with-local-bootstrap-secret' \
 go run ./cmd/api
 ```
 
@@ -38,16 +39,31 @@ The database file name still uses `safety.db` until a separate artifact/data-lay
 
 Uploads are staged in `tmp/`, hashed while streaming, and then hard-linked into the final incident path without overwriting existing chunk files. Streamed uploads use the stream-scoped path; the incident-level path remains for legacy unstreamed chunks.
 
+For a new local database, create the first admin account before running the
+simulator:
+
+```bash
+curl -sS -X POST http://127.0.0.1:8080/v1/bootstrap/admin \
+  -H 'Content-Type: application/json' \
+  -H 'X-Proofline-Bootstrap-Secret: replace-with-local-bootstrap-secret' \
+  -d '{"username":"admin","password":"replace-with-a-long-local-password"}'
+```
+
+Then restart the server without `SAFE_AUTH_BOOTSTRAP_SECRET`.
+
 ## Run The Simulator
 
 In another terminal from the repository root:
 
 ```bash
+PROOFLINE_SIM_USERNAME=admin \
+PROOFLINE_SIM_PASSWORD='replace-with-a-long-local-password' \
 go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle
 ```
 
 The simulator:
 
+- logs in with a local account session
 - creates an incident
 - creates an incident viewer token using the current incident-token route
 - creates an audio media stream

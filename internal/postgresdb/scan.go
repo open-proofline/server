@@ -13,13 +13,17 @@ type scanner interface {
 
 func scanIncident(s scanner) (incidents.Incident, error) {
 	var incident incidents.Incident
+	var ownerAccountID sql.NullString
 	var clientLabel sql.NullString
 	var notes sql.NullString
-	if err := s.Scan(&incident.ID, &incident.CreatedAt, &incident.UpdatedAt, &incident.Status, &clientLabel, &notes); err != nil {
+	if err := s.Scan(&incident.ID, &ownerAccountID, &incident.CreatedAt, &incident.UpdatedAt, &incident.Status, &clientLabel, &notes); err != nil {
 		return incidents.Incident{}, err
 	}
 	incident.CreatedAt = incident.CreatedAt.UTC()
 	incident.UpdatedAt = incident.UpdatedAt.UTC()
+	if ownerAccountID.Valid {
+		incident.OwnerAccountID = ownerAccountID.String
+	}
 	if clientLabel.Valid {
 		incident.ClientLabel = clientLabel.String
 	}

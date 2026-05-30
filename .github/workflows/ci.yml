@@ -89,6 +89,7 @@ jobs:
         env:
           SAFE_PRIVATE_BIND_ADDRS: 127.0.0.1:18080
           SAFE_PUBLIC_BIND_ADDRS: 127.0.0.1:18081
+          SAFE_AUTH_BOOTSTRAP_SECRET: ci-smoke-bootstrap-secret
         run: |
           set -euo pipefail
 
@@ -249,6 +250,7 @@ jobs:
           trap cleanup EXIT
 
           container_id="$(docker run --detach \
+            --env SAFE_AUTH_BOOTSTRAP_SECRET=ci-smoke-bootstrap-secret \
             --publish 127.0.0.1:18082:8080 \
             --publish 127.0.0.1:18083:8081 \
             --volume "$volume_name:/data" \

@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/open-proofline/server/internal/auth"
 	"github.com/open-proofline/server/internal/incidents"
 )
 
@@ -12,7 +13,7 @@ import (
 // support must preserve token hashing, duplicate guards, state checks, and
 // stream completion validation.
 type MetadataRepository interface {
-	CreateIncident(ctx context.Context, clientLabel, notes string) (incidents.Incident, error)
+	CreateIncidentForAccount(ctx context.Context, accountID, clientLabel, notes string) (incidents.Incident, error)
 	GetIncident(ctx context.Context, id string) (incidents.Incident, error)
 	GetIncidentDetail(ctx context.Context, id string) (incidents.IncidentDetail, error)
 	CloseIncident(ctx context.Context, id string) (incidents.Incident, error)
@@ -33,8 +34,21 @@ type MetadataRepository interface {
 	FailMediaStream(ctx context.Context, incidentID, streamID, reason string) (incidents.MediaStream, error)
 
 	CreateIncidentToken(ctx context.Context, incidentID, label string, expiresAt *time.Time) (incidents.IncidentToken, string, error)
+	GetIncidentToken(ctx context.Context, tokenID string) (incidents.IncidentToken, error)
 	LookupIncidentToken(ctx context.Context, rawToken string) (incidents.IncidentToken, error)
 	RevokeIncidentToken(ctx context.Context, tokenID string) error
+
+	HasAccounts(ctx context.Context) (bool, error)
+	HasAdminAccount(ctx context.Context) (bool, error)
+	CreateAccount(ctx context.Context, params auth.CreateAccountParams) (auth.Account, error)
+	GetAccountByUsername(ctx context.Context, username string) (auth.Account, error)
+	GetAccountByID(ctx context.Context, accountID string) (auth.Account, error)
+	ListAccounts(ctx context.Context) ([]auth.Account, error)
+	UpdateAccountPassword(ctx context.Context, accountID, passwordHash string) (auth.Account, error)
+	CreateSession(ctx context.Context, accountID string, expiresAt time.Time) (auth.Session, string, error)
+	LookupSession(ctx context.Context, rawToken string) (auth.Session, error)
+	RevokeSession(ctx context.Context, sessionID string) error
+	RevokeAccountSessions(ctx context.Context, accountID, exceptSessionID string) (int64, error)
 }
 
 var _ MetadataRepository = (*incidents.Repository)(nil)

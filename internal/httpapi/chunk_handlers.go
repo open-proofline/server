@@ -19,13 +19,8 @@ const rollbackBlobRemoveTimeout = 30 * time.Second
 
 func (a *API) uploadChunk(w http.ResponseWriter, r *http.Request) {
 	incidentID := r.PathValue("incident_id")
-	incident, err := a.repo.GetIncident(r.Context(), incidentID)
-	if errors.Is(err, incidents.ErrNotFound) {
-		writeError(w, http.StatusNotFound, "incident_not_found", "incident was not found")
-		return
-	}
-	if err != nil {
-		a.internalError(w, "get incident", err)
+	incident, ok := a.authorizeIncident(w, r, incidentID, actionWriteIncident, dataClassCiphertext)
+	if !ok {
 		return
 	}
 	if incident.Status == incidents.StatusClosed {
@@ -128,6 +123,9 @@ func (a *API) listChunks(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) getChunkBytes(w http.ResponseWriter, r *http.Request) {
 	incidentID := r.PathValue("incident_id")
+	if _, ok := a.authorizeIncident(w, r, incidentID, actionReadCiphertextBundle, dataClassCiphertext); !ok {
+		return
+	}
 	mediaType := r.PathValue("media_type")
 	if !incidents.ValidMediaType(mediaType) {
 		writeError(w, http.StatusBadRequest, "invalid_media_type", "media_type must be audio, video, location, or metadata")

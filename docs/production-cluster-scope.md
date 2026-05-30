@@ -4,8 +4,9 @@ This document records the production-cluster expansion path for Proofline Server
 
 It is a planning and scope document for cluster-related work. Optional
 PostgreSQL metadata, optional S3-compatible object storage, and optional
-Valkey/Redis-compatible coordination startup checks are implemented, but public
-`/v1` authentication, account management, cloud deployment automation,
+Valkey/Redis-compatible coordination startup checks, and local `/v1`
+account/session authentication are implemented, but public product API
+authentication, public account workflows, cloud deployment automation,
 production hardening, and upload-operation use of coordination are not
 implemented.
 
@@ -20,7 +21,7 @@ The current backend remains local-first and experimental:
 - No coordination backend remains the default; Valkey/Redis-compatible
   coordination is available only when explicitly configured.
 - The simulator and local development flow remain supported.
-- The private `/v1` API remains private and unauthenticated.
+- The private `/v1` API remains private and requires local account sessions.
 - The public incident viewer remains token-gated and read-only.
 - The backend stores ciphertext only and does not decrypt chunks.
 
@@ -71,8 +72,10 @@ PostgreSQL stores:
 - chunk metadata
 - checkins
 - viewer-token metadata
+- local account and session metadata
 - future retention/deletion state, after that design exists
-- future account and access-control metadata, after that design exists
+- future trusted-contact, device, and broader access-control metadata, after
+  that design exists
 - upload operation and idempotency state when cluster uploads are implemented
 
 PostgreSQL support includes:
@@ -170,8 +173,9 @@ A successful chunk upload should mean encrypted bytes are durably committed outs
 This scope expansion does not by itself add:
 
 - public exposure of the current private `/v1` API
-- public account management
-- OAuth, JWT, sessions, or user accounts
+- public account workflows
+- OAuth, JWT, public account portal, trusted-contact accounts, or external
+  identity integration
 - web, iOS, Android, or shared protocol implementation in this repository
 - backend decryption
 - raw server-held media keys

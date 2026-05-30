@@ -8,6 +8,12 @@ import (
 )
 
 func (a *API) createIncident(w http.ResponseWriter, r *http.Request) {
+	principal, ok := principalFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "authentication is required")
+		return
+	}
+
 	var request struct {
 		ClientLabel string `json:"client_label"`
 		Notes       string `json:"notes"`
@@ -16,7 +22,7 @@ func (a *API) createIncident(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	incident, err := a.repo.CreateIncident(r.Context(), request.ClientLabel, request.Notes)
+	incident, err := a.repo.CreateIncidentForAccount(r.Context(), principal.Account.ID, request.ClientLabel, request.Notes)
 	if err != nil {
 		a.internalError(w, "create incident", err)
 		return
@@ -29,6 +35,9 @@ func (a *API) createIncident(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) getIncident(w http.ResponseWriter, r *http.Request) {
+	if _, ok := a.authorizeIncident(w, r, r.PathValue("incident_id"), actionReadIncident, dataClassIncidentMetadata); !ok {
+		return
+	}
 	detail, err := a.repo.GetIncidentDetail(r.Context(), r.PathValue("incident_id"))
 	if errors.Is(err, incidents.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "incident_not_found", "incident was not found")
@@ -44,7 +53,7 @@ func (a *API) getIncident(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) createCheckin(w http.ResponseWriter, r *http.Request) {
 	incidentID := r.PathValue("incident_id")
-	if !a.ensureIncidentExists(w, r, incidentID) {
+	if _, ok := a.authorizeIncident(w, r, incidentID, actionWriteIncident, dataClassIncidentMetadata); !ok {
 		return
 	}
 
@@ -79,6 +88,9 @@ func (a *API) createCheckin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) closeIncident(w http.ResponseWriter, r *http.Request) {
+	if _, ok := a.authorizeIncident(w, r, r.PathValue("incident_id"), actionWriteIncident, dataClassIncidentMetadata); !ok {
+		return
+	}
 	incident, err := a.repo.CloseIncident(r.Context(), r.PathValue("incident_id"))
 	if errors.Is(err, incidents.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "incident_not_found", "incident was not found")

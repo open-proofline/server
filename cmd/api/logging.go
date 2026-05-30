@@ -37,6 +37,8 @@ func safeStartupErrorCategory(err error) string {
 		return "already_exists"
 	case errors.Is(err, coordination.ErrUnavailable):
 		return "coordination_unavailable"
+	case errors.Is(err, errAuthBootstrapRequired):
+		return "auth_bootstrap_required"
 	case errors.Is(err, os.ErrNotExist):
 		return "not_found"
 	case errors.Is(err, os.ErrExist):
@@ -71,6 +73,9 @@ func safeStartupErrorCategory(err error) string {
 }
 
 func safeStartupErrorDetail(err error) string {
+	if errors.Is(err, errAuthBootstrapRequired) {
+		return "create an admin account with SAFE_AUTH_BOOTSTRAP_SECRET before serving authenticated /v1 routes"
+	}
 	var unsupportedBackendErr config.UnsupportedBackendError
 	if errors.As(err, &unsupportedBackendErr) {
 		return unsupportedBackendErr.Error()

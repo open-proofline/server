@@ -49,6 +49,9 @@ func run(logger *slog.Logger) error {
 		return err
 	}
 	defer closeRepo()
+	if err := checkAuthBootstrap(ctx, repo, cfg); err != nil {
+		return err
+	}
 
 	blobStore, err := newBlobStore(cfg)
 	if err != nil {
@@ -58,6 +61,8 @@ func run(logger *slog.Logger) error {
 	apiOptions := httpapi.Options{
 		MaxUploadBytes:          cfg.MaxUploadBytes,
 		DefaultIncidentTokenTTL: &cfg.DefaultIncidentTokenTTL,
+		SessionTTL:              cfg.SessionTTL,
+		BootstrapSecret:         cfg.AuthBootstrapSecret,
 		Logger:                  logger,
 	}
 	privateHandler := httpapi.NewPrivate(repo, blobStore, apiOptions)

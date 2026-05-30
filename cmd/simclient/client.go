@@ -15,14 +15,19 @@ import (
 )
 
 type client struct {
-	httpClient *http.Client
-	apiBase    string
-	viewerBase string
+	httpClient   *http.Client
+	apiBase      string
+	viewerBase   string
+	sessionToken string
 }
 
 type createIncidentResponse struct {
 	IncidentID string `json:"incident_id"`
 	Status     string `json:"status"`
+}
+
+type loginResponse struct {
+	Token string `json:"token"`
 }
 
 type createIncidentTokenResponse struct {
@@ -74,6 +79,21 @@ func (c client) createIncident(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("create incident: empty incident_id in response")
 	}
 	return response.IncidentID, nil
+}
+
+func (c client) login(ctx context.Context, username, password string) (string, error) {
+	request := map[string]string{
+		"username": username,
+		"password": password,
+	}
+	var response loginResponse
+	if err := c.postJSON(ctx, "/v1/auth/login", request, http.StatusCreated, &response); err != nil {
+		return "", fmt.Errorf("login: %w", err)
+	}
+	if response.Token == "" {
+		return "", fmt.Errorf("login: empty token in response")
+	}
+	return response.Token, nil
 }
 
 func (c client) createIncidentToken(ctx context.Context, incidentID string) (string, error) {
@@ -161,7 +181,7 @@ func (c client) downloadStreamBundle(ctx context.Context, token, streamID string
 		if readErr != nil {
 			return nil, readErr
 		}
-		return nil, fmt.Errorf("download bundle: expected status %d, got %d: %s", http.StatusOK, response.StatusCode, strings.TrimSpace(string(responseBody)))
+		return nil, fmt.Errorf("download bundle: %w", statusError(http.StatusOK, response.StatusCode, responseBody))
 	}
 	if response.Header.Get("Content-Type") != "application/zip" {
 		return nil, fmt.Errorf("download bundle: expected application/zip, got %q", response.Header.Get("Content-Type"))
@@ -179,7 +199,7 @@ func (c client) uploadChunk(ctx context.Context, upload chunkUpload) error {
 		return err
 	}
 	if status != http.StatusCreated {
-		return fmt.Errorf("upload chunk: expected status %d, got %d: %s", http.StatusCreated, status, strings.TrimSpace(string(body)))
+		return fmt.Errorf("upload chunk: %w", statusError(http.StatusCreated, status, body))
 	}
 	return nil
 }
@@ -190,11 +210,11 @@ func (c client) expectHashMismatch(ctx context.Context, upload chunkUpload) erro
 		return err
 	}
 	if status != http.StatusBadRequest {
-		return fmt.Errorf("expected hash mismatch status %d, got %d: %s", http.StatusBadRequest, status, strings.TrimSpace(string(body)))
+		return fmt.Errorf("expected hash mismatch: %w", statusError(http.StatusBadRequest, status, body))
 	}
 	code := errorCode(body)
 	if code != "hash_mismatch" {
-		return fmt.Errorf("expected hash_mismatch error code, got %q: %s", code, strings.TrimSpace(string(body)))
+		return fmt.Errorf("expected hash_mismatch error code, got %q: %s", code, responseErrorSummary(body))
 	}
 	return nil
 }
@@ -209,6 +229,7 @@ func (c client) postJSON(ctx context.Context, path string, payload any, wantStat
 		return err
 	}
 	request.Header.Set("Content-Type", "application/json")
+	c.authorize(request)
 
 	response, err := c.httpClient.Do(request)
 	if err != nil {
@@ -221,7 +242,7 @@ func (c client) postJSON(ctx context.Context, path string, payload any, wantStat
 		return err
 	}
 	if response.StatusCode != wantStatus {
-		return fmt.Errorf("expected status %d, got %d: %s", wantStatus, response.StatusCode, strings.TrimSpace(string(responseBody)))
+		return statusError(wantStatus, response.StatusCode, responseBody)
 	}
 	if target == nil {
 		return nil
@@ -269,6 +290,7 @@ func (c client) postChunk(ctx context.Context, upload chunkUpload) (int, []byte,
 		return 0, nil, err
 	}
 	request.Header.Set("Content-Type", writer.FormDataContentType())
+	c.authorize(request)
 
 	response, err := c.httpClient.Do(request)
 	if err != nil {
@@ -283,10 +305,44 @@ func (c client) postChunk(ctx context.Context, upload chunkUpload) (int, []byte,
 	return response.StatusCode, responseBody, nil
 }
 
+func (c client) authorize(request *http.Request) {
+	if c.sessionToken != "" {
+		request.Header.Set("Authorization", "Bearer "+c.sessionToken)
+	}
+}
+
 func errorCode(body []byte) string {
 	var apiError apiErrorResponse
 	if err := json.Unmarshal(body, &apiError); err != nil {
 		return ""
 	}
 	return apiError.Error.Code
+}
+
+func statusError(wantStatus, gotStatus int, body []byte) error {
+	summary := responseErrorSummary(body)
+	if summary == "" {
+		return fmt.Errorf("expected status %d, got %d", wantStatus, gotStatus)
+	}
+	return fmt.Errorf("expected status %d, got %d: %s", wantStatus, gotStatus, summary)
+}
+
+func responseErrorSummary(body []byte) string {
+	var apiError apiErrorResponse
+	if err := json.Unmarshal(body, &apiError); err == nil {
+		code := strings.TrimSpace(apiError.Error.Code)
+		message := strings.TrimSpace(apiError.Error.Message)
+		switch {
+		case code != "" && message != "":
+			return code + ": " + message
+		case code != "":
+			return code
+		case message != "":
+			return message
+		}
+	}
+	if len(bytes.TrimSpace(body)) == 0 {
+		return "empty response body"
+	}
+	return "response body omitted"
 }

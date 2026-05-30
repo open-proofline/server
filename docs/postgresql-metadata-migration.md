@@ -3,8 +3,8 @@
 This document records the PostgreSQL metadata backend path for Proofline
 Server. PostgreSQL metadata is implemented as an optional backend for new
 deployments. This does not change the current SQLite default, change blob
-storage, expose `/v1` publicly, add account management, or change the backend
-ciphertext-only encryption posture.
+storage, expose `/v1` publicly, add public account workflows, or change the
+backend ciphertext-only encryption posture.
 
 SQLite metadata and local encrypted blob storage remain supported. Optional
 S3-compatible encrypted blob storage is implemented separately from this
@@ -29,8 +29,9 @@ new deployments that need a database suitable for later multi-node work.
 - No PostgreSQL requirement for local development or simulator flows.
 - No changes to S3-compatible blob storage and no operation-level
   Valkey/Redis-compatible coordination behavior.
-- No public `/v1` exposure, user accounts, OAuth, JWT, public admin dashboard,
-  cloud deployment automation, Docker Compose, Kubernetes, or Terraform.
+- No public `/v1` exposure, public account workflows, OAuth, JWT, public admin
+  dashboard, cloud deployment automation, Docker Compose, Kubernetes, or
+  Terraform.
 - No backend decryption, raw server-held media keys, key escrow, browser
   decryption, or playable media export.
 
@@ -62,6 +63,7 @@ must not be copied into PostgreSQL to imply that SQLite migrations ran there.
 | `status` | `TEXT NOT NULL CHECK (status IN ('open', 'closed'))` | same status values with a `CHECK` constraint |
 | `client_label` | nullable `TEXT` | nullable `TEXT` |
 | `notes` | nullable `TEXT` | nullable `TEXT` |
+| `owner_account_id` | nullable `TEXT REFERENCES accounts(id) ON DELETE SET NULL` | same foreign key, added by the account/session migration |
 
 Use `CHECK` constraints rather than PostgreSQL enum types at first. That keeps
 future status additions ordinary migrations and mirrors the SQLite behavior.
@@ -159,6 +161,46 @@ Indexes:
 
 Do not add new location validation casually. The current API and tests define
 what is accepted today.
+
+### `accounts`
+
+| Column | Current SQLite constraint | PostgreSQL expectation |
+|---|---|---|
+| `id` | `TEXT PRIMARY KEY` | `TEXT PRIMARY KEY`; keep current prefixed IDs |
+| `username` | `TEXT NOT NULL UNIQUE` | same uniqueness; usernames are normalized by application code |
+| `password_hash` | `TEXT NOT NULL` | same; stores bcrypt password hashes only |
+| `role` | `TEXT NOT NULL CHECK (role IN ('user', 'admin'))` | same role values with a `CHECK` constraint |
+| `created_at` | `TEXT NOT NULL` | `TIMESTAMPTZ NOT NULL`, normalized to UTC |
+| `updated_at` | `TEXT NOT NULL` | `TIMESTAMPTZ NOT NULL`, normalized to UTC |
+| `password_changed_at` | `TEXT NOT NULL` | `TIMESTAMPTZ NOT NULL`, normalized to UTC |
+
+Indexes:
+
+- `accounts(username)`
+- `accounts(role)`
+
+The raw account password must never be stored. Both metadata backends store only
+the bcrypt password hash returned by the auth package.
+
+### `auth_sessions`
+
+| Column | Current SQLite constraint | PostgreSQL expectation |
+|---|---|---|
+| `id` | `TEXT PRIMARY KEY` | `TEXT PRIMARY KEY`; keep current prefixed IDs |
+| `account_id` | `TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE` | same foreign key |
+| `token_hash` | `TEXT NOT NULL UNIQUE`, lowercase 64-character SHA-256 hex `CHECK` | same uniqueness and `CHECK (token_hash ~ '^[0-9a-f]{64}$')` |
+| `created_at` | `TEXT NOT NULL` | `TIMESTAMPTZ NOT NULL`, normalized to UTC |
+| `expires_at` | `TEXT NOT NULL` | `TIMESTAMPTZ NOT NULL`, normalized to UTC |
+| `revoked_at` | nullable `TEXT` | nullable `TIMESTAMPTZ` |
+
+Indexes:
+
+- `auth_sessions(account_id)`
+- `auth_sessions(token_hash)`
+- `auth_sessions(expires_at)`
+
+The raw session token must never be stored. PostgreSQL receives only the
+SHA-256 token hash, just like SQLite.
 
 ### `incident_tokens`
 
@@ -314,9 +356,32 @@ Cluster-safe upload operation and idempotency semantics are planned separately
 in [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md) before
 multi-node production deployment.
 
-### Token Creation, Lookup, And Revocation
+### Session And Token Creation, Lookup, And Revocation
 
-Token creation:
+Account session creation:
+
+- generate the raw session token in application code using `crypto/rand`
+- hash the raw token before database insertion
+- insert only the hash and session metadata
+- return the raw token only in the login response after successful commit
+- never log the raw token, Authorization header, account password, password
+  hash, or database connection string
+
+Session lookup:
+
+- hash the presented raw token in application code
+- look up by token hash
+- keep the constant-time equality check before accepting the session
+- reject invalid, expired, and revoked sessions with the same authentication
+  failure behavior
+
+Session revocation:
+
+- set `revoked_at` for logout, account password changes, admin password resets,
+  and admin session-revocation actions
+- do not delete session rows as part of ordinary revocation
+
+Incident viewer token creation:
 
 - generate the raw token in application code using `crypto/rand`
 - hash the raw token before database insertion
@@ -324,14 +389,14 @@ Token creation:
 - return the raw token only after successful commit
 - never log the raw token or database connection string
 
-Lookup:
+Incident viewer token lookup:
 
 - hash the presented raw token in application code
 - look up by token hash
 - keep the constant-time equality check before accepting the token
 - reject invalid, expired, and revoked tokens with the same public behavior
 
-Revocation:
+Incident viewer token revocation:
 
 - update `revoked_at` only when the token exists and is not already revoked
 - preserve the current not-found behavior when no row changes
@@ -385,15 +450,18 @@ A future migration runbook or tool should:
 2. back up SQLite metadata and encrypted blobs together
 3. apply all current SQLite migrations
 4. create an empty PostgreSQL database and apply PostgreSQL migrations
-5. copy `incidents`
-6. copy `media_streams`
-7. copy `chunks`, preserving `stored_path` values exactly
-8. copy `checkins`
-9. copy `incident_tokens`, preserving hashes and expiry/revocation metadata
-10. verify row counts and critical uniqueness constraints
-11. verify completed stream and incident bundle generation in an isolated
+5. copy `accounts`
+6. copy `incidents`, preserving `owner_account_id`
+7. copy `media_streams`
+8. copy `chunks`, preserving `stored_path` values exactly
+9. copy `checkins`
+10. copy `auth_sessions`, preserving token hashes and expiry/revocation
+    metadata if session migration is deliberately supported
+11. copy `incident_tokens`, preserving hashes and expiry/revocation metadata
+12. verify row counts and critical uniqueness constraints
+13. verify completed stream and incident bundle generation in an isolated
     private restore environment
-12. switch configuration only after verification
+14. switch configuration only after verification
 
 The migration must not decrypt chunks, rewrite encrypted blobs, expose
 filesystem paths to clients, or attempt to recover raw incident tokens.
@@ -485,7 +553,8 @@ Behavior that must be backend-parity behavior:
 - stream completion validation
 - chunk duplicate identity
 - legacy unstreamed chunk compatibility
-- token hashing, expiry, and revocation
+- password hashing, session-token hashing, expiry, and revocation
+- incident-token hashing, expiry, and revocation
 - no raw token logging or storage
 - no stored path exposure in public responses
 - encrypted ZIP bundle reconstruction from completed streams
@@ -531,4 +600,4 @@ PostgreSQL implementation status and remaining work:
 
 Each step should be small and reviewable. Do not bundle PostgreSQL support with
 S3-compatible blob storage, operation-level Valkey/Redis-compatible
-coordination behavior, public account access, or key custody work.
+coordination behavior, public account workflows, or key custody work.

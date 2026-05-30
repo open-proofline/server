@@ -29,12 +29,13 @@ const (
 
 // Incident is the top-level recording session tracked by the backend.
 type Incident struct {
-	ID          string    `json:"id"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
-	Status      string    `json:"status"`
-	ClientLabel string    `json:"client_label,omitempty"`
-	Notes       string    `json:"notes,omitempty"`
+	ID             string    `json:"id"`
+	OwnerAccountID string    `json:"owner_account_id,omitempty"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+	Status         string    `json:"status"`
+	ClientLabel    string    `json:"client_label,omitempty"`
+	Notes          string    `json:"notes,omitempty"`
 }
 
 // MediaStream groups encrypted chunks that belong to one recording stream.

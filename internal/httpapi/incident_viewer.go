@@ -123,11 +123,7 @@ const incidentWarning = "If you are concerned about immediate safety, call emerg
 // capability for one incident.
 func (a *API) createIncidentToken(w http.ResponseWriter, r *http.Request) {
 	incidentID := r.PathValue("incident_id")
-	if _, err := a.repo.GetIncident(r.Context(), incidentID); errors.Is(err, incidents.ErrNotFound) {
-		writeError(w, http.StatusNotFound, "incident_not_found", "incident was not found")
-		return
-	} else if err != nil {
-		a.internalError(w, "get incident", err)
+	if _, ok := a.authorizeIncident(w, r, incidentID, actionCreatePublicLink, dataClassPublicLinkGrant); !ok {
 		return
 	}
 
@@ -172,6 +168,18 @@ func (a *API) incidentTokenExpiresAt(requestExpiresAt *time.Time, requestExpires
 // without deleting its audit metadata.
 func (a *API) revokeIncidentToken(w http.ResponseWriter, r *http.Request) {
 	tokenID := r.PathValue("token_id")
+	token, err := a.repo.GetIncidentToken(r.Context(), tokenID)
+	if errors.Is(err, incidents.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "incident_token_not_found", "incident token was not found")
+		return
+	}
+	if err != nil {
+		a.internalError(w, "get incident token", err)
+		return
+	}
+	if _, ok := a.authorizeIncident(w, r, token.IncidentID, actionRevokePublicLink, dataClassPublicLinkGrant); !ok {
+		return
+	}
 	if err := a.repo.RevokeIncidentToken(r.Context(), tokenID); errors.Is(err, incidents.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "incident_token_not_found", "incident token was not found")
 		return

@@ -2,7 +2,12 @@
 
 Proofline is intended to be broader than an emergency-only recorder. The long-term product direction is private, encrypted incident capture for moments where a user wants a durable record, with emergency escalation available only when the user chooses it or a configured safety check is missed.
 
-This is a planning and schema-design document. It does not add mobile clients, account management, public `/v1` authentication, push notifications, emergency-services integration, incident-mode schema, key custody, browser decryption, or new backend routes. Future account-owner, trusted-contact, public-link, admin/operator, and optional escrow role boundaries are documented in [v1-access-control.md](v1-access-control.md).
+This is a planning and schema-design document. It does not add mobile clients,
+public account workflows, public `/v1` exposure, push notifications,
+emergency-services integration, incident-mode schema, key custody, browser
+decryption, or new backend routes. Future account-owner, trusted-contact,
+public-link, admin/operator, and optional escrow role boundaries are documented
+in [v1-access-control.md](v1-access-control.md).
 
 ## Product Framing
 
@@ -160,7 +165,11 @@ Future account-enabled clients should distinguish:
 
 Incident labels must not silently grant access. Emergency incidents, interaction records, safety checks, and evidence notes need explicit sharing, escalation, and grant policy before implementation.
 
-The current token-scoped incident viewer is a temporary read-only access model. A future web client may replace it after account management, authorization, key custody, and trusted-contact access are designed. The future `/v1` role, grant, and route-exposure direction is documented in [v1-access-control.md](v1-access-control.md).
+The current token-scoped incident viewer is a temporary read-only access model.
+A future web client may replace it after public account workflows,
+authorization, key custody, and trusted-contact access are designed. The future
+`/v1` role, grant, and route-exposure direction is documented in
+[v1-access-control.md](v1-access-control.md).
 
 ## Migration From Generic Incidents
 
@@ -231,8 +240,8 @@ Not implemented today:
 
 - first-class incident modes, capture profiles, escalation policies, or sharing
   state
-- account management
-- public `/v1` authentication
+- public account workflows
+- public `/v1` product authentication
 - trusted-contact accounts
 - mobile clients
 - non-emergency interaction UX
@@ -250,7 +259,7 @@ When future implementation touches incident modes, update the relevant source-of
 - [Architecture](architecture.md), to show any new data flow, listener, or repository boundary
 - [API](api.md), to document any accepted route, request, response, viewer, or bundle-manifest field
 - [iOS local recorder prototype](ios-local-recorder-prototype.md)
-- [Future /v1 access control](v1-access-control.md)
+- [/v1 access control](v1-access-control.md)
 - [Security model](security-model.md), to preserve storage, logging, listener, access, and ciphertext-only assumptions
 - [Threat model](threat-model.md), to cover mode-specific sharing, escalation, false-positive, and access risks
 - [Key custody](key-custody.md), if sharing, wrapped-key delivery, or decryption behavior changes
