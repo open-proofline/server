@@ -12,7 +12,7 @@ import (
 
 func (a *API) createMediaStream(w http.ResponseWriter, r *http.Request) {
 	incidentID := r.PathValue("incident_id")
-	if !a.ensureIncidentExists(w, r, incidentID) {
+	if _, ok := a.authorizeIncident(w, r, incidentID, actionWriteIncident, dataClassIncidentMetadata); !ok {
 		return
 	}
 
@@ -55,7 +55,7 @@ func (a *API) listMediaStreams(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) getMediaStream(w http.ResponseWriter, r *http.Request) {
-	stream, ok := a.loadMediaStream(w, r)
+	stream, ok := a.loadMediaStream(w, r, actionReadIncident, dataClassIncidentMetadata)
 	if !ok {
 		return
 	}
@@ -64,7 +64,7 @@ func (a *API) getMediaStream(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) completeMediaStream(w http.ResponseWriter, r *http.Request) {
 	incidentID := r.PathValue("incident_id")
-	stream, ok := a.loadMediaStream(w, r)
+	stream, ok := a.loadMediaStream(w, r, actionWriteIncident, dataClassIncidentMetadata)
 	if !ok {
 		return
 	}
@@ -114,7 +114,7 @@ func (a *API) completeMediaStream(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) failMediaStream(w http.ResponseWriter, r *http.Request) {
 	incidentID := r.PathValue("incident_id")
-	stream, ok := a.loadMediaStream(w, r)
+	stream, ok := a.loadMediaStream(w, r, actionWriteIncident, dataClassIncidentMetadata)
 	if !ok {
 		return
 	}
@@ -146,9 +146,9 @@ func (a *API) failMediaStream(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]incidents.MediaStream{"stream": updated})
 }
 
-func (a *API) loadMediaStream(w http.ResponseWriter, r *http.Request) (incidents.MediaStream, bool) {
+func (a *API) loadMediaStream(w http.ResponseWriter, r *http.Request, action, dataClass string) (incidents.MediaStream, bool) {
 	incidentID := r.PathValue("incident_id")
-	if !a.ensureIncidentExists(w, r, incidentID) {
+	if _, ok := a.authorizeIncident(w, r, incidentID, action, dataClass); !ok {
 		return incidents.MediaStream{}, false
 	}
 	stream, err := a.repo.GetMediaStream(r.Context(), incidentID, r.PathValue("stream_id"))

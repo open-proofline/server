@@ -53,7 +53,7 @@ func (a *API) getIncident(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) createCheckin(w http.ResponseWriter, r *http.Request) {
 	incidentID := r.PathValue("incident_id")
-	if !a.ensureIncidentExists(w, r, incidentID) {
+	if _, ok := a.authorizeIncident(w, r, incidentID, actionWriteIncident, dataClassIncidentMetadata); !ok {
 		return
 	}
 

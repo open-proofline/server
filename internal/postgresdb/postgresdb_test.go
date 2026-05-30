@@ -13,7 +13,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/open-proofline/server/internal/auth"
 	"github.com/open-proofline/server/internal/incidents"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func TestPostgresMigrateCreatesSchemaAndRejectsChecksumMismatch(t *testing.T) {
@@ -29,6 +31,8 @@ func TestPostgresMigrateCreatesSchemaAndRejectsChecksumMismatch(t *testing.T) {
 	assertPostgresTable(t, ctx, conn, "chunks")
 	assertPostgresTable(t, ctx, conn, "checkins")
 	assertPostgresTable(t, ctx, conn, "incident_tokens")
+	assertPostgresTable(t, ctx, conn, "accounts")
+	assertPostgresTable(t, ctx, conn, "auth_sessions")
 
 	if err := Migrate(ctx, conn); err != nil {
 		t.Fatalf("second Migrate: %v", err)
@@ -309,6 +313,174 @@ func TestPostgresRepositoryHashesAndRevokesIncidentTokens(t *testing.T) {
 	}
 	if _, err := repo.LookupIncidentToken(ctx, rawToken); !errors.Is(err, incidents.ErrNotFound) {
 		t.Fatalf("lookup revoked token error = %v, want ErrNotFound", err)
+	}
+}
+
+func TestPostgresRepositoryAccountsAndSessions(t *testing.T) {
+	ctx := context.Background()
+	conn := openPostgresTestDB(t, ctx)
+	if err := Migrate(ctx, conn); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	repo := NewRepository(conn)
+
+	hasAccounts, err := repo.HasAccounts(ctx)
+	if err != nil {
+		t.Fatalf("has accounts: %v", err)
+	}
+	if hasAccounts {
+		t.Fatal("expected fresh schema to have no accounts")
+	}
+	hasAdmin, err := repo.HasAdminAccount(ctx)
+	if err != nil {
+		t.Fatalf("has admin: %v", err)
+	}
+	if hasAdmin {
+		t.Fatal("expected fresh schema to have no admin accounts")
+	}
+
+	adminPasswordHash, err := auth.HashPassword("test-password", bcrypt.MinCost)
+	if err != nil {
+		t.Fatalf("hash admin password: %v", err)
+	}
+	admin, err := repo.CreateAccount(ctx, auth.CreateAccountParams{
+		Username:     "Admin.User",
+		PasswordHash: adminPasswordHash,
+		Role:         auth.RoleAdmin,
+	})
+	if err != nil {
+		t.Fatalf("create admin account: %v", err)
+	}
+	if admin.Username != "admin.user" || admin.Role != auth.RoleAdmin {
+		t.Fatalf("unexpected admin account: %+v", admin)
+	}
+	if _, err := repo.CreateAccount(ctx, auth.CreateAccountParams{
+		Username:     "admin.user",
+		PasswordHash: adminPasswordHash,
+		Role:         auth.RoleAdmin,
+	}); !errors.Is(err, auth.ErrDuplicate) {
+		t.Fatalf("duplicate account error = %v, want ErrDuplicate", err)
+	}
+
+	hasAccounts, err = repo.HasAccounts(ctx)
+	if err != nil {
+		t.Fatalf("has accounts after create: %v", err)
+	}
+	if !hasAccounts {
+		t.Fatal("expected account existence after create")
+	}
+	hasAdmin, err = repo.HasAdminAccount(ctx)
+	if err != nil {
+		t.Fatalf("has admin after create: %v", err)
+	}
+	if !hasAdmin {
+		t.Fatal("expected admin existence after create")
+	}
+
+	gotAdmin, err := repo.GetAccountByUsername(ctx, " ADMIN.USER ")
+	if err != nil {
+		t.Fatalf("get admin by username: %v", err)
+	}
+	if gotAdmin.ID != admin.ID || gotAdmin.PasswordHash != adminPasswordHash {
+		t.Fatalf("got admin %+v, want id %q and stored hash", gotAdmin, admin.ID)
+	}
+
+	updatedHash, err := auth.HashPassword("updated-password", bcrypt.MinCost)
+	if err != nil {
+		t.Fatalf("hash updated password: %v", err)
+	}
+	updatedAdmin, err := repo.UpdateAccountPassword(ctx, admin.ID, updatedHash)
+	if err != nil {
+		t.Fatalf("update admin password: %v", err)
+	}
+	if updatedAdmin.PasswordHash != updatedHash {
+		t.Fatal("updated account did not return new password hash")
+	}
+	if updatedAdmin.PasswordChangedAt.Before(admin.PasswordChangedAt) {
+		t.Fatalf("password_changed_at moved backward: before=%s after=%s", admin.PasswordChangedAt, updatedAdmin.PasswordChangedAt)
+	}
+
+	userPasswordHash, err := auth.HashPassword("regular-password", bcrypt.MinCost)
+	if err != nil {
+		t.Fatalf("hash user password: %v", err)
+	}
+	user, err := repo.CreateAccount(ctx, auth.CreateAccountParams{
+		Username:     "regular-user",
+		PasswordHash: userPasswordHash,
+		Role:         auth.RoleUser,
+	})
+	if err != nil {
+		t.Fatalf("create user account: %v", err)
+	}
+	incident, err := repo.CreateIncidentForAccount(ctx, user.ID, "phone", "")
+	if err != nil {
+		t.Fatalf("create owned incident: %v", err)
+	}
+	if incident.OwnerAccountID != user.ID {
+		t.Fatalf("incident owner = %q, want %q", incident.OwnerAccountID, user.ID)
+	}
+
+	session, rawToken, err := repo.CreateSession(ctx, user.ID, time.Now().UTC().Add(time.Hour))
+	if err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+	if rawToken == "" {
+		t.Fatal("raw session token was empty")
+	}
+	var storedHash string
+	if err := conn.QueryRowContext(ctx, `
+		SELECT token_hash
+		FROM auth_sessions
+		WHERE id = $1`,
+		session.ID,
+	).Scan(&storedHash); err != nil {
+		t.Fatalf("read session token hash: %v", err)
+	}
+	if storedHash == rawToken || len(storedHash) != 64 {
+		t.Fatalf("session storage did not use a 64-character hash")
+	}
+	lookedUp, err := repo.LookupSession(ctx, rawToken)
+	if err != nil {
+		t.Fatalf("lookup session: %v", err)
+	}
+	if lookedUp.ID != session.ID || lookedUp.AccountID != user.ID {
+		t.Fatalf("looked up session %+v, want session %q for account %q", lookedUp, session.ID, user.ID)
+	}
+	if err := repo.RevokeSession(ctx, session.ID); err != nil {
+		t.Fatalf("revoke session: %v", err)
+	}
+	if _, err := repo.LookupSession(ctx, rawToken); !errors.Is(err, auth.ErrNotFound) {
+		t.Fatalf("lookup revoked session error = %v, want ErrNotFound", err)
+	}
+
+	expiredSession, expiredRawToken, err := repo.CreateSession(ctx, user.ID, time.Now().UTC().Add(-time.Second))
+	if err != nil {
+		t.Fatalf("create expired session: %v", err)
+	}
+	if _, err := repo.LookupSession(ctx, expiredRawToken); !errors.Is(err, auth.ErrNotFound) {
+		t.Fatalf("lookup expired session %q error = %v, want ErrNotFound", expiredSession.ID, err)
+	}
+
+	keptSession, keptRawToken, err := repo.CreateSession(ctx, user.ID, time.Now().UTC().Add(time.Hour))
+	if err != nil {
+		t.Fatalf("create kept session: %v", err)
+	}
+	revokedSession, revokedRawToken, err := repo.CreateSession(ctx, user.ID, time.Now().UTC().Add(time.Hour))
+	if err != nil {
+		t.Fatalf("create revokable session: %v", err)
+	}
+	revoked, err := repo.RevokeAccountSessions(ctx, user.ID, keptSession.ID)
+	if err != nil {
+		t.Fatalf("revoke account sessions: %v", err)
+	}
+	if revoked != 2 {
+		t.Fatalf("revoked sessions = %d, want 2", revoked)
+	}
+	if _, err := repo.LookupSession(ctx, keptRawToken); err != nil {
+		t.Fatalf("kept session lookup after account revoke: %v", err)
+	}
+	if _, err := repo.LookupSession(ctx, revokedRawToken); !errors.Is(err, auth.ErrNotFound) {
+		t.Fatalf("lookup revoked account session %q error = %v, want ErrNotFound", revokedSession.ID, err)
 	}
 }
 

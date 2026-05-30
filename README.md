@@ -172,11 +172,15 @@ Run with local-only port publishing and a named data volume:
 
 ```bash
 docker run --rm \
+  -e SAFE_AUTH_BOOTSTRAP_SECRET='replace-with-local-bootstrap-secret' \
   -p 127.0.0.1:8080:8080 \
   -p 127.0.0.1:8081:8081 \
   -v proofline-server-data:/data \
   proofline-server
 ```
+
+Use `POST /v1/bootstrap/admin` to create the first admin account, then restart
+the container without `SAFE_AUTH_BOOTSTRAP_SECRET`.
 
 Container defaults bind to `0.0.0.0` inside the container. Restrict host exposure with port publishing, firewall rules, WireGuard, or a reverse proxy. See [docs/deployment.md](docs/deployment.md).
 

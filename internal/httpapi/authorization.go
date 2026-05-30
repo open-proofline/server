@@ -20,10 +20,28 @@ const (
 	dataClassPublicLinkGrant  = "public_link_grant"
 )
 
+type incidentAuthorizationScope struct {
+	action    string
+	dataClass string
+}
+
+var currentIncidentAuthorizationScopes = map[incidentAuthorizationScope]struct{}{
+	{action: actionReadIncident, dataClass: dataClassIncidentMetadata}:    {},
+	{action: actionWriteIncident, dataClass: dataClassIncidentMetadata}:   {},
+	{action: actionWriteIncident, dataClass: dataClassCiphertext}:         {},
+	{action: actionReadCiphertextBundle, dataClass: dataClassCiphertext}:  {},
+	{action: actionCreatePublicLink, dataClass: dataClassPublicLinkGrant}: {},
+	{action: actionRevokePublicLink, dataClass: dataClassPublicLinkGrant}: {},
+}
+
 func (a *API) authorizeIncident(w http.ResponseWriter, r *http.Request, incidentID, action, dataClass string) (incidents.Incident, bool) {
 	principal, ok := principalFromContext(r.Context())
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "authentication_required", "authentication is required")
+		return incidents.Incident{}, false
+	}
+	if !incidentAuthorizationScopeAllowed(action, dataClass) {
+		writeError(w, http.StatusForbidden, "forbidden", "account is not authorized for this incident action")
 		return incidents.Incident{}, false
 	}
 	incident, err := a.repo.GetIncident(r.Context(), incidentID)
@@ -41,8 +59,14 @@ func (a *API) authorizeIncident(w http.ResponseWriter, r *http.Request, incident
 	if incident.OwnerAccountID != "" && incident.OwnerAccountID == principal.Account.ID {
 		return incident, true
 	}
-	_ = action
-	_ = dataClass
 	writeError(w, http.StatusForbidden, "forbidden", "account is not authorized for this incident")
 	return incidents.Incident{}, false
+}
+
+func incidentAuthorizationScopeAllowed(action, dataClass string) bool {
+	_, ok := currentIncidentAuthorizationScopes[incidentAuthorizationScope{
+		action:    action,
+		dataClass: dataClass,
+	}]
+	return ok
 }

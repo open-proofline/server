@@ -58,11 +58,15 @@ Run with localhost-only port publishing when everything that talks to the backen
 
 ```bash
 docker run --rm \
+  -e SAFE_AUTH_BOOTSTRAP_SECRET='replace-with-local-bootstrap-secret' \
   -p 127.0.0.1:8080:8080 \
   -p 127.0.0.1:8081:8081 \
   -v proofline-server-data:/data \
   proofline-server
 ```
+
+Create the first admin account through `POST /v1/bootstrap/admin`, then restart
+without `SAFE_AUTH_BOOTSTRAP_SECRET`.
 
 In this shape both listeners are reachable only through the host loopback interface. It is useful for local testing, SSH port forwarding, or a same-host reverse proxy. It does not expose the private `/v1` API or the incident viewer directly to the network.
 
@@ -227,6 +231,7 @@ For a private API reachable from a WireGuard peer or private LAN, publish or bin
 
 ```bash
 docker run --rm \
+  -e SAFE_AUTH_BOOTSTRAP_SECRET='replace-with-local-bootstrap-secret' \
   -p 10.66.0.1:8080:8080 \
   -p 127.0.0.1:8081:8081 \
   -v proofline-server-data:/data \
@@ -330,6 +335,7 @@ One same-host shape is:
 
 ```bash
 docker run --rm \
+  -e SAFE_AUTH_BOOTSTRAP_SECRET='replace-with-local-bootstrap-secret' \
   -p 127.0.0.1:8080:8080 \
   -p 127.0.0.1:8081:8081 \
   -v proofline-server-data:/data \
