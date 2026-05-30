@@ -11,6 +11,9 @@ Go simulator against the containerized server.
 Environment:
   PROOFLINE_PRIVATE_PORT  Host port for the private API. Default: 18080
   PROOFLINE_PUBLIC_PORT   Host port for the public viewer. Default: 18081
+  PROOFLINE_SMOKE_BOOTSTRAP_SECRET  Local bootstrap secret for the container.
+  PROOFLINE_SMOKE_USERNAME          Local account username. Default: admin
+  PROOFLINE_SMOKE_PASSWORD          Local account password.
   COMPOSE_PROJECT_NAME    Compose project name. Default: proofline-smoke-<variant>
   KEEP_COMPOSE=1          Leave containers and volumes running after the test.
 USAGE
@@ -67,6 +70,9 @@ fi
 
 export PROOFLINE_PRIVATE_PORT="${PROOFLINE_PRIVATE_PORT:-18080}"
 export PROOFLINE_PUBLIC_PORT="${PROOFLINE_PUBLIC_PORT:-18081}"
+export PROOFLINE_SMOKE_BOOTSTRAP_SECRET="${PROOFLINE_SMOKE_BOOTSTRAP_SECRET:-replace-with-local-compose-bootstrap-secret}"
+export PROOFLINE_SMOKE_USERNAME="${PROOFLINE_SMOKE_USERNAME:-admin}"
+export PROOFLINE_SMOKE_PASSWORD="${PROOFLINE_SMOKE_PASSWORD:-replace-with-a-long-local-password}"
 project="${COMPOSE_PROJECT_NAME:-proofline-smoke-${variant}}"
 sim_args=("$@")
 
@@ -84,12 +90,53 @@ trap cleanup EXIT
 wait_for_public_listener() {
   local url="http://127.0.0.1:${PROOFLINE_PUBLIC_PORT}/static/styles.css"
   for _ in $(seq 1 60); do
-    if curl --fail --silent --show-error --output /dev/null "$url"; then
+    if curl --fail --silent --output /dev/null "$url"; then
       return 0
     fi
     sleep 1
   done
   return 1
+}
+
+json_escape() {
+  local value="$1"
+  value="${value//\\/\\\\}"
+  value="${value//\"/\\\"}"
+  value="${value//$'\n'/\\n}"
+  value="${value//$'\r'/\\r}"
+  value="${value//$'\t'/\\t}"
+  printf '%s' "$value"
+}
+
+bootstrap_admin() {
+  local url="http://127.0.0.1:${PROOFLINE_PRIVATE_PORT}/v1/bootstrap/admin"
+  local response_file
+  local status
+  local payload
+
+  response_file="$(mktemp)"
+  payload="$(printf '{"username":"%s","password":"%s"}' \
+    "$(json_escape "$PROOFLINE_SMOKE_USERNAME")" \
+    "$(json_escape "$PROOFLINE_SMOKE_PASSWORD")")"
+
+  status="$(curl --silent --show-error --output "$response_file" --write-out "%{http_code}" \
+    -X POST "$url" \
+    -H 'Content-Type: application/json' \
+    -H "X-Proofline-Bootstrap-Secret: ${PROOFLINE_SMOKE_BOOTSTRAP_SECRET}" \
+    --data "$payload")"
+
+  case "$status" in
+    201|409)
+      rm -f "$response_file"
+      return 0
+      ;;
+    *)
+      echo "admin bootstrap failed with HTTP ${status}" >&2
+      sed -n '1,20p' "$response_file" >&2 || true
+      rm -f "$response_file"
+      return 1
+      ;;
+  esac
 }
 
 cd "$repo_root"
@@ -108,10 +155,19 @@ if ! wait_for_public_listener; then
   exit 1
 fi
 
+if ! bootstrap_admin; then
+  "${compose[@]}" -p "$project" -f "$compose_file" ps
+  "${compose[@]}" -p "$project" -f "$compose_file" logs --no-color
+  exit 1
+fi
+
+PROOFLINE_SIM_USERNAME="$PROOFLINE_SMOKE_USERNAME" \
+PROOFLINE_SIM_PASSWORD="$PROOFLINE_SMOKE_PASSWORD" \
 go run ./cmd/simclient \
   --api "http://127.0.0.1:${PROOFLINE_PRIVATE_PORT}" \
   --viewer "http://127.0.0.1:${PROOFLINE_PUBLIC_PORT}" \
   --chunks 3 \
   --interval 0s \
   --download-bundle \
-  "${sim_args[@]}"
+  "${sim_args[@]}" \
+  | sed -E 's#(Incident viewer: https?://[^[:space:]]+/(i|e)/)[^[:space:]]+#\1[redacted]#'

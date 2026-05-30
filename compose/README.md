@@ -7,6 +7,11 @@ These stacks are for local smoke testing only. They use fixed local test
 credentials, publish the private API on loopback by default, and do not make
 Proofline production-ready public infrastructure.
 
+The smoke script starts the server with a local bootstrap secret, creates a
+temporary admin account over the private loopback API, and runs the simulator
+with that account. The default bootstrap secret and password are placeholders
+for local throwaway smoke volumes only.
+
 ## Variants
 
 | Variant | File | Metadata | Blob storage | Coordination |
@@ -41,6 +46,15 @@ defaulting to `18080` and `18081`.
 
 ```bash
 PROOFLINE_PRIVATE_PORT=28080 PROOFLINE_PUBLIC_PORT=28081 compose/smoke-test.sh full
+```
+
+The local smoke auth values can also be overridden:
+
+```bash
+PROOFLINE_SMOKE_BOOTSTRAP_SECRET='replace-with-local-compose-bootstrap-secret' \
+PROOFLINE_SMOKE_USERNAME=admin \
+PROOFLINE_SMOKE_PASSWORD='replace-with-a-long-local-password' \
+compose/smoke-test.sh sqlite-local
 ```
 
 Set `KEEP_COMPOSE=1` to leave containers and volumes running after the smoke
