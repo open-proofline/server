@@ -120,7 +120,12 @@ Phase 0 should make sure the actual Phase 1 report run will follow:
    docs/ios-local-recorder-prototype.md
    ```
 
-6. Identify the authoritative external source categories required by the Phase 1 prompt.
+6. Identify the authoritative external source categories required by the Phase 1 prompt, including the v0.8.0 optional backend-support areas:
+
+   - PostgreSQL metadata backend support
+   - S3-compatible blob/object storage backend support
+   - Valkey/Redis-compatible short-lived coordination backend support
+   - exact Go client package documentation on `pkg.go.dev` when package behavior is discussed
 
 7. Identify Apple/iOS/Swift, Android, web-client, protocol, legal-adjacent, or App Store/Play Store claims that would need primary sources if the report discusses them.
 
@@ -128,7 +133,7 @@ Phase 0 should make sure the actual Phase 1 report run will follow:
 
 9. Identify the citation requirements, including repository citation pinning to `<REVIEWED_COMMIT_SHA>`.
 
-10. Identify the validation evidence policy, especially that Deep Research cannot run tests, containers, Docker builds, local shell commands, or simulator smoke tests.
+10. Identify the validation evidence policy, especially that Deep Research cannot run tests, containers, Docker builds, local shell commands, or simulator smoke tests, while still allowing authoritative external source consultation when available.
 
 11. Identify public-safety restrictions, including prohibited raw tokens, secrets, request bodies, uploaded bytes, plaintext, raw keys, private deployment details, exploit payloads, and user-safety data.
 
@@ -197,9 +202,17 @@ docs/break-glass-key-access.md
 docs/ios-local-recorder-prototype.md
 ```
 
+For the v0.8.0 optional backend-support review, also plan repository inspection for:
+
+- PostgreSQL metadata backend implementation and documentation, including configuration, connection setup, migrations, schema behavior, transaction and constraint behavior, fallback/default behavior, tests or workflows, dependency declarations, and package usage
+- S3-compatible blob/object storage implementation and documentation, including configuration, connection setup, object key construction, upload/download behavior, immutability assumptions, hash/checksum handling, fallback/default behavior, tests or workflows, dependency declarations, and package usage
+- Valkey/Redis-compatible coordination implementation and documentation, including configuration, connection setup, startup checks, TTL/expiry behavior where implemented or planned, short-lived coordination semantics, fallback/default behavior, tests or workflows, dependency declarations, and package usage
+
 ### External Authoritative Sources
 
 Use the Phase 1 prompt as the source of truth for required external source categories.
+
+The plan should distinguish external source consultation from validation command execution. Do not frame the Phase 1 validation-evidence limits as a no-network or no-external-source rule unless the maintainer explicitly imposes one.
 
 The plan should identify which claims require sources from:
 
@@ -213,6 +226,10 @@ cheatsheetseries.owasp.org
 docs.github.com
 docs.docker.com
 sqlite.org
+postgresql.org
+docs.aws.amazon.com/AmazonS3/
+valkey.io
+redis.io
 rfc-editor.org
 datatracker.ietf.org
 doc.traefik.io
@@ -223,7 +240,49 @@ Android / Google developer documentation, if Android claims are made
 legal primary sources, if recording-law claims are made
 ```
 
-Do not cite broad homepages when specific documentation pages are available.
+Use specific documentation pages rather than broad homepages. For the optional backend-support areas, source families should include:
+
+- PostgreSQL official documentation for transactions, constraints, and, when discussed, connection, security, migration, schema, backup, or restore behavior. Example pages include:
+
+  ```text
+  https://www.postgresql.org/docs/current/tutorial-transactions.html
+  https://www.postgresql.org/docs/current/ddl-constraints.html
+  ```
+
+- Amazon S3 official documentation for `PutObject`, `GetObject`, object keys, metadata, and, when discussed, checksums, ETags, multipart behavior, consistency, or authentication behavior. Example pages include:
+
+  ```text
+  https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObject.html
+  https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetObject.html
+  https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-keys.html
+  https://docs.aws.amazon.com/AmazonS3/latest/userguide/UsingMetadata.html
+  https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity.html
+  ```
+
+- Provider-specific S3-compatible documentation only when the reviewed repository names that provider or the report discusses provider-specific behavior, for example MinIO.
+- Valkey official documentation for `SET`, `EXPIRE`, TTL/expiry behavior, and short-lived coordination semantics when discussed. Example pages include:
+
+  ```text
+  https://valkey.io/commands/set/
+  https://valkey.io/commands/expire/
+  ```
+
+- Redis official documentation for Redis protocol or Redis-compatible behavior when discussed. An example page is:
+
+  ```text
+  https://redis.io/docs/latest/develop/reference/protocol-spec/
+  ```
+
+- `pkg.go.dev` pages for the exact Go PostgreSQL, S3/object-storage, and Valkey/Redis client packages used by the reviewed implementation when behavior depends on those packages. Current examples may include:
+
+  ```text
+  https://pkg.go.dev/github.com/jackc/pgx/v5
+  https://pkg.go.dev/github.com/jackc/pgx/v5/stdlib
+  https://pkg.go.dev/github.com/jackc/pgx/v5/pgconn
+  https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/aws
+  https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/service/s3
+  https://pkg.go.dev/github.com/redis/go-redis/v9
+  ```
 
 ### Validation Evidence
 
@@ -239,10 +298,13 @@ go test output
 go vet output
 Docker build output
 simulator smoke test output
+PostgreSQL metadata backend test, smoke-test, or migration output
+S3-compatible storage test, smoke-test, or object-store integration evidence
+Valkey/Redis-compatible coordination test, smoke-test, or TTL behavior evidence
 attestation verification output
 ```
 
-If validation evidence is not supplied, the Phase 1 report must say the command was not independently verified.
+If validation evidence is not supplied, the Phase 1 report must say the command or backend path was not independently executed or verified by Deep Research. For optional PostgreSQL metadata, S3-compatible storage, and Valkey/Redis-compatible coordination, distinguish code/docs review from live disposable-service execution or supplied smoke-test evidence.
 
 ## Source Registry Planning
 
@@ -265,6 +327,24 @@ The plan should include the required registry sections from Phase 1:
 ```
 
 Every registry entry should include source ID, source type, location, commit/ref/date, review purpose, status, limitations, and related finding IDs or report sections where applicable.
+
+For optional backend-support areas, the plan should include example `S-*` keys for required authoritative sources. These are examples only; Phase 1 should use exact source keys for the specific sources actually consulted:
+
+```text
+S-POSTGRES-TRANSACTIONS
+S-POSTGRES-CONSTRAINTS
+S-POSTGRES-CONNECTIONS
+S-S3-PUTOBJECT
+S-S3-GETOBJECT
+S-S3-OBJECT-KEYS
+S-S3-CHECKSUMS
+S-VALKEY-SET
+S-VALKEY-EXPIRE
+S-REDIS-PROTOCOL
+S-GO-POSTGRES-CLIENT
+S-GO-S3-CLIENT
+S-GO-VALKEY-CLIENT
+```
 
 ## Citation Planning
 
@@ -315,14 +395,22 @@ The Phase 0 plan should map the Phase 1 report to these broad areas:
 5. Viewer/incident token generation, hashing, storage, expiry, redaction, and viewer behavior
 6. Logging, metrics, proxy examples, and sensitive data exposure
 7. Upload handling, hash verification, immutable storage, upload limits, and stream-scoped chunk identity
-8. SQLite migrations, WAL mode, foreign keys, schema migration tracking, and data integrity
-9. ZIP bundle generation, manifest completeness, fail-closed behavior, and path traversal handling
-10. Crypto-adjacent simulator envelope and ciphertext-only backend boundary
-11. Future key custody, browser/client-side decryption, break-glass, trusted-contact access, and server escrow boundaries
-12. Future web/iOS/Android/protocol/client planning and platform assumptions
-13. Deployment guidance, Traefik examples, WireGuard/private boundary, and rate limiting
-14. Docker/GHCR/GitHub Actions/supply-chain hygiene
-15. Public issue/report safety
+8. SQLite and PostgreSQL metadata backend support, including configuration, schema/migrations, transactions, constraints, parity with SQLite where claimed, data-integrity boundaries, and validation-evidence limits
+9. Local and S3-compatible blob/object storage support, including object key construction, upload/download behavior, immutability assumptions, hash/checksum handling, local-vs-object-store parity where claimed, path/key traversal risks, and fail-closed behavior
+10. Optional Valkey/Redis-compatible coordination, including key expiry, short-lived coordination semantics, lock/session assumptions, failure behavior, fallback behavior, and avoiding persistence or security overclaiming
+11. ZIP bundle generation, manifest completeness, fail-closed behavior, and path traversal handling
+12. Crypto-adjacent simulator envelope and ciphertext-only backend boundary
+13. Future key custody, browser/client-side decryption, break-glass, trusted-contact access, and server escrow boundaries
+14. Future web/iOS/Android/protocol/client planning and platform assumptions
+15. Deployment guidance, Traefik examples, WireGuard/private boundary, and rate limiting
+16. Docker/GHCR/GitHub Actions/supply-chain hygiene
+17. Public issue/report safety
+
+## Risks, Ambiguities, And Maintainer Decisions Planning
+
+The Phase 0 plan should identify maintainer decisions needed before Phase 1, including whether PostgreSQL metadata, S3-compatible object storage, and Valkey/Redis-compatible coordination should be treated as release-blocking v0.8.0 review areas or optional backend-support review areas.
+
+The plan should also identify whether validation evidence exists for those backend paths. Absence of supplied validation evidence must be recorded as a limitation rather than guessed around.
 
 ## Output Format
 
