@@ -1,10 +1,10 @@
 # API
 
-This is the current backend-only HTTP surface for Proofline. The API binary starts private API listeners and public incident viewer listeners on one or more configured bind addresses. The `/v1` routes are private and unauthenticated. The incident viewer routes are token-gated and read-only. Planned web, iOS, and Android clients are not part of this repository yet.
+This is the current backend-only HTTP surface for Proofline. The API binary starts private API listeners and public incident viewer listeners on one or more configured bind addresses. The `/v1` routes are private and require local account authentication. The incident viewer routes are token-gated and read-only. Planned web, iOS, and Android clients are not part of this repository yet.
 
 Media bundle downloads are encrypted chunk bundles. The backend does not decrypt, merge, or produce playable media. The simulator's current encrypted uploads use the envelope documented in [encryption.md](encryption.md), but the API treats uploaded bytes as opaque ciphertext.
 
-The current API stores generic incidents only. Planned incident modes such as emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes are documented in [incident-modes.md](incident-modes.md), along with future capture-profile, escalation-policy, sharing-state, and migration boundaries. First-class incident-mode, escalation-policy, account, and trusted-contact APIs do not exist yet.
+The current API stores generic incidents owned by local accounts. Planned incident modes such as emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes are documented in [incident-modes.md](incident-modes.md), along with future capture-profile, escalation-policy, sharing-state, and migration boundaries. First-class incident-mode, escalation-policy, trusted-contact, and public product APIs do not exist yet.
 
 Default bind addresses:
 
@@ -28,9 +28,110 @@ Errors use:
 
 Non-upload JSON bodies are limited to 64 KiB. Upload file bytes are limited by `SAFE_MAX_UPLOAD_BYTES`; multipart metadata has a small fixed overhead allowance. `SAFE_MAX_UPLOAD_BYTES` accepts a positive byte count or binary unit suffixes `B`, `K`/`KB`, `M`/`MB`, and `G`/`GB`. Fractional unit values are allowed when they resolve to at least one byte. Non-positive, sub-byte, invalid, and oversized values are rejected during startup.
 
+## Authentication And Accounts
+
+Private `/v1` routes require:
+
+```http
+Authorization: Bearer <session_token>
+```
+
+Session tokens are opaque server-side credentials. The raw token is returned only by login, while the metadata backend stores only its SHA-256 hash. Sessions expire after `SAFE_SESSION_TTL`, defaulting to `12h`, and can be revoked by logout, password reset, or the admin session-revocation route.
+
+On startup, the server fails closed unless an admin account already exists or `SAFE_AUTH_BOOTSTRAP_SECRET` is set. With that secret set, create the first admin through the one-time bootstrap route, then remove the environment variable and restart or redeploy without it. The bootstrap route is disabled after an admin account exists.
+
+### `POST /v1/bootstrap/admin`
+
+Creates the first local admin account when no admin exists. This route does not require a session, but it requires the bootstrap secret header:
+
+```http
+X-Proofline-Bootstrap-Secret: ...
+```
+
+Request:
+
+```json
+{
+  "username": "admin",
+  "password": "long local password"
+}
+```
+
+Response `201`:
+
+```json
+{
+  "account": {
+    "id": "acct_...",
+    "username": "admin",
+    "role": "admin",
+    "created_at": "2026-05-31T10:00:00Z",
+    "updated_at": "2026-05-31T10:00:00Z",
+    "password_changed_at": "2026-05-31T10:00:00Z"
+  }
+}
+```
+
+### `POST /v1/auth/login`
+
+Authenticates a local account and returns a raw session token once.
+
+Request:
+
+```json
+{
+  "username": "admin",
+  "password": "long local password"
+}
+```
+
+Response `201`:
+
+```json
+{
+  "session_id": "ses_...",
+  "account": {
+    "id": "acct_...",
+    "username": "admin",
+    "role": "admin",
+    "created_at": "2026-05-31T10:00:00Z",
+    "updated_at": "2026-05-31T10:00:00Z",
+    "password_changed_at": "2026-05-31T10:00:00Z"
+  },
+  "token": "...",
+  "created_at": "2026-05-31T10:00:00Z",
+  "expires_at": "2026-05-31T22:00:00Z"
+}
+```
+
+### `POST /v1/auth/logout`
+
+Revokes the current session.
+
+### `GET /v1/account`
+
+Returns the authenticated account.
+
+### `POST /v1/account/password`
+
+Changes the authenticated account password after verifying `current_password`; other sessions for the account are revoked.
+
+### Admin Account Routes
+
+The following routes require an admin account session:
+
+- `GET /v1/admin/accounts`
+- `POST /v1/admin/accounts`
+- `POST /v1/admin/accounts/{account_id}/password`
+- `POST /v1/admin/accounts/{account_id}/sessions/revoke`
+
+`POST /v1/admin/accounts` accepts `username`, `password`, and `role`, where `role` is `user` or `admin`. Admin password reset and explicit session revocation revoke all sessions for the selected account.
+
+Local account authentication does not make `/v1` a public product API. Keep private listeners behind localhost, LAN, WireGuard, firewall rules, or a strict private reverse proxy until public exposure, abuse controls, rate limiting, CSRF/browser credential rules, and production operations are explicitly designed and reviewed.
+
 ## Incidents
 
-Incident routes are mounted only on the private API server.
+Incident routes are mounted only on the private API server and require a valid session. Incidents are owned by the account that creates them. Regular users can access only their own incidents; admins can access incidents across accounts. Legacy unowned incidents are admin-only until a future migration or reassignment workflow is implemented.
 
 ### `POST /v1/incidents`
 

@@ -40,6 +40,24 @@ func TestLoadDefaultIncidentTokenTTL(t *testing.T) {
 	}
 }
 
+func TestLoadDefaultSessionTTL(t *testing.T) {
+	cfg := loadConfigForTest(t, nil)
+
+	if cfg.SessionTTL != 12*time.Hour {
+		t.Fatalf("default session ttl = %s, want 12h", cfg.SessionTTL)
+	}
+}
+
+func TestLoadAuthBootstrapSecret(t *testing.T) {
+	cfg := loadConfigForTest(t, map[string]string{
+		"SAFE_AUTH_BOOTSTRAP_SECRET": " bootstrap-secret ",
+	})
+
+	if cfg.AuthBootstrapSecret != "bootstrap-secret" {
+		t.Fatalf("bootstrap secret was not trimmed")
+	}
+}
+
 func TestLoadDefaultBackends(t *testing.T) {
 	cfg := loadConfigForTest(t, nil)
 
@@ -415,6 +433,16 @@ func TestLoadCanDisableDefaultIncidentTokenTTL(t *testing.T) {
 	}
 }
 
+func TestLoadSessionTTLFromEnv(t *testing.T) {
+	cfg := loadConfigForTest(t, map[string]string{
+		"SAFE_SESSION_TTL": "6h",
+	})
+
+	if cfg.SessionTTL != 6*time.Hour {
+		t.Fatalf("session ttl = %s, want 6h", cfg.SessionTTL)
+	}
+}
+
 func TestLoadRejectsInvalidIncidentTokenTTL(t *testing.T) {
 	tests := map[string]string{
 		"negative": "-1s",
@@ -432,6 +460,28 @@ func TestLoadRejectsInvalidIncidentTokenTTL(t *testing.T) {
 			}
 			if !strings.Contains(err.Error(), "parse SAFE_DEFAULT_INCIDENT_TOKEN_TTL") {
 				t.Fatalf("expected SAFE_DEFAULT_INCIDENT_TOKEN_TTL parse context, got %v", err)
+			}
+		})
+	}
+}
+
+func TestLoadRejectsInvalidSessionTTL(t *testing.T) {
+	tests := map[string]string{
+		"negative": "-1s",
+		"invalid":  "forever",
+		"empty":    "",
+	}
+
+	for name, value := range tests {
+		t.Run(name, func(t *testing.T) {
+			_, err := loadConfigForTestErr(t, map[string]string{
+				"SAFE_SESSION_TTL": value,
+			})
+			if err == nil {
+				t.Fatal("expected session ttl config error")
+			}
+			if !strings.Contains(err.Error(), "parse SAFE_SESSION_TTL") {
+				t.Fatalf("expected SAFE_SESSION_TTL parse context, got %v", err)
 			}
 		})
 	}
@@ -649,6 +699,8 @@ func loadConfigForTestErr(t *testing.T, env map[string]string) (Config, error) {
 		"SAFE_COORDINATION_BACKEND",
 		"SAFE_MAX_UPLOAD_BYTES",
 		"SAFE_DEFAULT_INCIDENT_TOKEN_TTL",
+		"SAFE_SESSION_TTL",
+		"SAFE_AUTH_BOOTSTRAP_SECRET",
 		"SAFE_PRIVATE_READ_HEADER_TIMEOUT",
 		"SAFE_PRIVATE_READ_TIMEOUT",
 		"SAFE_PRIVATE_WRITE_TIMEOUT",

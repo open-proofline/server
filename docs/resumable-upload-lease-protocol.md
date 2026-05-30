@@ -5,9 +5,10 @@ or upload leases for partially sent encrypted chunks.
 
 It is a planning document only. It does not implement resumable uploads, upload
 leases, upload operations, idempotency keys, PostgreSQL, S3-compatible object
-storage, operation-level use of Valkey/Redis-compatible coordination, public
-`/v1` authentication, account management, browser decryption, backend
-decryption, key custody, or playable media export.
+storage, operation-level use of Valkey/Redis-compatible coordination, changes
+to the current local account/session model, public `/v1` exposure, public
+account workflows, browser decryption, backend decryption, key custody, or
+playable media export.
 
 ## Decision
 
@@ -72,9 +73,8 @@ Client behavior:
 - complete a stream only after chunks `1..expected_chunk_count` are locally
   marked uploaded
 - fail the stream if the client cannot produce a contiguous sequence
-- be ready for near-term account-aware flows once an account and access-control
-  model exists; until then, account identity should remain local test metadata
-  only
+- use the current local account/session flow for simulator authentication unless
+  a later client protocol replaces it
 
 Server behavior stays unchanged for this simulator client:
 
@@ -83,8 +83,8 @@ Server behavior stays unchanged for this simulator client:
 - no server-visible client queue summary endpoint
 - no partial upload commit state
 - no public `/v1` exposure
-- no account-management routes, OAuth, JWT, or user account model added only for
-  simulator scaffolding
+- no additional account-management routes, OAuth, JWT, trusted-contact accounts,
+  or public account workflows added only for simulator scaffolding
 - no backend decryption or server-held media keys
 
 This should be enough to test the core recorder loop: local capture,
@@ -325,7 +325,7 @@ Until then, the simulator should keep using complete encrypted chunk uploads.
 
 - Implementing resumable upload routes.
 - Implementing upload leases.
-- Adding public `/v1` authentication or exposing `/v1` publicly.
+- Adding public `/v1` product authentication or exposing `/v1` publicly.
 - Adding web, iOS, Android, or protocol repository code.
 - Adding PostgreSQL, S3-compatible object storage, operation-level Valkey
   coordination behavior, or background workers.

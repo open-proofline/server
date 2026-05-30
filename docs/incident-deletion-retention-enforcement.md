@@ -5,8 +5,9 @@ Proofline Server.
 
 It is a planning document only. It does not implement incident deletion APIs,
 CLI commands, background jobs, retention configuration, data deletion,
-public `/v1` authentication, account management, backend decryption, key
-custody, key escrow, or playable media export.
+changes to the current local account/session model, public `/v1` exposure,
+public account workflows, backend decryption, key custody, key escrow, or
+playable media export.
 
 ## Current Behavior
 
@@ -56,8 +57,9 @@ blobs consistent.
   background scheduler in this issue.
 - No deletion of local test data, database rows, committed blobs, generated
   bundles, or backups as part of this design task.
-- No public admin routes, public `/v1` exposure, OAuth, JWT, user accounts,
-  cloud service automation, Docker Compose, Kubernetes, or public dashboard.
+- No public admin routes, public `/v1` exposure, OAuth, JWT, public account
+  workflows, cloud service automation, Docker Compose, Kubernetes, or public
+  dashboard.
 - No promise of unrecoverable secure erasure from normal file, object, or
   database row deletion.
 - No backend decryption, raw server-held media keys, key escrow, key sharing,

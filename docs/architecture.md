@@ -9,16 +9,16 @@ explicitly configured.
 
 This repository is the server/backend component only. In the planned multi-repo layout it corresponds to `open-proofline/server`. Web, iOS, Android, and shared protocol work are expected to live in separate future repositories.
 
-The long-term product direction is broader than emergency-only recording. Future clients may support emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes. The current backend still stores generic incidents; first-class incident modes, capture profiles, escalation policies, sharing state, account access, trusted-contact accounts, notification delivery, and mobile/web clients are not implemented yet. Planned mode, escalation, migration, and viewer-wording boundaries are documented in [incident-modes.md](incident-modes.md), and future public product API, separately bound private admin API, role, and grant boundaries are documented in [v1-access-control.md](v1-access-control.md).
+The long-term product direction is broader than emergency-only recording. Future clients may support emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes. The current backend still stores generic incidents and now has local username/password accounts with opaque server-side sessions for the private `/v1` API. First-class incident modes, capture profiles, escalation policies, sharing state, trusted-contact accounts, notification delivery, and mobile/web clients are not implemented yet. Planned mode, escalation, migration, and viewer-wording boundaries are documented in [incident-modes.md](incident-modes.md), and current local session behavior plus future public product API, separately bound private admin API, role, and grant boundaries are documented in [v1-access-control.md](v1-access-control.md).
 
-The repository does not contain an iOS app, Android app, web client, protocol package, recording implementation, production client key storage, key sharing, browser/client-side decryption, server-assisted break-glass key access, notification system, user account model, future public product API, future separately bound private admin API, or playable media export. The Go simulator can produce the documented v1 client-side encryption envelope for development and test flows. Future key custody and emergency access design is documented in [key-custody.md](key-custody.md), [browser-decryption.md](browser-decryption.md), and [break-glass-key-access.md](break-glass-key-access.md).
+The repository does not contain an iOS app, Android app, web client, protocol package, recording implementation, production client key storage, key sharing, browser/client-side decryption, server-assisted break-glass key access, notification system, trusted-contact account model, future public product API, future separately bound private admin API, OAuth/JWT identity integration, or playable media export. The Go simulator can produce the documented v1 client-side encryption envelope for development and test flows. Future key custody and emergency access design is documented in [key-custody.md](key-custody.md), [browser-decryption.md](browser-decryption.md), and [break-glass-key-access.md](break-glass-key-access.md).
 
 ## High-Level System
 
 ```mermaid
 flowchart LR
-    FutureClients["Future clients<br/>separate repos"] -->|"future encrypted chunks"| PrivateAPI["Private /v1 API<br/>write/admin routes"]
-    Simulator["Simulator CLI<br/>implemented here"] --> PrivateAPI
+    FutureClients["Future clients<br/>separate repos"] -->|"future encrypted chunks"| PrivateAPI["Private /v1 API<br/>local session auth"]
+    Simulator["Simulator CLI<br/>implemented here"] -->|"login + upload"| PrivateAPI
     PrivateAPI --> Repo["Incident repository"]
     Repo --> DB[(SQLite or PostgreSQL metadata)]
     PrivateAPI --> Store["Blob storage"]
@@ -79,7 +79,8 @@ flowchart TB
         FuturePhone["Future mobile client<br/>separate repo"] --> WireGuard["WireGuard / LAN / firewall"]
         Simulator["Simulator CLI"] --> PrivateListener["Private API listener<br/>SAFE_PRIVATE_BIND_ADDRS"]
         WireGuard --> PrivateListener
-        PrivateListener --> Storage["SQLite or PostgreSQL + local or S3 encrypted blobs"]
+        PrivateListener --> Auth["Local account sessions"]
+        Auth --> Storage["SQLite or PostgreSQL + local or S3 encrypted blobs"]
         PrivateListener --> Coordination["Optional Valkey/Redis coordination"]
     end
 
@@ -102,8 +103,10 @@ sequenceDiagram
     participant Public as Public incident viewer
     participant Contact as Trusted contact
 
+    Client->>Private: POST /v1/auth/login
+    Private->>DB: Validate account and create hashed session record
     Client->>Private: POST /v1/incidents
-    Private->>DB: Create generic incident metadata
+    Private->>DB: Create generic incident metadata for account
     Client->>Private: POST /v1/incidents/{id}/incident-tokens
     Private->>DB: Store token hash only
     Client->>Private: POST /v1/incidents/{id}/streams

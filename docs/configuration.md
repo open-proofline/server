@@ -35,6 +35,8 @@ Configuration is read from environment variables when the Proofline API starts.
 | `SAFE_VALKEY_WRITE_TIMEOUT` | `5s` | Valkey write timeout. |
 | `SAFE_MAX_UPLOAD_BYTES` | `250MB` | Maximum encrypted file bytes per upload. |
 | `SAFE_DEFAULT_INCIDENT_TOKEN_TTL` | `24h` | Default lifetime for viewer tokens created without `expires_at`. Set to `0` to disable the default for omitted `expires_at` values. |
+| `SAFE_SESSION_TTL` | `12h` | Lifetime for local account sessions created by `/v1/auth/login`. |
+| `SAFE_AUTH_BOOTSTRAP_SECRET` | unset | One-time bootstrap secret required to create the first admin account when no admin exists. Remove after bootstrap. |
 | `SAFE_PRIVATE_READ_HEADER_TIMEOUT` | `10s` | Private API HTTP read-header timeout. |
 | `SAFE_PRIVATE_READ_TIMEOUT` | `0s` | Private API HTTP read timeout. `0` disables it for large or slow uploads. |
 | `SAFE_PRIVATE_WRITE_TIMEOUT` | `0s` | Private API HTTP write timeout. `0` disables it for large or slow downloads. |
@@ -109,7 +111,7 @@ documented in
 
 ## S3-Compatible Blob Storage
 
-The S3-compatible backend stores only opaque encrypted chunk bytes. It does not add backend decryption, raw media keys, key escrow, browser decryption, public `/v1` authentication, or production-readiness guarantees.
+The S3-compatible backend stores only opaque encrypted chunk bytes. It does not add backend decryption, raw media keys, key escrow, browser decryption, public `/v1` exposure, public account workflows, or production-readiness guarantees.
 
 Uploads are first staged as local temp files under `SAFE_DATA_DIR/tmp` while the server enforces `SAFE_MAX_UPLOAD_BYTES` and computes SHA-256 over the uploaded ciphertext. After the client-provided hash is verified, the server writes the final object key with conditional no-overwrite behavior. The final object key is derived from server-controlled incident, stream, media type, and chunk index metadata:
 
@@ -206,6 +208,19 @@ Viewer tokens created without an explicit `expires_at` default to expiring after
 The value uses Go duration strings such as `12h` or `168h`.
 
 Set `SAFE_DEFAULT_INCIDENT_TOKEN_TTL=0` only when you deliberately want omitted `expires_at` values to create tokens that remain valid until revoked.
+
+## Local Account Sessions
+
+The private `/v1` API requires local account sessions. Sessions created by
+`POST /v1/auth/login` expire after `SAFE_SESSION_TTL`, which defaults to `12h`.
+The value uses Go duration strings such as `6h` or `30m`.
+
+For a new metadata database, startup fails until an admin account exists unless
+`SAFE_AUTH_BOOTSTRAP_SECRET` is set. Use that secret only long enough to call
+`POST /v1/bootstrap/admin`, then remove it from the environment and restart.
+Treat the bootstrap secret, account passwords, session tokens, and
+Authorization headers as secrets. They must not appear in public issues,
+logs, dashboards, screenshots, support tickets, or shell history.
 
 ## HTTP Timeouts
 

@@ -20,26 +20,35 @@ func NewRepository(db *sql.DB) *Repository {
 	return &Repository{db: db}
 }
 
-// CreateIncident inserts a new open incident.
+// CreateIncident inserts a new open legacy incident without an owner account.
 func (r *Repository) CreateIncident(ctx context.Context, clientLabel, notes string) (incidents.Incident, error) {
+	return r.CreateIncidentForAccount(ctx, "", clientLabel, notes)
+}
+
+// CreateIncidentForAccount inserts a new open incident owned by accountID.
+func (r *Repository) CreateIncidentForAccount(ctx context.Context, accountID, clientLabel, notes string) (incidents.Incident, error) {
 	now := time.Now().UTC()
 	id, err := newID("inc")
 	if err != nil {
 		return incidents.Incident{}, err
 	}
 	incident := incidents.Incident{
-		ID:          id,
-		CreatedAt:   now,
-		UpdatedAt:   now,
-		Status:      incidents.StatusOpen,
-		ClientLabel: clientLabel,
-		Notes:       notes,
+		ID:             id,
+		OwnerAccountID: accountID,
+		CreatedAt:      now,
+		UpdatedAt:      now,
+		Status:         incidents.StatusOpen,
+		ClientLabel:    clientLabel,
+		Notes:          notes,
 	}
 
 	_, err = r.db.ExecContext(ctx, `
-		INSERT INTO incidents (id, created_at, updated_at, status, client_label, notes)
-		VALUES ($1, $2, $3, $4, $5, $6)`,
+		INSERT INTO incidents (
+			id, owner_account_id, created_at, updated_at, status, client_label, notes
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)`,
 		incident.ID,
+		nullableString(incident.OwnerAccountID),
 		incident.CreatedAt,
 		incident.UpdatedAt,
 		incident.Status,
@@ -47,6 +56,9 @@ func (r *Repository) CreateIncident(ctx context.Context, clientLabel, notes stri
 		nullableString(incident.Notes),
 	)
 	if err != nil {
+		if isIntegrityConstraint(err) {
+			return incidents.Incident{}, incidents.ErrNotFound
+		}
 		return incidents.Incident{}, fmt.Errorf("insert postgres incident: %w", err)
 	}
 
@@ -56,7 +68,7 @@ func (r *Repository) CreateIncident(ctx context.Context, clientLabel, notes stri
 // GetIncident returns one incident by ID.
 func (r *Repository) GetIncident(ctx context.Context, id string) (incidents.Incident, error) {
 	row := r.db.QueryRowContext(ctx, `
-		SELECT id, created_at, updated_at, status, client_label, notes
+		SELECT id, owner_account_id, created_at, updated_at, status, client_label, notes
 		FROM incidents
 		WHERE id = $1`, id)
 

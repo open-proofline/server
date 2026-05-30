@@ -10,9 +10,10 @@ func scanIncident(s scanner) (Incident, error) {
 	var incident Incident
 	var createdAt string
 	var updatedAt string
+	var ownerAccountID sql.NullString
 	var clientLabel sql.NullString
 	var notes sql.NullString
-	if err := s.Scan(&incident.ID, &createdAt, &updatedAt, &incident.Status, &clientLabel, &notes); err != nil {
+	if err := s.Scan(&incident.ID, &ownerAccountID, &createdAt, &updatedAt, &incident.Status, &clientLabel, &notes); err != nil {
 		return Incident{}, err
 	}
 	parsedCreatedAt, err := parseDBTime(createdAt)
@@ -25,6 +26,9 @@ func scanIncident(s scanner) (Incident, error) {
 	}
 	incident.CreatedAt = parsedCreatedAt
 	incident.UpdatedAt = parsedUpdatedAt
+	if ownerAccountID.Valid {
+		incident.OwnerAccountID = ownerAccountID.String
+	}
 	if clientLabel.Valid {
 		incident.ClientLabel = clientLabel.String
 	}

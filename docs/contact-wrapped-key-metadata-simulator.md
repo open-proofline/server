@@ -3,8 +3,8 @@
 This document scopes a simulator/development prototype for contact-wrapped key
 metadata. It is a design document only. It does not add backend decryption,
 server-held raw media keys, key escrow, browser decryption, new API routes,
-database schema changes, account management, production trusted-contact access,
-or client implementations.
+database schema changes, public account workflows, production trusted-contact
+access, or client implementations.
 
 The goal is to let Proofline test the shape of contact-wrapped media-key
 metadata before production key custody is implemented. The current backend

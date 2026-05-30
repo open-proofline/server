@@ -55,10 +55,10 @@ The future desktop simulator should support adjustable poor-network simulation
 for latency, jitter, request timeouts, bandwidth ceilings, intermittent offline
 windows, upload failure rates, and process restart or resume drills.
 
-It should also be shaped for near-term account-aware flows once the account and
-access-control model exists. Until then, account identity should remain local
-test metadata only and must not add user accounts, OAuth, JWT, public `/v1`
-authentication, or account-management routes incidentally.
+It should use the current local account/session flow for private `/v1`
+authentication. Simulator maintenance must not add OAuth, JWT, public `/v1`
+exposure, trusted-contact accounts, public account workflows, or extra
+account-management routes incidentally.
 
 It should exercise:
 
@@ -128,12 +128,24 @@ go vet ./...
 Manual smoke test:
 
 ```bash
-go run ./cmd/api
+SAFE_AUTH_BOOTSTRAP_SECRET='replace-with-local-bootstrap-secret' go run ./cmd/api
 ```
 
-In another terminal:
+In another terminal, create the first local admin if the test database does not
+already have one:
 
 ```bash
+curl -sS -X POST http://127.0.0.1:8080/v1/bootstrap/admin \
+  -H 'Content-Type: application/json' \
+  -H 'X-Proofline-Bootstrap-Secret: replace-with-local-bootstrap-secret' \
+  -d '{"username":"admin","password":"replace-with-a-long-local-password"}'
+```
+
+Then run the simulator with account credentials:
+
+```bash
+PROOFLINE_SIM_USERNAME='admin' \
+PROOFLINE_SIM_PASSWORD='replace-with-a-long-local-password' \
 go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle
 ```
 

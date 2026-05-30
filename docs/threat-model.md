@@ -2,7 +2,7 @@
 
 This document describes the current Proofline backend-only security posture. It is intentionally conservative and does not claim production readiness.
 
-Planned future incident modes include emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes. Those modes are not implemented yet. Current controls apply to generic incidents, encrypted chunk uploads, checkins, viewer tokens, and encrypted evidence bundles.
+Planned future incident modes include emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes. Those modes are not implemented yet. Current controls apply to local accounts, opaque sessions, generic incidents, encrypted chunk uploads, checkins, viewer tokens, and encrypted evidence bundles.
 
 ## Assets
 
@@ -30,15 +30,18 @@ Planned future incident modes include emergency incidents, non-emergency interac
   coordination is documented in
   [cluster-backup-restore-runbook.md](cluster-backup-restore-runbook.md)
 - On-demand encrypted evidence ZIP bundles generated from completed streams
+- Local account records, bcrypt password hashes, and opaque session-token hashes
+- Raw session tokens returned once by login and then presented in Authorization
+  headers
 - Raw viewer/incident tokens returned once at creation time
 - Incident viewer URLs containing bearer tokens
 - Simulator-only local encryption key files when developers opt into `--key-file`
 - Future mobile/web recordings, interaction-record metadata, safety-check
-  state, account-owner access, trusted-contact access, production client-side
-  keys, key sharing, browser decryption, and break-glass key access are out of
+  state, trusted-contact access, production client-side keys, key sharing,
+  browser decryption, and break-glass key access are out of
   scope for the current implementation. Planned incident modes are documented
-  in [incident-modes.md](incident-modes.md), future role and grant boundaries
-  are documented in [v1-access-control.md](v1-access-control.md), the intended
+  in [incident-modes.md](incident-modes.md), role and grant boundaries are
+  documented in [v1-access-control.md](v1-access-control.md), the intended
   future key custody direction is documented in [key-custody.md](key-custody.md),
   the simulator-only contact-wrapped key metadata prototype is documented in
   [contact-wrapped-key-metadata-simulator.md](contact-wrapped-key-metadata-simulator.md),
@@ -50,7 +53,10 @@ Planned future incident modes include emergency incidents, non-emergency interac
 
 - The private API server binds separately from the public incident viewer server. By default it listens on `127.0.0.1:8080`, and it can listen on multiple addresses through `SAFE_PRIVATE_BIND_ADDRS`.
 - The public incident viewer server binds separately from the private API server. By default it listens on `127.0.0.1:8081`, and it can listen on multiple addresses through `SAFE_PUBLIC_BIND_ADDRS`.
-- `/v1` routes are private/admin routes. They can create incidents, create streams, upload chunks, complete/fail streams, close incidents, create viewer tokens, revoke tokens, and read encrypted bytes. They are mounted only on the private API server.
+- `/v1` routes are authenticated private/admin routes. They can create
+  incidents, create streams, upload chunks, complete/fail streams, close
+  incidents, create viewer tokens, revoke tokens, manage local accounts, and
+  read encrypted bytes. They are mounted only on the private API server.
 - `/i/{token}`, `/i/{token}/data`, and viewer bundle download routes are public-shaped read-only routes gated by a bearer token. Pre-rename `/e/{token}` viewer, data, and download paths remain as compatibility aliases. These routes are mounted only on the public incident viewer server.
 - Static assets under `/static/` are embedded and token-neutral.
 
@@ -67,6 +73,13 @@ Planned future incident modes include emergency incidents, non-emergency interac
   explicitly configured but unavailable.
 - Media streams must be open before new chunks can be attached. The repository rechecks incident and stream state when chunk metadata is inserted.
 - Stream completion verifies contiguous chunks plus readable stored files, and the repository revalidates chunk rows before committing the stream to `complete`.
+- Local account passwords are stored as bcrypt hashes. Private `/v1` requests
+  use opaque server-side sessions whose raw tokens are returned only by login
+  and stored only as SHA-256 hashes.
+- Private incident access is authorized by account owner and role. Regular
+  users can access their own incidents. Admins can access incidents across
+  accounts and use `/v1/admin/...` account routes. Legacy unowned incidents are
+  admin-only until a future migration or reassignment workflow exists.
 - Viewer tokens use 256 bits from `crypto/rand`; only SHA-256 token hashes are stored. Tokens created without an explicit `expires_at` default to a 24-hour lifetime unless `SAFE_DEFAULT_INCIDENT_TOKEN_TTL` is configured differently.
 - Expired, revoked, and invalid viewer tokens return the same public error.
 - Incident summaries do not expose `stored_path`. Viewer summaries and bundle
@@ -79,7 +92,7 @@ Planned future incident modes include emergency incidents, non-emergency interac
 - ZIP bundle entry names are server-controlled and generated from metadata; clients do not provide stored paths for download.
 - Public viewer responses use a strict same-origin `Content-Security-Policy` with `frame-ancestors 'none'`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, and a restrictive camera/microphone/geolocation `Permissions-Policy`.
 - Token-protected pages, JSON, errors, private responses, private chunk reads, and bundle downloads use `Cache-Control: no-store`.
-- Request logging records method, redacted route pattern, status, byte count, and duration. It does not log request bodies, uploaded bytes, Authorization headers, raw viewer tokens, raw incident tokens, plaintext, or raw keys.
+- Request logging records method, redacted route pattern, status, byte count, and duration. It does not log request bodies, uploaded bytes, Authorization headers, raw session tokens, raw viewer tokens, raw incident tokens, plaintext, or raw keys.
 - Templates use Go `html/template` escaping.
 - Storage rejects absolute paths, `..`, slash-containing path segments, and backslash traversal. S3 object keys are derived from server-controlled stored paths and an optional safe prefix.
 
@@ -93,16 +106,17 @@ Future incident-mode work should treat these as explicit design risks rather tha
 - safety-check or dead-man switch notifications may create false alarms if timers, connectivity, or contact workflows are poorly designed
 - trusted contacts need clear context and should decide whether to contact emergency services unless a future emergency-services integration is explicitly implemented
 - account-owner, trusted-contact, admin/operator, public-link, and optional
-  escrow access must be separated before public account systems exist; see
+  escrow access must remain separated before public account systems exist; see
   [v1-access-control.md](v1-access-control.md)
 
 The current backend does not implement incident-mode-specific controls yet, so future work must update this threat model before or alongside implementation.
 
 ## Known Limitations
 
-- No implemented public authentication, user accounts, OAuth, JWT, sessions, or
-  CSRF protection. The future `/v1` access-control design is planning-only in
-  [v1-access-control.md](v1-access-control.md).
+- No implemented public product API exposure model for `/v1`; local accounts
+  and sessions are private API controls, not a complete public security model.
+  Browser-session CSRF rules are not implemented because the current `/v1`
+  credential is an Authorization bearer session for private API callers.
 - Separate private/public ports reduce accidental route exposure, but they are not a complete security model.
 - `/v1` must not be publicly exposed as-is.
 - No iOS app, Android app, web client, local recording, production client key storage, key sharing, push notifications, SMS, Messenger integration, or public admin dashboard.
@@ -139,13 +153,14 @@ The current backend does not implement incident-mode-specific controls yet, so f
 - No malware/content scanning; uploaded bytes are assumed to be client-encrypted blobs.
 - Bundle downloads are encrypted chunk bundles, not decrypted or playable media exports.
 - No implemented live or partial stream chunk access before stream completion.
-- No implemented multi-user authorization model.
+- No account self-service recovery, email verification, second factor
+  authentication, delegated identity provider, or public account portal.
 - Viewer links are bearer tokens and must be shared carefully.
 - No implemented production key-sharing, key recovery, Keychain storage, trusted-contact access, browser decryption, break-glass key access, or playable export. The future key custody and emergency access design is documented in [key-custody.md](key-custody.md), with browser decryption design in [browser-decryption.md](browser-decryption.md) and break-glass design in [break-glass-key-access.md](break-glass-key-access.md).
 
 ## Deployment Guidance
 
-For local/private use, bind the private API server to localhost or a private network and restrict access with WireGuard, firewall rules, or a reverse proxy. If any part is exposed publicly today, expose only the incident viewer server. Future non-admin product routes may become public only after authenticated and authorized product API work exists. Future admin/operator routes should use a separately bound private admin API listener, configured for VPN or another private boundary where appropriate, while still requiring admin authentication. Inside Docker containers, bind to container addresses such as `0.0.0.0:8080` and restrict host exposure with port publishing, firewall rules, WireGuard, or reverse proxy configuration.
+For local/private use, bind the private API server to localhost or a private network and restrict access with WireGuard, firewall rules, or a reverse proxy. If any part is exposed publicly today, expose only the incident viewer server. Future non-admin product routes may become public only after public product API hardening exists. Future admin/operator routes should use a separately bound private admin API listener, configured for VPN or another private boundary where appropriate, while still requiring admin authentication. Inside Docker containers, bind to container addresses such as `0.0.0.0:8080` and restrict host exposure with port publishing, firewall rules, WireGuard, or reverse proxy configuration.
 
 Use TLS at the edge for any network access. Apply deployment-edge rate limiting for public incident viewer routes and any private reverse-proxy boundary. Keep reverse-proxy logs, metrics, dashboards, and rate-limit keys from recording raw `/i/{token}` paths and pre-rename compatibility `/e/{token}` paths.
 
@@ -153,9 +168,9 @@ The Go app does not set `Strict-Transport-Security` by default because local dev
 
 ## Next Security Steps
 
-- Implement the explicit `/v1` access-control story from
-  [v1-access-control.md](v1-access-control.md) before any public product API
-  exposure or private admin API implementation.
+- Extend the current `/v1` access-control implementation before any public
+  product API exposure: add public abuse controls, browser credential rules,
+  audited trusted-contact grants, and deployment operations.
 - Use the first-class incident-mode and escalation design in
   [incident-modes.md](incident-modes.md) before implementing non-emergency
   interaction records, safety checks, or dead-man switch workflows.

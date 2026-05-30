@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -55,6 +56,7 @@ func TestBuildViewerURL(t *testing.T) {
 
 func TestClientWriteRoutesUsePrivateAPIBase(t *testing.T) {
 	expectedPaths := []string{
+		"POST /v1/auth/login",
 		"POST /v1/incidents",
 		"POST /v1/incidents/inc_1/incident-tokens",
 		"POST /v1/incidents/inc_1/streams",
@@ -68,7 +70,12 @@ func TestClientWriteRoutesUsePrivateAPIBase(t *testing.T) {
 			t.Fatalf("write route used host %q, want api.example", r.URL.Host)
 		}
 		gotPaths = append(gotPaths, r.Method+" "+r.URL.Path)
+		if r.URL.Path != "/v1/auth/login" && r.Header.Get("Authorization") != "Bearer session-token" {
+			t.Fatalf("write route %s missing session Authorization header", r.URL.Path)
+		}
 		switch r.URL.Path {
+		case "/v1/auth/login":
+			return testResponse(http.StatusCreated, "application/json", `{"token":"session-token"}`), nil
 		case "/v1/incidents":
 			return testResponse(http.StatusCreated, "application/json", `{"incident_id":"inc_1","status":"open"}`), nil
 		case "/v1/incidents/inc_1/incident-tokens":
@@ -93,6 +100,11 @@ func TestClientWriteRoutesUsePrivateAPIBase(t *testing.T) {
 	}
 	ctx := context.Background()
 
+	sessionToken, err := sim.login(ctx, "test-admin", "test-password")
+	if err != nil {
+		t.Fatalf("login returned error: %v", err)
+	}
+	sim.sessionToken = sessionToken
 	incidentID, err := sim.createIncident(ctx)
 	if err != nil {
 		t.Fatalf("createIncident returned error: %v", err)
@@ -145,6 +157,9 @@ func TestClientUploadChunkUsesPrivateAPIBaseAndStreamID(t *testing.T) {
 		if r.Method != http.MethodPost || r.URL.Path != "/v1/incidents/inc_1/chunks" {
 			t.Fatalf("unexpected upload route %s %s", r.Method, r.URL.Path)
 		}
+		if r.Header.Get("Authorization") != "Bearer session-token" {
+			t.Fatalf("upload omitted session Authorization header")
+		}
 		if err := r.ParseMultipartForm(1024 * 1024); err != nil {
 			t.Fatalf("ParseMultipartForm returned error: %v", err)
 		}
@@ -173,9 +188,10 @@ func TestClientUploadChunkUsesPrivateAPIBaseAndStreamID(t *testing.T) {
 	})}
 
 	sim := client{
-		httpClient: httpClient,
-		apiBase:    "http://api.example",
-		viewerBase: "http://viewer.example",
+		httpClient:   httpClient,
+		apiBase:      "http://api.example",
+		viewerBase:   "http://viewer.example",
+		sessionToken: "session-token",
 	}
 	if err := sim.uploadChunk(context.Background(), upload); err != nil {
 		t.Fatalf("uploadChunk returned error: %v", err)
@@ -208,8 +224,53 @@ func TestClientDownloadStreamBundleUsesViewerBase(t *testing.T) {
 	}
 }
 
+func TestPostJSONUnexpectedStatusOmitsTokenBearingBody(t *testing.T) {
+	httpClient := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		return testResponse(http.StatusOK, "application/json", `{"token":"raw-session-token","other":"raw-viewer-token"}`), nil
+	})}
+	sim := client{
+		httpClient: httpClient,
+		apiBase:    "http://api.example",
+		viewerBase: "http://viewer.example",
+	}
+
+	err := sim.postJSON(context.Background(), "/v1/auth/login", map[string]string{"username": "admin"}, http.StatusCreated, nil)
+	if err == nil {
+		t.Fatal("expected unexpected status error")
+	}
+	message := err.Error()
+	for _, secret := range []string{"raw-session-token", "raw-viewer-token"} {
+		if strings.Contains(message, secret) {
+			t.Fatalf("unexpected status error exposed %q: %s", secret, message)
+		}
+	}
+	if !strings.Contains(message, "response body omitted") {
+		t.Fatalf("unexpected status error = %q, want omitted body summary", message)
+	}
+}
+
+func TestPostJSONUnexpectedStatusIncludesAPIErrorSummary(t *testing.T) {
+	httpClient := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		return testResponse(http.StatusUnauthorized, "application/json", `{"error":{"code":"unauthorized","message":"authentication required"}}`), nil
+	})}
+	sim := client{
+		httpClient: httpClient,
+		apiBase:    "http://api.example",
+		viewerBase: "http://viewer.example",
+	}
+
+	err := sim.postJSON(context.Background(), "/v1/incidents", map[string]string{}, http.StatusCreated, nil)
+	if err == nil {
+		t.Fatal("expected unexpected status error")
+	}
+	message := err.Error()
+	if !strings.Contains(message, "unauthorized: authentication required") {
+		t.Fatalf("unexpected status error = %q, want API error summary", message)
+	}
+}
+
 func TestParseConfigStreamFlags(t *testing.T) {
-	cfg, err := parseConfig([]string{"--chunks", "2", "--interval", "0", "--download-bundle"})
+	cfg, err := parseConfig(withAuthArgs("--chunks", "2", "--interval", "0", "--download-bundle"))
 	if err != nil {
 		t.Fatalf("parseConfig returned error: %v", err)
 	}
@@ -222,7 +283,7 @@ func TestParseConfigStreamFlags(t *testing.T) {
 }
 
 func TestParseConfigEncryptionDefaults(t *testing.T) {
-	cfg, err := parseConfig([]string{"--chunks", "2", "--interval", "0"})
+	cfg, err := parseConfig(withAuthArgs("--chunks", "2", "--interval", "0"))
 	if err != nil {
 		t.Fatalf("parseConfig returned error: %v", err)
 	}
@@ -238,7 +299,7 @@ func TestParseConfigEncryptionDefaults(t *testing.T) {
 }
 
 func TestParseConfigAllowsEncryptionToBeDisabled(t *testing.T) {
-	cfg, err := parseConfig([]string{"--encrypt=false"})
+	cfg, err := parseConfig(withAuthArgs("--encrypt=false"))
 	if err != nil {
 		t.Fatalf("parseConfig returned error: %v", err)
 	}
@@ -249,6 +310,8 @@ func TestParseConfigAllowsEncryptionToBeDisabled(t *testing.T) {
 
 func TestParseConfigCleansBasesAndChunkSize(t *testing.T) {
 	cfg, err := parseConfig([]string{
+		"--username", " test-admin ",
+		"--password", "test-password",
 		"--api", "http://private.example/",
 		"--viewer", "http://public.example/",
 		"--chunk-size", "2KiB",
@@ -262,19 +325,22 @@ func TestParseConfigCleansBasesAndChunkSize(t *testing.T) {
 	if cfg.viewerBase != "http://public.example" {
 		t.Fatalf("viewerBase = %q", cfg.viewerBase)
 	}
+	if cfg.username != "test-admin" {
+		t.Fatalf("username = %q", cfg.username)
+	}
 	if cfg.chunkSize != 2048 {
 		t.Fatalf("chunkSize = %d", cfg.chunkSize)
 	}
 }
 
 func TestParseConfigRejectsDownloadWithoutCompleteStream(t *testing.T) {
-	if _, err := parseConfig([]string{"--download-bundle", "--complete-stream=false"}); err == nil {
+	if _, err := parseConfig(withAuthArgs("--download-bundle", "--complete-stream=false")); err == nil {
 		t.Fatal("expected --download-bundle without --complete-stream to fail")
 	}
 }
 
 func TestParseConfigRejectsDownloadWithoutChunks(t *testing.T) {
-	if _, err := parseConfig([]string{"--chunks", "0", "--download-bundle"}); err == nil {
+	if _, err := parseConfig(withAuthArgs("--chunks", "0", "--download-bundle")); err == nil {
 		t.Fatal("expected --download-bundle without chunks to fail")
 	}
 }
@@ -286,23 +352,23 @@ func TestParseConfigRejectsInvalidValues(t *testing.T) {
 	}{
 		{
 			name: "negative chunks",
-			args: []string{"--chunks", "-1"},
+			args: withAuthArgs("--chunks", "-1"),
 		},
 		{
 			name: "negative interval",
-			args: []string{"--interval", "-1s"},
+			args: withAuthArgs("--interval", "-1s"),
 		},
 		{
 			name: "invalid media type",
-			args: []string{"--media-type", "screen"},
+			args: withAuthArgs("--media-type", "screen"),
 		},
 		{
 			name: "zero chunk size",
-			args: []string{"--chunk-size", "0"},
+			args: withAuthArgs("--chunk-size", "0"),
 		},
 		{
 			name: "negative failure interval",
-			args: []string{"--simulate-failure-every", "-1"},
+			args: withAuthArgs("--simulate-failure-every", "-1"),
 		},
 	}
 
@@ -313,6 +379,11 @@ func TestParseConfigRejectsInvalidValues(t *testing.T) {
 			}
 		})
 	}
+}
+
+func withAuthArgs(args ...string) []string {
+	base := []string{"--username", "test-admin", "--password", "test-password"}
+	return append(base, args...)
 }
 
 func TestBadHashFor(t *testing.T) {

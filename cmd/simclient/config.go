@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -12,6 +13,8 @@ import (
 type config struct {
 	apiBase              string
 	viewerBase           string
+	username             string
+	password             string
 	chunks               int
 	interval             time.Duration
 	mediaType            string
@@ -32,6 +35,8 @@ func parseConfig(args []string) (config, error) {
 	cfg := config{}
 	fs.StringVar(&cfg.apiBase, "api", defaultAPIBase, "Private API base URL")
 	fs.StringVar(&cfg.viewerBase, "viewer", defaultViewerBase, "Incident viewer base URL")
+	fs.StringVar(&cfg.username, "username", os.Getenv("PROOFLINE_SIM_USERNAME"), "Proofline account username")
+	fs.StringVar(&cfg.password, "password", os.Getenv("PROOFLINE_SIM_PASSWORD"), "Proofline account password")
 	fs.IntVar(&cfg.chunks, "chunks", defaultChunks, "Number of chunks to upload")
 	fs.DurationVar(&cfg.interval, "interval", defaultInterval, "Delay between chunk uploads")
 	fs.StringVar(&cfg.mediaType, "media-type", defaultMediaType, "Media type to upload")
@@ -56,6 +61,12 @@ func parseConfig(args []string) (config, error) {
 	if !validMediaType(cfg.mediaType) {
 		return config{}, fmt.Errorf("--media-type must be audio, video, location, or metadata")
 	}
+	if strings.TrimSpace(cfg.username) == "" {
+		return config{}, fmt.Errorf("--username or PROOFLINE_SIM_USERNAME is required")
+	}
+	if cfg.password == "" {
+		return config{}, fmt.Errorf("--password or PROOFLINE_SIM_PASSWORD is required")
+	}
 	chunkSize, err := parseByteSize(chunkSizeRaw)
 	if err != nil {
 		return config{}, fmt.Errorf("--chunk-size: %w", err)
@@ -76,6 +87,7 @@ func parseConfig(args []string) (config, error) {
 	cfg.chunkSize = chunkSize
 	cfg.apiBase = cleanBaseURL(cfg.apiBase)
 	cfg.viewerBase = cleanBaseURL(cfg.viewerBase)
+	cfg.username = strings.TrimSpace(cfg.username)
 	return cfg, nil
 }
 

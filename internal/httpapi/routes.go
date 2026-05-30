@@ -4,14 +4,25 @@ import "net/http"
 
 func (a *API) privateRoutes() http.Handler {
 	mux := http.NewServeMux()
+	a.registerPrivateAuthRoutes(mux)
 	a.registerPrivateIncidentRoutes(mux)
 	a.registerPrivateStreamRoutes(mux)
 	a.registerPrivateIncidentTokenRoutes(mux)
 	mux.HandleFunc("/", a.notFound)
 
-	// The private API has no public authentication by design. Deployment must provide the
-	// private boundary, for example localhost, WireGuard, or firewall rules.
-	return a.loggingMiddleware(a.recoveryMiddleware(a.privateSecurityMiddleware(mux)))
+	return a.loggingMiddleware(a.recoveryMiddleware(a.privateSecurityMiddleware(a.privateAuthMiddleware(mux))))
+}
+
+func (a *API) registerPrivateAuthRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("POST /v1/bootstrap/admin", a.bootstrapAdmin)
+	mux.HandleFunc("POST /v1/auth/login", a.login)
+	mux.HandleFunc("POST /v1/auth/logout", a.logout)
+	mux.HandleFunc("GET /v1/account", a.getCurrentAccount)
+	mux.HandleFunc("POST /v1/account/password", a.changeOwnPassword)
+	mux.HandleFunc("GET /v1/admin/accounts", a.listAccounts)
+	mux.HandleFunc("POST /v1/admin/accounts", a.createAccount)
+	mux.HandleFunc("POST /v1/admin/accounts/{account_id}/password", a.resetAccountPassword)
+	mux.HandleFunc("POST /v1/admin/accounts/{account_id}/sessions/revoke", a.revokeAccountSessions)
 }
 
 func (a *API) registerPrivateIncidentRoutes(mux *http.ServeMux) {

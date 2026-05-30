@@ -170,12 +170,24 @@ If `go vet ./...` fails because of a known harmless issue, document the reason r
 If practical, run the backend:
 
 ```bash
-go run ./cmd/api
+SAFE_AUTH_BOOTSTRAP_SECRET='replace-with-local-bootstrap-secret' go run ./cmd/api
 ```
 
-In another terminal:
+In another terminal, create the first local admin if the test database does not
+already have one:
 
 ```bash
+curl -sS -X POST http://127.0.0.1:8080/v1/bootstrap/admin \
+  -H 'Content-Type: application/json' \
+  -H 'X-Proofline-Bootstrap-Secret: replace-with-local-bootstrap-secret' \
+  -d '{"username":"admin","password":"replace-with-a-long-local-password"}'
+```
+
+Then run the simulator with account credentials:
+
+```bash
+PROOFLINE_SIM_USERNAME='admin' \
+PROOFLINE_SIM_PASSWORD='replace-with-a-long-local-password' \
 go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle
 ```
 

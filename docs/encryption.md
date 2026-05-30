@@ -108,6 +108,8 @@ The simulator can load or create a local development key file:
 Encryption is enabled by default:
 
 ```bash
+PROOFLINE_SIM_USERNAME=admin \
+PROOFLINE_SIM_PASSWORD='replace-with-a-long-local-password' \
 go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle
 ```
 
@@ -116,12 +118,16 @@ Expected output includes the non-secret key ID, encrypted chunk uploads, bundle 
 To persist a simulator key locally:
 
 ```bash
+PROOFLINE_SIM_USERNAME=admin \
+PROOFLINE_SIM_PASSWORD='replace-with-a-long-local-password' \
 go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle --key-file /tmp/proofline-sim.key.json
 ```
 
 Run it again with the same path to load the existing key:
 
 ```bash
+PROOFLINE_SIM_USERNAME=admin \
+PROOFLINE_SIM_PASSWORD='replace-with-a-long-local-password' \
 go run ./cmd/simclient --chunks 2 --interval 1s --download-bundle --key-file /tmp/proofline-sim.key.json
 ```
 
@@ -130,12 +136,16 @@ Older examples may use `/tmp/safety-recorder-sim.key.json`; the file name is not
 To preserve the old raw fake chunk behavior for development compatibility:
 
 ```bash
+PROOFLINE_SIM_USERNAME=admin \
+PROOFLINE_SIM_PASSWORD='replace-with-a-long-local-password' \
 go run ./cmd/simclient --encrypt=false
 ```
 
 Bundle decrypt verification defaults on when `--download-bundle` and `--encrypt` are both enabled. It can be disabled with:
 
 ```bash
+PROOFLINE_SIM_USERNAME=admin \
+PROOFLINE_SIM_PASSWORD='replace-with-a-long-local-password' \
 go run ./cmd/simclient --download-bundle --verify-bundle-decryption=false
 ```
 

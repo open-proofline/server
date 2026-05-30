@@ -5,8 +5,9 @@ Proofline Server.
 
 It is a planning document only. It does not implement idempotency, upload
 leases, resumable uploads, operation-level use of Valkey/Redis-compatible
-coordination, public `/v1` authentication, account management, browser
-decryption, backend decryption, key custody, or playable media export.
+coordination, changes to the current local account/session model, public `/v1`
+exposure, browser decryption, backend decryption, key custody, or playable
+media export.
 
 ## Current Behavior
 
@@ -44,7 +45,8 @@ storage backends.
 - No changes to optional PostgreSQL metadata, no changes to the optional
   S3-compatible storage backend, and no operation-level Valkey coordination
   behavior.
-- No public `/v1` exposure or account/authentication model.
+- No public `/v1` exposure, public account workflows, or changes to the current
+  local account/session model.
 - No client repository, protocol repository, or mobile implementation.
 - No backend decryption, raw server-held keys, key escrow, key sharing, or
   playable media export.

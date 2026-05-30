@@ -6,9 +6,10 @@ encrypted blob backend, and optional Valkey/Redis-compatible coordination
 backend.
 
 Proofline is still experimental and not production-ready public
-infrastructure. These runbooks do not add public `/v1` authentication,
-retention enforcement, observability, abuse controls, backup automation, cloud
-deployment scripts, backend decryption, key escrow, or key custody behavior.
+infrastructure. These runbooks do not add public `/v1` exposure, public account
+workflows, retention enforcement, observability, abuse controls, backup
+automation, cloud deployment scripts, backend decryption, key escrow, or key
+custody behavior.
 They also do not make a multi-node deployment safe without the future
 cluster-safe upload operation work documented in
 [cluster-safe upload operation semantics](cluster-safe-upload-semantics.md).

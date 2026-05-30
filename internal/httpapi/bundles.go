@@ -13,6 +13,9 @@ import (
 
 func (a *API) downloadPrivateStreamBundle(w http.ResponseWriter, r *http.Request) {
 	incidentID := r.PathValue("incident_id")
+	if _, ok := a.authorizeIncident(w, r, incidentID, actionReadCiphertextBundle, dataClassCiphertext); !ok {
+		return
+	}
 	bundle, ok := a.loadCompletedStreamBundle(w, r, incidentID, r.PathValue("stream_id"))
 	if !ok {
 		return
@@ -34,6 +37,9 @@ func (a *API) downloadIncidentViewerStreamBundle(w http.ResponseWriter, r *http.
 
 func (a *API) downloadPrivateIncidentBundle(w http.ResponseWriter, r *http.Request) {
 	incidentID := r.PathValue("incident_id")
+	if _, ok := a.authorizeIncident(w, r, incidentID, actionReadCiphertextBundle, dataClassCiphertext); !ok {
+		return
+	}
 	detail, err := a.repo.GetIncidentDetail(r.Context(), incidentID)
 	if errors.Is(err, incidents.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "incident_not_found", "incident was not found")

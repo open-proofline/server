@@ -1,6 +1,6 @@
 # Simulator
 
-The simulator CLI lives at `cmd/simclient`. It exercises the current Proofline ingest flow that a future recording client is expected to use. By default it encrypts fake chunk plaintext with the v1 client-side envelope before upload.
+The simulator CLI lives at `cmd/simclient`. It exercises the current Proofline ingest flow that a future recording client is expected to use. It logs in to the private `/v1` API with a local account session, then encrypts fake chunk plaintext with the v1 client-side envelope before upload by default.
 
 The simulator covers generic incidents only. It does not implement planned incident modes such as emergency incidents, interaction records, safety checks, or evidence notes.
 
@@ -22,11 +22,11 @@ process restart or resume drills. Those controls should exercise local staging,
 retry scheduling, and stream completion behavior without requiring partially
 uploaded bytes to become server-visible evidence.
 
-The desktop simulator should also be designed to support account-aware flows in
-the near future. Until the account and access-control model exists, account
-identity should remain local test metadata only. Adding the simulator must not
-incidentally add user accounts, OAuth, JWT, public `/v1` authentication, or
-account-management routes.
+The desktop simulator should continue using account-aware flows without
+turning this repository into a production desktop app. Simulator credentials
+are local development credentials only. Future simulator work must not
+incidentally add OAuth, JWT, public `/v1` exposure, browser decryption, mobile
+client behavior, or a public account portal.
 
 The simulator may also prototype contact-wrapped key metadata in local
 development artifacts. That design is documented in
@@ -45,12 +45,19 @@ separately in
 Start the backend first:
 
 ```bash
+SAFE_AUTH_BOOTSTRAP_SECRET='replace-with-local-bootstrap-secret' \
 go run ./cmd/api
 ```
+
+For a new local database, create an admin account through
+`POST /v1/bootstrap/admin`, then remove `SAFE_AUTH_BOOTSTRAP_SECRET` and
+restart the server. See [deployment](deployment.md) for the bootstrap flow.
 
 Then run:
 
 ```bash
+PROOFLINE_SIM_USERNAME=admin \
+PROOFLINE_SIM_PASSWORD='replace-with-a-long-local-password' \
 go run ./cmd/simclient --chunks 12 --interval 5s
 ```
 
@@ -61,6 +68,8 @@ The simulator prints an incident viewer URL. Open it to watch incident metadata 
 To test encrypted bundle download through the incident viewer:
 
 ```bash
+PROOFLINE_SIM_USERNAME=admin \
+PROOFLINE_SIM_PASSWORD='replace-with-a-long-local-password' \
 go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle
 ```
 
@@ -71,6 +80,8 @@ This creates a media stream, uploads encrypted chunks with `stream_id`, complete
 Encryption is enabled by default:
 
 ```bash
+PROOFLINE_SIM_USERNAME=admin \
+PROOFLINE_SIM_PASSWORD='replace-with-a-long-local-password' \
 go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle
 ```
 
@@ -79,6 +90,8 @@ The simulator prints a non-secret `key_id`, but it never prints the raw key or d
 To reuse a simulator key across runs:
 
 ```bash
+PROOFLINE_SIM_USERNAME=admin \
+PROOFLINE_SIM_PASSWORD='replace-with-a-long-local-password' \
 go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle --key-file /tmp/proofline-sim.key.json
 ```
 
@@ -89,6 +102,8 @@ Older examples may use `/tmp/safety-recorder-sim.key.json`; the file name is not
 To preserve the old raw fake chunk behavior:
 
 ```bash
+PROOFLINE_SIM_USERNAME=admin \
+PROOFLINE_SIM_PASSWORD='replace-with-a-long-local-password' \
 go run ./cmd/simclient --encrypt=false
 ```
 
@@ -99,6 +114,8 @@ This is only for development compatibility. See [encryption.md](encryption.md) f
 To test hash failure and retry behavior:
 
 ```bash
+PROOFLINE_SIM_USERNAME=admin \
+PROOFLINE_SIM_PASSWORD='replace-with-a-long-local-password' \
 go run ./cmd/simclient --chunks 12 --interval 2s --simulate-failure-every 4
 ```
 
@@ -113,6 +130,8 @@ are planned in [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.
 |---|---|
 | `--api` | Private API base URL. |
 | `--viewer` | Incident viewer base URL. |
+| `--username` | Proofline account username. Defaults to `PROOFLINE_SIM_USERNAME`. |
+| `--password` | Proofline account password. Defaults to `PROOFLINE_SIM_PASSWORD`. |
 | `--chunks` | Number of chunks to upload. |
 | `--interval` | Delay between chunk uploads. |
 | `--chunk-size` | Size of each fake plaintext chunk before optional encryption. |

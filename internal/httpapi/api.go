@@ -6,11 +6,13 @@ import (
 	"time"
 
 	"github.com/open-proofline/server/internal/storage"
+	"golang.org/x/crypto/bcrypt"
 )
 
 const (
 	defaultMaxUploadBytes   = int64(250 * 1024 * 1024)
 	defaultIncidentTokenTTL = 24 * time.Hour
+	defaultSessionTTL       = 12 * time.Hour
 	jsonBodyLimit           = int64(64 * 1024)
 	fieldLimit              = int64(64 * 1024)
 	multipartOverhead       = int64(1024 * 1024)
@@ -21,6 +23,9 @@ const (
 type Options struct {
 	MaxUploadBytes          int64
 	DefaultIncidentTokenTTL *time.Duration
+	SessionTTL              time.Duration
+	BootstrapSecret         string
+	PasswordCost            int
 	Logger                  *slog.Logger
 }
 
@@ -30,6 +35,9 @@ type API struct {
 	store                   storage.BlobStore
 	maxUploadBytes          int64
 	defaultIncidentTokenTTL time.Duration
+	sessionTTL              time.Duration
+	bootstrapSecret         string
+	passwordCost            int
 	logger                  *slog.Logger
 }
 
@@ -65,6 +73,14 @@ func newAPI(repo MetadataRepository, store storage.BlobStore, opts Options) *API
 	if incidentTokenTTL < 0 {
 		incidentTokenTTL = 0
 	}
+	sessionTTL := opts.SessionTTL
+	if sessionTTL <= 0 {
+		sessionTTL = defaultSessionTTL
+	}
+	passwordCost := opts.PasswordCost
+	if passwordCost == 0 {
+		passwordCost = bcrypt.DefaultCost
+	}
 	logger := opts.Logger
 	if logger == nil {
 		logger = slog.Default()
@@ -75,6 +91,9 @@ func newAPI(repo MetadataRepository, store storage.BlobStore, opts Options) *API
 		store:                   store,
 		maxUploadBytes:          maxUploadBytes,
 		defaultIncidentTokenTTL: incidentTokenTTL,
+		sessionTTL:              sessionTTL,
+		bootstrapSecret:         opts.BootstrapSecret,
+		passwordCost:            passwordCost,
 		logger:                  logger,
 	}
 }

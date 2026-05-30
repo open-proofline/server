@@ -1,18 +1,19 @@
 # Security Model
 
-This document summarizes the current Proofline backend security assumptions and controls. For a threat-oriented view, see [threat-model.md](threat-model.md). For planned incident-mode behavior, see [incident-modes.md](incident-modes.md). For future `/v1` role and grant boundaries, see [v1-access-control.md](v1-access-control.md). For future production key custody and emergency access design, see [key-custody.md](key-custody.md), the simulator-only wrapped-key metadata prototype in [contact-wrapped-key-metadata-simulator.md](contact-wrapped-key-metadata-simulator.md), [browser-decryption.md](browser-decryption.md), [live-partial-stream-access-boundary.md](live-partial-stream-access-boundary.md), and [break-glass-key-access.md](break-glass-key-access.md). For vulnerability reporting, see [../SECURITY.md](../SECURITY.md).
+This document summarizes the current Proofline backend security assumptions and controls. For a threat-oriented view, see [threat-model.md](threat-model.md). For planned incident-mode behavior, see [incident-modes.md](incident-modes.md). For `/v1` role and grant boundaries, see [v1-access-control.md](v1-access-control.md). For future production key custody and emergency access design, see [key-custody.md](key-custody.md), the simulator-only wrapped-key metadata prototype in [contact-wrapped-key-metadata-simulator.md](contact-wrapped-key-metadata-simulator.md), [browser-decryption.md](browser-decryption.md), [live-partial-stream-access-boundary.md](live-partial-stream-access-boundary.md), and [break-glass-key-access.md](break-glass-key-access.md). For vulnerability reporting, see [../SECURITY.md](../SECURITY.md).
 
 ## Maturity
 
-Proofline is experimental and not production-ready public infrastructure. The private `/v1` API has no public user authentication, no user accounts, no OAuth, and no JWT protection.
+Proofline is experimental and not production-ready public infrastructure. The private `/v1` API has local username/password accounts and opaque server-side sessions. It still has no OAuth, no JWT protection, no public product API hardening, and no public account portal.
 
-The current backend stores generic incidents only. It does not yet implement first-class incident modes, capture profiles, escalation policies, sharing state, trusted-contact accounts, dead-man switch notifications, or account-based access to personal incident data.
+The current backend stores generic incidents owned by local accounts. It does not yet implement first-class incident modes, capture profiles, escalation policies, sharing state, trusted-contact accounts, dead-man switch notifications, or public account-based product access.
 
-The future `/v1` access-control direction is documented in
-[v1-access-control.md](v1-access-control.md). That document is planning-only
-and does not make the current unauthenticated `/v1` API safe to expose
-publicly. Its future topology separates a public authenticated product API from
-a separately bound private admin API listener that still requires
+The `/v1` access-control direction is documented in
+[v1-access-control.md](v1-access-control.md). The current implementation covers
+local account sessions, owner-scoped incident access, admin account routes, and
+private route authentication. It does not make `/v1` safe to expose publicly as
+a product API. Future topology still separates a public authenticated product
+API from a separately bound private admin API listener that requires
 authentication and authorization.
 
 ## Listener Boundary
@@ -21,12 +22,25 @@ The API binary starts separate listener groups:
 
 | Listener group | Routes | Intended exposure |
 |---|---|---|
-| Private API | `/v1/...` | Localhost, LAN, WireGuard, firewall, or strict reverse proxy only. |
+| Private API | Authenticated `/v1/...` | Localhost, LAN, WireGuard, firewall, or strict reverse proxy only. |
 | Public incident viewer | `/i/{token}` and related read-only routes, plus pre-rename `/e/{token}` compatibility aliases | HTTPS/reverse proxy when exposed. |
 
 Private write/admin routes must not be mounted on public incident viewer listeners. Incident viewer routes are read-only.
 
-## Token Handling
+## Account And Token Handling
+
+Local accounts are stored in the configured metadata backend. Passwords are
+stored as bcrypt password hashes, not plaintext. Session tokens are opaque
+server-side bearer credentials. The raw session token is returned only by
+login; the metadata backend stores only a SHA-256 hash. Sessions expire after
+`SAFE_SESSION_TTL`, defaulting to 12 hours, and can be revoked by logout,
+account password change, admin password reset, or admin session revocation.
+
+The server fails closed on startup unless an admin account exists or
+`SAFE_AUTH_BOOTSTRAP_SECRET` is set for the one-time bootstrap route. The
+bootstrap route is disabled once an admin account exists. Treat the bootstrap
+secret, account passwords, session tokens, and Authorization headers as
+secrets.
 
 Incident viewer tokens are scoped to one incident. The raw token is returned only at creation time; the configured metadata backend stores only a SHA-256 hash. Tokens created without an explicit `expires_at` default to a 24-hour lifetime unless `SAFE_DEFAULT_INCIDENT_TOKEN_TTL` is configured differently. Expired, revoked, and invalid tokens return the same public error.
 
@@ -50,6 +64,13 @@ Viewer URLs contain bearer tokens and should be treated as secrets. Reverse prox
 - SQLite and optional PostgreSQL metadata enforce media type, chunk index, byte size, SHA-256 shape, foreign keys, and unique chunk identity.
 - Chunk metadata inserts recheck incident and stream state in the repository so uploads racing with close or completion are rejected.
 - Media stream completion verifies contiguous chunks and readable stored files, then rechecks chunk rows transactionally before committing completion.
+- Local account authorization binds private incident access to the
+  authenticated account, the incident owner, and the role. Current private
+  incident routes also pass route-level action and data-class labels, but all
+  current incident actions share the same owner-or-admin policy. Regular users
+  can access their own incidents. Admins can access incidents across accounts.
+  Legacy unowned incidents are admin-only until a future migration or
+  reassignment workflow exists.
 
 Optional S3-compatible storage preserves ciphertext-only behavior for committed
 encrypted chunks. It uses server-controlled object keys, does not expose object
@@ -110,7 +131,7 @@ admin/operator, escrow, key, or plaintext access.
 
 ## Logging And Headers
 
-Request logging records method, redacted route pattern, status, byte count, and duration. It does not log request bodies, uploaded bytes, Authorization headers, raw viewer tokens, raw incident tokens, plaintext, or raw keys.
+Request logging records method, redacted route pattern, status, byte count, and duration. It does not log request bodies, uploaded bytes, Authorization headers, raw session tokens, raw viewer tokens, raw incident tokens, plaintext, or raw keys.
 
 The Go app sets these headers on public incident viewer pages, JSON responses, static assets, and ZIP downloads:
 
@@ -126,7 +147,7 @@ HSTS is not enabled by default in the Go app because local development uses plai
 
 HTTP server timeouts are configurable separately for private and public listener groups. Private read/write timeouts default to disabled for large uploads/downloads; public viewer timeouts are finite by default and should be coordinated with reverse-proxy timeouts.
 
-The Go app does not include an app-level rate limiter. Deployment-edge rate limiting guidance is documented in [deployment.md](deployment.md), but those proxy controls do not replace private `/v1` access boundaries or future application-level authorization.
+The Go app does not include an app-level rate limiter. Deployment-edge rate limiting guidance is documented in [deployment.md](deployment.md), but those proxy controls do not replace private `/v1` access boundaries, local account authentication, or future public product API abuse controls.
 
 ## Retention, Backups, And Deletion
 
@@ -151,8 +172,8 @@ Normal file or object removal is not treated as guaranteed secure erasure. Deplo
 
 ## Known Security Gaps
 
-- No implemented public authentication or authorization model for `/v1`; the
-  future design is planning-only in [v1-access-control.md](v1-access-control.md)
+- No implemented public product API exposure model for `/v1`; local account
+  sessions are a private API control, not a complete public security model
 - No built-in TLS
 - No built-in app-level rate limiting or abuse throttling
 - PostgreSQL metadata and Valkey/Redis-compatible coordination are optional
@@ -169,7 +190,7 @@ Normal file or object removal is not treated as guaranteed secure erasure. Deplo
   [resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md)
 - No implemented first-class incident modes, capture profiles, escalation
   policies, sharing state, trusted-contact accounts, dead-man switch
-  notifications, or account-based access model
+  notifications, or public account portal
 - No implemented production client key storage, key sharing, browser decryption, server-assisted break-glass key access, or emergency-contact key access model; the future designs are documented in [key-custody.md](key-custody.md), [browser-decryption.md](browser-decryption.md), and [break-glass-key-access.md](break-glass-key-access.md)
 - No implemented live or partial stream access beyond current read-only stream
   metadata summaries and completed encrypted bundle downloads; the future
@@ -181,4 +202,5 @@ Normal file or object removal is not treated as guaranteed secure erasure. Deplo
   enforcement design in
   [incident-deletion-retention-enforcement.md](incident-deletion-retention-enforcement.md)
 - No malware/content scanning for uploaded encrypted blobs
-- No implemented multi-user authorization model
+- No implemented account self-service recovery, email verification, second
+  factor authentication, delegated identity provider, or public account portal

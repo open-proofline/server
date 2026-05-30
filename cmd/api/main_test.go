@@ -2,14 +2,20 @@ package main
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/open-proofline/server/internal/auth"
 	"github.com/open-proofline/server/internal/config"
 	"github.com/open-proofline/server/internal/coordination"
+	"github.com/open-proofline/server/internal/db"
+	"github.com/open-proofline/server/internal/incidents"
 )
 
 func TestNewHTTPServersCreatesOneServerPerBindAddress(t *testing.T) {
@@ -69,6 +75,45 @@ func TestStartupErrorLogDoesNotExposeFilesystemPath(t *testing.T) {
 	}
 	if !bytes.Contains(logs.Bytes(), []byte("error_category=permission")) {
 		t.Fatalf("startup log omitted safe error category: %s", logs.String())
+	}
+}
+
+func TestCheckAuthBootstrapFailsWithoutAdminOrBootstrapSecret(t *testing.T) {
+	ctx := context.Background()
+	conn, err := db.Open(ctx, filepath.Join(t.TempDir(), "safety.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer conn.Close()
+	repo := incidents.NewRepository(conn)
+
+	err = checkAuthBootstrap(ctx, repo, config.Config{})
+	if !errors.Is(err, errAuthBootstrapRequired) {
+		t.Fatalf("checkAuthBootstrap error = %v, want auth bootstrap required", err)
+	}
+}
+
+func TestCheckAuthBootstrapAllowsBootstrapSecretOrExistingAdmin(t *testing.T) {
+	ctx := context.Background()
+	conn, err := db.Open(ctx, filepath.Join(t.TempDir(), "safety.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer conn.Close()
+	repo := incidents.NewRepository(conn)
+
+	if err := checkAuthBootstrap(ctx, repo, config.Config{AuthBootstrapSecret: "bootstrap-secret"}); err != nil {
+		t.Fatalf("expected bootstrap secret to allow startup, got %v", err)
+	}
+	if _, err := repo.CreateAccount(ctx, auth.CreateAccountParams{
+		Username:     "admin",
+		PasswordHash: "stored-hash",
+		Role:         auth.RoleAdmin,
+	}); err != nil {
+		t.Fatalf("create admin account: %v", err)
+	}
+	if err := checkAuthBootstrap(ctx, repo, config.Config{}); err != nil {
+		t.Fatalf("expected existing admin to allow startup, got %v", err)
 	}
 }
 

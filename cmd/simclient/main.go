@@ -32,6 +32,13 @@ func run(ctx context.Context, out io.Writer, args []string) error {
 		viewerBase: cfg.viewerBase,
 	}
 
+	fmt.Fprintln(out, "Logging in...")
+	sessionToken, err := sim.login(ctx, cfg.username, cfg.password)
+	if err != nil {
+		return err
+	}
+	sim.sessionToken = sessionToken
+
 	fmt.Fprintln(out, "Creating incident...")
 	incidentID, err := sim.createIncident(ctx)
 	if err != nil {

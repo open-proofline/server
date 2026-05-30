@@ -235,6 +235,13 @@ func TestPublicServerDoesNotMountPrivateRoutes(t *testing.T) {
 		{http.MethodPost, "/v1/incidents/inc_missing/close"},
 		{http.MethodPost, "/v1/incidents/inc_missing/incident-tokens"},
 		{http.MethodPost, "/v1/incident-tokens/itk_missing/revoke"},
+		{http.MethodPost, "/v1/bootstrap/admin"},
+		{http.MethodPost, "/v1/auth/login"},
+		{http.MethodPost, "/v1/auth/logout"},
+		{http.MethodGet, "/v1/account"},
+		{http.MethodPost, "/v1/account/password"},
+		{http.MethodGet, "/v1/admin/accounts"},
+		{http.MethodPost, "/v1/admin/accounts"},
 	}
 
 	for _, tt := range tests {

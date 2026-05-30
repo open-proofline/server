@@ -87,6 +87,24 @@ func (r *Repository) LookupIncidentToken(ctx context.Context, rawToken string) (
 	return token, nil
 }
 
+// GetIncidentToken returns token metadata by server-generated token ID.
+func (r *Repository) GetIncidentToken(ctx context.Context, tokenID string) (incidents.IncidentToken, error) {
+	row := r.db.QueryRowContext(ctx, `
+		SELECT id, incident_id, token_hash, label, created_at, expires_at, revoked_at
+		FROM incident_tokens
+		WHERE id = $1`,
+		tokenID,
+	)
+	token, err := scanIncidentToken(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return incidents.IncidentToken{}, incidents.ErrNotFound
+	}
+	if err != nil {
+		return incidents.IncidentToken{}, fmt.Errorf("get postgres incident token: %w", err)
+	}
+	return token, nil
+}
+
 // RevokeIncidentToken revokes a token so it can no longer read incident viewer data.
 func (r *Repository) RevokeIncidentToken(ctx context.Context, tokenID string) error {
 	result, err := r.db.ExecContext(ctx, `

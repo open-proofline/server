@@ -167,7 +167,8 @@ Check and fix, if needed:
 
 ## Common False Positives To Remove Or Downgrade
 
-- Missing public `/v1` authentication when docs state `/v1` is private and unauthenticated.
+- Missing public product API authentication when docs state `/v1` is private
+  and protected by local account sessions.
 - Missing web/iOS/Android clients when docs mark them as future work.
 - Missing first-class incident modes, capture profiles, escalation policies, sharing state, or dead-man switch when docs mark them as future work.
 - Missing browser decryption, production key custody, or break-glass behavior when docs mark them as future work.

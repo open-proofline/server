@@ -8,7 +8,7 @@
 [![Security Policy](https://img.shields.io/badge/security-policy-blue.svg)](SECURITY.md)
 [![GHCR](https://img.shields.io/static/v1?label=GHCR&message=ghcr.io%2Fopen-proofline%2Fserver&color=blue&logo=github)](https://github.com/orgs/open-proofline/packages/container/package/server)
 
-Proofline Server is the experimental Go server backend for private encrypted incident capture. It receives already-encrypted recording chunks, stores metadata in SQLite by default or optional PostgreSQL, keeps encrypted blobs on local disk by default or in optional S3-compatible object storage, performs a startup check against optional Valkey/Redis-compatible coordination when explicitly configured, and exposes a token-scoped read-only viewer for incident review.
+Proofline Server is the experimental Go server backend for private encrypted incident capture. It receives already-encrypted recording chunks through authenticated private `/v1` routes, stores metadata in SQLite by default or optional PostgreSQL, keeps encrypted blobs on local disk by default or in optional S3-compatible object storage, performs a startup check against optional Valkey/Redis-compatible coordination when explicitly configured, and exposes a token-scoped read-only viewer for incident review.
 
 > Repository role: this repository is the server/backend component only. In the multi-repo layout it is `open-proofline/server`, not the full Proofline product suite.
 >
@@ -16,7 +16,7 @@ Proofline Server is the experimental Go server backend for private encrypted inc
 
 ## Security Warning
 
-> This project is not production-ready public infrastructure. The private `/v1` API has no public user authentication and must stay behind localhost, LAN, WireGuard, a firewall, or a strict reverse proxy. Separate bind addresses are a deployment boundary, not a complete security model.
+> This project is not production-ready public infrastructure. The private `/v1` API now requires local account sessions, but it is still a private control plane and must stay behind localhost, LAN, WireGuard, a firewall, or a strict reverse proxy. Separate bind addresses are a deployment boundary, not a complete security model.
 
 ## What It Is
 
@@ -59,12 +59,14 @@ Planned incident categories include:
 | Safety check | Timed check-in flow for walking home, meeting someone, travel, fieldwork, or other elevated-risk situations. | Trusted contacts alerted if the user misses the check-in. |
 | Evidence note | Quick photo, audio, location, or note bundle for damage, harassment, threats, or disputes. | No automatic escalation by default. |
 
-The current backend still stores generic incidents. First-class incident modes, capture profiles, escalation policies, sharing state, account access, and trusted-contact workflows are future protocol/client/server work. See [docs/incident-modes.md](docs/incident-modes.md).
+The current backend still stores generic incidents. First-class incident modes, capture profiles, escalation policies, sharing state, public account workflows, and trusted-contact workflows are future protocol/client/server work. See [docs/incident-modes.md](docs/incident-modes.md).
 
 ## What Works Today
 
-- Private `/v1` write/admin API listener group
+- Private authenticated `/v1` write/admin API listener group
 - Public read-only incident viewer listener group
+- Local username/password accounts for regular users and admins
+- Opaque server-side sessions with expiry and revocation
 - SQLite metadata and local disk encrypted blob storage by default
 - Optional PostgreSQL metadata backend for new deployments
 - Optional S3-compatible encrypted blob storage for committed chunks
@@ -92,17 +94,17 @@ The current backend still stores generic incidents. First-class incident modes, 
 - No implemented live or partial stream chunk access before stream completion
 - No backend/browser decryption, key sharing, server escrow, break-glass key access, or playable media export
 - No push notifications, SMS, or Messenger integration
-- No user accounts, OAuth, JWT, or public admin dashboard
+- No OAuth, JWT, public account portal, or public admin dashboard
 - No built-in TLS, app-level rate limiting, automated retention/deletion enforcement, or production deployment hardening
 - No emergency-services integration; users or trusted contacts remain responsible for contacting emergency services
 
 ## Architecture
 
-Proofline Server runs separate private and public HTTP listener groups from the same Go binary. Private `/v1` routes handle writes and admin-style operations. Public viewer routes are token-gated and read-only.
+Proofline Server runs separate private and public HTTP listener groups from the same Go binary. Private `/v1` routes handle authenticated writes and admin-style operations. Public viewer routes are token-gated and read-only.
 
 ```mermaid
 flowchart LR
-    FutureClients["Future clients<br/>separate repos"] --> Private["Private /v1 API<br/>localhost/LAN/WireGuard"]
+    FutureClients["Future clients<br/>separate repos"] --> Private["Private authenticated /v1 API<br/>localhost/LAN/WireGuard"]
     Private --> DB[(SQLite or PostgreSQL metadata)]
     Private --> Blobs[(Local or S3 encrypted blobs)]
     Private --> Tokens["Viewer token creation"]
@@ -125,6 +127,7 @@ Requirements:
 Run the backend:
 
 ```bash
+SAFE_AUTH_BOOTSTRAP_SECRET='replace-with-local-bootstrap-secret' \
 go run ./cmd/api
 ```
 
@@ -135,9 +138,23 @@ By default this starts:
 | Private API | `127.0.0.1:8080` |
 | Public incident viewer | `127.0.0.1:8081` |
 
+In another terminal, create the first admin account:
+
+```bash
+curl -sS -X POST http://127.0.0.1:8080/v1/bootstrap/admin \
+  -H 'Content-Type: application/json' \
+  -H 'X-Proofline-Bootstrap-Secret: replace-with-local-bootstrap-secret' \
+  -d '{"username":"admin","password":"replace-with-a-long-local-password"}'
+```
+
+Stop the server, remove `SAFE_AUTH_BOOTSTRAP_SECRET`, and start it again. The
+bootstrap route is disabled once an admin account exists.
+
 In another terminal, run the simulator:
 
 ```bash
+PROOFLINE_SIM_USERNAME=admin \
+PROOFLINE_SIM_PASSWORD='replace-with-a-long-local-password' \
 go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle
 ```
 
@@ -175,7 +192,7 @@ Container defaults bind to `0.0.0.0` inside the container. Restrict host exposur
 - [Cluster-safe upload operation semantics](docs/cluster-safe-upload-semantics.md)
 - [Resumable upload and upload lease protocol](docs/resumable-upload-lease-protocol.md)
 - [Incident capture modes](docs/incident-modes.md)
-- [Future /v1 access control](docs/v1-access-control.md)
+- [/v1 access control](docs/v1-access-control.md)
 - [Encryption](docs/encryption.md)
 - [iOS local recorder prototype](docs/ios-local-recorder-prototype.md)
 - [Key custody and emergency access](docs/key-custody.md)
@@ -224,7 +241,7 @@ Do not let Codex create GitHub issues directly during the initial scan.
 
 ## Security
 
-Viewer links are bearer-token URLs and should be treated as secrets. Public deployment still needs TLS, rate limiting, log review, proxy hardening, operational testing, and deployment-specific retention, backup, and deletion enforcement. Do not expose `/v1` publicly as-is.
+Viewer links and `/v1` session tokens are bearer credentials and should be treated as secrets. Public deployment still needs TLS, rate limiting, log review, proxy hardening, operational testing, and deployment-specific retention, backup, and deletion enforcement. Do not expose `/v1` publicly as-is.
 
 Please see [SECURITY.md](SECURITY.md) for supported versions and vulnerability reporting guidance. Do not report security vulnerabilities through public GitHub issues.
 
