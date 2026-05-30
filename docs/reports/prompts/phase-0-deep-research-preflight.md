@@ -133,7 +133,7 @@ Phase 0 should make sure the actual Phase 1 report run will follow:
 
 9. Identify the citation requirements, including repository citation pinning to `<REVIEWED_COMMIT_SHA>`.
 
-10. Identify the validation evidence policy, especially that Deep Research cannot run tests, containers, Docker builds, local shell commands, or simulator smoke tests.
+10. Identify the validation evidence policy, especially that Deep Research cannot run tests, containers, Docker builds, local shell commands, or simulator smoke tests, while still allowing authoritative external source consultation when available.
 
 11. Identify public-safety restrictions, including prohibited raw tokens, secrets, request bodies, uploaded bytes, plaintext, raw keys, private deployment details, exploit payloads, and user-safety data.
 
@@ -211,6 +211,8 @@ For the v0.8.0 optional backend-support review, also plan repository inspection 
 ### External Authoritative Sources
 
 Use the Phase 1 prompt as the source of truth for required external source categories.
+
+The plan should distinguish external source consultation from validation command execution. Do not frame the Phase 1 validation-evidence limits as a no-network or no-external-source rule unless the maintainer explicitly imposes one.
 
 The plan should identify which claims require sources from:
 

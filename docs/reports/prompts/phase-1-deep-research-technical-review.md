@@ -75,6 +75,10 @@ Core project boundaries:
 
 Deep Research cannot run repository tests, containers, Docker builds, local shell commands, or simulator smoke tests.
 
+This policy restricts claims about executing commands, tests, builds, containers, and smoke tests. It does not prohibit authoritative external web or source-document consultation. Deep Research may and should consult authoritative external documentation when available, as required by the Source Policy below.
+
+Do not write that review constraints prohibited network calls, web access, or external source consultation unless the maintainer explicitly imposed a no-network constraint for this review.
+
 Do not claim that Deep Research personally ran tests, built containers, executed Go commands, started the API server, ran the simulator, inspected live GitHub repository settings, or validated a Docker image by executing it.
 
 Use only supplied validation evidence, public CI results, uploaded logs, maintainer-supplied summaries, Codex-supplied command output, or repository workflow files when discussing test/build status.
@@ -137,7 +141,9 @@ Required external-source families when applicable:
 
 Avoid random blogs, Stack Overflow, social posts, vendor marketing pages, AI-generated summaries, uncited claims, and stale Apple API examples when current Apple documentation is available.
 
-If required external sources are unavailable, state that limitation in the Source Registry and mark affected claims as not independently verified.
+If external source access is unavailable in the execution environment, state that source access was unavailable in the Source Registry and mark affected external technical claims as not independently verified. Do not use missing external sources as evidence supporting a finding; missing source access is a limitation on verification.
+
+If required external sources are available but were not consulted, state that limitation in the Source Registry and mark affected claims as not independently verified.
 
 ## Source Registry
 

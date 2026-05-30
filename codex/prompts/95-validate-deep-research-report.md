@@ -162,6 +162,8 @@ Check and fix, if needed:
 - Remove informal or conversational draft language, including humour, mascot references, assistant/meta commentary, and chat-only tone, unless it is quoted as reviewed evidence.
 - Source Registry entries support material claims.
 - External-source omissions are disclosed and affected claims are marked not independently verified.
+- The report does not invent a no-network, no-web, or no-external-source constraint when Phase 1 only restricted claims about executing local commands, tests, builds, containers, or simulator smoke tests.
+- Missing external sources are treated as verification limitations, not as supporting evidence for findings.
 
 ## Common False Positives To Remove Or Downgrade
 
@@ -172,6 +174,8 @@ Check and fix, if needed:
 - Preserved protocol, data-layout, route-alias, or migration compatibility names treated as stale after the repository/module/artifact rename.
 - Interaction-record planning treated as current implementation.
 - Backend decryption or server-held keys assumed from future design docs.
+- Wording that says review constraints prohibited network calls, web access, or external source consultation unless the maintainer explicitly imposed that constraint.
+- Findings supported by the absence of external sources instead of by repository evidence plus authoritative sources.
 
 ## Validation
 
