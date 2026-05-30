@@ -3,7 +3,7 @@ module github.com/open-proofline/server
 go 1.26.3
 
 require (
-	github.com/aws/aws-sdk-go-v2 v1.41.8
+	github.com/aws/aws-sdk-go-v2 v1.41.9
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.102.1
 	github.com/aws/smithy-go v1.26.0
 	github.com/jackc/pgx/v5 v5.9.2
