@@ -78,7 +78,9 @@ The simulator:
 - downloads the completed encrypted stream bundle through the incident viewer when requested
 - verifies local decryption of the downloaded bundle when encryption is enabled
 
-The simulator exercises the current generic incident API. It does not implement planned incident modes such as emergency incidents, interaction records, safety checks, or evidence notes.
+The simulator exercises the current generic incident API. It does not set the
+optional incident-mode metadata fields for emergency incidents, interaction
+records, safety checks, or evidence notes.
 
 ## Useful Next Reads
 

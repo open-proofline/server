@@ -23,7 +23,11 @@ must be treated as short-lived operational state.
 
 The backend stores ciphertext only. It does not store raw media keys, decrypt chunks, produce playable media, or persist generated ZIP bundle files.
 
-Future incident modes such as emergency incidents, interaction records, safety checks, and evidence notes may need different retention defaults. Those modes are not implemented yet and must update this policy before or alongside implementation.
+Incident mode metadata such as emergency incidents, interaction records, safety
+checks, and evidence notes may eventually need different retention defaults. The
+current fields are metadata only and do not change retention. Any future
+mode-specific retention behavior must update this policy before or alongside
+implementation.
 
 ## Retention Principles
 
@@ -201,8 +205,8 @@ Likely future work includes:
 - incident deletion repository methods that transactionally remove metadata
 - storage deletion helpers that operate only on server-stored relative paths
 - private/admin deletion routes or CLI commands with clear authorization assumptions
-- retention policy fields or settings for first-class incident modes, capture
-  profiles, escalation policies, and sharing state after they exist
+- retention policy fields or settings for mode-driven incident, capture-profile,
+  escalation-policy, and sharing-state behavior
 - tests for database/blob consistency during deletion failures
 - orphan temp-file cleanup with a conservative age threshold
 - optional retention configuration for closed incidents and token metadata

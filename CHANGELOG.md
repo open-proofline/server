@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added optional incident-mode, capture-profile, escalation-policy, and
+  sharing-state metadata fields to private incident creation and read responses,
+  while preserving generic legacy incidents and leaving access, notifications,
+  retention, key custody, public viewer behavior, and bundle behavior unchanged.
 - Added the private duplicate chunk reconciliation route for comparing expected
   chunk fingerprints with accepted metadata without re-uploading ciphertext or
   exposing stored values.

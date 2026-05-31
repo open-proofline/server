@@ -59,7 +59,12 @@ Planned incident categories include:
 | Safety check | Timed check-in flow for walking home, meeting someone, travel, fieldwork, or other elevated-risk situations. | Trusted contacts alerted if the user misses the check-in. |
 | Evidence note | Quick photo, audio, location, or note bundle for damage, harassment, threats, or disputes. | No automatic escalation by default. |
 
-The current backend still stores generic incidents. First-class incident modes, capture profiles, escalation policies, sharing state, public account workflows, and trusted-contact workflows are future protocol/client/server work. See [docs/incident-modes.md](docs/incident-modes.md).
+The current backend stores generic incidents by default and can optionally store
+`incident_mode`, `capture_profile`, `escalation_policy`, and `sharing_state`
+metadata on private incident creation. Those fields are labels only: they do not
+grant access, send notifications, change retention, change key custody, expose
+trusted-contact workflows, or change public viewer and bundle behavior. See
+[docs/incident-modes.md](docs/incident-modes.md).
 
 ## What Works Today
 
@@ -78,6 +83,8 @@ The current backend still stores generic incidents. First-class incident modes, 
 - `Idempotency-Key` support for equivalent complete chunk upload retries
 - Private duplicate chunk reconciliation for comparing accepted metadata with
   an expected chunk fingerprint
+- Optional incident-mode, capture-profile, escalation-policy, and sharing-state
+  metadata on private incident create/read routes
 - Documented client-side chunk encryption envelope
 - Media streams with `open`, `complete`, and `failed` states
 - Completed encrypted stream and incident ZIP evidence bundle downloads
@@ -93,8 +100,8 @@ The current backend still stores generic incidents. First-class incident modes, 
 - No web client or account portal
 - No protocol repository or shared conformance test suite
 - No recording implementation
-- No first-class incident-mode, capture-profile, escalation-policy, or
-  sharing-state schema
+- No mode-driven access, notification, retention, sharing, trusted-contact,
+  key-custody, or viewer behavior
 - No production client-side encryption implementation
 - No implemented resumable, partial, or leased cluster-safe upload protocol
 - No implemented live or partial stream chunk access before stream completion
@@ -267,8 +274,8 @@ Please see [SECURITY.md](SECURITY.md) for supported versions and vulnerability r
 - Complete the remaining cluster-safe upload operation semantics before multi-node production deployment
 - Keep cluster backup, restore, and failure runbooks current as optional PostgreSQL, S3-compatible storage, and coordination behavior evolve
 - WireGuard-only bind/firewall deployment guidance
-- Server-side support for first-class incident modes, capture profiles,
-  escalation policies, and sharing state after protocol design
+- Mode-driven access, escalation, retention, sharing, viewer, and key-custody
+  behavior after protocol and security design
 - Server-side support for trusted-contact dead-man switch workflows after access-control design
 - Production key custody, trusted-contact access, and browser/client-side decryption
 - Optional break-glass/dead-man-switch key access

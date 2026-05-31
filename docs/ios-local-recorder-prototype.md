@@ -20,7 +20,10 @@ Build the smallest useful native iOS client that exercises the current Proofline
 
 The first prototype should be audio-first. Video capture can be added as a foreground-only track after the audio chunk, staging, and retry loop is proven. Location and device checkins can use the existing checkin API as supporting metadata, but they are not required for the first recorder milestone.
 
-The prototype does not need to implement first-class incident modes yet. It should still be designed so future UI can distinguish emergency incidents, interaction records, timed safety checks, and evidence notes, as described in [incident-modes.md](incident-modes.md).
+The prototype does not need to set incident-mode metadata yet. It should still
+be designed so future UI can distinguish emergency incidents, interaction
+records, timed safety checks, and evidence notes, as described in
+[incident-modes.md](incident-modes.md).
 
 ## Non-Goals
 
@@ -219,8 +222,8 @@ The prototype should include manual or automated test notes for these cases:
 Do not implement these as part of the prototype plan. Track them as future backend issues if they become necessary:
 
 - no app-level `/v1` authentication or authorization suitable for public networks
-- no first-class incident-mode, capture-profile, escalation-policy, or
-  sharing-state field
+- no iOS flow for setting incident-mode, capture-profile, escalation-policy, or
+  sharing-state metadata
 - no account-owner, trusted-contact, or web-client access model
 - no resumable or partial-upload API; complete-upload idempotency-key retry
   success is documented in

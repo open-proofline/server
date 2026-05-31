@@ -45,15 +45,18 @@ be designed separately from the encryption envelope itself.
 - No server-side decryption implementation.
 - No new API routes.
 - No database schema changes.
-- No first-class incident-mode, capture-profile, escalation-policy, or
-  sharing-state schema.
+- No key-custody, wrapped-key, decryption, or emergency-access behavior tied to
+  incident-mode, capture-profile, escalation-policy, or sharing-state metadata.
 - No playable media export.
 - No push, SMS, or Messenger delivery.
 - No user account system.
 
 ## Incident Mode Implications
 
-Planned incident modes change access policy expectations, not the current ciphertext-only backend behavior. The incident-mode schema design keeps capture profile, escalation policy, sharing state, and key-access scope separate; see [incident-modes.md](incident-modes.md).
+Planned incident modes change access policy expectations, not the current
+ciphertext-only backend behavior. The current optional mode metadata fields keep
+capture profile, escalation policy, sharing state, and key-access scope separate;
+see [incident-modes.md](incident-modes.md).
 
 | Incident mode | Key custody implication |
 |---|---|
@@ -427,7 +430,10 @@ Create this design, update the security and encryption documentation, and keep t
 
 Phase 2: protocol and incident-mode design.
 
-Define first-class incident modes, capture profiles, escalation policies, sharing state, account/trusted-contact roles, and compatibility expectations before implementing public client workflows.
+Define mode-driven behavior, account/trusted-contact roles, and compatibility
+expectations around the optional incident-mode, capture-profile,
+escalation-policy, and sharing-state metadata fields before implementing public
+client workflows.
 
 Phase 3: contact-wrapped key prototype in the simulator.
 

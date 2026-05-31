@@ -27,31 +27,39 @@ func (r *Repository) Check(ctx context.Context) error {
 
 // CreateIncident inserts a new open legacy incident without an owner account.
 func (r *Repository) CreateIncident(ctx context.Context, clientLabel, notes string) (incidents.Incident, error) {
-	return r.CreateIncidentForAccount(ctx, "", clientLabel, notes)
+	return r.CreateIncidentForAccount(ctx, "", incidents.CreateIncidentParams{
+		ClientLabel: clientLabel,
+		Notes:       notes,
+	})
 }
 
 // CreateIncidentForAccount inserts a new open incident owned by accountID.
-func (r *Repository) CreateIncidentForAccount(ctx context.Context, accountID, clientLabel, notes string) (incidents.Incident, error) {
+func (r *Repository) CreateIncidentForAccount(ctx context.Context, accountID string, params incidents.CreateIncidentParams) (incidents.Incident, error) {
 	now := time.Now().UTC()
 	id, err := newID("inc")
 	if err != nil {
 		return incidents.Incident{}, err
 	}
 	incident := incidents.Incident{
-		ID:             id,
-		OwnerAccountID: accountID,
-		CreatedAt:      now,
-		UpdatedAt:      now,
-		Status:         incidents.StatusOpen,
-		ClientLabel:    clientLabel,
-		Notes:          notes,
+		ID:               id,
+		OwnerAccountID:   accountID,
+		CreatedAt:        now,
+		UpdatedAt:        now,
+		Status:           incidents.StatusOpen,
+		ClientLabel:      params.ClientLabel,
+		Notes:            params.Notes,
+		IncidentMode:     params.IncidentMode,
+		CaptureProfile:   params.CaptureProfile,
+		EscalationPolicy: params.EscalationPolicy,
+		SharingState:     params.SharingState,
 	}
 
 	_, err = r.db.ExecContext(ctx, `
 		INSERT INTO incidents (
-			id, owner_account_id, created_at, updated_at, status, client_label, notes
+			id, owner_account_id, created_at, updated_at, status, client_label, notes,
+			incident_mode, capture_profile, escalation_policy, sharing_state
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
 		incident.ID,
 		nullableString(incident.OwnerAccountID),
 		incident.CreatedAt,
@@ -59,6 +67,10 @@ func (r *Repository) CreateIncidentForAccount(ctx context.Context, accountID, cl
 		incident.Status,
 		nullableString(incident.ClientLabel),
 		nullableString(incident.Notes),
+		nullableString(incident.IncidentMode),
+		nullableString(incident.CaptureProfile),
+		nullableString(incident.EscalationPolicy),
+		nullableString(incident.SharingState),
 	)
 	if err != nil {
 		if isIntegrityConstraint(err) {
@@ -73,7 +85,8 @@ func (r *Repository) CreateIncidentForAccount(ctx context.Context, accountID, cl
 // GetIncident returns one incident by ID.
 func (r *Repository) GetIncident(ctx context.Context, id string) (incidents.Incident, error) {
 	row := r.db.QueryRowContext(ctx, `
-		SELECT id, owner_account_id, created_at, updated_at, status, client_label, notes
+		SELECT id, owner_account_id, created_at, updated_at, status, client_label, notes,
+			incident_mode, capture_profile, escalation_policy, sharing_state
 		FROM incidents
 		WHERE id = $1`, id)
 

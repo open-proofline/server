@@ -2,7 +2,12 @@
 
 This document describes the current Proofline backend-only security posture. It is intentionally conservative and does not claim production readiness.
 
-Planned future incident modes include emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes. Those modes are not implemented yet. Current controls apply to local accounts, opaque sessions, generic incidents, encrypted chunk uploads, checkins, viewer tokens, and encrypted evidence bundles.
+The backend can store optional incident-mode, capture-profile,
+escalation-policy, and sharing-state metadata for emergency incidents,
+non-emergency interaction records, timed safety checks, and evidence notes. Those
+fields are metadata only. Current controls apply to local accounts, opaque
+sessions, generic or mode-labeled incidents, encrypted chunk uploads, checkins,
+viewer tokens, and encrypted evidence bundles.
 
 ## Assets
 
@@ -14,6 +19,10 @@ Planned future incident modes include emergency incidents, non-emergency interac
 - Optional PostgreSQL metadata schema, migration, transaction, test, and
   restore expectations are documented in
   [postgresql-metadata-migration.md](postgresql-metadata-migration.md)
+- Optional incident-mode, capture-profile, escalation-policy, and sharing-state
+  metadata stored with incidents. These fields are server-visible metadata but
+  do not grant access, send notifications, change retention, change key custody,
+  expose trusted-contact workflows, or change public viewer and bundle behavior.
 - Optional Valkey/Redis-compatible coordination is startup-checked when
   explicitly configured, but it is short-lived coordination state only and is
   not durable evidence storage
@@ -157,9 +166,9 @@ The current backend does not implement incident-mode-specific controls yet, so f
 - Separate private/public ports reduce accidental route exposure, but they are not a complete security model.
 - `/v1` must not be publicly exposed as-is.
 - No iOS app, Android app, web client, local recording, production client key storage, key sharing, push notifications, SMS, Messenger integration, or public admin dashboard. The private `/admin` surface is not a complete operator UI.
-- No first-class incident modes, capture profiles, escalation policies, sharing
-  state, interaction-record metadata, safety-check timers, dead-man switch
-  notifications, or trusted-contact accounts.
+- No mode-driven access, escalation, retention, sharing, key-custody,
+  safety-check timer, dead-man switch notification, or trusted-contact account
+  behavior.
 - No built-in TLS, app-level rate limiting, abuse throttling, or IP allowlist.
 - Optional PostgreSQL metadata does not change the private `/v1` boundary,
   token hashing, ciphertext-only storage, or backup/restore expectations
@@ -209,8 +218,8 @@ The Go app does not set `Strict-Transport-Security` by default because local dev
   product API exposure: add public abuse controls, browser credential rules,
   audited trusted-contact grants, and deployment operations.
 - Use the first-class incident-mode and escalation design in
-  [incident-modes.md](incident-modes.md) before implementing non-emergency
-  interaction records, safety checks, or dead-man switch workflows.
+  [incident-modes.md](incident-modes.md) before implementing mode-driven
+  interaction-record, safety-check, or dead-man switch workflows.
 - Define the future public product API and separately bound private admin API,
   including account-owner, trusted-contact, web-client, and admin/operator
   authorization boundaries.

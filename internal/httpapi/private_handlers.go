@@ -3,9 +3,28 @@ package httpapi
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/open-proofline/server/internal/incidents"
 )
+
+type createIncidentRequest struct {
+	ClientLabel      string `json:"client_label"`
+	Notes            string `json:"notes"`
+	IncidentMode     string `json:"incident_mode"`
+	CaptureProfile   string `json:"capture_profile"`
+	EscalationPolicy string `json:"escalation_policy"`
+	SharingState     string `json:"sharing_state"`
+}
+
+type createIncidentResponse struct {
+	IncidentID       string `json:"incident_id"`
+	Status           string `json:"status"`
+	IncidentMode     string `json:"incident_mode,omitempty"`
+	CaptureProfile   string `json:"capture_profile,omitempty"`
+	EscalationPolicy string `json:"escalation_policy,omitempty"`
+	SharingState     string `json:"sharing_state,omitempty"`
+}
 
 func (a *API) createIncident(w http.ResponseWriter, r *http.Request) {
 	principal, ok := principalFromContext(r.Context())
@@ -14,24 +33,57 @@ func (a *API) createIncident(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var request struct {
-		ClientLabel string `json:"client_label"`
-		Notes       string `json:"notes"`
-	}
+	var request createIncidentRequest
 	if !decodeJSON(w, r, &request) {
 		return
 	}
+	params, ok := createIncidentParams(w, request)
+	if !ok {
+		return
+	}
 
-	incident, err := a.repo.CreateIncidentForAccount(r.Context(), principal.Account.ID, request.ClientLabel, request.Notes)
+	incident, err := a.repo.CreateIncidentForAccount(r.Context(), principal.Account.ID, params)
 	if err != nil {
 		a.internalError(w, "create incident", err)
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, map[string]string{
-		"incident_id": incident.ID,
-		"status":      incident.Status,
+	writeJSON(w, http.StatusCreated, createIncidentResponse{
+		IncidentID:       incident.ID,
+		Status:           incident.Status,
+		IncidentMode:     incident.IncidentMode,
+		CaptureProfile:   incident.CaptureProfile,
+		EscalationPolicy: incident.EscalationPolicy,
+		SharingState:     incident.SharingState,
 	})
+}
+
+func createIncidentParams(w http.ResponseWriter, request createIncidentRequest) (incidents.CreateIncidentParams, bool) {
+	params := incidents.CreateIncidentParams{
+		ClientLabel:      request.ClientLabel,
+		Notes:            request.Notes,
+		IncidentMode:     strings.TrimSpace(request.IncidentMode),
+		CaptureProfile:   strings.TrimSpace(request.CaptureProfile),
+		EscalationPolicy: strings.TrimSpace(request.EscalationPolicy),
+		SharingState:     strings.TrimSpace(request.SharingState),
+	}
+	if params.IncidentMode != "" && !incidents.ValidIncidentMode(params.IncidentMode) {
+		writeError(w, http.StatusBadRequest, "invalid_incident_mode", "incident_mode must be emergency, interaction_record, safety_check, or evidence_note")
+		return incidents.CreateIncidentParams{}, false
+	}
+	if params.CaptureProfile != "" && !incidents.ValidCaptureProfile(params.CaptureProfile) {
+		writeError(w, http.StatusBadRequest, "invalid_capture_profile", "capture_profile must be audio_video_location, audio_location, location_checkin, note_or_attachment, or custom")
+		return incidents.CreateIncidentParams{}, false
+	}
+	if params.EscalationPolicy != "" && !incidents.ValidEscalationPolicy(params.EscalationPolicy) {
+		writeError(w, http.StatusBadRequest, "invalid_escalation_policy", "escalation_policy must be none, trusted_contacts_on_start, trusted_contacts_on_missed_checkin, or urgent_trusted_contact_alert")
+		return incidents.CreateIncidentParams{}, false
+	}
+	if params.SharingState != "" && !incidents.ValidSharingState(params.SharingState) {
+		writeError(w, http.StatusBadRequest, "invalid_sharing_state", "sharing_state must be private, trusted_contact_access, public_link_created, legal_export_created, or revoked_or_expired")
+		return incidents.CreateIncidentParams{}, false
+	}
+	return params, true
 }
 
 func (a *API) getIncident(w http.ResponseWriter, r *http.Request) {

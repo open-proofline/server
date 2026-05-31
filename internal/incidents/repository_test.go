@@ -13,6 +13,33 @@ import (
 	"github.com/open-proofline/server/internal/incidents"
 )
 
+func TestCreateIncidentStoresModeFields(t *testing.T) {
+	ctx := context.Background()
+	repo := newRepository(t, ctx)
+
+	incident, err := repo.CreateIncidentForAccount(ctx, "", incidents.CreateIncidentParams{
+		ClientLabel:      "phone",
+		IncidentMode:     incidents.IncidentModeSafetyCheck,
+		CaptureProfile:   incidents.CaptureProfileLocationCheckin,
+		EscalationPolicy: incidents.EscalationPolicyTrustedContactsOnMissedCheckin,
+		SharingState:     incidents.SharingStatePrivate,
+	})
+	if err != nil {
+		t.Fatalf("create incident: %v", err)
+	}
+
+	got, err := repo.GetIncident(ctx, incident.ID)
+	if err != nil {
+		t.Fatalf("get incident: %v", err)
+	}
+	if got.IncidentMode != incidents.IncidentModeSafetyCheck ||
+		got.CaptureProfile != incidents.CaptureProfileLocationCheckin ||
+		got.EscalationPolicy != incidents.EscalationPolicyTrustedContactsOnMissedCheckin ||
+		got.SharingState != incidents.SharingStatePrivate {
+		t.Fatalf("incident mode fields were not preserved: %+v", got)
+	}
+}
+
 func TestCreateChunkRejectsClosedIncident(t *testing.T) {
 	ctx := context.Background()
 	repo := newRepository(t, ctx)

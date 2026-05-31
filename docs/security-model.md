@@ -6,7 +6,14 @@ This document summarizes the current Proofline backend security assumptions and 
 
 Proofline is experimental and not production-ready public infrastructure. The private `/v1` API has local username/password accounts and opaque server-side sessions. It still has no OAuth, no JWT protection, no public product API hardening, and no public account portal.
 
-The current backend stores generic incidents owned by local accounts. It does not yet implement first-class incident modes, capture profiles, escalation policies, sharing state, trusted-contact accounts, dead-man switch notifications, or public account-based product access.
+The current backend stores incidents owned by local accounts. Incidents are
+generic by default and may include optional incident-mode, capture-profile,
+escalation-policy, and sharing-state metadata. Those fields are not behavior
+flags and do not grant access, send notifications, change retention, change key
+custody, expose trusted-contact workflows, or change public viewer and bundle
+behavior. The backend does not yet implement trusted-contact accounts,
+dead-man switch notifications, mode-driven sharing, or public account-based
+product access.
 
 The `/v1` access-control direction is documented in
 [v1-access-control.md](v1-access-control.md). The current implementation covers
@@ -146,7 +153,11 @@ Bundle manifests may include a non-secret client-side encryption hint. They do n
 
 ## Incident Modes And Escalation Boundary
 
-Planned incident modes are a future client/protocol layer. Emergency incidents, interaction records, safety checks, and evidence notes must not weaken the current storage, encryption, listener, or logging boundaries. The future schema design keeps incident mode, capture profile, escalation policy, and sharing state separate; see [incident-modes.md](incident-modes.md).
+Incident-mode metadata is currently limited to optional private incident fields.
+Emergency incidents, interaction records, safety checks, and evidence notes must
+not weaken the current storage, encryption, listener, or logging boundaries. The
+schema keeps incident mode, capture profile, escalation policy, and sharing state
+separate; see [incident-modes.md](incident-modes.md).
 
 Future escalation policies should keep capture separate from notification and emergency response:
 
@@ -221,9 +232,9 @@ Normal file or object removal is not treated as guaranteed secure erasure. Deplo
 - No implemented resumable upload or upload lease protocol; the future design
   is planned in
   [resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md)
-- No implemented first-class incident modes, capture profiles, escalation
-  policies, sharing state, trusted-contact accounts, dead-man switch
-  notifications, or public account portal
+- No implemented mode-driven access, escalation, retention, sharing, key-custody,
+  trusted-contact account, dead-man switch notification, or public account portal
+  behavior
 - No implemented production client key storage, key sharing, browser decryption, server-assisted break-glass key access, or emergency-contact key access model; the future designs are documented in [key-custody.md](key-custody.md), [browser-decryption.md](browser-decryption.md), and [break-glass-key-access.md](break-glass-key-access.md)
 - No implemented live or partial stream access beyond current read-only stream
   metadata summaries and completed encrypted bundle downloads; the future

@@ -121,6 +121,15 @@ func TestPostgresSchemaConstraints(t *testing.T) {
 		"paused",
 	)))
 	assertPostgresConstraint(t, execErr(conn.ExecContext(ctx, `
+		INSERT INTO incidents (id, created_at, updated_at, status, incident_mode)
+		VALUES ($1, $2, $3, $4, $5)`,
+		"inc_bad_mode",
+		now,
+		now,
+		incidents.StatusOpen,
+		"panic",
+	)))
+	assertPostgresConstraint(t, execErr(conn.ExecContext(ctx, `
 		INSERT INTO media_streams (id, incident_id, media_type, status, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6)`,
 		"str_bad_media",
@@ -349,6 +358,36 @@ func TestPostgresRepositoryHashesAndRevokesIncidentTokens(t *testing.T) {
 	}
 }
 
+func TestPostgresRepositoryStoresIncidentModeFields(t *testing.T) {
+	ctx := context.Background()
+	conn := openPostgresTestDB(t, ctx)
+	if err := Migrate(ctx, conn); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	repo := NewRepository(conn)
+
+	incident, err := repo.CreateIncidentForAccount(ctx, "", incidents.CreateIncidentParams{
+		ClientLabel:      "phone",
+		IncidentMode:     incidents.IncidentModeEmergency,
+		CaptureProfile:   incidents.CaptureProfileAudioVideoLocation,
+		EscalationPolicy: incidents.EscalationPolicyTrustedContactsOnStart,
+		SharingState:     incidents.SharingStatePrivate,
+	})
+	if err != nil {
+		t.Fatalf("create incident: %v", err)
+	}
+	got, err := repo.GetIncident(ctx, incident.ID)
+	if err != nil {
+		t.Fatalf("get incident: %v", err)
+	}
+	if got.IncidentMode != incidents.IncidentModeEmergency ||
+		got.CaptureProfile != incidents.CaptureProfileAudioVideoLocation ||
+		got.EscalationPolicy != incidents.EscalationPolicyTrustedContactsOnStart ||
+		got.SharingState != incidents.SharingStatePrivate {
+		t.Fatalf("incident mode fields were not preserved: %+v", got)
+	}
+}
+
 func TestPostgresRepositoryAccountsAndSessions(t *testing.T) {
 	ctx := context.Background()
 	conn := openPostgresTestDB(t, ctx)
@@ -445,7 +484,7 @@ func TestPostgresRepositoryAccountsAndSessions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create user account: %v", err)
 	}
-	incident, err := repo.CreateIncidentForAccount(ctx, user.ID, "phone", "")
+	incident, err := repo.CreateIncidentForAccount(ctx, user.ID, incidents.CreateIncidentParams{ClientLabel: "phone"})
 	if err != nil {
 		t.Fatalf("create owned incident: %v", err)
 	}
