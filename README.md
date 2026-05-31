@@ -76,6 +76,8 @@ The current backend still stores generic incidents. First-class incident modes, 
 - Optional S3-compatible encrypted blob storage for committed chunks
 - Immutable chunk uploads with SHA-256 verification
 - `Idempotency-Key` support for equivalent complete chunk upload retries
+- Private duplicate chunk reconciliation for comparing accepted metadata with
+  an expected chunk fingerprint
 - Documented client-side chunk encryption envelope
 - Media streams with `open`, `complete`, and `failed` states
 - Completed encrypted stream and incident ZIP evidence bundle downloads

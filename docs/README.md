@@ -76,7 +76,10 @@ The complete-upload idempotency-key path is implemented for private chunk
 uploads; see
 [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md). It does
 not implement resumable uploads, upload leases, or operation-level use of
-Valkey/Redis-compatible coordination.
+Valkey/Redis-compatible coordination. The private duplicate chunk
+reconciliation route is implemented for comparing an expected chunk fingerprint
+with already accepted metadata without re-uploading ciphertext; see
+[api.md](api.md).
 The resumable upload and upload lease path is also planning-only; see
 [resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md). It
 defers resumable uploads and leases for a local desktop recorder simulator

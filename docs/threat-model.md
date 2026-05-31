@@ -84,6 +84,11 @@ Planned future incident modes include emergency incidents, non-emergency interac
   identity fields, immutable request fingerprint fields, fingerprint hashes,
   and final chunk references for complete-upload replay. Raw idempotency keys
   are not stored.
+- Duplicate chunk reconciliation is a private read-only metadata comparison
+  for already accepted chunk identities. Conflict responses identify only
+  mismatched field names and do not return uploaded bytes, stored paths, object
+  keys, plaintext, raw keys, raw tokens, request bodies, private deployment
+  details, or conflicting stored values.
 - Optional Valkey/Redis-compatible coordination fails closed at startup when
   explicitly configured but unavailable.
 - Private `/v1/health/live` and `/v1/health/ready` routes are mounted only on

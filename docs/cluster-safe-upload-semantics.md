@@ -43,8 +43,6 @@ S3-compatible object storage backends.
 ## Non-Goals
 
 - No resumable upload protocol or partial committed chunks.
-- No duplicate-chunk reconciliation API implementation. The client-facing
-  reconciliation design is documented in [api.md](api.md).
 - No operation-level Valkey coordination behavior.
 - No public `/v1` exposure, public account workflows, or changes to the current
   local account/session model.
@@ -239,8 +237,7 @@ The implemented HTTP behavior is:
   clients that need to distinguish replayed success without changing the JSON
   body
 
-The exact response contract should be documented in `docs/api.md` when the
-feature is implemented.
+The exact response contract is documented in [api.md](api.md).
 
 ## Conflicts
 
@@ -256,8 +253,9 @@ The server must return a conflict and must not overwrite evidence when:
 Recommended future error codes:
 
 - `409 idempotency_conflict` for idempotency-key reuse with different inputs
-- `409 duplicate_chunk` or a future duplicate-reconciliation-specific code for
-  same chunk identity but different ciphertext or metadata
+- `409 duplicate_chunk` for duplicate uploads without idempotency replay, or
+  `409 duplicate_chunk_conflict` from the private reconciliation route for same
+  chunk identity but different ciphertext or metadata
 - `409 upload_in_progress` with `Retry-After` when an equivalent operation is
   still actively staging or committing and no committed chunk row is available
 
@@ -309,12 +307,12 @@ committed by another API node.
 
 Issue `#85`, "Design Duplicate Chunk Reconciliation API", chooses a separate
 private query workflow for already committed duplicate chunk identities. The
-planned route compares a client's expected ciphertext hash and immutable
+implemented route compares a client's expected ciphertext hash and immutable
 metadata with an accepted chunk row without re-uploading ciphertext, overwriting
-evidence, or exposing bytes, stored paths, raw tokens, plaintext, or keys. The
-implemented upload route now covers idempotency-key equivalent success for
-complete retries; duplicate reconciliation remains the fallback for clients
-that only know the final chunk identity and expected fingerprint.
+evidence, or exposing bytes, stored paths, raw tokens, plaintext, keys, or
+conflicting stored values. The upload route covers idempotency-key equivalent
+success for complete retries; duplicate reconciliation is the fallback for
+clients that only know the final chunk identity and expected fingerprint.
 
 Issue `#86`, "Plan Resumable Upload And Upload Lease Protocol", should decide
 whether incomplete transfers need explicit leases, resumable multipart upload,
@@ -333,8 +331,6 @@ final chunk can be committed.
 
 API documentation:
 
-- implement and document the duplicate-chunk reconciliation route designed in
-  [api.md](api.md)
 - document reverse-proxy, tracing, metrics, and error-reporting redaction for
   raw idempotency keys
 - document the relationship between duplicate reconciliation and idempotent
@@ -343,8 +339,6 @@ API documentation:
 Backend tests:
 
 - HTTP tests for same chunk identity with different ciphertext
-- HTTP tests for duplicate reconciliation matches and conflicts without
-  returning uploaded bytes, stored paths, or conflicting stored values
 - cleanup tests proving future staging cleanup does not delete committed
   evidence
 - race tests for upload versus incident close and stream completion

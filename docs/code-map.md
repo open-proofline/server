@@ -70,6 +70,15 @@ the metadata repository. Equivalent retries return `200 OK` with
 `Idempotency-Replayed: true`; uploads without the header keep the existing
 duplicate behavior.
 
+`POST /v1/incidents/{incident_id}/chunks/reconcile` is a private read-only
+metadata route handled by `internal/httpapi.reconcileChunk`. It compares a
+client's expected normalized chunk identity, timestamps, normalized
+`original_filename`, ciphertext byte size, and ciphertext SHA-256 against an
+accepted chunk row. Matched responses return only safe identity and fingerprint
+metadata; conflict responses return mismatched field names without stored
+paths, object keys, uploaded bytes, plaintext, raw keys, raw tokens, request
+bodies, or conflicting stored values.
+
 After verification, `internal/storage.BlobStore.CommitTemp` commits the encrypted bytes under the server-controlled stored path:
 
 ```text

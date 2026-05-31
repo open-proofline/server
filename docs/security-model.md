@@ -86,6 +86,11 @@ Viewer URLs contain bearer tokens and should be treated as secrets. Reverse prox
   normalized chunk identity and immutable request fingerprint, and can return
   `200 OK` with `Idempotency-Replayed: true` for equivalent retries without
   overwriting chunks or evidence metadata.
+- The private duplicate chunk reconciliation route compares a requested
+  normalized chunk identity and expected immutable fingerprint against accepted
+  chunk metadata without re-uploading ciphertext, reading stored bytes, or
+  returning stored paths, object keys, uploaded bytes, plaintext, raw keys, raw
+  tokens, or conflicting stored values.
 - Chunk metadata inserts recheck incident and stream state in the repository so uploads racing with close or completion are rejected.
 - Media stream completion verifies contiguous chunks and readable stored files, then rechecks chunk rows transactionally before committing completion.
 - Local account authorization binds private incident access to the

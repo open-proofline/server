@@ -158,9 +158,9 @@ Retry expectations:
 - on `400 hash_mismatch`, treat the local staged record as corrupt and stop retrying that chunk until the user or developer can inspect it
 - on `400 invalid_chunk_index`, `400 invalid_media_type`, or time-range errors, treat the local metadata as a client bug
 - on `409 duplicate_chunk`, reconcile against local state before deciding that
-  the upload already succeeded; after the planned duplicate-chunk
-  reconciliation API exists, compare the expected ciphertext hash and immutable
-  metadata through that private query workflow
+  the upload already succeeded; use the private duplicate chunk reconciliation
+  route to compare the expected ciphertext hash and immutable metadata with
+  accepted server metadata
 - on `409 stream_not_open`, stop uploads for that stream and surface a local stream-state error
 - on `413 upload_too_large`, reduce the chunk duration or encoded bitrate for future chunks; do not split or rewrite the already staged immutable chunk
 - on `5xx` or network loss, keep the chunk pending for retry
@@ -225,8 +225,8 @@ Do not implement these as part of the prototype plan. Track them as future backe
 - no resumable or partial-upload API; complete-upload idempotency-key retry
   success is documented in
   [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md)
-- no implemented client API for reconciling a duplicate chunk by expected
-  ciphertext hash; the planned private query workflow is documented in
+- no iOS client implementation for reconciling a duplicate chunk by expected
+  ciphertext hash; the server-side private query workflow is documented in
   [api.md](api.md)
 - no explicit resumable-upload protocol for partially sent large chunks; the
   current plan defers resumable uploads for a local desktop recorder simulator

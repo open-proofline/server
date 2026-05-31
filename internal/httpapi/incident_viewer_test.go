@@ -222,6 +222,7 @@ func TestPublicServerDoesNotMountPrivateRoutes(t *testing.T) {
 		{http.MethodPost, "/v1/incidents"},
 		{http.MethodGet, "/v1/incidents/inc_missing"},
 		{http.MethodPost, "/v1/incidents/inc_missing/chunks"},
+		{http.MethodPost, "/v1/incidents/inc_missing/chunks/reconcile"},
 		{http.MethodGet, "/v1/incidents/inc_missing/chunks"},
 		{http.MethodGet, "/v1/incidents/inc_missing/chunks/audio/0"},
 		{http.MethodGet, "/v1/incidents/inc_missing/download"},

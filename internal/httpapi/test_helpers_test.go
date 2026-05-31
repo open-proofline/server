@@ -355,7 +355,7 @@ func uploadChunkWithOptions(t *testing.T, app *testApp, incidentID string, strea
 	}
 	must(t, writer.WriteField("chunk_index", strconv.Itoa(index)))
 	must(t, writer.WriteField("media_type", mediaType))
-	startedAt := time.Date(2026, 5, 21, 10, 0, 0, 0, time.UTC)
+	startedAt := testChunkStartedAt()
 	must(t, writer.WriteField("started_at", startedAt.Format(time.RFC3339Nano)))
 	must(t, writer.WriteField("ended_at", startedAt.Add(time.Second).Format(time.RFC3339Nano)))
 	must(t, writer.WriteField("sha256_hex", hash))
@@ -374,6 +374,22 @@ func uploadChunkWithOptions(t *testing.T, app *testApp, incidentID string, strea
 		headers["Idempotency-Key"] = idempotencyKey
 	}
 	return postWithHeaders(t, app, "/v1/incidents/"+incidentID+"/chunks", writer.FormDataContentType(), &body, headers)
+}
+
+func testChunkStartedAt() time.Time {
+	return time.Date(2026, 5, 21, 10, 0, 0, 0, time.UTC)
+}
+
+func testChunkEndedAt() time.Time {
+	return testChunkStartedAt().Add(time.Second)
+}
+
+func testChunkStartedAtString() string {
+	return testChunkStartedAt().Format(time.RFC3339Nano)
+}
+
+func testChunkEndedAtString() string {
+	return testChunkEndedAt().Format(time.RFC3339Nano)
 }
 
 func post(t *testing.T, app *testApp, target string, contentType string, body io.Reader) (*http.Response, []byte) {
