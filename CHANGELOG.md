@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added a planning document for future private reassignment or quarantine of
+  legacy unowned incidents while preserving the current admin-only default.
 - Expanded the SQLite-to-PostgreSQL metadata migration guidance into an
   explicit private operator runbook with copy order, validation, rollback
   limits, and tooling boundaries.

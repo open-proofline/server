@@ -532,7 +532,8 @@ unless the current SQLite schema already stores a meaningful empty string.
      `owner_account_id`, optional mode fields, and `deletion_state`.
    - Preserve `owner_account_id` before private owner-scoped access is tested.
    - Legacy rows with no owner must remain unowned and admin-only until a
-     separate reassignment workflow is explicitly designed.
+     separate reassignment workflow is explicitly implemented; see
+     [legacy unowned incident reassignment](legacy-unowned-incident-reassignment.md).
 3. `media_streams`
    - Preserve stream IDs, owning incident IDs, media type, label, status,
      expected chunk count, completion/failure timestamps, and failure reason.

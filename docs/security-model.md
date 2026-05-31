@@ -105,8 +105,9 @@ Viewer URLs contain bearer tokens and should be treated as secrets. Reverse prox
   incident routes also pass route-level action and data-class labels, but all
   current incident actions share the same owner-or-admin policy. Regular users
   can access their own incidents. Admins can access incidents across accounts.
-  Legacy unowned incidents are admin-only until a future migration or
-  reassignment workflow exists.
+  Legacy unowned incidents are admin-only until a future private reassignment
+  or quarantine workflow exists; see
+  [legacy unowned incident reassignment](legacy-unowned-incident-reassignment.md).
 
 Optional S3-compatible storage preserves ciphertext-only behavior for committed
 encrypted chunks. It uses server-controlled object keys, does not expose object
