@@ -65,6 +65,53 @@ func scanChunk(s scanner) (incidents.Chunk, error) {
 	return chunk, nil
 }
 
+func scanUploadOperation(s scanner) (incidents.UploadOperation, error) {
+	var operation incidents.UploadOperation
+	var streamID sql.NullString
+	var originalFilename sql.NullString
+	var chunkID sql.NullString
+	var storedPath sql.NullString
+	if err := s.Scan(
+		&operation.ID,
+		&operation.Operation,
+		&operation.IdempotencyKeyHash,
+		&operation.IncidentID,
+		&streamID,
+		&operation.ChunkIndex,
+		&operation.MediaType,
+		&operation.StartedAt,
+		&operation.EndedAt,
+		&originalFilename,
+		&operation.ByteSize,
+		&operation.SHA256Hex,
+		&operation.FingerprintHash,
+		&operation.State,
+		&chunkID,
+		&storedPath,
+		&operation.CreatedAt,
+		&operation.UpdatedAt,
+	); err != nil {
+		return incidents.UploadOperation{}, err
+	}
+	operation.StartedAt = operation.StartedAt.UTC()
+	operation.EndedAt = operation.EndedAt.UTC()
+	operation.CreatedAt = operation.CreatedAt.UTC()
+	operation.UpdatedAt = operation.UpdatedAt.UTC()
+	if streamID.Valid {
+		operation.StreamID = streamID.String
+	}
+	if originalFilename.Valid {
+		operation.OriginalFilename = originalFilename.String
+	}
+	if chunkID.Valid {
+		operation.ChunkID = chunkID.String
+	}
+	if storedPath.Valid {
+		operation.StoredPath = storedPath.String
+	}
+	return operation, nil
+}
+
 func scanMediaStream(s scanner) (incidents.MediaStream, error) {
 	var stream incidents.MediaStream
 	var label sql.NullString

@@ -14,6 +14,9 @@ var (
 	ErrNotFound = errors.New("not found")
 	// ErrDuplicate indicates that metadata storage rejected a duplicate chunk identity.
 	ErrDuplicate = errors.New("duplicate")
+	// ErrIdempotencyConflict indicates that an idempotency key was reused with
+	// different immutable upload inputs.
+	ErrIdempotencyConflict = errors.New("idempotency conflict")
 	// ErrInvalidState indicates that a requested state transition is not
 	// allowed for the current stream state.
 	ErrInvalidState = errors.New("invalid state")

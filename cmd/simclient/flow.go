@@ -62,7 +62,10 @@ func createUploadChunk(cfg config, key envelope.Key, incidentID, streamID string
 func uploadChunkWithOptionalHashFailure(ctx context.Context, out io.Writer, sim client, cfg config, chunk chunkUpload, chunkIndex int) error {
 	if !shouldSimulateFailure(chunkIndex, cfg.simulateFailureEvery) {
 		fmt.Fprintf(out, "Uploading %s%s chunk %d/%d...\n", encryptionLogPrefix(cfg.encrypt), cfg.mediaType, chunkIndex, cfg.chunks)
-		return sim.uploadChunk(ctx, chunk)
+		if err := sim.uploadChunk(ctx, chunk); err != nil {
+			return err
+		}
+		return verifyFirstChunkIdempotentReplay(ctx, out, sim, chunk, chunkIndex)
 	}
 
 	fmt.Fprintf(out, "Uploading %s%s chunk %d/%d with intentionally bad hash...\n", encryptionLogPrefix(cfg.encrypt), cfg.mediaType, chunkIndex, cfg.chunks)
@@ -78,6 +81,18 @@ func uploadChunkWithOptionalHashFailure(ctx context.Context, out io.Writer, sim 
 		return err
 	}
 	fmt.Fprintln(out, "Retry succeeded.")
+	return verifyFirstChunkIdempotentReplay(ctx, out, sim, chunk, chunkIndex)
+}
+
+func verifyFirstChunkIdempotentReplay(ctx context.Context, out io.Writer, sim client, chunk chunkUpload, chunkIndex int) error {
+	if chunkIndex != 1 {
+		return nil
+	}
+	fmt.Fprintln(out, "Verifying idempotent replay for chunk 1...")
+	if err := sim.expectIdempotentReplay(ctx, chunk); err != nil {
+		return err
+	}
+	fmt.Fprintln(out, "Idempotent replay succeeded.")
 	return nil
 }
 

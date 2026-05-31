@@ -25,6 +25,16 @@ const (
 	MediaTypeLocation = "location"
 	// MediaTypeMetadata identifies encrypted metadata chunks.
 	MediaTypeMetadata = "metadata"
+
+	// UploadOperationUploadChunk identifies the chunk-upload idempotency route.
+	UploadOperationUploadChunk = "upload_chunk"
+
+	// UploadOperationStateReserved means an idempotency key has been bound to
+	// immutable upload inputs but no final chunk row is confirmed yet.
+	UploadOperationStateReserved = "reserved"
+	// UploadOperationStateMetadataCommitted means the upload operation has a
+	// confirmed final chunk row and can be replayed safely.
+	UploadOperationStateMetadataCommitted = "metadata_committed"
 )
 
 // Incident is the top-level recording session tracked by the backend.
@@ -102,6 +112,46 @@ type CreateChunkParams struct {
 	StoredPath       string
 	ByteSize         int64
 	SHA256Hex        string
+}
+
+// UploadOperation records durable idempotency state for one private write
+// operation. IdempotencyKeyHash stores a SHA-256 hash, never the raw key.
+type UploadOperation struct {
+	ID                 string
+	Operation          string
+	IdempotencyKeyHash string
+	IncidentID         string
+	StreamID           string
+	ChunkIndex         int
+	MediaType          string
+	StartedAt          time.Time
+	EndedAt            time.Time
+	OriginalFilename   string
+	ByteSize           int64
+	SHA256Hex          string
+	FingerprintHash    string
+	State              string
+	ChunkID            string
+	StoredPath         string
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+}
+
+// UploadOperationParams contains the key hash, normalized chunk identity, and
+// immutable request fingerprint fields used to reserve an idempotent upload.
+type UploadOperationParams struct {
+	Operation          string
+	IdempotencyKeyHash string
+	IncidentID         string
+	StreamID           string
+	ChunkIndex         int
+	MediaType          string
+	StartedAt          time.Time
+	EndedAt            time.Time
+	OriginalFilename   string
+	ByteSize           int64
+	SHA256Hex          string
+	FingerprintHash    string
 }
 
 // CreateCheckinParams contains optional device metadata for a checkin.

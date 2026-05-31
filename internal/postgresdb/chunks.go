@@ -49,6 +49,32 @@ func (r *Repository) ChunkExists(ctx context.Context, incidentID, streamID, medi
 	return true, nil
 }
 
+// GetChunkByIdentity returns one chunk by its stream-scoped or legacy
+// unstreamed immutable identity.
+func (r *Repository) GetChunkByIdentity(ctx context.Context, incidentID, streamID, mediaType string, chunkIndex int) (incidents.Chunk, error) {
+	if streamID != "" {
+		row := r.db.QueryRowContext(ctx, `
+			SELECT id, incident_id, stream_id, chunk_index, media_type, started_at, ended_at,
+				original_filename, stored_path, byte_size, sha256_hex, created_at
+			FROM chunks
+			WHERE incident_id = $1 AND stream_id = $2 AND chunk_index = $3`,
+			incidentID,
+			streamID,
+			chunkIndex,
+		)
+		chunk, err := scanChunk(row)
+		if errors.Is(err, sql.ErrNoRows) {
+			return incidents.Chunk{}, incidents.ErrNotFound
+		}
+		if err != nil {
+			return incidents.Chunk{}, fmt.Errorf("get postgres stream chunk by identity: %w", err)
+		}
+		return chunk, nil
+	}
+
+	return r.GetChunkByKey(ctx, incidentID, mediaType, chunkIndex)
+}
+
 // CreateChunk inserts metadata for a chunk after the blob has been committed.
 func (r *Repository) CreateChunk(ctx context.Context, params incidents.CreateChunkParams) (incidents.Chunk, error) {
 	id, err := newID("chk")

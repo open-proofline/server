@@ -43,6 +43,8 @@ func safeErrorCategory(err error) string {
 		return "already_exists"
 	case errors.Is(err, incidents.ErrDuplicate):
 		return "duplicate"
+	case errors.Is(err, incidents.ErrIdempotencyConflict):
+		return "idempotency_conflict"
 	case errors.Is(err, incidents.ErrIncidentClosed):
 		return "incident_closed"
 	case errors.Is(err, incidents.ErrInvalidState):

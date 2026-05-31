@@ -194,7 +194,7 @@ func (c client) downloadStreamBundle(ctx context.Context, token, streamID string
 }
 
 func (c client) uploadChunk(ctx context.Context, upload chunkUpload) error {
-	status, body, err := c.postChunk(ctx, upload)
+	status, _, body, err := c.postChunk(ctx, upload)
 	if err != nil {
 		return err
 	}
@@ -204,8 +204,22 @@ func (c client) uploadChunk(ctx context.Context, upload chunkUpload) error {
 	return nil
 }
 
+func (c client) expectIdempotentReplay(ctx context.Context, upload chunkUpload) error {
+	status, headers, body, err := c.postChunk(ctx, upload)
+	if err != nil {
+		return err
+	}
+	if status != http.StatusOK {
+		return fmt.Errorf("expected idempotent replay: %w", statusError(http.StatusOK, status, body))
+	}
+	if headers.Get("Idempotency-Replayed") != "true" {
+		return fmt.Errorf("expected idempotent replay header")
+	}
+	return nil
+}
+
 func (c client) expectHashMismatch(ctx context.Context, upload chunkUpload) error {
-	status, body, err := c.postChunk(ctx, upload)
+	status, _, body, err := c.postChunk(ctx, upload)
 	if err != nil {
 		return err
 	}
@@ -253,16 +267,16 @@ func (c client) postJSON(ctx context.Context, path string, payload any, wantStat
 	return nil
 }
 
-func (c client) postChunk(ctx context.Context, upload chunkUpload) (int, []byte, error) {
+func (c client) postChunk(ctx context.Context, upload chunkUpload) (int, http.Header, []byte, error) {
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
 
 	filePart, err := writer.CreateFormFile("file", upload.filename)
 	if err != nil {
-		return 0, nil, err
+		return 0, nil, nil, err
 	}
 	if _, err := filePart.Write(upload.body); err != nil {
-		return 0, nil, err
+		return 0, nil, nil, err
 	}
 	fields := map[string]string{
 		"chunk_index":       strconv.Itoa(upload.chunkIndex),
@@ -277,32 +291,35 @@ func (c client) postChunk(ctx context.Context, upload chunkUpload) (int, []byte,
 	}
 	for name, value := range fields {
 		if err := writer.WriteField(name, value); err != nil {
-			return 0, nil, err
+			return 0, nil, nil, err
 		}
 	}
 	if err := writer.Close(); err != nil {
-		return 0, nil, err
+		return 0, nil, nil, err
 	}
 
 	path := "/v1/incidents/" + url.PathEscape(upload.incidentID) + "/chunks"
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, joinURL(c.apiBase, path), &body)
 	if err != nil {
-		return 0, nil, err
+		return 0, nil, nil, err
 	}
 	request.Header.Set("Content-Type", writer.FormDataContentType())
+	if upload.idempotencyKey != "" {
+		request.Header.Set("Idempotency-Key", upload.idempotencyKey)
+	}
 	c.authorize(request)
 
 	response, err := c.httpClient.Do(request)
 	if err != nil {
-		return 0, nil, err
+		return 0, nil, nil, err
 	}
 	defer response.Body.Close()
 
 	responseBody, err := io.ReadAll(io.LimitReader(response.Body, 64*1024))
 	if err != nil {
-		return response.StatusCode, nil, err
+		return response.StatusCode, response.Header.Clone(), nil, err
 	}
-	return response.StatusCode, responseBody, nil
+	return response.StatusCode, response.Header.Clone(), responseBody, nil
 }
 
 func (c client) authorize(request *http.Request) {

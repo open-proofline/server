@@ -33,6 +33,7 @@ func TestPostgresMigrateCreatesSchemaAndRejectsChecksumMismatch(t *testing.T) {
 	assertPostgresTable(t, ctx, conn, "incident_tokens")
 	assertPostgresTable(t, ctx, conn, "accounts")
 	assertPostgresTable(t, ctx, conn, "auth_sessions")
+	assertPostgresTable(t, ctx, conn, "upload_operations")
 
 	if err := Migrate(ctx, conn); err != nil {
 		t.Fatalf("second Migrate: %v", err)
@@ -238,6 +239,38 @@ func TestPostgresRepositoryPreservesCoreSemantics(t *testing.T) {
 
 	if _, err := repo.CreateChunk(ctx, testChunkParams(incident.ID, firstStream.ID, incidents.MediaTypeAudio, 1)); err != nil {
 		t.Fatalf("create first stream chunk: %v", err)
+	}
+	operationParams := testUploadOperationParams(incident.ID, firstStream.ID)
+	reserved, err := repo.ReserveUploadOperation(ctx, operationParams)
+	if err != nil {
+		t.Fatalf("reserve upload operation: %v", err)
+	}
+	if reserved.State != incidents.UploadOperationStateReserved {
+		t.Fatalf("reserved operation state = %q, want %q", reserved.State, incidents.UploadOperationStateReserved)
+	}
+	conflictingOperation := operationParams
+	conflictingOperation.OriginalFilename = "other.enc"
+	conflictingOperation.FingerprintHash = strings.Repeat("c", 64)
+	if _, err := repo.ReserveUploadOperation(ctx, conflictingOperation); !errors.Is(err, incidents.ErrIdempotencyConflict) {
+		t.Fatalf("conflicting upload operation error = %v, want ErrIdempotencyConflict", err)
+	}
+	firstChunk, err := repo.GetChunkByIdentity(ctx, incident.ID, firstStream.ID, incidents.MediaTypeAudio, 1)
+	if err != nil {
+		t.Fatalf("get first stream chunk by identity: %v", err)
+	}
+	completedOperation, err := repo.CompleteUploadOperation(ctx, operationParams, firstChunk)
+	if err != nil {
+		t.Fatalf("complete upload operation: %v", err)
+	}
+	if completedOperation.State != incidents.UploadOperationStateMetadataCommitted || completedOperation.ChunkID != firstChunk.ID {
+		t.Fatalf("unexpected completed operation: %+v", completedOperation)
+	}
+	replayedOperation, err := repo.ReserveUploadOperation(ctx, operationParams)
+	if err != nil {
+		t.Fatalf("reserve completed upload operation: %v", err)
+	}
+	if replayedOperation.State != incidents.UploadOperationStateMetadataCommitted || replayedOperation.ChunkID != firstChunk.ID {
+		t.Fatalf("expected completed operation replay, got %+v", replayedOperation)
 	}
 	if _, err := repo.CreateChunk(ctx, testChunkParams(incident.ID, secondStream.ID, incidents.MediaTypeAudio, 1)); err != nil {
 		t.Fatalf("create second stream chunk: %v", err)
@@ -618,5 +651,23 @@ func testChunkParams(incidentID, streamID, mediaType string, chunkIndex int) inc
 		StoredPath:       storedPath,
 		ByteSize:         4,
 		SHA256Hex:        strings.Repeat("a", 64),
+	}
+}
+
+func testUploadOperationParams(incidentID, streamID string) incidents.UploadOperationParams {
+	chunk := testChunkParams(incidentID, streamID, incidents.MediaTypeAudio, 1)
+	return incidents.UploadOperationParams{
+		Operation:          incidents.UploadOperationUploadChunk,
+		IdempotencyKeyHash: strings.Repeat("b", 64),
+		IncidentID:         incidentID,
+		StreamID:           streamID,
+		ChunkIndex:         chunk.ChunkIndex,
+		MediaType:          chunk.MediaType,
+		StartedAt:          chunk.StartedAt,
+		EndedAt:            chunk.EndedAt,
+		OriginalFilename:   chunk.OriginalFilename,
+		ByteSize:           chunk.ByteSize,
+		SHA256Hex:          chunk.SHA256Hex,
+		FingerprintHash:    strings.Repeat("a", 64),
 	}
 }

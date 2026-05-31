@@ -30,7 +30,7 @@ Evidence bundles are ZIP files containing encrypted chunks and JSON manifests. T
 
 The simulator encrypts fake chunks by default with the documented v1 AES-256-GCM envelope and verifies downloaded bundles locally. Keys remain client-side and are not uploaded to the backend. Future production key custody is expected to use a hybrid trusted-contact model; see [docs/key-custody.md](docs/key-custody.md).
 
-Planned production-cluster work is additive. SQLite metadata and local filesystem blob storage remain supported. Optional PostgreSQL metadata, S3-compatible object storage, and Valkey/Redis-compatible coordination are available only when explicitly configured, while future upload-operation work may add cluster-safe idempotent upload semantics. See [docs/production-cluster-scope.md](docs/production-cluster-scope.md).
+Planned production-cluster work is additive. SQLite metadata and local filesystem blob storage remain supported. Optional PostgreSQL metadata, S3-compatible object storage, and Valkey/Redis-compatible coordination are available only when explicitly configured. Complete-upload idempotency is implemented through metadata-backed upload-operation state, while resumable uploads, leases, and operation-level coordination remain future work. See [docs/production-cluster-scope.md](docs/production-cluster-scope.md).
 
 ## Planned Open Proofline Repositories
 
@@ -75,6 +75,7 @@ The current backend still stores generic incidents. First-class incident modes, 
 - Optional PostgreSQL metadata backend for new deployments
 - Optional S3-compatible encrypted blob storage for committed chunks
 - Immutable chunk uploads with SHA-256 verification
+- `Idempotency-Key` support for equivalent complete chunk upload retries
 - Documented client-side chunk encryption envelope
 - Media streams with `open`, `complete`, and `failed` states
 - Completed encrypted stream and incident ZIP evidence bundle downloads
@@ -93,8 +94,7 @@ The current backend still stores generic incidents. First-class incident modes, 
 - No first-class incident-mode, capture-profile, escalation-policy, or
   sharing-state schema
 - No production client-side encryption implementation
-- No implemented cluster-safe upload operation, idempotency API, or upload-lease use of coordination
-- No implemented resumable upload or upload lease protocol
+- No implemented resumable, partial, or leased cluster-safe upload protocol
 - No implemented live or partial stream chunk access before stream completion
 - No backend/browser decryption, key sharing, server escrow, break-glass key access, or playable media export
 - No push notifications, SMS, or Messenger integration
@@ -261,8 +261,8 @@ Please see [SECURITY.md](SECURITY.md) for supported versions and vulnerability r
 - Create future `open-proofline/web-client`, `open-proofline/ios-client`, `open-proofline/android-client`, and `open-proofline/protocol` repositories when their scopes are ready
 - Plan any future protocol or data-layout compatibility migrations separately from the completed repository/module/artifact rename
 - Continue hardening optional PostgreSQL metadata support while preserving SQLite local/default support
-- Wire optional Valkey/Redis-compatible coordination into future leases, idempotency, and retry handling without making it durable evidence storage
-- Implement cluster-safe upload operation semantics before multi-node production deployment
+- Wire optional Valkey/Redis-compatible coordination into future leases and retry handling without making it durable evidence storage
+- Complete the remaining cluster-safe upload operation semantics before multi-node production deployment
 - Keep cluster backup, restore, and failure runbooks current as optional PostgreSQL, S3-compatible storage, and coordination behavior evolve
 - WireGuard-only bind/firewall deployment guidance
 - Server-side support for first-class incident modes, capture profiles,

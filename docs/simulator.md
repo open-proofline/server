@@ -1,6 +1,6 @@
 # Simulator
 
-The simulator CLI lives at `cmd/simclient`. It exercises the current Proofline ingest flow that a future recording client is expected to use. It logs in to the private `/v1` API with a local account session, then encrypts fake chunk plaintext with the v1 client-side envelope before upload by default.
+The simulator CLI lives at `cmd/simclient`. It exercises the current Proofline ingest flow that a future recording client is expected to use. It logs in to the private `/v1` API with a local account session, then encrypts fake chunk plaintext with the v1 client-side envelope before upload by default. Each intended chunk upload includes a stable `Idempotency-Key`, and the simulator verifies one equivalent replay without printing the raw key.
 
 The simulator covers generic incidents only. It does not implement planned incident modes such as emergency incidents, interaction records, safety checks, or evidence notes.
 
@@ -119,10 +119,13 @@ PROOFLINE_SIM_PASSWORD='replace-with-a-long-local-password' \
 go run ./cmd/simclient --chunks 12 --interval 2s --simulate-failure-every 4
 ```
 
-Every fourth chunk intentionally fails SHA-256 verification before being retried.
-The simulator does not yet exercise future idempotency-key or equivalent retry
-success semantics for ambiguous upload outcomes. Those future simulator changes
-are planned in [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md).
+Every fourth chunk intentionally fails SHA-256 verification before being
+retried. Hash-mismatch attempts do not reserve idempotency state because the
+server has not accepted the immutable fingerprint. The first successfully
+uploaded chunk is then resent with the same `Idempotency-Key` to verify
+equivalent retry success. Broader ambiguous-network and process-restart drills
+remain future simulator work planned in
+[cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md).
 
 ## Useful Flags
 

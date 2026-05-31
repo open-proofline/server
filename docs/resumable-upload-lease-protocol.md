@@ -4,11 +4,12 @@ This document plans whether Proofline Server needs explicit resumable uploads
 or upload leases for partially sent encrypted chunks.
 
 It is a planning document only. It does not implement resumable uploads, upload
-leases, upload operations, idempotency keys, PostgreSQL, S3-compatible object
-storage, operation-level use of Valkey/Redis-compatible coordination, changes
-to the current local account/session model, public `/v1` exposure, public
-account workflows, browser decryption, backend decryption, key custody, or
-playable media export.
+leases, PostgreSQL, S3-compatible object storage, operation-level use of
+Valkey/Redis-compatible coordination, changes to the current local
+account/session model, public `/v1` exposure, public account workflows, browser
+decryption, backend decryption, key custody, or playable media export.
+Complete-upload idempotency keys are implemented separately and documented in
+[cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md).
 
 ## Decision
 
