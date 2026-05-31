@@ -21,7 +21,8 @@ The current backend remains local-first and experimental:
 - No coordination backend remains the default; Valkey/Redis-compatible
   coordination is available only when explicitly configured.
 - The simulator and local development flow remain supported.
-- The private `/v1` API remains private and requires local account sessions.
+- The main `/v1` API remains intended for a reviewed private deployment boundary
+  and requires local account sessions.
 - The public incident viewer remains token-gated and read-only.
 - The backend stores ciphertext only and does not decrypt chunks.
 
@@ -174,7 +175,7 @@ A successful chunk upload should mean encrypted bytes are durably committed outs
 
 This scope expansion does not by itself add:
 
-- public exposure of the current private `/v1` API
+- public exposure of the current main `/v1` API
 - public account workflows
 - OAuth, JWT, public account portal, trusted-contact accounts, or external
   identity integration
@@ -186,7 +187,9 @@ This scope expansion does not by itself add:
 - push, SMS, Messenger, or emergency-services integrations
 - Docker Compose, Kubernetes, Nomad jobs, Terraform, or provider-specific deployment code
 
-Any future deployment automation must preserve private/public listener separation and must not claim production readiness until the access-control, retention, backup, restore, observability, and abuse-control work exists.
+Any future deployment automation must preserve main/private-admin route
+separation and must not claim production readiness until the access-control,
+retention, backup, restore, observability, and abuse-control work exists.
 
 ## Implementation Order
 

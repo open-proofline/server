@@ -15,20 +15,20 @@ import (
 func TestPrivateHealthRoutesAreUnauthenticatedAndNotPublic(t *testing.T) {
 	app := newTestApp(t)
 
-	response, body := getUnauthenticated(t, app, "/v1/health/live")
+	response, body := request(t, app.adminHandler, http.MethodGet, "/v1/health/live", "", nil)
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("expected live status 200, got %d: %s", response.StatusCode, body)
 	}
-	assertPrivateJSONSecurityHeaders(t, response)
+	assertMainJSONSecurityHeaders(t, response)
 	assertHealthStatus(t, body, "ok")
 
-	response, body = getUnauthenticated(t, app, "/v1/health/ready")
+	response, body = request(t, app.adminHandler, http.MethodGet, "/v1/health/ready", "", nil)
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("expected ready status 200, got %d: %s", response.StatusCode, body)
 	}
-	assertPrivateJSONSecurityHeaders(t, response)
+	assertMainJSONSecurityHeaders(t, response)
 	assertHealthStatus(t, body, "ok")
 
 	response, body = getPublic(t, app, "/v1/health/ready")
@@ -73,12 +73,12 @@ func TestPrivateReadinessResponseIsCoarseAndRedacted(t *testing.T) {
 		},
 	})
 
-	response, body := getUnauthenticated(t, app, "/v1/health/ready")
+	response, body := request(t, app.adminHandler, http.MethodGet, "/v1/health/ready", "", nil)
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusServiceUnavailable {
 		t.Fatalf("expected ready status 503, got %d: %s", response.StatusCode, body)
 	}
-	assertPrivateJSONSecurityHeaders(t, response)
+	assertMainJSONSecurityHeaders(t, response)
 	for _, disallowed := range [][]byte{
 		[]byte("secret"),
 		[]byte("10.0.0.5"),
@@ -148,7 +148,7 @@ func TestPrivateReadinessDoesNotLogCheckErrors(t *testing.T) {
 		},
 	})
 
-	response, body := getUnauthenticated(t, app, "/v1/health/ready")
+	response, body := request(t, app.adminHandler, http.MethodGet, "/v1/health/ready", "", nil)
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusServiceUnavailable {
 		t.Fatalf("expected ready status 503, got %d: %s", response.StatusCode, body)

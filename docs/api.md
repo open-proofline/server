@@ -1,12 +1,12 @@
 # API
 
-This is the current backend-only HTTP surface for Proofline. The API binary starts private API listeners and public incident viewer listeners on one or more configured bind addresses. The `/v1` routes are private and require local account authentication except for the bootstrap, login, and private health/readiness routes described below. The incident viewer routes are token-gated and read-only. Planned web, iOS, and Android clients are not part of this repository yet.
+This is the current backend-only HTTP surface for Proofline. The API binary starts a main API/viewer listener and a private-admin listener on one or more configured bind addresses. Main non-admin `/v1` routes require local account authentication except for login. The private-admin listener serves first-admin bootstrap, private health/readiness, private admin API routes, and `/admin`. Incident viewer routes are token-gated, read-only, and mounted on the main listener. Planned web, iOS, and Android clients are not part of this repository yet.
 
 Media bundle downloads are encrypted chunk bundles. The backend does not decrypt, merge, or produce playable media. The simulator's current encrypted uploads use the envelope documented in [encryption.md](encryption.md), but the API treats uploaded bytes as opaque ciphertext.
 
 The current API stores incidents owned by local accounts. Incidents are generic
 by default and may include optional `incident_mode`, `capture_profile`,
-`escalation_policy`, and `sharing_state` metadata on the private create/read
+`escalation_policy`, and `sharing_state` metadata on the main create/read
 routes. Those fields are metadata only: they do not grant access, send
 notifications, change key custody, expose trusted-contact workflows, or change
 public viewer and bundle behavior. Mode-specific retention behavior is not
@@ -17,16 +17,13 @@ Trusted-contact and public product APIs do not exist yet.
 
 Default bind addresses:
 
-- private API server: `127.0.0.1:8080`
-- public incident viewer server: `127.0.0.1:8081`
+- main API and incident viewer listener: `127.0.0.1:8080`
+- private admin and operator listener: `127.0.0.1:8081`
 
-Use `SAFE_PRIVATE_BIND_ADDRS` and `SAFE_PUBLIC_BIND_ADDRS` for comma-separated bind-address lists. The older singular variables remain supported when the matching plural variable is unset.
-
-A future implementation may move public-ready main API routes and the read-only
-incident viewer onto `8080` while keeping admin and operator routes on private
-`8081`. That target topology is planning-only in
-[public-api-listener-split.md](public-api-listener-split.md) and does not
-change the current route mounting.
+Use `SAFE_MAIN_BIND_ADDRS` and `SAFE_ADMIN_BIND_ADDRS` for comma-separated
+bind-address lists. Legacy `SAFE_PRIVATE_BIND_ADDRS` still maps to the main
+listener, but legacy `SAFE_PUBLIC_BIND_ADDRS` now fails startup so an old
+public viewer bind cannot become the private-admin listener by accident.
 
 ## Common Responses
 
@@ -55,10 +52,10 @@ generic response. See [configuration](configuration.md) for
 
 ## Private Health And Readiness
 
-The private API listener exposes unauthenticated operator checks under `/v1`
+The private-admin listener exposes unauthenticated operator checks under `/v1`
 so Docker, local scripts, and private reverse proxies can test process and
 backend readiness without storing a session token. These routes must stay on
-the private listener and must not be forwarded from the public incident viewer
+the private-admin listener and must not be forwarded from the main API/viewer
 origin.
 
 ### `GET /v1/health/live`
@@ -203,7 +200,7 @@ Changes the authenticated account password after verifying `current_password`; o
 
 ### Private Admin Web Routes
 
-The private API listener also serves a small admin web surface outside the
+The private-admin listener serves a small admin web surface outside the
 `/v1` API namespace:
 
 - `GET /admin`
@@ -243,7 +240,7 @@ and local account-management data. It does not expose incident evidence, viewer
 tokens, session tokens, password hashes, request bodies, uploaded bytes,
 Authorization headers, plaintext, raw keys, stored paths, object keys, private
 deployment details, or sensitive evidence metadata. It is not a public admin
-dashboard and must stay on the private listener.
+dashboard and must stay on the private-admin listener.
 
 ### Admin API Routes
 
@@ -258,11 +255,11 @@ The following routes require an admin account session:
 
 `POST /v1/admin/accounts` accepts `username`, `password`, and `role`, where `role` is `user` or `admin`. Admin password reset and explicit session revocation revoke all sessions for the selected account.
 
-Local account authentication does not make `/v1` a public product API. Keep private listeners behind localhost, LAN, WireGuard, firewall rules, or a strict private reverse proxy until public exposure, abuse controls, rate limiting, CSRF/browser credential rules, and production operations are explicitly designed and reviewed.
+Local account authentication and app-level rate limiting do not by themselves make `/v1` production-ready public infrastructure. Expose the main API only after deployment-specific TLS, abuse controls, browser credential rules, CSRF decisions, logging review, and production operations are explicitly designed and reviewed. Keep private-admin listeners behind localhost, LAN, WireGuard, firewall rules, or a strict private reverse proxy.
 
 ## Incidents
 
-Incident routes are mounted only on the private API server and require a valid session. Incidents are owned by the account that creates them. Regular users can access only their own incidents; admins can access incidents across accounts. Legacy unowned incidents are admin-only until a future private reassignment or quarantine workflow is implemented; see [legacy unowned incident reassignment](legacy-unowned-incident-reassignment.md).
+Incident routes are mounted on the main API listener and require a valid session. Incidents are owned by the account that creates them. Regular users can access only their own incidents; admins can access incidents across accounts through the main non-admin route set. Legacy unowned incidents are admin-only until a future private reassignment or quarantine workflow is implemented; see [legacy unowned incident reassignment](legacy-unowned-incident-reassignment.md).
 
 ### `POST /v1/incidents`
 
@@ -337,7 +334,7 @@ Response `200`:
 
 Marks an incident closed. Later chunk uploads return `409 incident_closed`.
 
-Response `200` is the updated private incident object. If the incident has
+Response `200` is the updated incident object. If the incident has
 optional mode metadata, the same fields shown in the `GET` incident object can
 be present. Closing an incident does not change sharing, retention, viewer,
 notification, or key-custody behavior.
@@ -348,7 +345,7 @@ Requests deletion for an incident owned by the authenticated account. Admins
 can use this route only for incidents they own; use the admin route below for
 global deletion. The route creates durable deletion state and snapshots
 server-controlled stored paths from metadata before any blob is deleted. It is
-mounted only on the private API listener.
+mounted only on the main API listener.
 
 Request:
 
@@ -417,7 +414,7 @@ invalid, expired, or revoked tokens and do not reveal deletion state.
 
 ## Chunks
 
-Chunk routes are mounted only on the private API server.
+Chunk routes are mounted on the main API listener.
 
 ### `POST /v1/incidents/{incident_id}/chunks`
 
@@ -519,7 +516,7 @@ decision is documented in
 ### `POST /v1/incidents/{incident_id}/chunks/reconcile`
 
 Reconciles a duplicate chunk identity against already accepted metadata without
-re-uploading ciphertext. The route is mounted only on the private API server.
+re-uploading ciphertext. The route is mounted on the main API listener.
 
 This is a separate private query workflow, not a public route and not an
 enriched `409 duplicate_chunk` upload response. A separate route lets clients
@@ -641,7 +638,7 @@ Returns encrypted bytes for a legacy unstreamed chunk as `application/octet-stre
 
 ## Media Streams
 
-Media stream routes are mounted only on the private API server.
+Media stream routes are mounted on the main API listener.
 
 ### `POST /v1/incidents/{incident_id}/streams`
 
@@ -799,7 +796,7 @@ If any completed stream cannot be reconstructed, the incident bundle request fai
 
 ## Checkins
 
-Checkin routes are mounted only on the private API server.
+Checkin routes are mounted on the main API listener.
 
 ### `POST /v1/incidents/{incident_id}/checkins`
 
@@ -821,7 +818,7 @@ Response `201` is the created checkin.
 
 ## Viewer Tokens
 
-Incident-token creation and revocation routes are mounted only on the private API server.
+Incident-token creation and revocation routes are mounted on the main API listener.
 
 ### `POST /v1/incidents/{incident_id}/incident-tokens`
 
@@ -868,7 +865,7 @@ Response `200`:
 
 ## Incident Viewer
 
-Incident viewer routes are mounted only on the public incident viewer server.
+Incident viewer routes are mounted on the main API/viewer listener.
 `/i/{token}` is the canonical path for new links. The pre-rename `/e/{token}`
 paths remain as compatibility aliases for already shared viewer URLs, including
 the `/data`, stream download, and incident download variants.

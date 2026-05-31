@@ -78,8 +78,8 @@ func run(logger *slog.Logger) error {
 		PublicRateLimiter:       newPublicRateLimiter(cfg, coord),
 		Logger:                  logger,
 	}
-	privateHandler := httpapi.NewPrivate(repo, blobStore, apiOptions)
-	publicHandler := httpapi.NewPublic(repo, blobStore, apiOptions)
+	mainHandler := httpapi.NewMain(repo, blobStore, apiOptions)
+	adminHandler := httpapi.NewAdmin(repo, blobStore, apiOptions)
 	deletionWorker := retention.NewWorker(repo, blobStore, retention.Options{
 		Interval:                cfg.DeletionWorkerInterval,
 		ClosedIncidentRetention: cfg.ClosedIncidentRetention,
@@ -88,7 +88,7 @@ func run(logger *slog.Logger) error {
 		Logger:                  logger,
 	})
 	deletionWorker.Start(ctx)
-	servers := newHTTPServers(cfg, privateHandler, publicHandler)
+	servers := newHTTPServers(cfg, mainHandler, adminHandler)
 
 	errCh := make(chan error, len(servers))
 	for _, server := range servers {

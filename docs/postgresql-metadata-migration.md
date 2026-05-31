@@ -496,7 +496,7 @@ Before copying any data:
 1. Confirm the target branch and release contain all SQLite and PostgreSQL
    migrations expected by the deployment.
 2. Confirm the deployment can be quiesced. Stop the API process or block all
-   private write routes before taking the migration snapshot.
+   authenticated main write routes before taking the migration snapshot.
 3. Back up SQLite metadata and encrypted blobs as one evidence set. Include
    `SAFE_DB_PATH`, any live SQLite `-wal` and `-shm` sidecar files when using a
    direct live copy, local blob directories, or the configured S3-compatible
@@ -736,14 +736,15 @@ Before any production-cluster recommendation, documentation should cover:
 - PostgreSQL backup method, such as `pg_dump`, physical backup, or managed
   database snapshot
 - backup consistency with local or future object-storage blobs
-- restore into an isolated environment with private bind addresses only
+- restore into an isolated environment with local or otherwise private-boundary
+  bind addresses only
 - migration and restore ordering
 - row-count and checksum-style validation after restore
 - completed stream and incident bundle verification after restore
 - rollback expectations before and after PostgreSQL accepts writes
 
 Restores must not be used as a reason to expose `/v1` publicly. The same
-private/public listener split and token redaction expectations apply.
+main/private-admin listener split and token redaction expectations apply.
 
 ## PostgreSQL-Specific Implementation Sequence
 

@@ -207,7 +207,7 @@ type CreateChunkParams struct {
 	SHA256Hex        string
 }
 
-// UploadOperation records durable idempotency state for one private write
+// UploadOperation records durable idempotency state for one authenticated write
 // operation. IdempotencyKeyHash stores a SHA-256 hash, never the raw key.
 type UploadOperation struct {
 	ID                 string

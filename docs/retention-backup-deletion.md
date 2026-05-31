@@ -2,7 +2,7 @@
 
 This document defines the operational retention, backup, restore, and deletion
 policy for the current Proofline backend shape. The backend implements
-private incident deletion requests, a durable deletion queue, and an automatic
+authenticated incident deletion requests, a durable deletion queue, and an automatic
 background worker for deletion and optional closed-incident retention, plus
 read-only local operator status and retention preview commands. The worker can
 also prune expired/revoked viewer-token metadata and completed minimal
@@ -132,13 +132,15 @@ A restore test should:
 
 1. Restore SQLite, including any needed WAL live state, and blobs into an
    isolated staging path or isolated S3 bucket/prefix.
-2. Start the API with private/local bind addresses only.
-3. Load known incident metadata through private routes.
+2. Start the API with local or otherwise reviewed private-boundary bind
+   addresses only.
+3. Load known incident metadata through authenticated main `/v1` routes.
 4. Verify completed stream or incident bundle downloads can be generated.
 5. Confirm generated manifests match expected stream and chunk metadata.
 6. Confirm missing blobs or database/blob mismatches fail closed rather than producing partial evidence.
 
-The restore target must preserve the private/public listener split. Do not use a restore drill as a reason to expose `/v1` publicly.
+The restore target must preserve the main/private-admin listener split. Do not
+use a restore drill as a reason to expose `/v1` publicly.
 
 For S3-compatible storage, restore drills must verify the configured bucket,
 prefix, credentials, and endpoint can reconstruct completed stream and incident
@@ -220,7 +222,10 @@ Recommended deployment posture:
 - test boot and restore procedures so encryption does not make urgent evidence unavailable
 - document who can unlock production storage during an emergency or restore operation
 
-Disk encryption does not protect data while the host is running and unlocked, and it does not replace private `/v1` boundaries, TLS at the edge, token handling, rate limiting, backup access control, or future application-level authorization.
+Disk encryption does not protect data while the host is running and unlocked,
+and it does not replace reviewed main `/v1` deployment boundaries, TLS at the
+edge, token handling, rate limiting, backup access control, or future
+application-level authorization.
 
 ## Remaining Future Work
 

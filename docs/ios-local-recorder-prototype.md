@@ -8,7 +8,7 @@ The prototype should prove that a native iOS client can capture incident media l
 
 Build the smallest useful native iOS client that exercises the current Proofline backend contract:
 
-- create or resume one generic incident through the private `/v1` API
+- create or resume one generic incident through the main `/v1` API
 - create one media stream per local recording track
 - record short chunks locally
 - encrypt each chunk before upload
@@ -32,7 +32,7 @@ records, timed safety checks, and evidence notes, as described in
 - No police-specific or authority-specific mode label.
 - No legal-advice or admissibility claim.
 - No emergency-services contact or automatic emergency calling.
-- No public exposure of the private `/v1` API.
+- No public exposure of the current main `/v1` API.
 - No backend decryption or server-held raw media keys.
 - No key escrow, browser decryption, trusted-contact implementation, or break-glass implementation.
 - No playable media export.
@@ -161,7 +161,7 @@ Retry expectations:
 - on `400 hash_mismatch`, treat the local staged record as corrupt and stop retrying that chunk until the user or developer can inspect it
 - on `400 invalid_chunk_index`, `400 invalid_media_type`, or time-range errors, treat the local metadata as a client bug
 - on `409 duplicate_chunk`, reconcile against local state before deciding that
-  the upload already succeeded; use the private duplicate chunk reconciliation
+  the upload already succeeded; use the authenticated duplicate chunk reconciliation
   route to compare the expected ciphertext hash and immutable metadata with
   accepted server metadata
 - on `409 stream_not_open`, stop uploads for that stream and surface a local stream-state error

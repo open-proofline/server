@@ -1,17 +1,19 @@
 # /v1 Access Control
 
 This document defines the current local access-control boundary for Proofline's
-private `/v1` control plane and the future direction for broader product access.
+authenticated main `/v1` control plane and the future direction for broader
+product access.
 Local username/password accounts and opaque server-side sessions are implemented
-for the private API. OAuth, JWT, public account portals, trusted-contact
+for the main `/v1` API. OAuth, JWT, public account portals, trusted-contact
 accounts, notifications, browser decryption, key escrow, and server-side
 decryption are not implemented.
 
 ## Summary
 
-The current `/v1` API is private and requires a local account session for
-write/admin routes. First-admin bootstrap, login, and private health/readiness
-routes are the narrow unauthenticated exceptions. It remains intended only for
+The current main `/v1` API requires a local account session for product routes
+other than login. First-admin bootstrap, admin API routes, private
+health/readiness routes, and the admin web surface are on the private-admin
+listener. It remains intended only for
 localhost, LAN, WireGuard, firewall, or strict private reverse-proxy access.
 Local sessions reduce accidental unauthenticated access; they do not make `/v1`
 a public product API.
@@ -35,7 +37,8 @@ Related source-of-truth docs:
 
 ## Goals
 
-- Preserve the current private `/v1` boundary even with local account sessions.
+- Preserve the current reviewed-boundary `/v1` posture even with local account
+  sessions.
 - Separate account-owner, trusted-contact, public-link, admin/operator, and
   optional escrow access.
 - Split future non-admin product API routes from a separately bound private
@@ -45,13 +48,13 @@ Related source-of-truth docs:
 - Distinguish access to metadata, ciphertext, wrapped keys, raw keys, and
   plaintext.
 - Define token, session, grant, revocation, and audit expectations for current
-  private auth and future implementation work.
+  local auth and future implementation work.
 - Keep incident-mode, key-custody, deployment, security-model, and threat-model
   docs aligned around one future access-control direction.
 
 ## Non-Goals
 
-- No public exposure of the current private `/v1` API.
+- No broad public exposure of the current main `/v1` API.
 - No OAuth, JWT, public account portal, broad CSRF framework, or
   identity-provider implementation.
 - No web-client, iOS-client, Android-client, or protocol implementation.
@@ -68,18 +71,18 @@ Today the backend has two listener groups:
 
 | Listener group | Current routes | Exposure |
 |---|---|---|
-| Private API | `/v1/...` with local account/session auth, except bootstrap, login, and private health/readiness routes; private `/admin` web surface with login/bootstrap/logout forms, account list, password forms, and admin session cookie | Localhost, LAN, WireGuard, firewall, or strict private reverse proxy only. |
-| Public incident viewer | `/i/{token}` plus legacy `/e/{token}` aliases and `/static/...` | Public HTTPS/reverse proxy may expose this read-only viewer. |
+| Main API and viewer | Non-admin `/v1/...` with local account/session auth, except login; `/i/{token}` plus legacy `/e/{token}` aliases and `/static/...` | Reviewed main API deployment boundary; viewer paths may be routed publicly when only viewer paths are forwarded. |
+| Private admin and operator | `/admin`, `/admin/...`, `/v1/admin/...`, `/v1/bootstrap/admin`, `/v1/health/live`, and `/v1/health/ready` | Localhost, LAN, WireGuard, firewall, or strict private reverse proxy only. |
 
-All current `/v1` write/admin routes remain private. The implemented local auth
-model has admin and user roles, incident ownership, hashed password storage,
+Current `/v1` routes are split between main non-admin routes and private-admin
+routes. The implemented local auth model has admin and user roles, incident ownership, hashed password storage,
 hashed session-token storage, session expiry, logout, account password change,
 admin account creation, and admin session revocation. Reverse-proxy rate
 limiting, separate bind addresses, and private network placement are useful
 boundaries, but they are not a public authorization model.
 
-The private `/admin` surface is outside the `/v1` API namespace but remains on
-the private listener. Its login and bootstrap forms reuse the same local account
+The private `/admin` surface is outside the `/v1` API namespace and remains on
+the private-admin listener. Its login and bootstrap forms reuse the same local account
 and server-side session store, with the raw session token held in an HttpOnly
 SameSite cookie scoped to `/admin`. The authenticated dashboard lists local
 accounts and supports current-admin password changes plus admin password resets
@@ -88,19 +91,18 @@ session-bound CSRF token. The token-neutral CSS under `/admin/static/...` is
 unauthenticated because it contains no incident data, tokens, keys, or
 deployment details.
 
-## Future Listener Topology
+## Listener Topology
 
-Future implementation should avoid treating `/v1` as one public control plane.
-The intended topology is separate listener groups with separate route trees.
-The target `8080` main API/viewer and `8081` private admin-dashboard split is
-documented in
+Implementation should avoid treating `/v1` as one public control plane. The
+current topology is separate listener groups with separate route trees. The
+`8080` main API/viewer and `8081` private admin-dashboard split is documented in
 [main API public exposure listener split](public-api-listener-split.md):
 
 | Listener group | Future route scope | Exposure |
 |---|---|---|
-| Public product API | Account-owner, capture-device, trusted-contact, incident, upload, sharing, account-owner public-link grant issuance/revocation, and key-wrapping delivery routes that are safe for public authenticated access after implementation. | Public HTTPS only after authentication, authorization, abuse controls, and audit behavior exist. |
+| Main product API | Current account-owner incident, upload, sharing, and account self-service routes, plus future capture-device, trusted-contact, public-link grant, and key-wrapping delivery routes that are safe for public authenticated access after implementation. | Public HTTPS only after authentication, authorization, abuse controls, and audit behavior exist. |
 | Private admin API | Operator/admin health, migration, support, abuse response, operational review, and optional deployment management routes. | Own listener and route tree, configurable for loopback, LAN, WireGuard, VPN, firewall, or private reverse proxy access. Still authenticated and authorized. |
-| Public incident viewer | Read-only incident viewer routes and token-neutral static assets. | Public HTTPS/reverse proxy when exposed. |
+| Incident viewer | Read-only incident viewer routes and token-neutral static assets mounted on the main listener. | Public HTTPS/reverse proxy when only viewer paths are exposed. |
 | Optional escrow or break-glass API | Higher-trust emergency-access or server-assisted key access routes, if ever implemented. | Disabled by default; separate explicit configuration, strong authentication, audit, rate limiting, and deployment warnings. |
 
 Private network placement is not an authentication substitute. Even when the
@@ -145,21 +147,24 @@ describe policy shape; they are not implementation commitments.
 
 | Route class | Future exposure | Notes |
 |---|---|---|
-| Current `/v1` write/admin routes and private `/admin` web routes | Private only with local account/session authentication. | Includes bootstrap, login/logout, account/password routes, admin account routes, `/admin` account-list and password forms, incident creation, stream creation, chunk upload, checkins, close/fail/complete actions, incident-token creation/revocation, and private chunk reads. |
+| Current main `/v1` product routes | Main listener with local account/session authentication. | Includes login/logout, account/password routes, incident creation, stream creation, chunk upload, checkins, close/fail/complete actions, incident-token creation/revocation, and authenticated chunk reads. |
+| Current private-admin routes | Private only with local account/session authentication or admin web session authentication. | Includes bootstrap, admin account API routes, private health/readiness, and `/admin` account-list and password forms. |
 | Public product API routes | Public-authenticated only after account/device/contact authz, upload abuse controls, request-size controls, and audit are implemented. | Should cover non-admin product flows: account-owner incidents, capture uploads, trusted-contact access, account-owner public-link grant issuance/revocation, sharing, and wrapped-key delivery. |
 | Public-link viewer routes | Public read-only viewer routes can remain separate from the public product API. | Current `/i/{token}` and `/e/{token}` paths are bearer-token URLs and must not become write or admin routes. |
 | Private admin API routes | Own private listener and route tree, authenticated and authorized even when bound only to VPN, WireGuard, LAN, loopback, firewall, or a private proxy. | Should be narrow, audited, and safe for support without exposing evidence contents, raw tokens, raw keys, or plaintext by default. |
 | Escrow/break-glass routes | Not present by default. | Require explicit configuration, policy, audit, warnings, strong authz, and separate implementation. They must not be part of the normal public product API. |
 
-Do not mount admin, operator, escrow, or break-glass routes on the public product
-API listener or the public incident viewer listener. Do not mount unauthenticated
-write, account, contact, admin, or escrow routes on any listener.
+Do not mount admin, operator, escrow, or break-glass routes on the main
+API/viewer listener or on any public viewer edge route. Do not mount
+unauthenticated write, account, contact, admin, or escrow routes on any
+listener.
 
 ## Authentication Expectations
 
-The current private API uses local username/password accounts, bcrypt password
-hashing, and opaque bearer session tokens. Raw session tokens are returned only
-to the client and stored only as hashes. Sessions expire and can be revoked.
+The current main `/v1` API uses local username/password accounts, bcrypt
+password hashing, and opaque bearer session tokens. Raw session tokens are
+returned only to the client and stored only as hashes. Sessions expire and can
+be revoked.
 
 The first admin account is created through a one-time bootstrap flow:
 
@@ -201,7 +206,7 @@ remain scoped to a single incident, read-only, and revocable.
 
 Authorization should be deny-by-default and checked close to the operation being
 performed. Current implementation binds local account ID, role, and incident
-owner. Current private incident routes also pass route-level action and
+owner. Current incident routes also pass route-level action and
 data-class labels, but all current incident actions share the same
 owner-or-admin policy. Future policy should also bind:
 
@@ -328,11 +333,13 @@ uploaded bytes, and private deployment details.
 
 ## Migration Path
 
-The migration from the current private deployment model should be incremental:
+The migration from the current reviewed-boundary deployment model should be
+incremental:
 
-1. Keep all current `/v1` routes private and authenticated with local sessions
-   unless the route is explicitly bootstrap, login, `/v1/health/live`, or
-   `/v1/health/ready`.
+1. Keep current main `/v1` product routes behind the deployment's reviewed
+   boundary and authenticated with local sessions unless the route is explicitly
+   login. Keep bootstrap, private health/readiness, admin API, and admin web
+   routes on the private-admin listener.
 2. Define device, trusted-contact, public-link, operator, and optional
    escrow data model requirements in a protocol/client design task.
 3. Introduce separate future route groups for public product API, private admin
@@ -341,8 +348,9 @@ The migration from the current private deployment model should be incremental:
 4. Extend authentication and authorization behind private deployments first,
    without changing public exposure.
 5. Add audited grant lifecycle behavior for incident-scoped access.
-6. Add a separately bound private admin API listener before adding operator or
-   admin routes, and require admin authentication even for VPN-only deployments.
+6. Preserve the separately bound private-admin listener before adding more
+   operator or admin routes, and require admin authentication even for VPN-only
+   deployments.
 7. Update security, threat, API, deployment, and operational docs before any
    public-authenticated product API route is exposed.
 8. Expose only the smallest public-authenticated product route set needed for a
@@ -358,7 +366,7 @@ deployment docs before or alongside implementation.
 
 ## Implementation Prerequisites
 
-Before any public product API exposure or separately bound private admin API
+Before any public product API exposure or expanded private admin API
 implementation, a future implementation task must define and test:
 
 - concrete authentication mechanism for the new exposure class
@@ -375,7 +383,7 @@ implementation, a future implementation task must define and test:
 - deployment guidance for reverse proxies, TLS, logs, VPN/private admin
   binding, public product API exposure, and listener separation
 - tests proving public product API, private admin API, and public incident
-  viewer listener separation
+  viewer route separation
 - tests proving denied cross-account, cross-incident, and non-admin-to-admin
   access
 

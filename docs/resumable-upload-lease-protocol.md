@@ -124,8 +124,9 @@ staging locally.
 
 ## Possible Future Protocol
 
-If future measurements justify resumability, prefer a narrow private `/v1`
-protocol that stages encrypted bytes under a server-generated upload session.
+If future measurements justify resumability, prefer a narrow authenticated
+main `/v1` protocol that stages encrypted bytes under a server-generated upload
+session.
 
 A future resumable protocol should keep these properties:
 
@@ -146,7 +147,7 @@ A future resumable protocol should keep these properties:
 - cleanup never deletes committed chunk rows or final blobs referenced by
   metadata
 
-Possible private route shape, subject to later design:
+Possible authenticated route shape, subject to later design:
 
 ```text
 POST /v1/incidents/{incident_id}/uploads
@@ -284,7 +285,7 @@ is proven insufficient.
 
 If resumable uploads or leases are later implemented, update documentation:
 
-- `docs/api.md` with private route contracts, error codes, headers, and
+- `docs/api.md` with authenticated route contracts, error codes, headers, and
   response examples
 - `docs/simulator.md` with local desktop recorder simulator queue and retry
   mapping

@@ -1,6 +1,6 @@
 # Simulator
 
-The simulator CLI lives at `cmd/simclient`. It exercises the current Proofline ingest flow that a future recording client is expected to use. It logs in to the private `/v1` API with a local account session, then encrypts generated test bytes, local pre-recorded files, or optional ffmpeg test segments with the v1 client-side envelope before upload. Each intended chunk upload includes a stable `Idempotency-Key`, and the simulator verifies one equivalent replay without printing the raw key.
+The simulator CLI lives at `cmd/simclient`. It exercises the current Proofline ingest flow that a future recording client is expected to use. It logs in to the main `/v1` API with a local account session, then encrypts generated test bytes, local pre-recorded files, or optional ffmpeg test segments with the v1 client-side envelope before upload. Each intended chunk upload includes a stable `Idempotency-Key`, and the simulator verifies one equivalent replay without printing the raw key.
 
 The simulator covers generic incidents only. It does not set optional
 incident-mode metadata for emergency incidents, interaction records, safety
@@ -13,7 +13,7 @@ reference testing. It is not a production desktop app, desktop app package, or a
 replacement for planned mobile clients.
 
 It uses the current complete encrypted chunk upload contract: create an
-incident and media stream through the private `/v1` API, capture or read short
+incident and media stream through the main `/v1` API, capture or read short
 local test intervals, encrypt each completed interval, write encrypted chunks
 and immutable upload metadata to local staging, retry failed uploads by
 resending complete chunks, and complete the stream only after the local staged
@@ -370,8 +370,8 @@ attempts and durable metadata for accepted chunks.
 
 | Flag | Purpose |
 |---|---|
-| `--api` | Private API base URL. |
-| `--viewer` | Incident viewer base URL. |
+| `--api` | Main API base URL. Defaults to `http://localhost:8080`. |
+| `--viewer` | Incident viewer base URL. Defaults to `http://localhost:8080` because the viewer is mounted on the main listener. |
 | `--username` | Proofline account username. Defaults to `PROOFLINE_SIM_USERNAME`. |
 | `--password` | Proofline account password. Defaults to `PROOFLINE_SIM_PASSWORD`. |
 | `--chunks` | Number of chunks to upload. |

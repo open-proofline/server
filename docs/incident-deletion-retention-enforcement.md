@@ -91,7 +91,7 @@ because the metadata and encrypted blob stores need to stay consistent.
 ## Deletion Decisions
 
 Every incident deletion begins with an explicit deletion decision. A decision
-may be created by the owner-scoped private route, the admin-global private
+may be created by the owner-scoped main route, the admin-global private-admin
 route, or the retention policy worker. It must not be created by public
 incident viewer routes.
 
@@ -282,9 +282,9 @@ viewer routes:
 
 Deletion entry points must:
 
-- run only on a private/admin surface
+- run only on authenticated main `/v1` or private-admin surfaces
 - require local account authentication and owner/admin authorization
-- never be mounted on the public incident viewer listener
+- never be reachable from token-scoped public viewer routes
 - never accept client-provided stored paths, filesystem paths, object keys, or
   object-store URLs
 - return idempotent status for repeated deletion attempts
@@ -390,12 +390,12 @@ Storage tasks:
 - avoid exposing object-store keys, bucket URLs, private endpoints, or local
   filesystem paths in logs and responses
 
-Private/admin or CLI tasks:
+Private-admin or CLI tasks:
 
 - add a local operator CLI to request incident deletion
 - extend local previews if future deletion policies need additional candidate
   classes
-- keep all deletion controls off the public incident viewer listener
+- keep all deletion controls off token-scoped public viewer routes
 
 Retention tasks:
 

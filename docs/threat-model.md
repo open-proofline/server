@@ -63,25 +63,29 @@ viewer tokens, and encrypted evidence bundles.
 
 ## Trust Boundaries
 
-- The private API server binds separately from the public incident viewer server. By default it listens on `127.0.0.1:8080`, and it can listen on multiple addresses through `SAFE_PRIVATE_BIND_ADDRS`.
-- The public incident viewer server binds separately from the private API server. By default it listens on `127.0.0.1:8081`, and it can listen on multiple addresses through `SAFE_PUBLIC_BIND_ADDRS`.
-- A future target topology may put public-ready main API routes and the
-  read-only incident viewer on `8080` while keeping admin and operator routes
-  on private `8081`, but that design is planning-only in
-  [public-api-listener-split.md](public-api-listener-split.md).
-- `/v1` routes are authenticated private/admin routes except for the
-  unauthenticated private-only `/v1/health/live` and `/v1/health/ready`
-  operator checks. Authenticated routes can create incidents, create streams,
+- The main API/viewer server binds separately from the private-admin server. By
+  default it listens on `127.0.0.1:8080`, and it can listen on multiple
+  addresses through `SAFE_MAIN_BIND_ADDRS`.
+- The private-admin server binds separately from the main API/viewer server. By
+  default it listens on `127.0.0.1:8081`, and it can listen on multiple
+  addresses through `SAFE_ADMIN_BIND_ADDRS`.
+- Main `/v1` routes are authenticated non-admin product routes except for
+  `/v1/auth/login`. Authenticated routes can create incidents, create streams,
   upload chunks, complete/fail streams, close incidents, create viewer tokens,
-  revoke tokens, manage local accounts, and read encrypted bytes. They are
-  mounted only on the private API server.
+  revoke tokens, and read encrypted bytes. They are mounted on the main
+  API/viewer server.
+- `/v1/admin/...`, `/v1/bootstrap/admin`, `/v1/health/live`, and
+  `/v1/health/ready` are mounted only on the private-admin server.
 - `/admin`, `/admin/login`, `/admin/bootstrap`, `/admin/logout`,
   `/admin/password`, and `/admin/accounts/{account_id}/password` are private
   admin web routes. They use the same server-side session store as `/v1`
   authentication, require the admin role after login, and are mounted only on
-  the private API server. The token-neutral `/admin/static/...` CSS route is
+  the private-admin server. The token-neutral `/admin/static/...` CSS route is
   unauthenticated.
-- `/i/{token}`, `/i/{token}/data`, and viewer bundle download routes are public-shaped read-only routes gated by a bearer token. Pre-rename `/e/{token}` viewer, data, and download paths remain as compatibility aliases. These routes are mounted only on the public incident viewer server.
+- `/i/{token}`, `/i/{token}/data`, and viewer bundle download routes are
+  public-shaped read-only routes gated by a bearer token. Pre-rename
+  `/e/{token}` viewer, data, and download paths remain as compatibility
+  aliases. These routes are mounted on the main API/viewer server.
 - Static assets under `/static/` are embedded and token-neutral.
 
 ## Current Controls
@@ -105,14 +109,15 @@ viewer tokens, and encrypted evidence bundles.
   details, or conflicting stored values.
 - Optional Valkey/Redis-compatible coordination fails closed at startup when
   explicitly configured but unavailable.
-- Main API route-class rate limiting groups authentication, bootstrap, account,
-  incident, upload, reconciliation, stream, token, download, and admin API
-  requests by safe class labels and a hash of the socket peer identity. Limiter
+- Route-class rate limiting groups main API authentication, account, incident,
+  upload, reconciliation, stream, token, and download requests, plus
+  private-admin bootstrap and admin API requests, by safe class labels and a
+  hash of the socket peer identity. Limiter
   keys do not include raw session tokens, Authorization headers, raw
   idempotency keys, request bodies, uploaded bytes, incident IDs, stored paths,
   object keys, plaintext, raw keys, or private deployment details.
 - Private `/v1/health/live` and `/v1/health/ready` routes are mounted only on
-  the private API server. Readiness responses are coarse and do not include
+  the private-admin server. Readiness responses are coarse and do not include
   DSNs, credentials, bucket names, object keys, stored paths, local filesystem
   paths, private hostnames, tokens, request bodies, uploaded bytes, plaintext,
   raw keys, private deployment details, or underlying error strings.
@@ -151,7 +156,7 @@ viewer tokens, and encrypted evidence bundles.
   [live-partial-stream-access-boundary.md](live-partial-stream-access-boundary.md).
 - ZIP bundle entry names are server-controlled and generated from metadata; clients do not provide stored paths for download.
 - Public viewer responses use a strict same-origin `Content-Security-Policy` with `frame-ancestors 'none'`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, and a restrictive camera/microphone/geolocation `Permissions-Policy`.
-- Token-protected pages, JSON, errors, private responses, private chunk reads, and bundle downloads use `Cache-Control: no-store`.
+- Token-protected pages, JSON, errors, authenticated responses, authenticated chunk reads, and bundle downloads use `Cache-Control: no-store`.
 - Request logging records method, redacted route pattern, status, byte count, and duration. It does not log request bodies, uploaded bytes, Authorization headers, raw session tokens, raw viewer tokens, raw incident tokens, raw idempotency keys, plaintext, or raw keys.
 - Templates use Go `html/template` escaping.
 - Storage rejects absolute paths, `..`, slash-containing path segments, and backslash traversal. S3 object keys are derived from server-controlled stored paths and an optional safe prefix.
@@ -174,12 +179,14 @@ The current backend does not implement incident-mode-specific controls yet, so f
 ## Known Limitations
 
 - No implemented public product API exposure model for `/v1`; local accounts
-  and sessions are private API controls, not a complete public security model.
-  The `/v1` credential is an Authorization bearer session for private API
-  callers. The private `/admin` web authenticated state-changing forms use an
+  and sessions are authenticated main-API controls, not a complete public
+  security model. The `/v1` credential is an Authorization bearer session for
+  authenticated main API callers. The private `/admin` web authenticated
+  state-changing forms use an
   HttpOnly SameSite cookie with a session-bound CSRF token. Broader browser
   admin flows still need explicit browser credential and CSRF review.
-- Separate private/public ports reduce accidental route exposure, but they are not a complete security model.
+- Separate main and private-admin ports reduce accidental route exposure, but
+  they are not a complete security model.
 - `/v1` must not be publicly exposed as-is.
 - No iOS app, Android app, web client, production local recording client,
   production client key storage, key sharing, push notifications, SMS,
@@ -191,11 +198,11 @@ The current backend does not implement incident-mode-specific controls yet, so f
   behavior.
 - No built-in TLS, IP allowlist, or general-purpose abuse-throttling system
   beyond main API and public viewer route-class rate limiting.
-- Optional PostgreSQL metadata does not change the private `/v1` boundary,
-  token hashing, ciphertext-only storage, or backup/restore expectations
+- Optional PostgreSQL metadata does not change the main `/v1` deployment
+  boundary, token hashing, ciphertext-only storage, or backup/restore expectations
   described in [postgresql-metadata-migration.md](postgresql-metadata-migration.md).
   It also does not make the current upload flow cluster-safe on its own.
-- Optional Valkey/Redis-compatible coordination does not change the private
+- Optional Valkey/Redis-compatible coordination does not change the main
   `/v1` boundary, does not hold durable evidence state, and does not make the
   current upload flow cluster-safe on its own.
 - No implemented resumable, partial, or leased cluster-safe upload protocol
@@ -210,7 +217,7 @@ The current backend does not implement incident-mode-specific controls yet, so f
   [retention-backup-deletion.md](retention-backup-deletion.md), with enforcement
   details in
   [incident-deletion-retention-enforcement.md](incident-deletion-retention-enforcement.md).
-  The backend implements private incident deletion APIs and optional
+  The backend implements authenticated incident deletion APIs and optional
   closed-incident retention, but it does not implement mode-specific retention,
   built-in disk encryption, or object-bucket lifecycle policy enforcement.
   Future mode-aware retention is planning-only in
@@ -229,7 +236,15 @@ The current backend does not implement incident-mode-specific controls yet, so f
 
 ## Deployment Guidance
 
-For local/private use, bind the private API server to localhost or a private network and restrict access with WireGuard, firewall rules, or a reverse proxy. If any part is exposed publicly today, expose only the incident viewer server. Future non-admin product routes may become public only after public product API hardening exists. Future admin/operator routes should use a separately bound private admin API listener, configured for VPN or another private boundary where appropriate, while still requiring admin authentication. Inside Docker containers, bind to container addresses such as `0.0.0.0:8080` and restrict host exposure with port publishing, firewall rules, WireGuard, or reverse proxy configuration.
+For local/private use, bind the main API/viewer server to localhost or a
+private network and restrict access with WireGuard, firewall rules, or a
+reverse proxy. If exposing only the incident viewer publicly, route only
+viewer paths (`/i/...`, `/e/...`, and `/static/...`) to the main listener and
+do not forward public wildcard traffic to `/v1`. Admin/operator routes use the
+separately bound private-admin listener and still require admin authentication.
+Inside Docker containers, bind to container addresses such as `0.0.0.0:8080`
+and restrict host exposure with port publishing, firewall rules, WireGuard, or
+reverse proxy configuration.
 
 Use TLS at the edge for any network access. Apply deployment-edge rate limiting for public incident viewer routes and any private reverse-proxy boundary; the app-level public viewer limiter is a backstop, not a replacement for reviewed edge controls. Keep reverse-proxy logs, metrics, dashboards, and rate-limit keys from recording raw `/i/{token}` paths and pre-rename compatibility `/e/{token}` paths.
 

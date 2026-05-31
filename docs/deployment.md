@@ -1,20 +1,19 @@
 # Deployment
 
-Proofline is experimental and not production-ready public infrastructure. Treat the private `/v1` API as an authenticated but still private admin/write control plane.
+Proofline is experimental and not production-ready public infrastructure. Treat the main `/v1` API as authenticated but not automatically safe for broad public deployment.
 
 > **Do not expose `/v1` publicly as-is.**
 >
-> Keep private listeners behind localhost, LAN, WireGuard, firewall rules, or a strict reverse proxy. Separate bind addresses are a deployment boundary, not a complete security model.
+> Keep private-admin listeners behind localhost, LAN, WireGuard, firewall rules, or a strict reverse proxy. Separate bind addresses are a deployment boundary, not a complete security model.
 
 The `/v1` access-control direction is documented in
 [v1-access-control.md](v1-access-control.md). Current local account sessions
-do not change the deployment rule: `/v1` routes must remain private. Future
-admin/operator routes should use their own private listener that can be bound
-to loopback, LAN, WireGuard, VPN, firewall, or a private reverse proxy, but
-that private placement must not replace admin authentication. The future
-main API/public viewer listener split is planning-only in
-[public-api-listener-split.md](public-api-listener-split.md); it has not
-changed the current bind defaults or exposure rule.
+do not by themselves make `/v1` production-ready public infrastructure.
+Admin/operator routes use their own private listener that can be bound to
+loopback, LAN, WireGuard, VPN, firewall, or a private reverse proxy, but that
+private placement must not replace admin authentication. The main API/public
+viewer listener split is documented in
+[public-api-listener-split.md](public-api-listener-split.md).
 
 The current module and artifact names use the `open-proofline/server` repository namespace. The published GHCR image is `ghcr.io/open-proofline/server`, local examples use the `proofline-server` image name, and release binaries use `proofline-server-*` names. Compatibility identifiers such as the v1 encryption envelope scheme and default SQLite filename may still use earlier `safety-recorder` names until separate protocol or data-layout migrations are explicitly performed.
 
@@ -31,14 +30,14 @@ Defaults:
 
 | Listener | Address |
 |---|---|
-| Private API | `127.0.0.1:8080` |
-| Public incident viewer | `127.0.0.1:8081` |
+| Main API and incident viewer | `127.0.0.1:8080` |
+| Private admin and operator routes | `127.0.0.1:8081` |
 
 The server fails closed until an admin account exists. For a new local
 database, create the first admin while `SAFE_AUTH_BOOTSTRAP_SECRET` is set:
 
 ```bash
-curl -sS -X POST http://127.0.0.1:8080/v1/bootstrap/admin \
+curl -sS -X POST http://127.0.0.1:8081/v1/bootstrap/admin \
   -H 'Content-Type: application/json' \
   -H 'X-Proofline-Bootstrap-Secret: replace-with-local-bootstrap-secret' \
   -d '{"username":"admin","password":"replace-with-a-long-local-password"}'
@@ -49,12 +48,12 @@ bootstrap route is disabled after an admin account exists. Treat the bootstrap
 secret, account passwords, raw session tokens, raw idempotency keys, and
 Authorization headers as secrets.
 
-The private listener also exposes unauthenticated liveness and readiness
+The private-admin listener also exposes unauthenticated liveness and readiness
 checks for local operators:
 
 ```bash
-curl -fsS http://127.0.0.1:8080/v1/health/live
-curl -fsS http://127.0.0.1:8080/v1/health/ready
+curl -fsS http://127.0.0.1:8081/v1/health/live
+curl -fsS http://127.0.0.1:8081/v1/health/ready
 ```
 
 `/v1/health/live` checks only that the process is serving requests.
@@ -64,8 +63,8 @@ statuses. It does not expose DSNs, credentials, bucket names, object keys,
 stored paths, local filesystem paths, private hostnames, tokens, request
 bodies, uploaded bytes, raw idempotency keys, plaintext, raw keys, or private
 deployment details.
-Keep these routes on the private listener; they do not make `/v1` safe for
-public exposure.
+Keep these routes on the private-admin listener; they do not make main `/v1`
+routes safe for public exposure.
 
 The deletion worker starts automatically by default and processes durable
 incident deletion decisions every minute. Set
@@ -112,10 +111,10 @@ reviewing a deployment. Cleanup logs safe counts only and must never target
 committed chunks, stored object keys, bundle contents, SQLite/PostgreSQL
 metadata, or client-provided paths.
 
-The same private listener serves the admin web interface at:
+The same private-admin listener serves the admin web interface at:
 
 ```text
-http://127.0.0.1:8080/admin
+http://127.0.0.1:8081/admin
 ```
 
 When no admin exists and `SAFE_AUTH_BOOTSTRAP_SECRET` is set, `/admin` shows a
@@ -125,10 +124,10 @@ cookie scoped to `/admin`. Authenticated admin pages list local accounts and
 provide logout, password-change, and account password-reset forms with CSRF
 checks. The CSS under `/admin/static/...` is unauthenticated because it is
 token-neutral static source, but the admin pages and form handlers remain
-private-listener routes.
+private-admin listener routes.
 
 This is not a public admin dashboard. Do not expose `/admin`, `/admin/...`, or
-`/v1` outside the private boundary.
+`/v1/admin/...` outside the private-admin boundary.
 
 ## Docker
 
@@ -153,24 +152,24 @@ Create the first admin account through `POST /v1/bootstrap/admin`, then restart
 without `SAFE_AUTH_BOOTSTRAP_SECRET`.
 
 From the host, Docker deployments can use the private readiness route through
-the loopback-published private port:
+the loopback-published private-admin port:
 
 ```bash
-curl -fsS http://127.0.0.1:8080/v1/health/ready
+curl -fsS http://127.0.0.1:8081/v1/health/ready
 ```
 
-Do not publish or proxy the private health routes on the public incident viewer
+Do not publish or proxy the private health routes on the main API/viewer
 origin. They are intended for local Docker checks, private reverse-proxy
 upstream checks, and operator troubleshooting inside the private boundary.
 
-In this shape both listeners are reachable only through the host loopback interface. It is useful for local testing, SSH port forwarding, or a same-host reverse proxy. It does not expose the private `/v1` API or the incident viewer directly to the network.
+In this shape both listeners are reachable only through the host loopback interface. It is useful for local testing, SSH port forwarding, or a same-host reverse proxy. It does not expose the main API, incident viewer, or private-admin listener directly to the network.
 
 Container defaults:
 
 | Variable | Container default |
 |---|---|
-| `SAFE_PRIVATE_BIND_ADDRS` | `0.0.0.0:8080` |
-| `SAFE_PUBLIC_BIND_ADDRS` | `0.0.0.0:8081` |
+| `SAFE_MAIN_BIND_ADDRS` | `0.0.0.0:8080` |
+| `SAFE_ADMIN_BIND_ADDRS` | `0.0.0.0:8081` |
 | `SAFE_DATA_DIR` | `/data` |
 | `SAFE_DB_PATH` | `/data/safety.db` |
 | `SAFE_MAX_UPLOAD_BYTES` | `250MB` |
@@ -290,7 +289,8 @@ PostgreSQL does not add public `/v1` exposure, public account workflows, cloud
 deployment automation, backend decryption, key escrow, or production readiness.
 It can store the implemented complete-upload idempotency state, but resumable
 uploads, upload leases, and broader production-cluster readiness remain
-separate work. Keep private `/v1` listeners behind localhost, LAN, WireGuard,
+separate work. Keep main `/v1` listeners behind the reviewed deployment
+boundary, and keep private-admin listeners behind localhost, LAN, WireGuard,
 firewall rules, or a strict private proxy.
 
 ## Optional Valkey / Redis-Compatible Coordination
@@ -328,9 +328,11 @@ or metrics labels.
 Valkey does not add public `/v1` exposure, public account workflows, cloud
 deployment automation, backend decryption, key escrow, or production readiness.
 
-## Private API Through WireGuard Or A Private Network
+## Main API Through WireGuard Or A Private Network
 
-For a private API reachable from a WireGuard peer or private LAN, publish or bind `/v1` only on that private interface. This example uses `10.66.0.1` as a placeholder WireGuard interface address:
+For a main API reachable from a WireGuard peer or private LAN, publish or bind
+the main listener only on that private interface. This example uses
+`10.66.0.1` as a placeholder WireGuard interface address:
 
 ```bash
 docker run --rm \
@@ -341,37 +343,44 @@ docker run --rm \
   proofline-server
 ```
 
-Only devices that can reach `10.66.0.1:8080` through the private boundary should be able to call `/v1`. Keep host firewalls aligned with that assumption. Do not publish `8080` on `0.0.0.0` or a public interface.
+Only devices that can reach `10.66.0.1:8080` through the private boundary
+should be able to call `/v1`. Keep host firewalls aligned with that
+assumption. Do not publish `8080` on `0.0.0.0` or a public interface unless
+the deployment has completed a public main-API review.
 
-The same shape can be run without Docker by binding the private API to both loopback and a private interface while keeping the incident viewer local to a same-host proxy:
+The same shape can be run without Docker by binding the main API/viewer
+listener to both loopback and a private interface while keeping private-admin
+routes on loopback:
 
 ```bash
-SAFE_PRIVATE_BIND_ADDRS=127.0.0.1:8080,10.66.0.1:8080 \
-SAFE_PUBLIC_BIND_ADDRS=127.0.0.1:8081 \
+SAFE_MAIN_BIND_ADDRS=127.0.0.1:8080,10.66.0.1:8080 \
+SAFE_ADMIN_BIND_ADDRS=127.0.0.1:8081 \
 go run ./cmd/api
 ```
 
-This keeps authenticated `/v1` routes on a private network boundary. Local account sessions reduce accidental unauthenticated access, but they do not make `/v1` suitable for public exposure.
+This keeps authenticated `/v1` routes on a private network boundary. Local account sessions reduce accidental unauthenticated access, but they do not make `/v1` suitable for unaudited public exposure.
 
 ## Timeout Tuning
 
-The private API defaults keep read and write timeouts disabled so large or slow uploads and private downloads are not interrupted. The public incident viewer has finite read/write timeouts by default, including a generous write timeout for encrypted ZIP downloads.
+The main API/viewer defaults keep read and write timeouts disabled so large or
+slow uploads, authenticated downloads, and viewer ZIP downloads are not interrupted.
+The private-admin listener has finite read/write timeouts by default because it
+does not accept evidence upload bodies.
 
 Reverse proxies should still set their own connection, request, upstream
 timeouts, and edge rate limits. The app-level main API and public viewer
 route-class limiters are backstops, not replacements for deployment-edge abuse
 controls. If completed evidence bundles are large or clients are slow, tune
-`SAFE_PUBLIC_WRITE_TIMEOUT` together with the reverse proxy timeout so the proxy
+`SAFE_MAIN_WRITE_TIMEOUT` together with the reverse proxy timeout so the proxy
 does not cut off an encrypted ZIP download that the Go server is still willing
 to stream.
 
 ## Public Incident Viewer Exposure
 
-If exposing any part of the current system publicly, expose only the incident
-viewer listener. Future non-admin product routes may become a public
-authenticated API only after satisfying the role, grant, audit, logging, and
-migration expectations in [v1-access-control.md](v1-access-control.md). Future
-admin/operator routes should remain on a separately bound private admin API
+If exposing only the incident viewer publicly, route only the viewer paths from
+the public edge to the main listener. Do not forward a public wildcard or host
+fallback to the main listener unless the deployment has explicitly reviewed
+public main-API exposure. Admin/operator routes must stay on the private-admin
 listener and still authenticate operators.
 
 The checklist below is a deployment review aid. Completing it does not make
@@ -380,10 +389,12 @@ safe to expose publicly.
 
 Before exposing the public incident viewer:
 
-- [ ] The public route group forwards only to the public incident viewer
-      listener, for example the listener configured by `SAFE_PUBLIC_BIND_ADDRS`.
+- [ ] The public route group forwards only viewer paths (`/i/...`, `/e/...`,
+      and token-neutral `/static/...`) to the main listener configured by
+      `SAFE_MAIN_BIND_ADDRS`.
 - [ ] No public reverse-proxy route, service, wildcard rule, or fallback reaches
-      the private `/v1` listener or a private API bind address.
+      `/v1`, `/admin`, `/v1/admin/...`, private health/readiness, or the
+      private-admin listener configured by `SAFE_ADMIN_BIND_ADDRS`.
 - [ ] TLS is terminated at the deployment edge for the public hostname.
 - [ ] HSTS is enabled at the HTTPS edge only after TLS is working reliably for
       the public hostname.
@@ -444,7 +455,9 @@ https://developer.mozilla.org/en-US/observatory
 
 ### HTTPS Incident Viewer With Traefik
 
-The reverse proxy should route only the public incident viewer listener. The private `/v1` listener should stay on localhost, WireGuard, LAN, or another private boundary.
+The reverse proxy should route only viewer paths to the main listener. Private
+admin/operator routes should stay on localhost, WireGuard, LAN, or another
+private boundary.
 
 One same-host shape is:
 
@@ -457,7 +470,10 @@ docker run --rm \
   proofline-server
 ```
 
-Then configure Traefik to forward the public HTTPS hostname to `http://127.0.0.1:8081` only. This example is documentation, not a maintained deployment file; review it against the Traefik version you run before use:
+Then configure Traefik to forward only viewer paths on the public HTTPS
+hostname to `http://127.0.0.1:8080`. This example is documentation, not a
+maintained deployment file; review it against the Traefik version you run
+before use:
 
 ```yaml
 # traefik.yml
@@ -495,7 +511,7 @@ accessLog:
 http:
   routers:
     proofline-viewer:
-      rule: "Host(`proofline.example.invalid`)"
+      rule: "Host(`proofline.example.invalid`) && (PathPrefix(`/i/`) || PathPrefix(`/e/`) || PathPrefix(`/static/`))"
       entryPoints:
         - websecure
       service: proofline-public
@@ -508,7 +524,7 @@ http:
     proofline-public:
       loadBalancer:
         servers:
-          - url: "http://127.0.0.1:8081"
+          - url: "http://127.0.0.1:8080"
 
   middlewares:
     proofline-hsts:
@@ -518,7 +534,11 @@ http:
         stsPreload: false
 ```
 
-There should be no Traefik router, service, or rule for `127.0.0.1:8080` or `/v1`. If Traefik runs in a different container or on another host, point it at a private address that only Traefik can reach, and keep that address off the public internet.
+There should be no public Traefik router, service, or rule for `/v1`, `/admin`,
+`/v1/admin/...`, private health/readiness, or `127.0.0.1:8081`. If Traefik
+runs in a different container or on another host, point it at a private address
+that only Traefik can reach, and keep private-admin addresses off the public
+internet.
 
 Replace `admin@example.invalid` and `proofline.example.invalid` with deployment-specific values before use.
 
@@ -534,10 +554,14 @@ Suggested route groups:
 | Viewer JSON polling | `GET /i/{token}/data` | Allow normal viewer polling, but keep it lower than static assets. |
 | Viewer ZIP downloads | `GET /i/{token}/streams/{stream_id}/download`, `GET /i/{token}/incident/download` | Limit download starts without cutting off long encrypted ZIP responses; coordinate with proxy and app timeouts. |
 | Public static assets | `GET /static/...` | Static assets are token-neutral and can usually tolerate a looser limit. |
-| Private chunk uploads | `POST /v1/incidents/{incident_id}/chunks` | If routed through a private proxy, tune for expected chunk cadence and upload retries. |
-| Private incident, stream, check-in, token, and admin-style actions | Other `/v1/...` routes | Keep behind a private boundary and use limits as an abuse backstop, not as the only security control. |
+| Main chunk uploads | `POST /v1/incidents/{incident_id}/chunks` | Tune for expected chunk cadence, upload retries, body size limits, and client network conditions. |
+| Main incident, stream, check-in, and token actions | Other non-admin `/v1/...` routes | Use limits as an abuse backstop, not as the only security control. |
+| Private admin actions | `/admin/...`, `/v1/admin/...`, `/v1/bootstrap/admin`, `/v1/health/...` | Keep on the private-admin listener and do not route from public entry points. |
 
-Rate limiting does not make `/v1` safe to expose publicly. Keep the private API on localhost, LAN, WireGuard, firewall rules, or a private reverse-proxy entry point even when limits are configured.
+Rate limiting does not make `/v1` production-ready public infrastructure by
+itself. Keep the main API behind the reviewed deployment boundary for the
+deployment, and keep private-admin routes on localhost, LAN, WireGuard,
+firewall rules, or a private reverse-proxy entry point.
 
 Exact limits are deployment-specific. Start with conservative values, watch legitimate simulator/client behavior, then adjust. Avoid sending raw `/i/{token}` paths or pre-rename compatibility `/e/{token}` paths to metrics, dashboards, or logs while measuring limiter behavior.
 
@@ -628,7 +652,7 @@ http:
     proofline-public:
       loadBalancer:
         servers:
-          - url: "http://127.0.0.1:8081"
+          - url: "http://127.0.0.1:8080"
 
   middlewares:
     proofline-rate-page:
@@ -662,7 +686,11 @@ http:
         stsPreload: false
 ```
 
-If the private API is also routed through Traefik, it should use a private-only entry point, private address, or private network. Do not attach private `/v1` routers to public entry points. A private-only file-provider shape can split uploads from other private actions.
+If the main API is also routed through Traefik, it should use a reviewed
+entry point, private address, or private network unless the deployment has
+completed a public main-API exposure review. Do not attach broad `/v1` routers
+to public viewer-only entry points. A private-only file-provider shape can
+split uploads from other main API actions.
 
 Define the private entry point in Traefik's static configuration first. This example uses `wireguard` as a placeholder entry point name and `10.66.0.1:80` as a placeholder private HTTP interface address:
 
@@ -676,7 +704,7 @@ entryPoints:
 Then reference that entry point from the dynamic file-provider configuration:
 
 ```yaml
-# Private-boundary example only. Do not attach these routers to public entry points.
+# Private-boundary example only. Do not attach these broad /v1 routers to public viewer entry points.
 http:
   routers:
     proofline-private-uploads:
@@ -739,12 +767,12 @@ Avoid logging:
 
 ### Proxy And App Timeout Coordination
 
-Completed stream and incident downloads can be large encrypted ZIP responses. Keep Traefik entry point, upstream, and client-response timeouts at least as permissive as the expected download window, and review them together with `SAFE_PUBLIC_WRITE_TIMEOUT`.
+Completed stream and incident downloads can be large encrypted ZIP responses. Keep Traefik entry point, upstream, and client-response timeouts at least as permissive as the expected download window, and review them together with `SAFE_MAIN_WRITE_TIMEOUT`.
 
 For example, if the public viewer runs with:
 
 ```bash
-SAFE_PUBLIC_WRITE_TIMEOUT=10m
+SAFE_MAIN_WRITE_TIMEOUT=10m
 ```
 
 then the Traefik route serving the incident viewer should also allow a slow client to receive the response for roughly that long. If the proxy timeout is shorter than the Go server timeout, downloads may fail even though the backend is configured to keep streaming.

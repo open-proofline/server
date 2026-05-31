@@ -46,7 +46,7 @@ store media keys, and does not decrypt chunk bytes.
 
 The first contact-wrapped prototype should preserve that boundary:
 
-- encrypted chunks upload through the existing private `/v1` flow
+- encrypted chunks upload through the existing main `/v1` flow
 - bundle downloads remain encrypted ZIP bundles
 - backend bundle manifests continue to omit keys
 - any wrapped-key experiment remains simulator-local unless a later issue

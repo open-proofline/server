@@ -236,9 +236,13 @@ func newS3DeletionSmokeApp(t *testing.T, store storage.BlobStore) (*testApp, *in
 		PasswordCost:   bcrypt.MinCost,
 		Logger:         slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
+	mainHandler := httpapi.NewMain(repo, store, options)
+	adminHandler := httpapi.NewAdmin(repo, store, options)
 	app := &testApp{
-		privateHandler: httpapi.NewPrivate(repo, store, options),
-		publicHandler:  httpapi.NewPublic(repo, store, options),
+		mainHandler:    mainHandler,
+		adminHandler:   adminHandler,
+		privateHandler: mainHandler,
+		publicHandler:  mainHandler,
 		dataDir:        dataDir,
 		db:             conn,
 		authToken:      authToken,
