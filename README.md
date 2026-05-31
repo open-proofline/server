@@ -227,7 +227,7 @@ Container defaults bind to `0.0.0.0` inside the container. Restrict host exposur
 - [Configuration](docs/configuration.md)
 - [Production cluster scope](docs/production-cluster-scope.md)
 - [Cluster backup, restore, and failure runbook](docs/cluster-backup-restore-runbook.md)
-- [PostgreSQL metadata migration path](docs/postgresql-metadata-migration.md)
+- [PostgreSQL metadata migration path and SQLite-to-PostgreSQL runbook](docs/postgresql-metadata-migration.md)
 - [Cluster-safe upload operation semantics](docs/cluster-safe-upload-semantics.md)
 - [Resumable upload and upload lease protocol](docs/resumable-upload-lease-protocol.md)
 - [Incident capture modes](docs/incident-modes.md)
