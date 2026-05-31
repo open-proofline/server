@@ -35,7 +35,8 @@ Incident mode metadata such as emergency incidents, interaction records, safety
 checks, and evidence notes may eventually need different retention defaults. The
 current fields are metadata only and do not change retention. Any future
 mode-specific retention behavior must update this policy before or alongside
-implementation.
+implementation. The future policy boundary is documented in
+[mode-aware retention policy](mode-aware-retention-policy.md).
 
 ## Retention Principles
 

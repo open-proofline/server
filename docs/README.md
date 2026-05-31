@@ -15,6 +15,7 @@ This directory contains the detailed documentation for Proofline Server, the Go 
 | [Cluster-safe upload operation semantics](cluster-safe-upload-semantics.md) | Complete-upload idempotency-key behavior plus remaining cluster-safe upload operation design for commit ordering, retry success, conflict handling, and cleanup across metadata and blob backends. |
 | [Resumable upload and upload lease protocol](resumable-upload-lease-protocol.md) | Planning decision to keep the desktop recorder simulator on complete encrypted chunk retry semantics while deferring resumable uploads and upload leases. |
 | [Incident capture modes](incident-modes.md) | Planned emergency, interaction-record, safety-check, and evidence-note modes, plus future capture-profile, escalation-policy, sharing-state, and migration boundaries. |
+| [Mode-aware retention policy](mode-aware-retention-policy.md) | Planning boundary for future retention policy based on incident mode, safety-check state, sharing/export state, grants, wrapped keys, tombstones, and backups. |
 | [/v1 access control](v1-access-control.md) | Current local account/session boundary plus future role, grant, public product API, private admin API listener, audit, and migration boundaries for account-owner, trusted-contact, public-link, admin/operator, and optional escrow access. |
 | [Legacy unowned incident reassignment](legacy-unowned-incident-reassignment.md) | Planning boundary for future private reassignment or quarantine of incidents created before account ownership existed. |
 | [Encryption](encryption.md) | Client-side chunk envelope, simulator key file, and local bundle verification. |
@@ -117,6 +118,8 @@ deletion and retention enforcement details in
 The backend implements private incident deletion APIs and an automatic
 background deletion worker; closed-incident retention is disabled unless
 configured with `SAFE_CLOSED_INCIDENT_RETENTION`.
+Future mode-aware retention is planning-only and documented in
+[mode-aware-retention-policy.md](mode-aware-retention-policy.md).
 
 Cluster-style backup, restore, and failure handling for optional PostgreSQL,
 S3-compatible blob storage, and Valkey/Redis-compatible coordination is

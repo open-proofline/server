@@ -214,6 +214,8 @@ are documented in
 [retention-backup-deletion.md](retention-backup-deletion.md). Incident deletion
 and retention enforcement details are documented in
 [incident-deletion-retention-enforcement.md](incident-deletion-retention-enforcement.md).
+Future mode-aware retention policy is planning-only and documented in
+[mode-aware retention policy](mode-aware-retention-policy.md).
 The current backend preserves accepted evidence by default, exposes private
 owner-scoped and admin-global deletion APIs, and starts a deletion worker by
 default. Automatic closed-incident retention is disabled unless
@@ -264,7 +266,9 @@ Normal file or object removal is not treated as guaranteed secure erasure. Deplo
   encryption; the operational policy is
   documented in [retention-backup-deletion.md](retention-backup-deletion.md),
   with enforcement details in
-  [incident-deletion-retention-enforcement.md](incident-deletion-retention-enforcement.md)
+  [incident-deletion-retention-enforcement.md](incident-deletion-retention-enforcement.md),
+  and future policy boundaries in
+  [mode-aware retention policy](mode-aware-retention-policy.md)
 - No malware/content scanning for uploaded encrypted blobs
 - No implemented account self-service recovery, email verification, second
   factor authentication, delegated identity provider, or public account portal

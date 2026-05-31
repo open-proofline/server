@@ -230,6 +230,7 @@ Future design should decide:
 The current backend implements generic incident deletion and optional
 closed-incident retention, but it does not implement mode-specific retention or
 mode-specific deletion behavior. Future work should align with
+[mode-aware retention policy](mode-aware-retention-policy.md),
 [retention-backup-deletion.md](retention-backup-deletion.md) and
 [incident-deletion-retention-enforcement.md](incident-deletion-retention-enforcement.md).
 
@@ -290,7 +291,7 @@ When future implementation touches incident modes, update the relevant source-of
 - [Security model](security-model.md), to preserve storage, logging, listener, access, and ciphertext-only assumptions
 - [Threat model](threat-model.md), to cover mode-specific sharing, escalation, false-positive, and access risks
 - [Key custody](key-custody.md), if sharing, wrapped-key delivery, or decryption behavior changes
-- [Retention, backup, and deletion](retention-backup-deletion.md) and [incident deletion and retention enforcement](incident-deletion-retention-enforcement.md), if mode-specific retention behavior changes
+- [Mode-aware retention policy](mode-aware-retention-policy.md), [retention, backup, and deletion](retention-backup-deletion.md), and [incident deletion and retention enforcement](incident-deletion-retention-enforcement.md), if mode-specific retention behavior changes
 - [Browser-side decryption](browser-decryption.md) and [break-glass key access](break-glass-key-access.md), if a mode affects decryption or emergency key access
 
 New ideas discovered while documenting incident modes should become backlog items unless they are required for the scoped task.

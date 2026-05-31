@@ -267,7 +267,8 @@ Future incident modes may require different defaults:
 No incident-mode-specific retention should be implemented until first-class
 incident-mode, capture-profile, escalation-policy, and sharing-state fields
 exist and the retention policy is updated before or alongside that
-implementation.
+implementation. The future policy boundary is documented in
+[mode-aware retention policy](mode-aware-retention-policy.md).
 
 ## Public And Private Entry Points
 
@@ -399,7 +400,8 @@ Private/admin or CLI tasks:
 Retention tasks:
 
 - defer incident-mode-specific retention until mode-driven retention behavior and
-  policy are explicitly designed
+  policy are explicitly designed in
+  [mode-aware retention policy](mode-aware-retention-policy.md)
 
 Test tasks:
 
