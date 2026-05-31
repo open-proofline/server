@@ -152,8 +152,8 @@ The detailed planning design is
 [Cluster-safe upload operation semantics](cluster-safe-upload-semantics.md).
 Resumable upload and upload lease behavior is planned separately in
 [Resumable upload and upload lease protocol](resumable-upload-lease-protocol.md);
-that design defers resumable uploads and leases for a local desktop recorder
-simulator client.
+that design keeps the local desktop recorder simulator on complete encrypted
+chunk retries while deferring resumable uploads and leases.
 
 A safe cluster upload flow should be designed around these steps:
 

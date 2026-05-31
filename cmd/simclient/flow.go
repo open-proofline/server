@@ -23,7 +23,7 @@ func prepareEncryption(out io.Writer, cfg config) (envelope.Key, error) {
 	fmt.Fprintln(out, "Encryption: enabled")
 	fmt.Fprintf(out, "Key ID: %s\n", encryptionKey.KeyID)
 	if cfg.keyFile != "" {
-		fmt.Fprintf(out, "Key file: %s\n", cfg.keyFile)
+		fmt.Fprintln(out, "Key file configured; path omitted from output.")
 	}
 	fmt.Fprintln(out)
 	return encryptionKey, nil
@@ -103,15 +103,20 @@ func downloadAndVerifyBundle(ctx context.Context, out io.Writer, sim client, cfg
 		return err
 	}
 	fmt.Fprintln(out, "Downloaded bundle.")
-	if !cfg.encrypt || !cfg.verifyBundleDecrypt {
+	if cfg.encrypt && cfg.verifyBundleDecrypt {
+		verified, err := verifyStreamBundleDecryption(bundleBytes, key, incidentID, streamID, cfg.mediaType)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(out, "Verified decrypt of %d encrypted chunks.\n", verified)
+	} else {
 		fmt.Fprintln(out, "Bundle download succeeded.")
-		return nil
 	}
-
-	verified, err := verifyStreamBundleDecryption(bundleBytes, key, incidentID, streamID, cfg.mediaType)
-	if err != nil {
-		return err
+	if cfg.bundleOutput != "" {
+		if err := writeEncryptedBundle(cfg.bundleOutput, bundleBytes); err != nil {
+			return err
+		}
+		fmt.Fprintln(out, "Encrypted bundle written.")
 	}
-	fmt.Fprintf(out, "Verified decrypt of %d encrypted chunks.\n", verified)
 	return nil
 }

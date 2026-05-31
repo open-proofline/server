@@ -25,7 +25,17 @@ and current local session behavior plus future public product API, separately
 bound private admin API, role, and grant boundaries are documented in
 [v1-access-control.md](v1-access-control.md).
 
-The repository does not contain an iOS app, Android app, web client, protocol package, recording implementation, production client key storage, key sharing, browser/client-side decryption, server-assisted break-glass key access, notification system, trusted-contact account model, future public product API, future separately bound private admin API, OAuth/JWT identity integration, or playable media export. The Go simulator can produce the documented v1 client-side encryption envelope for development and test flows. Future key custody and emergency access design is documented in [key-custody.md](key-custody.md), [browser-decryption.md](browser-decryption.md), and [break-glass-key-access.md](break-glass-key-access.md).
+The repository does not contain an iOS app, Android app, web client, protocol
+package, production recording client, production client key storage, key
+sharing, browser/client-side decryption, server-assisted break-glass key access,
+notification system, trusted-contact account model, future public product API,
+future separately bound private admin API, OAuth/JWT identity integration, or
+playable media export. The Go simulator can produce the documented v1
+client-side encryption envelope and local desktop-recorder test segments for
+development and test flows only. Future key custody and emergency access design
+is documented in [key-custody.md](key-custody.md),
+[browser-decryption.md](browser-decryption.md), and
+[break-glass-key-access.md](break-glass-key-access.md).
 
 ## High-Level System
 

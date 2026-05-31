@@ -34,8 +34,8 @@ viewer tokens, and encrypted evidence bundles.
   documented in
   [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md)
 - Future resumable upload and upload lease behavior is planned but not
-  implemented; a local desktop recorder simulator client should use complete
-  encrypted chunk retries as documented in
+  implemented; the local desktop recorder simulator uses complete encrypted
+  chunk retries as documented in
   [resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md)
 - Cluster backup, restore, and failure-mode guidance for optional PostgreSQL
   metadata, S3-compatible encrypted blobs, and Valkey/Redis-compatible
@@ -86,7 +86,8 @@ viewer tokens, and encrypted evidence bundles.
 - Upload-limit configuration rejects non-positive, sub-byte, invalid, and oversized values before request-size limits are applied.
 - Uploaded bytes are committed only after hash verification.
 - Final local chunk storage uses no-overwrite hard links. Optional S3-compatible storage uses conditional no-overwrite final object writes.
-- The simulator encrypts fake chunk plaintext by default using the documented v1 AES-256-GCM envelope.
+- The simulator encrypts generated test bytes, local pre-recorded files, or
+  optional ffmpeg test segments using the documented v1 AES-256-GCM envelope.
 - Encryption keys remain client-side; they are not uploaded, stored in SQLite, or added to evidence bundles.
 - SQLite and optional PostgreSQL metadata enforce media type, chunk index, byte size, SHA-256 shape, foreign keys, and unique chunk identity.
 - Upload-operation metadata stores hashed idempotency keys, normalized chunk
@@ -165,7 +166,11 @@ The current backend does not implement incident-mode-specific controls yet, so f
   admin flows still need explicit browser credential and CSRF review.
 - Separate private/public ports reduce accidental route exposure, but they are not a complete security model.
 - `/v1` must not be publicly exposed as-is.
-- No iOS app, Android app, web client, local recording, production client key storage, key sharing, push notifications, SMS, Messenger integration, or public admin dashboard. The private `/admin` surface is not a complete operator UI.
+- No iOS app, Android app, web client, production local recording client,
+  production client key storage, key sharing, push notifications, SMS,
+  Messenger integration, or public admin dashboard. The private `/admin` surface
+  is not a complete operator UI, and the local desktop-recorder behavior in
+  `cmd/simclient` is simulator/reference flow only.
 - No mode-driven access, escalation, retention, sharing, key-custody,
   safety-check timer, dead-man switch notification, or trusted-contact account
   behavior.

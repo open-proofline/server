@@ -232,8 +232,9 @@ Do not implement these as part of the prototype plan. Track them as future backe
   ciphertext hash; the server-side private query workflow is documented in
   [api.md](api.md)
 - no explicit resumable-upload protocol for partially sent large chunks; the
-  current plan defers resumable uploads for a local desktop recorder simulator
-  client and should be revalidated before native iOS work, as documented in
+  current plan uses the local desktop recorder simulator to measure
+  complete-chunk retry behavior before revalidating resumable uploads for
+  native iOS work, as documented in
   [resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md)
 - no endpoint for client-side local queue summaries or upload leases; upload
   leases are future coordination work, not account authentication or public

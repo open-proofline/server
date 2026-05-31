@@ -113,7 +113,9 @@ PROOFLINE_SIM_PASSWORD='replace-with-a-long-local-password' \
 go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle
 ```
 
-Expected output includes the non-secret key ID, encrypted chunk uploads, bundle download, and local decrypt verification. The simulator does not print raw keys or plaintext.
+Expected output includes the non-secret key ID, encrypted chunk uploads, bundle
+download, and local decrypt verification. The simulator does not print raw
+keys, plaintext, key-file paths, or token-bearing viewer URLs.
 
 To persist a simulator key locally:
 

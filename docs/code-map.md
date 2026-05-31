@@ -22,7 +22,7 @@ with role and grant boundaries in [v1-access-control.md](v1-access-control.md).
 - `.github/workflows/ci.yml`: runs Go tests with a coverage signal on pull requests and pushes, runs `govulncheck`, builds the `proofline-server-linux-amd64` binary artifact, gates release binary attestation and trusted GHCR publishing on the vulnerability scan, uploads the binary as a GitHub Release asset on `v*` tag pushes, builds the Docker image, and publishes attested images to GitHub Container Registry from a trusted job limited to `main`, `develop`, and `v*` tag pushes.
 - `.dockerignore`: excludes local runtime, review, and build artifacts from the root Docker build context used by `Dockerfile`.
 - `cmd/api`: starts one private API HTTP server per private bind address and one public incident viewer HTTP server per public bind address, loads config, enforces the local account bootstrap gate, checks the selected coordination backend, opens the selected metadata backend, creates storage, wires shared handlers including private health/readiness checks, and handles graceful shutdown.
-- `cmd/simclient`: simulates a future client by logging in, creating an incident, creating a viewer token, creating a media stream, encrypting and uploading fake chunks, completing the stream, sending periodic checkins, and optionally testing hash-failure retry, bundle download, and local decrypt verification behavior.
+- `cmd/simclient`: simulates future client flows by logging in, creating an incident, creating a media stream, encrypting and uploading complete chunks, completing or failing streams, sending periodic checkins, and optionally testing hash-failure retry, bundle download, local decrypt verification, durable desktop-recorder staging, local file input, ffmpeg segment capture, restart/resume behavior, and poor-network retry controls. Token-bearing viewer URLs are omitted from simulator output.
 - `internal/config`: reads environment variables such as backend selectors, backend-specific settings, private/public bind address lists, legacy singular bind addresses, data directory, database path, max upload size, HTTP server timeouts, local account bootstrap secret, and session TTL.
 - `internal/coordination`: defines the small optional coordination boundary, the default no-coordination backend, and the Valkey/Redis-compatible startup check backend.
 - `internal/db`: opens SQLite, enables foreign keys and WAL mode, applies embedded SQLite migrations, records `schema_migrations`, and runs named compatibility migrations.
@@ -185,9 +185,10 @@ Before public exposure, review and add:
 ## Out Of Scope Today
 
 The repository does not currently include the web client, iOS app, Android app,
-protocol repository, local recording, mode-driven access, escalation, retention,
-sharing, viewer behavior, trusted-contact accounts, dead-man switch
-notifications, production client key storage, key sharing, browser/client-side
-decryption, server-assisted break-glass key access, playable media export, push
-notifications, SMS, Messenger integration, OAuth, JWT, public account workflows,
-or a public admin dashboard.
+protocol repository, production local recording client, mode-driven access,
+escalation, retention, sharing, viewer behavior, trusted-contact accounts,
+dead-man switch notifications, production client key storage, key sharing,
+browser/client-side decryption, server-assisted break-glass key access,
+playable media export, push notifications, SMS, Messenger integration, OAuth,
+JWT, public account workflows, or a public admin dashboard. The local
+desktop-recorder behavior in `cmd/simclient` is simulator/reference flow only.

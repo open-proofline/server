@@ -85,7 +85,7 @@ Viewer URLs contain bearer tokens and should be treated as secrets. Reverse prox
   token-scoped public incident viewer summaries, and bundle manifests. Future
   clients should omit it by default or use a generic basename unless preserving
   filename context is an explicit user or protocol decision.
-- The simulator can wrap chunks in the documented v1 AES-256-GCM client-side encryption envelope before upload.
+- The simulator can wrap chunks in the documented v1 AES-256-GCM client-side encryption envelope before upload. Desktop-recorder mode can stage encrypted chunks locally and retry complete encrypted uploads without adding server-visible partial upload state.
 - The backend validates and stores ciphertext bytes only; it does not store encryption keys or decrypt chunk contents.
 - SQLite and optional PostgreSQL metadata enforce media type, chunk index, byte size, SHA-256 shape, foreign keys, and unique chunk identity.
 - Complete chunk uploads can include an `Idempotency-Key` header. The backend
