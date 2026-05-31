@@ -13,6 +13,8 @@ const (
 	defaultIncidentTokenTTL                   = 24 * time.Hour
 	defaultSessionTTL                         = 12 * time.Hour
 	defaultDeletionInterval                   = time.Minute
+	defaultTempUploadCleanupAge               = 0
+	defaultTempUploadCleanupDryRun            = false
 	defaultPublicViewerRateLimitEnabled       = true
 	defaultPublicViewerRateLimitWindow        = time.Minute
 	defaultPublicViewerRateLimitPageLimit     = 60
@@ -50,6 +52,8 @@ type Config struct {
 	AuthBootstrapSecret     string
 	DeletionWorkerInterval  time.Duration
 	ClosedIncidentRetention time.Duration
+	TempUploadCleanupAge    time.Duration
+	TempUploadCleanupDryRun bool
 	PublicViewerRateLimit   PublicViewerRateLimitConfig
 	PrivateTimeouts         HTTPTimeouts
 	PublicTimeouts          HTTPTimeouts
@@ -162,6 +166,14 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	tempUploadCleanupAge, err := durationFromEnv("SAFE_TEMP_UPLOAD_CLEANUP_AGE", defaultTempUploadCleanupAge)
+	if err != nil {
+		return Config{}, err
+	}
+	tempUploadCleanupDryRun, err := boolFromEnv("SAFE_TEMP_UPLOAD_CLEANUP_DRY_RUN", defaultTempUploadCleanupDryRun)
+	if err != nil {
+		return Config{}, err
+	}
 
 	publicViewerRateLimit, err := publicViewerRateLimitConfigFromEnv()
 	if err != nil {
@@ -192,6 +204,8 @@ func Load() (Config, error) {
 		AuthBootstrapSecret:     secretFromEnv("SAFE_AUTH_BOOTSTRAP_SECRET"),
 		DeletionWorkerInterval:  deletionWorkerInterval,
 		ClosedIncidentRetention: closedIncidentRetention,
+		TempUploadCleanupAge:    tempUploadCleanupAge,
+		TempUploadCleanupDryRun: tempUploadCleanupDryRun,
 		PublicViewerRateLimit:   publicViewerRateLimit,
 		PrivateTimeouts:         privateTimeouts,
 		PublicTimeouts:          publicTimeouts,

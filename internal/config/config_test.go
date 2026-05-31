@@ -57,6 +57,26 @@ func TestLoadDefaultDeletionRetentionConfig(t *testing.T) {
 	if cfg.ClosedIncidentRetention != 0 {
 		t.Fatalf("closed incident retention = %s, want disabled", cfg.ClosedIncidentRetention)
 	}
+	if cfg.TempUploadCleanupAge != 0 {
+		t.Fatalf("temp upload cleanup age = %s, want disabled", cfg.TempUploadCleanupAge)
+	}
+	if cfg.TempUploadCleanupDryRun {
+		t.Fatal("temp upload cleanup dry run should default to false")
+	}
+}
+
+func TestLoadTempUploadCleanupConfig(t *testing.T) {
+	cfg := loadConfigForTest(t, map[string]string{
+		"SAFE_TEMP_UPLOAD_CLEANUP_AGE":     "24h",
+		"SAFE_TEMP_UPLOAD_CLEANUP_DRY_RUN": "true",
+	})
+
+	if cfg.TempUploadCleanupAge != 24*time.Hour {
+		t.Fatalf("temp upload cleanup age = %s, want 24h", cfg.TempUploadCleanupAge)
+	}
+	if !cfg.TempUploadCleanupDryRun {
+		t.Fatal("temp upload cleanup dry run was not enabled")
+	}
 }
 
 func TestLoadDefaultPublicViewerRateLimitConfig(t *testing.T) {
@@ -846,6 +866,8 @@ func loadConfigForTestErr(t *testing.T, env map[string]string) (Config, error) {
 		"SAFE_AUTH_BOOTSTRAP_SECRET",
 		"SAFE_DELETION_WORKER_INTERVAL",
 		"SAFE_CLOSED_INCIDENT_RETENTION",
+		"SAFE_TEMP_UPLOAD_CLEANUP_AGE",
+		"SAFE_TEMP_UPLOAD_CLEANUP_DRY_RUN",
 		"SAFE_PUBLIC_VIEWER_RATE_LIMIT_ENABLED",
 		"SAFE_PUBLIC_VIEWER_RATE_LIMIT_WINDOW",
 		"SAFE_PUBLIC_VIEWER_RATE_LIMIT_PAGE",

@@ -219,13 +219,12 @@ Current local cleanup:
 - hash mismatches do not commit final files
 - duplicate uploads do not overwrite existing committed chunks
 - normal handler cleanup removes uncommitted temp files
-- a process crash can still leave an unreferenced local temp file under the
-  server temp directory
+- explicit startup cleanup can remove old unreferenced local `upload-*` temp
+  files under the server temp directory when `SAFE_TEMP_UPLOAD_CLEANUP_AGE` is
+  positive
 
 Future cleanup for resumable uploads or leases should allow:
 
-- removing expired local temp files that are not referenced by committed chunk
-  metadata
 - removing expired operation-specific object-storage staging keys
 - expiring upload session or lease rows that have no committed chunk row
 - keeping conservative lifecycle cleanup for staging objects when ownership is

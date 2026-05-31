@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added explicit-age orphan temp upload cleanup for local `upload-*` staging
+  files, with dry-run support and safe count-only startup logs.
 - Added opt-in S3-compatible object-store deletion smoke coverage for incident
   deletion, including public viewer fail-closed checks after blob removal.
 - Added simulator ambiguous upload retry coverage so desktop-recorder retries
