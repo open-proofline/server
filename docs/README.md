@@ -17,6 +17,7 @@ This directory contains the detailed documentation for Proofline Server, the Go 
 | [Incident capture modes](incident-modes.md) | Planned emergency, interaction-record, safety-check, and evidence-note modes, plus future capture-profile, escalation-policy, sharing-state, and migration boundaries. |
 | [Mode-aware retention policy](mode-aware-retention-policy.md) | Planning boundary for future retention policy based on incident mode, safety-check state, sharing/export state, grants, wrapped keys, tombstones, and backups. |
 | [/v1 access control](v1-access-control.md) | Current local account/session boundary plus future role, grant, public product API, private admin API listener, audit, and migration boundaries for account-owner, trusted-contact, public-link, admin/operator, and optional escrow access. |
+| [Main API public exposure listener split](public-api-listener-split.md) | Planning boundary for moving public-ready main API routes and the read-only incident viewer onto `8080` while keeping admin and operator surfaces on private `8081`. |
 | [Legacy unowned incident reassignment](legacy-unowned-incident-reassignment.md) | Planning boundary for future private reassignment or quarantine of incidents created before account ownership existed. |
 | [Encryption](encryption.md) | Client-side chunk envelope, simulator key file, and local bundle verification. |
 | [iOS local recorder prototype](ios-local-recorder-prototype.md) | Future native incident-capture scope, chunking, encrypted staging, retry, and API mapping. |

@@ -11,7 +11,10 @@ The `/v1` access-control direction is documented in
 do not change the deployment rule: `/v1` routes must remain private. Future
 admin/operator routes should use their own private listener that can be bound
 to loopback, LAN, WireGuard, VPN, firewall, or a private reverse proxy, but
-that private placement must not replace admin authentication.
+that private placement must not replace admin authentication. The future
+main API/public viewer listener split is planning-only in
+[public-api-listener-split.md](public-api-listener-split.md); it has not
+changed the current bind defaults or exposure rule.
 
 The current module and artifact names use the `open-proofline/server` repository namespace. The published GHCR image is `ghcr.io/open-proofline/server`, local examples use the `proofline-server` image name, and release binaries use `proofline-server-*` names. Compatibility identifiers such as the v1 encryption envelope scheme and default SQLite filename may still use earlier `safety-recorder` names until separate protocol or data-layout migrations are explicitly performed.
 

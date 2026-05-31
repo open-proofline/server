@@ -207,6 +207,8 @@ Before public exposure, review and add:
 - the public product API and separately bound private admin API access-control
   design in [v1-access-control.md](v1-access-control.md), or a strict
   WireGuard/firewall-only deployment for the current private API
+- the target main API/public viewer and private admin-dashboard listener split
+  in [public-api-listener-split.md](public-api-listener-split.md)
 - edge rate limits, app-level public viewer limits, and broader abuse controls
 - TLS and reverse-proxy settings for the public incident viewer, if reachable over a network
 - deployment-specific enforcement of the documented [retention, backup, and deletion policy](retention-backup-deletion.md)
