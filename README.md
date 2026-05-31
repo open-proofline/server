@@ -8,7 +8,7 @@
 [![Security Policy](https://img.shields.io/badge/security-policy-blue.svg)](SECURITY.md)
 [![GHCR](https://img.shields.io/static/v1?label=GHCR&message=ghcr.io%2Fopen-proofline%2Fserver&color=blue&logo=github)](https://github.com/orgs/open-proofline/packages/container/package/server)
 
-Proofline Server is the experimental Go server backend for encrypted incident capture. It receives already-encrypted recording chunks through authenticated main `/v1` routes, stores metadata in SQLite by default or optional PostgreSQL, keeps encrypted blobs on local disk by default or in optional S3-compatible object storage, exposes private-admin coarse liveness/readiness checks, performs a startup check against optional Valkey/Redis-compatible coordination when explicitly configured, and exposes a token-scoped read-only viewer for incident review.
+Proofline Server is the experimental Go server backend for encrypted incident capture. It receives already-encrypted recording chunks through authenticated main `/v1` routes, stores metadata in SQLite by default or optional PostgreSQL, keeps encrypted blobs on local disk by default or in optional S3-compatible object storage, serves a private admin dashboard under `/admin`, performs a startup check against optional Valkey/Redis-compatible coordination when explicitly configured, and exposes a token-scoped read-only viewer for incident review.
 
 > Repository role: this repository is the server/backend component only. In the multi-repo layout it is `open-proofline/server`, not the full Proofline product suite.
 >
@@ -16,7 +16,7 @@ Proofline Server is the experimental Go server backend for encrypted incident ca
 
 ## Security Warning
 
-> This project is not production-ready public infrastructure. The main `/v1` API now requires local account sessions and shares a listener with the read-only incident viewer, but public exposure still needs deployment-specific TLS, abuse controls, browser credential review, logging review, and operational hardening. `/admin`, `/v1/admin/...`, first-admin bootstrap, and private health/readiness routes are private control surfaces and must stay behind localhost, LAN, WireGuard, a firewall, or a strict reverse proxy. Separate bind addresses are a deployment boundary, not a complete security model.
+> This project is not production-ready public infrastructure. The main `/v1` API now requires local account sessions and shares a listener with the read-only incident viewer, but public exposure still needs deployment-specific TLS, abuse controls, browser credential review, logging review, and operational hardening. Existing `/v1/admin/...` JSON routes remain authenticated admin-only routes on the main handler and must not be routed from a public edge. The private-admin listener is the `/admin` dashboard surface only and must stay behind localhost, LAN, WireGuard, a firewall, or a strict reverse proxy. Separate bind addresses are a deployment boundary, not a complete security model.
 
 ## What It Is
 
@@ -76,9 +76,9 @@ trusted-contact workflows, or change public viewer and bundle behavior. See
 
 ## What Works Today
 
-- Main authenticated non-admin `/v1` API listener group
-- Private-admin unauthenticated `/v1/health/live` and `/v1/health/ready` operator
-  checks with coarse backend status only
+- Main authenticated `/v1` API listener group, including admin-only JSON routes
+  that are not public-ready
+- Private-admin dashboard listener for `/admin` and `/admin/static/...`
 - Read-only incident viewer routes mounted on the main listener
 - Local username/password accounts for regular users and admins
 - Opaque server-side sessions with expiry and revocation
@@ -128,7 +128,7 @@ trusted-contact workflows, or change public viewer and bundle behavior. See
 
 ## Architecture
 
-Proofline Server runs separate main and private-admin HTTP listener groups from the same Go binary. The main listener serves authenticated non-admin `/v1` product routes and the token-gated, read-only incident viewer. The private-admin listener serves `/admin`, private admin API routes, first-admin bootstrap, and private operator health/readiness checks.
+Proofline Server runs separate main and private-admin HTTP listener groups from the same Go binary. The main listener serves authenticated `/v1` routes and the token-gated, read-only incident viewer. Existing `/v1/admin/...` JSON routes stay authenticated and admin-only on that main handler, but they are not public-ready routes and must be blocked by any public reverse proxy. The private-admin listener serves only the `/admin` dashboard route tree.
 
 ```mermaid
 flowchart LR
@@ -138,7 +138,7 @@ flowchart LR
     Main --> Tokens["Viewer token creation"]
     Contact["Trusted contact"] --> Main
     Main --> Bundles["Encrypted ZIP bundles<br/>completed streams only"]
-    Admin["Private admin listener<br/>/admin and operator routes"] --> DB
+    Admin["Private admin listener<br/>/admin dashboard"] --> DB
 ```
 
 For more diagrams and package-level details, see [docs/architecture.md](docs/architecture.md) and [docs/code-map.md](docs/code-map.md). The planned cluster expansion is documented separately in [docs/production-cluster-scope.md](docs/production-cluster-scope.md).
@@ -163,7 +163,7 @@ By default this starts:
 | Listener | Address |
 |---|---|
 | Main API and incident viewer | `127.0.0.1:8080` |
-| Private admin and operator routes | `127.0.0.1:8081` |
+| Private admin dashboard | `127.0.0.1:8081` |
 
 The private admin web surface is available on the private-admin listener at
 `http://127.0.0.1:8081/admin`.
@@ -171,10 +171,11 @@ The private admin web surface is available on the private-admin listener at
 In another terminal, create the first admin account:
 
 ```bash
-curl -sS -X POST http://127.0.0.1:8081/v1/bootstrap/admin \
-  -H 'Content-Type: application/json' \
-  -H 'X-Proofline-Bootstrap-Secret: replace-with-local-bootstrap-secret' \
-  -d '{"username":"admin","password":"replace-with-a-long-local-password"}'
+curl -sS -X POST http://127.0.0.1:8081/admin/bootstrap \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  --data-urlencode 'bootstrap_secret=replace-with-local-bootstrap-secret' \
+  --data-urlencode 'username=admin' \
+  --data-urlencode 'password=replace-with-a-long-local-password'
 ```
 
 Stop the server, remove `SAFE_AUTH_BOOTSTRAP_SECRET`, and start it again. The
@@ -216,8 +217,9 @@ docker run --rm \
   proofline-server
 ```
 
-Use `POST /v1/bootstrap/admin` to create the first admin account, then restart
-the container without `SAFE_AUTH_BOOTSTRAP_SECRET`.
+Use the private `/admin` bootstrap screen, or `POST /admin/bootstrap` with form
+fields, to create the first admin account. Then restart the container without
+`SAFE_AUTH_BOOTSTRAP_SECRET`.
 
 Container defaults bind to `0.0.0.0` inside the container. Restrict host exposure with port publishing, firewall rules, WireGuard, or a reverse proxy. See [docs/deployment.md](docs/deployment.md).
 

@@ -66,9 +66,10 @@ SAFE_AUTH_BOOTSTRAP_SECRET='replace-with-local-bootstrap-secret' \
 go run ./cmd/api
 ```
 
-For a new local database, create an admin account through
-`POST /v1/bootstrap/admin`, then remove `SAFE_AUTH_BOOTSTRAP_SECRET` and
-restart the server. See [deployment](deployment.md) for the bootstrap flow.
+For a new local database, create an admin account through the private
+`/admin` bootstrap screen or `POST /admin/bootstrap`, then remove
+`SAFE_AUTH_BOOTSTRAP_SECRET` and restart the server. See
+[deployment](deployment.md) for the bootstrap flow.
 
 Then run:
 

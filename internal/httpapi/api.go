@@ -26,7 +26,6 @@ type Options struct {
 	DefaultIncidentTokenTTL *time.Duration
 	SessionTTL              time.Duration
 	BootstrapSecret         string
-	ReadinessChecks         []ReadinessCheck
 	MainRateLimit           MainRateLimitConfig
 	MainRateLimiter         RateLimiter
 	PublicRateLimit         PublicRateLimitConfig
@@ -72,14 +71,6 @@ type RateLimiter interface {
 // limiter interface.
 type PublicRateLimiter = RateLimiter
 
-// ReadinessCheck describes one coarse backend readiness check exposed by the
-// private health endpoint.
-type ReadinessCheck struct {
-	Name    string
-	Backend string
-	Check   func(context.Context) error
-}
-
 // API holds the dependencies and limits used by the HTTP handlers.
 type API struct {
 	repo                    MetadataRepository
@@ -88,7 +79,6 @@ type API struct {
 	defaultIncidentTokenTTL time.Duration
 	sessionTTL              time.Duration
 	bootstrapSecret         string
-	readinessChecks         []ReadinessCheck
 	mainRateLimit           MainRateLimitConfig
 	mainRateLimiter         RateLimiter
 	publicRateLimit         PublicRateLimitConfig
@@ -109,13 +99,14 @@ func NewMain(repo MetadataRepository, store storage.BlobStore, opts Options) htt
 	return newAPI(repo, store, opts).mainRoutes()
 }
 
-// NewAdmin builds the HTTP handler tree for the private admin listener.
+// NewAdmin builds the HTTP handler tree for the private admin dashboard
+// listener.
 func NewAdmin(repo MetadataRepository, store storage.BlobStore, opts Options) http.Handler {
 	return newAPI(repo, store, opts).adminRoutes()
 }
 
-// NewPrivate builds the private admin listener handler tree. It is kept as a
-// compatibility name for older internal callers.
+// NewPrivate builds the private admin dashboard listener handler tree. It is
+// kept as a compatibility name for older internal callers.
 func NewPrivate(repo MetadataRepository, store storage.BlobStore, opts Options) http.Handler {
 	return NewAdmin(repo, store, opts)
 }
@@ -153,7 +144,6 @@ func newAPI(repo MetadataRepository, store storage.BlobStore, opts Options) *API
 	if logger == nil {
 		logger = slog.Default()
 	}
-	readinessChecks := append([]ReadinessCheck(nil), opts.ReadinessChecks...)
 	mainRateLimiter := opts.MainRateLimiter
 	if opts.MainRateLimit.Enabled && mainRateLimiter == nil {
 		mainRateLimiter = NewMemoryRateLimiter()
@@ -170,7 +160,6 @@ func newAPI(repo MetadataRepository, store storage.BlobStore, opts Options) *API
 		defaultIncidentTokenTTL: incidentTokenTTL,
 		sessionTTL:              sessionTTL,
 		bootstrapSecret:         opts.BootstrapSecret,
-		readinessChecks:         readinessChecks,
 		mainRateLimit:           opts.MainRateLimit,
 		mainRateLimiter:         mainRateLimiter,
 		publicRateLimit:         opts.PublicRateLimit,

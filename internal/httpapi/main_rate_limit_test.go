@@ -47,25 +47,13 @@ func TestMainAPIRateLimitGroupsRoutesWithSafeKeys(t *testing.T) {
 		{http.MethodPost, "/v1/incidents/inc_secret/streams/str_secret/complete", ":stream:", 18},
 		{http.MethodPost, "/v1/incidents/inc_secret/incident-tokens", ":token:", 19},
 		{http.MethodGet, "/v1/incidents/inc_secret/download", ":download:", 20},
+		{http.MethodGet, "/v1/admin/accounts", ":admin:", 21},
 	}
 
 	headers := map[string]string{"Idempotency-Key": "raw-idempotency-key-secret"}
 	for _, route := range routes {
 		response, _ := requestWithAuthAndHeaders(t, app.mainHandler, route.method, route.target, "application/json", bytes.NewBufferString(`{}`), "raw-session-token-secret", headers)
 		response.Body.Close()
-	}
-	for _, route := range []struct {
-		method string
-		target string
-		class  string
-		limit  int
-	}{
-		{http.MethodPost, "/v1/bootstrap/admin", ":bootstrap:", 12},
-		{http.MethodGet, "/v1/admin/accounts", ":admin:", 21},
-	} {
-		response, _ := requestWithAuthAndHeaders(t, app.adminHandler, route.method, route.target, "application/json", bytes.NewBufferString(`{}`), "raw-session-token-secret", headers)
-		response.Body.Close()
-		routes = append(routes, route)
 	}
 
 	if len(limiter.calls) != len(routes) {

@@ -6,8 +6,8 @@ Configuration is read from environment variables when the Proofline API starts.
 
 | Variable | Default | Notes |
 |---|---|---|
-| `SAFE_MAIN_BIND_ADDRS` | `127.0.0.1:8080` | Comma-separated main listener addresses for authenticated non-admin `/v1` routes and the read-only incident viewer. |
-| `SAFE_ADMIN_BIND_ADDRS` | `127.0.0.1:8081` | Comma-separated private-admin listener addresses for `/admin`, `/v1/admin/...`, first-admin bootstrap, and private health/readiness routes. |
+| `SAFE_MAIN_BIND_ADDRS` | `127.0.0.1:8080` | Comma-separated main listener addresses for authenticated `/v1` routes and the read-only incident viewer. Existing `/v1/admin/...` JSON routes are admin-only and not public-ready. |
+| `SAFE_ADMIN_BIND_ADDRS` | `127.0.0.1:8081` | Comma-separated private-admin listener addresses for the `/admin` dashboard route tree only. |
 | `SAFE_DATA_DIR` | `./data` | Local directory for SQLite, temp uploads, and encrypted blobs unless `SAFE_DB_PATH` points elsewhere. |
 | `SAFE_DB_PATH` | `./data/safety.db` | SQLite database path. The default file name still uses `safety.db` until a separate data-layout migration is performed. |
 | `SAFE_METADATA_BACKEND` | `sqlite` | Metadata backend selector. Supported values are `sqlite` and `postgresql`. |
@@ -46,7 +46,7 @@ Configuration is read from environment variables when the Proofline API starts.
 | `SAFE_MAIN_API_RATE_LIMIT_ENABLED` | `true` | Enables app-level rate limiting for main API route classes. Set to `false` to disable the app-level limiter. |
 | `SAFE_MAIN_API_RATE_LIMIT_WINDOW` | `1m` | Fixed-window duration for app-level main API limits. |
 | `SAFE_MAIN_API_RATE_LIMIT_AUTH` | `30` | Main API login/logout requests allowed per window per hashed socket peer. Set to `0` to disable this route-class limit. |
-| `SAFE_MAIN_API_RATE_LIMIT_BOOTSTRAP` | `5` | First-admin bootstrap requests allowed per window per hashed socket peer. Set to `0` to disable this route-class limit. |
+| `SAFE_MAIN_API_RATE_LIMIT_BOOTSTRAP` | `5` | Compatibility setting for the legacy JSON bootstrap route class. The current first-admin bootstrap flow is the private `/admin/bootstrap` form. |
 | `SAFE_MAIN_API_RATE_LIMIT_ACCOUNT` | `120` | Account self-service requests allowed per window per hashed socket peer. Set to `0` to disable this route-class limit. |
 | `SAFE_MAIN_API_RATE_LIMIT_INCIDENT_READ` | `300` | Incident metadata read requests allowed per window per hashed socket peer. Set to `0` to disable this route-class limit. |
 | `SAFE_MAIN_API_RATE_LIMIT_INCIDENT_WRITE` | `120` | Incident create, close, and owner-scoped deletion requests allowed per window per hashed socket peer. Set to `0` to disable this route-class limit. |
@@ -55,7 +55,7 @@ Configuration is read from environment variables when the Proofline API starts.
 | `SAFE_MAIN_API_RATE_LIMIT_STREAM` | `120` | Stream create/read/complete/fail requests allowed per window per hashed socket peer. Set to `0` to disable this route-class limit. |
 | `SAFE_MAIN_API_RATE_LIMIT_TOKEN` | `60` | Incident-token create/revoke requests allowed per window per hashed socket peer. Set to `0` to disable this route-class limit. |
 | `SAFE_MAIN_API_RATE_LIMIT_DOWNLOAD` | `30` | Private chunk and encrypted bundle download requests allowed per window per hashed socket peer. Set to `0` to disable this route-class limit. |
-| `SAFE_MAIN_API_RATE_LIMIT_ADMIN` | `60` | Private admin API requests allowed per window per hashed socket peer. Set to `0` to disable this route-class limit. |
+| `SAFE_MAIN_API_RATE_LIMIT_ADMIN` | `60` | Admin-only JSON API requests allowed per window per hashed socket peer on the main handler. Set to `0` to disable this route-class limit. |
 | `SAFE_PUBLIC_VIEWER_RATE_LIMIT_ENABLED` | `true` | Enables app-level rate limiting for public incident viewer route classes. Set to `false` to disable the app-level limiter. |
 | `SAFE_PUBLIC_VIEWER_RATE_LIMIT_WINDOW` | `1m` | Fixed-window duration for app-level public viewer limits. |
 | `SAFE_PUBLIC_VIEWER_RATE_LIMIT_PAGE` | `60` | Public viewer page lookup requests allowed per window per hashed socket peer. Set to `0` to disable this route-class limit. |
@@ -262,8 +262,8 @@ value uses Go duration strings such as `6h` or `30m`.
 
 For a new metadata database, startup fails until an admin account exists unless
 `SAFE_AUTH_BOOTSTRAP_SECRET` is set. Use that secret only long enough to call
-`POST /v1/bootstrap/admin` or create the first admin through `/admin`, then
-remove it from the environment and restart.
+create the first admin through the private `/admin` bootstrap screen or
+`POST /admin/bootstrap`, then remove it from the environment and restart.
 Treat the bootstrap secret, account passwords, session tokens, raw
 idempotency keys, and Authorization headers as secrets. They must not appear in
 public issues, logs, dashboards, screenshots, support tickets, or shell

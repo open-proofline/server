@@ -71,7 +71,6 @@ func run(logger *slog.Logger) error {
 		DefaultIncidentTokenTTL: &cfg.DefaultIncidentTokenTTL,
 		SessionTTL:              cfg.SessionTTL,
 		BootstrapSecret:         cfg.AuthBootstrapSecret,
-		ReadinessChecks:         backendReadinessChecks(cfg, repo, blobStore, coord),
 		MainRateLimit:           mainRateLimitConfig(cfg.MainAPIRateLimit),
 		MainRateLimiter:         newMainRateLimiter(cfg, coord),
 		PublicRateLimit:         publicRateLimitConfig(cfg.PublicViewerRateLimit),
@@ -157,26 +156,6 @@ func newPublicRateLimiter(cfg config.Config, coord coordination.Coordinator) htt
 		}
 	}
 	return httpapi.NewMemoryRateLimiter()
-}
-
-func backendReadinessChecks(cfg config.Config, repo httpapi.MetadataRepository, store storage.BlobStore, coord coordination.Coordinator) []httpapi.ReadinessCheck {
-	return []httpapi.ReadinessCheck{
-		{
-			Name:    "metadata",
-			Backend: cfg.Backends.Metadata,
-			Check:   repo.Check,
-		},
-		{
-			Name:    "blob",
-			Backend: cfg.Backends.Blob,
-			Check:   store.Check,
-		},
-		{
-			Name:    "coordination",
-			Backend: cfg.Backends.Coordination,
-			Check:   coord.Check,
-		},
-	}
 }
 
 func newCoordinator(cfg config.Config) (coordination.Coordinator, error) {

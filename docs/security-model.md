@@ -19,9 +19,10 @@ The `/v1` access-control direction is documented in
 [v1-access-control.md](v1-access-control.md). The current implementation covers
 local account sessions, owner-scoped incident access, admin account routes, and
 route authentication. It does not make `/v1` safe to expose publicly as a
-product API. The current topology separates the main API/viewer listener from a
-separately bound private-admin listener that requires authentication and
-authorization for admin actions; see
+product API. Existing `/v1/admin/...` JSON routes are authenticated admin-only
+routes on the main handler and must not be routed from public entry points. The
+current topology separates the main API/viewer listener from a separately bound
+private `/admin` dashboard listener; see
 [public-api-listener-split.md](public-api-listener-split.md).
 
 ## Listener Boundary
@@ -30,10 +31,10 @@ The API binary starts separate listener groups:
 
 | Listener group | Routes | Intended exposure |
 |---|---|---|
-| Main API and viewer | Authenticated non-admin `/v1/...`, `/i/{token}` and related read-only routes, plus pre-rename `/e/{token}` compatibility aliases | Reviewed main API deployment boundary; viewer paths may be routed publicly when only viewer paths are forwarded. |
-| Private admin and operator | `/admin`, `/admin/...`, `/v1/admin/...`, `/v1/bootstrap/admin`, `/v1/health/live`, and `/v1/health/ready` | Localhost, LAN, WireGuard, firewall, or strict reverse proxy only. |
+| Main API and viewer | Authenticated `/v1/...` routes, existing admin-only JSON APIs, `/i/{token}` and related read-only routes, plus pre-rename `/e/{token}` compatibility aliases | Reviewed main API deployment boundary; viewer paths may be routed publicly when only viewer paths are forwarded. Public edges must not route `/v1/admin/...`. |
+| Private admin dashboard | `/admin`, `/admin/...`, and `/admin/static/...` | Localhost, LAN, WireGuard, firewall, or strict reverse proxy only. |
 
-Admin/operator routes must not be mounted on the main listener. Incident
+The `/admin` dashboard must not be mounted on the main listener. Incident
 viewer routes are read-only.
 
 ## Account And Token Handling
@@ -46,18 +47,15 @@ login; the metadata backend stores only a SHA-256 hash. Sessions expire after
 account password change, admin password reset, or admin session revocation.
 
 The server fails closed on startup unless an admin account exists or
-`SAFE_AUTH_BOOTSTRAP_SECRET` is set for the one-time bootstrap route. The
-bootstrap route is disabled once an admin account exists. Treat the bootstrap
+`SAFE_AUTH_BOOTSTRAP_SECRET` is set for the one-time private `/admin`
+bootstrap form. The bootstrap form is disabled once an admin account exists. Treat the bootstrap
 secret, account passwords, session tokens, and Authorization headers as
 secrets.
 
-`GET /v1/health/live` and `GET /v1/health/ready` are unauthenticated because
-they are intended for local Docker checks, private reverse-proxy upstream
-checks, and operator troubleshooting without storing a session token. They are
-mounted only on the private-admin mux. Their responses are coarse and must not
-expose DSNs, credentials, bucket names, object keys, stored paths, local
-filesystem paths, private hostnames, tokens, request bodies, uploaded bytes,
-plaintext, raw keys, private deployment details, or underlying error strings.
+The current listener split does not mount `/v1/health/live` or
+`/v1/health/ready` on either listener. Avoid publishing operator readiness
+details on the main API/viewer origin or on the dashboard-only private-admin
+listener.
 
 The private `/admin` page, login form, bootstrap form, and account password
 workflows are mounted only on the private-admin mux, not on the main API/viewer
@@ -134,9 +132,10 @@ hold incident metadata, viewer-token metadata, committed encrypted bytes,
 retention decisions, plaintext, or keys, and does not change the private
 `/v1` boundary.
 
-Private readiness checks can report only coarse metadata, blob, and coordination
-backend status. They are operator checks, not public diagnostics, metrics,
-support dashboards, or evidence-inspection routes.
+The current HTTP listener split does not expose readiness checks. Future
+operator readiness routes should report only coarse metadata, blob, and
+coordination backend status; they should not become public diagnostics,
+metrics, support dashboards, or evidence-inspection routes.
 
 Cluster-safe upload operation semantics are documented in
 [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md). The
