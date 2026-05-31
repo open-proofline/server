@@ -357,7 +357,13 @@ This keeps authenticated `/v1` routes on a private network boundary. Local accou
 
 The private API defaults keep read and write timeouts disabled so large or slow uploads and private downloads are not interrupted. The public incident viewer has finite read/write timeouts by default, including a generous write timeout for encrypted ZIP downloads.
 
-Reverse proxies should still set their own connection, request, and upstream timeouts. If completed evidence bundles are large or clients are slow, tune `SAFE_PUBLIC_WRITE_TIMEOUT` together with the reverse proxy timeout so the proxy does not cut off an encrypted ZIP download that the Go server is still willing to stream.
+Reverse proxies should still set their own connection, request, upstream
+timeouts, and edge rate limits. The app-level main API and public viewer
+route-class limiters are backstops, not replacements for deployment-edge abuse
+controls. If completed evidence bundles are large or clients are slow, tune
+`SAFE_PUBLIC_WRITE_TIMEOUT` together with the reverse proxy timeout so the proxy
+does not cut off an encrypted ZIP download that the Go server is still willing
+to stream.
 
 ## Public Incident Viewer Exposure
 

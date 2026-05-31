@@ -43,6 +43,16 @@ Errors use:
 
 Non-upload JSON bodies are limited to 64 KiB. Upload file bytes are limited by `SAFE_MAX_UPLOAD_BYTES`; multipart metadata has a small fixed overhead allowance. `SAFE_MAX_UPLOAD_BYTES` accepts a positive byte count or binary unit suffixes `B`, `K`/`KB`, `M`/`MB`, and `G`/`GB`. Fractional unit values are allowed when they resolve to at least one byte. Non-positive, sub-byte, invalid, and oversized values are rejected during startup.
 
+Main API route classes are rate limited by default before authentication using
+safe server-controlled keys based on route class and a hash of the socket peer
+identity. Rate-limit keys do not include raw session tokens, Authorization
+headers, raw idempotency keys, request bodies, uploaded bytes, incident IDs,
+stored paths, object keys, plaintext, raw keys, or private deployment details.
+Exhausted limits return `429 rate_limited` with `Retry-After`. A configured
+coordination limiter failure returns `503 rate_limit_unavailable` with a
+generic response. See [configuration](configuration.md) for
+`SAFE_MAIN_API_RATE_LIMIT_*` settings.
+
 ## Private Health And Readiness
 
 The private API listener exposes unauthenticated operator checks under `/v1`
