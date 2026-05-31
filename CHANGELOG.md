@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added a mode-aware retention policy design covering future retention inputs
+  for incident modes, safety-check states, sharing/export state, grants, wrapped
+  keys, tombstones, backups, dry runs, and public viewer fail-closed behavior.
 - Added a planning document for future private reassignment or quarantine of
   legacy unowned incidents while preserving the current admin-only default.
 - Expanded the SQLite-to-PostgreSQL metadata migration guidance into an
