@@ -71,6 +71,30 @@ pause deletion processing. Closed-incident retention is disabled by default;
 set `SAFE_CLOSED_INCIDENT_RETENTION` to a positive duration only after the
 deployment has reviewed backup expiry and restore implications.
 
+Before enabling or changing closed-incident retention, run the local read-only
+preview from a trusted operator shell that uses the same metadata configuration
+as the server:
+
+```bash
+proofline-server operator retention-preview --closed-incident-retention 720h
+```
+
+The preview prints JSON containing safe counts, incident IDs, and update times
+for closed incidents that would match the requested window. It does not create
+deletion decisions or delete blobs. Record a backup/restore checkpoint before
+enabling live retention, and confirm older backups, snapshots, and downloaded
+bundles are handled by the deployment's own retention policy.
+
+To inspect deletion maintenance without exposing stored paths or object keys:
+
+```bash
+proofline-server operator deletion-status
+```
+
+The status output includes deletion decision counts, retry categories, and
+runnable job summaries. Keep this command local/private; do not proxy it through
+public viewer routes or a public dashboard.
+
 Orphan temp upload cleanup is disabled by default. Set
 `SAFE_TEMP_UPLOAD_CLEANUP_AGE` to a positive duration only when an operator
 wants startup cleanup of old local `upload-*` staging files under

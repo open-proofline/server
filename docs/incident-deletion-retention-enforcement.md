@@ -6,9 +6,10 @@ retention enforcement in Proofline Server, plus remaining future work.
 The backend implements private owner-scoped and admin-global deletion request
 routes, durable deletion decisions, deletion item retry state, SQLite and
 PostgreSQL metadata support, blob deletion through the storage boundary, and an
-automatic background scheduler. It does not add a CLI, public `/v1` exposure,
-public account workflows, backend decryption, key custody, key escrow,
-mode-specific retention, token pruning, tombstone expiry, object-bucket
+automatic background scheduler. It also includes local read-only operator
+commands for retention preview and deletion job status. It does not add public
+`/v1` exposure, public account workflows, backend decryption, key custody, key
+escrow, mode-specific retention, token pruning, tombstone expiry, object-bucket
 lifecycle enforcement, or playable media export.
 
 ## Current Behavior
@@ -40,6 +41,10 @@ The backend now has private deletion APIs and a background deletion worker:
   to `1m`
 - `SAFE_CLOSED_INCIDENT_RETENTION` is disabled by default and, when positive,
   queues retention-policy deletion for closed incidents older than the window
+- `operator retention-preview` previews closed incidents that would match a
+  retention window without creating deletion decisions
+- `operator deletion-status` reports deletion decision counts, retry
+  categories, and runnable jobs without exposing stored paths
 
 Manual database or blob deletion outside the application should be avoided
 because the metadata and encrypted blob stores need to stay consistent.
@@ -66,8 +71,7 @@ because the metadata and encrypted blob stores need to stay consistent.
 
 ## Non-Goals
 
-- No deletion CLI, dry-run preview command, public deletion route, or public
-  deletion status route.
+- No public deletion route or public deletion status route.
 - No deletion of generated bundles, downloaded copies, backups, reverse-proxy
   caches, snapshots, or endpoint copies.
 - No public admin routes, public `/v1` exposure, OAuth, JWT, public account
@@ -277,7 +281,20 @@ Deletion entry points must:
 - avoid logging raw tokens, request bodies, uploaded bytes, plaintext, raw keys,
   private deployment details, or sensitive evidence metadata
 
-Dry-run or preview output remains future CLI/operator work.
+Local read-only operator commands are available through the server binary:
+
+```bash
+proofline-server operator retention-preview --closed-incident-retention 720h
+proofline-server operator deletion-status
+```
+
+The preview command uses the configured metadata backend and reports closed
+incident IDs and update times that match the requested retention window. It does
+not queue deletion decisions. The status command reports deletion decision
+counts, retry categories, and runnable jobs. Both commands produce JSON and
+must be run from a trusted local operator environment with the same metadata
+configuration as the server. They must not be exposed through public viewer
+routes or public dashboards.
 
 Public incident viewer routes must remain read-only. They should never expose
 deletion controls, deletion job status, tombstone details, retention policy, or
@@ -368,9 +385,8 @@ Storage tasks:
 Private/admin or CLI tasks:
 
 - add a local operator CLI to request incident deletion
-- add dry-run output for retention candidates and deletion previews
-- add status output for deletion jobs without exposing sensitive evidence
-  metadata
+- extend local previews if future deletion policies need additional candidate
+  classes
 - keep all deletion controls off the public incident viewer listener
 
 Retention tasks:
