@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"io"
 	"math/rand"
@@ -68,7 +69,7 @@ type networkTransport struct {
 }
 
 func (t *networkTransport) RoundTrip(request *http.Request) (*http.Response, error) {
-	if err := t.beforeRequest(); err != nil {
+	if err := t.beforeRequest(request.Context()); err != nil {
 		return nil, err
 	}
 	if t.profile.bandwidth > 0 && request.Body != nil {
@@ -81,7 +82,7 @@ func (t *networkTransport) RoundTrip(request *http.Request) (*http.Response, err
 	return t.base.RoundTrip(request)
 }
 
-func (t *networkTransport) beforeRequest() error {
+func (t *networkTransport) beforeRequest(ctx context.Context) error {
 	var delay time.Duration
 	var fail bool
 	var offlineFor time.Duration
@@ -102,16 +103,30 @@ func (t *networkTransport) beforeRequest() error {
 		fail = true
 		offlineFor = t.profile.offlineFor
 	}
-	if delay > 0 {
-		time.Sleep(delay)
+	if err := sleepWithContext(ctx, delay); err != nil {
+		return err
 	}
-	if offlineFor > 0 {
-		time.Sleep(offlineFor)
+	if err := sleepWithContext(ctx, offlineFor); err != nil {
+		return err
 	}
 	if fail {
 		return errSimulatedNetwork
 	}
 	return nil
+}
+
+func sleepWithContext(ctx context.Context, delay time.Duration) error {
+	if delay <= 0 {
+		return nil
+	}
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 type rateLimitedReadCloser struct {

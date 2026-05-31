@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -918,6 +919,97 @@ printf 'fake encoded segment' > "$out"
 	}
 }
 
+func TestRunDesktopRecorderResumeVerifiesBundleWithManifestMediaType(t *testing.T) {
+	stage, err := openDesktopStage(filepath.Join(t.TempDir(), "stage"))
+	if err != nil {
+		t.Fatalf("openDesktopStage returned error: %v", err)
+	}
+	key, err := envelope.GenerateKey()
+	if err != nil {
+		t.Fatalf("GenerateKey returned error: %v", err)
+	}
+	if err := envelope.SaveKeyFile(filepath.Join(stage.dir, "simulator-key.json"), key); err != nil {
+		t.Fatalf("SaveKeyFile returned error: %v", err)
+	}
+
+	startedAt := time.Date(2026, 5, 22, 10, 0, 0, 0, time.UTC)
+	manifest := newDesktopManifest("inc_video", "str_video", "video", desktopSourceFiles)
+	if err := stage.stageChunk(&manifest, key, []byte("encoded video segment"), startedAt, startedAt.Add(chunkDuration)); err != nil {
+		t.Fatalf("stageChunk returned error: %v", err)
+	}
+	upload, err := stage.chunkUpload(manifest, manifest.Chunks[0])
+	if err != nil {
+		t.Fatalf("chunkUpload returned error: %v", err)
+	}
+	uploadedAt := startedAt.Add(time.Minute)
+	manifest.Chunks[0].Uploaded = true
+	manifest.Chunks[0].UploadedAt = &uploadedAt
+	if err := stage.saveManifest(manifest); err != nil {
+		t.Fatalf("saveManifest returned error: %v", err)
+	}
+	bundleBytes := makeTestBundle(t, streamBundleManifest{
+		IncidentID: "inc_video",
+		StreamID:   "str_video",
+		MediaType:  "video",
+		ChunkCount: 1,
+		Chunks: []bundleChunkManifest{
+			{ChunkIndex: 1, MediaType: "video", SHA256Hex: sha256Hex(upload.body)},
+		},
+	}, map[string][]byte{
+		"chunks/video_000001.enc": upload.body,
+	})
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/auth/login":
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"token":"session-token"}`))
+		case "/v1/incidents/inc_video/streams/str_video/complete":
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"stream":{"id":"str_video","incident_id":"inc_video","media_type":"video","status":"complete","created_at":"2026-05-22T10:00:00Z","updated_at":"2026-05-22T10:01:00Z","completed_at":"2026-05-22T10:01:00Z"}}`))
+		case "/v1/incidents/inc_video/incident-tokens":
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"token_id":"itk_video","incident_id":"inc_video","token":"tok_video","created_at":"2026-05-22T10:00:00Z"}`))
+		case "/i/tok_video/streams/str_video/download":
+			w.Header().Set("Content-Type", "application/zip")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(bundleBytes)
+		default:
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"error":{"code":"not_found"}}`))
+		}
+	}))
+	defer server.Close()
+
+	cfg := config{
+		apiBase:             server.URL,
+		viewerBase:          server.URL,
+		username:            "admin",
+		password:            "test-password",
+		mediaType:           defaultMediaType,
+		completeStream:      true,
+		downloadBundle:      true,
+		encrypt:             true,
+		verifyBundleDecrypt: true,
+		desktopRecorder:     true,
+		desktopStageDir:     stage.dir,
+		desktopResume:       true,
+		desktopMaxAttempts:  defaultDesktopMaxAttempts,
+		networkTimeout:      clientRequestTimeout,
+	}
+	var out bytes.Buffer
+	if err := runDesktopRecorder(context.Background(), &out, cfg); err != nil {
+		t.Fatalf("runDesktopRecorder returned error: %v", err)
+	}
+	if !strings.Contains(out.String(), "Verified decrypt of 1 encrypted chunks.") {
+		t.Fatalf("output did not verify bundle: %q", out.String())
+	}
+}
+
 func TestNetworkTransportFailsEveryNthRequest(t *testing.T) {
 	baseRequests := 0
 	transport := newNetworkTransport(networkProfile{
@@ -939,6 +1031,31 @@ func TestNetworkTransportFailsEveryNthRequest(t *testing.T) {
 	}
 	if baseRequests != 1 {
 		t.Fatalf("baseRequests = %d, want 1", baseRequests)
+	}
+}
+
+func TestNetworkTransportDelayRespectsContextCancellation(t *testing.T) {
+	baseRequests := 0
+	transport := newNetworkTransport(networkProfile{
+		latency: time.Hour,
+		seed:    1,
+	}, roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		baseRequests++
+		return testResponse(http.StatusOK, "text/plain", "ok"), nil
+	}))
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://api.example/v1/health/live", nil)
+	if err != nil {
+		t.Fatalf("NewRequest returned error: %v", err)
+	}
+
+	_, err = transport.RoundTrip(request)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("RoundTrip error = %v, want context canceled", err)
+	}
+	if baseRequests != 0 {
+		t.Fatalf("baseRequests = %d, want 0", baseRequests)
 	}
 }
 

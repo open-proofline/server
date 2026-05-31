@@ -70,7 +70,9 @@ func runDesktopRecorder(ctx context.Context, out io.Writer, cfg config) error {
 		if err != nil {
 			return err
 		}
-		if err := downloadAndVerifyBundle(ctx, out, sim, cfg, token, manifest.IncidentID, manifest.StreamID, key); err != nil {
+		bundleCfg := cfg
+		bundleCfg.mediaType = manifest.MediaType
+		if err := downloadAndVerifyBundle(ctx, out, sim, bundleCfg, token, manifest.IncidentID, manifest.StreamID, key); err != nil {
 			return err
 		}
 	}
