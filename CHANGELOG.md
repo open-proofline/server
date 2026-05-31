@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added simulator ambiguous upload retry coverage so desktop-recorder retries
+  treat `Idempotency-Replayed: true` responses as successful uploads after
+  response loss and keep conflict output token/path safe.
 - Added shared SQLite/PostgreSQL upload-operation race and metadata parity tests
   for duplicate uploads, upload-versus-close/completion interleavings,
   idempotency replay/conflict behavior, token revocation, and completed stream
