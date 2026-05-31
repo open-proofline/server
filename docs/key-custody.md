@@ -1,6 +1,12 @@
 # Key Custody And Emergency Access
 
-This document defines the intended production key custody direction for Proofline. It is a design document only. It does not change the current backend, API, database schema, simulator envelope, or encryption code.
+This document defines the intended production key custody direction for
+Proofline. The current backend now includes account-owner contact public-key
+metadata and sharing-grant metadata, but this document remains the security
+boundary for production custody. The current implementation does not add
+wrapped-key records, browser decryption, backend decryption, server escrow,
+trusted-contact accounts, simulator envelope changes, or production key custody
+behavior.
 
 ## Summary
 
@@ -42,12 +48,10 @@ metadata boundary are designed in
 
 ## Non-Goals For This Milestone
 
-- No implementation.
+- No wrapped-key delivery implementation.
 - No iOS, Android, or web-client code.
 - No browser decryption implementation.
 - No server-side decryption implementation.
-- No new API routes.
-- No database schema changes.
 - No key-custody, wrapped-key, decryption, or emergency-access behavior tied to
   incident-mode, capture-profile, escalation-policy, or sharing-state metadata.
 - No playable media export.
@@ -362,11 +366,13 @@ See [break-glass-key-access.md](break-glass-key-access.md). Do not implement
 server escrow until the policy, audit, deployment, and threat-model changes are
 approved together.
 
-## Future API And Storage Changes
+## API And Storage Changes
 
-The current API has no trusted-contact account model, no key-registration API,
-and no route for storing wrapped media keys. Before iOS or production
-trusted-contact work starts, future design should define:
+The current API has owner-scoped contact public-key registration and
+sharing-grant metadata routes behind the authenticated main `/v1` boundary. It
+still has no trusted-contact account model and no route for storing or
+delivering wrapped media keys. Before iOS or production trusted-contact work
+starts, future design should define:
 
 - contact public-key registration, verification, replacement, and revocation
 - device identity and recovery-key enrollment

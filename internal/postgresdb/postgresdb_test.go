@@ -37,6 +37,8 @@ func TestPostgresMigrateCreatesSchemaAndRejectsChecksumMismatch(t *testing.T) {
 	assertPostgresTable(t, ctx, conn, "upload_operations")
 	assertPostgresTable(t, ctx, conn, "incident_deletion_decisions")
 	assertPostgresTable(t, ctx, conn, "incident_deletion_items")
+	assertPostgresTable(t, ctx, conn, "contact_public_keys")
+	assertPostgresTable(t, ctx, conn, "sharing_grants")
 
 	if err := Migrate(ctx, conn); err != nil {
 		t.Fatalf("second Migrate: %v", err)
@@ -505,6 +507,51 @@ func TestPostgresRetentionPruning(t *testing.T) {
 	}
 	if _, err := repo.GetIncident(ctx, incident.ID); err != nil {
 		t.Fatalf("active incident was pruned: %v", err)
+	}
+}
+
+func TestPostgresContactPublicKeysAndSharingGrants(t *testing.T) {
+	ctx := context.Background()
+	conn := openPostgresTestDB(t, ctx)
+	if err := Migrate(ctx, conn); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	repo := NewRepository(conn)
+	owner, err := repo.CreateAccount(ctx, auth.CreateAccountParams{
+		Username:     "grant-owner",
+		PasswordHash: "hash",
+		Role:         auth.RoleUser,
+	})
+	if err != nil {
+		t.Fatalf("create owner account: %v", err)
+	}
+	incident, err := repo.CreateIncidentForAccount(ctx, owner.ID, incidents.CreateIncidentParams{})
+	if err != nil {
+		t.Fatalf("create owner incident: %v", err)
+	}
+	contactKey, err := repo.CreateContactPublicKey(ctx, incidents.CreateContactPublicKeyParams{
+		OwnerAccountID:       owner.ID,
+		DisplayLabel:         "contact",
+		WrappingAlgorithm:    "age-v1-x25519",
+		PublicKey:            "age1first",
+		PublicKeyFingerprint: "fingerprint-1",
+		KeyState:             incidents.ContactKeyStateActive,
+	})
+	if err != nil {
+		t.Fatalf("create contact public key: %v", err)
+	}
+	grant, err := repo.CreateSharingGrant(ctx, incidents.CreateSharingGrantParams{
+		OwnerAccountID: owner.ID,
+		IncidentID:     incident.ID,
+		RecipientType:  incidents.SharingGrantRecipientTrustedContact,
+		ContactID:      contactKey.ContactID,
+		DataClass:      incidents.SharingGrantDataClassMetadataCiphertext,
+	})
+	if err != nil {
+		t.Fatalf("create sharing grant: %v", err)
+	}
+	if grant.ContactPublicKeyID != contactKey.ID || grant.ContactPublicKeyVersion != 1 {
+		t.Fatalf("unexpected grant key binding: %+v", grant)
 	}
 }
 

@@ -22,7 +22,7 @@ This directory contains the detailed documentation for Proofline Server, the Go 
 | [Encryption](encryption.md) | Client-side chunk envelope, simulator key file, and local bundle verification. |
 | [iOS local recorder prototype](ios-local-recorder-prototype.md) | Future native incident-capture scope, chunking, encrypted staging, retry, and API mapping. |
 | [Key custody and emergency access](key-custody.md) | Future production key custody, trusted-contact access, and break-glass design. |
-| [Contact key sharing, grants, and wrapped-key metadata](contact-key-sharing-grants.md) | Future trusted-contact public-key lifecycle, grants, wrapped-key metadata, delivery, retention, audit, and implementation sequencing. |
+| [Contact key sharing, grants, and wrapped-key metadata](contact-key-sharing-grants.md) | Current trusted-contact public-key and grant metadata boundaries, plus future wrapped-key metadata, delivery, retention, audit, and implementation sequencing. |
 | [Contact-wrapped key metadata simulator prototype](contact-wrapped-key-metadata-simulator.md) | Simulator-only prototype for modeling trusted-contact public keys, non-secret key IDs, wrapped stream media keys, and safe development metadata without production key custody. |
 | [Browser-side decryption](browser-decryption.md) | Future incident viewer decryption options, risks, and phased direction. |
 | [Live partial stream access boundary](live-partial-stream-access-boundary.md) | Future live or partial stream access roles, stream-state exposure, partial manifests, caching, and key-custody dependencies. |
@@ -110,7 +110,13 @@ Legacy unowned incidents remain admin-only until a future private reassignment
 or quarantine workflow is implemented; the planning boundary is documented in
 [legacy-unowned-incident-reassignment.md](legacy-unowned-incident-reassignment.md).
 
-The future iOS incident-capture prototype is planned in [ios-local-recorder-prototype.md](ios-local-recorder-prototype.md). Future production key custody is documented in [key-custody.md](key-custody.md), with contact key sharing and wrapped-key grants designed in [contact key sharing, grants, and wrapped-key metadata](contact-key-sharing-grants.md), a simulator-only contact-wrapped key metadata prototype in [contact-wrapped-key-metadata-simulator.md](contact-wrapped-key-metadata-simulator.md), browser decryption and break-glass follow-up designs in [browser-decryption.md](browser-decryption.md) and [break-glass-key-access.md](break-glass-key-access.md), and live or partial stream access boundaries in [live-partial-stream-access-boundary.md](live-partial-stream-access-boundary.md). None of those future designs make the current main `/v1` API or `/admin` surface safe for broad public exposure.
+Authenticated account owners can register trusted-contact public-key metadata
+and manage incident/stream-scoped sharing grants for their own incidents. Those
+routes store server-visible public-key and grant metadata only. They do not add
+trusted-contact accounts, wrapped-key delivery, browser or backend decryption,
+public viewer changes, notifications, or key escrow.
+
+The future iOS incident-capture prototype is planned in [ios-local-recorder-prototype.md](ios-local-recorder-prototype.md). Future production key custody is documented in [key-custody.md](key-custody.md), with contact key sharing and future wrapped-key grants described in [contact key sharing, grants, and wrapped-key metadata](contact-key-sharing-grants.md), a simulator-only contact-wrapped key metadata prototype in [contact-wrapped-key-metadata-simulator.md](contact-wrapped-key-metadata-simulator.md), browser decryption and break-glass follow-up designs in [browser-decryption.md](browser-decryption.md) and [break-glass-key-access.md](break-glass-key-access.md), and live or partial stream access boundaries in [live-partial-stream-access-boundary.md](live-partial-stream-access-boundary.md). None of those future designs make the current main `/v1` API or `/admin` surface safe for broad public exposure.
 
 Evidence bundles are encrypted chunk bundles with JSON manifests. They are not decrypted, playable, or merged media exports.
 

@@ -13,7 +13,10 @@ public viewer and bundle behavior. Mode-specific retention behavior is not
 implemented; deletion and closed-incident retention enforcement are documented
 in [retention-backup-deletion.md](retention-backup-deletion.md). Planned
 mode-driven behavior is documented in [incident-modes.md](incident-modes.md).
-Trusted-contact and public product APIs do not exist yet.
+Authenticated account-owner routes can store trusted-contact public-key
+metadata and owner-scoped sharing-grant records, but trusted-contact accounts,
+wrapped-key delivery, browser or backend decryption, public product
+authentication, notifications, and key escrow do not exist yet.
 
 Default bind addresses:
 
@@ -187,6 +190,182 @@ explicitly designed and reviewed. Public reverse proxies must not route
 `/v1/admin/...` from a public edge. Keep private-admin dashboard listeners
 behind localhost, LAN, WireGuard, firewall rules, or a strict private reverse
 proxy.
+
+## Contact Public Keys
+
+Contact public-key routes are mounted on the main API listener and require a
+valid local account session. They are scoped to the authenticated account only;
+admins do not use these routes to manage another account's contact keys. The
+server stores public-key metadata, wrapping algorithm names, fingerprints,
+state, and optional display labels. It does not store contact private keys, raw
+media keys, wrapped media keys, browser fragment secrets, plaintext, request
+bodies, uploaded bytes, stored paths, staging paths, object keys, or private
+deployment details.
+
+Contact key states are:
+
+| State | Meaning |
+|---|---|
+| `pending_verification` | Registered but not eligible for new sharing grants. |
+| `active` | Eligible for new sharing grants. |
+| `replaced` | Superseded by another key version. |
+| `revoked` | Revoked and not eligible for future grants. |
+| `lost` | Marked lost and not eligible for future grants. |
+
+New sharing grants require an `active` contact public key. The API can register
+a new contact by omitting `contact_id`, or rotate an existing contact by
+providing an account-owned `contact_id`; rotated keys receive the next version.
+
+### `POST /v1/contact-public-keys`
+
+Registers trusted-contact public-key metadata for the authenticated account.
+The optional `key_state` defaults to `pending_verification`.
+
+Request:
+
+```json
+{
+  "display_label": "Trusted contact",
+  "wrapping_algorithm": "age-v1-x25519",
+  "public_key": "age1...",
+  "public_key_fingerprint": "fingerprint-...",
+  "key_state": "pending_verification"
+}
+```
+
+Response `201`:
+
+```json
+{
+  "contact_public_key": {
+    "public_key_id": "cpk_...",
+    "owner_account_id": "acct_...",
+    "contact_id": "ctc_...",
+    "version": 1,
+    "display_label": "Trusted contact",
+    "wrapping_algorithm": "age-v1-x25519",
+    "public_key": "age1...",
+    "public_key_fingerprint": "fingerprint-...",
+    "key_state": "pending_verification",
+    "created_at": "2026-06-01T10:00:00Z",
+    "updated_at": "2026-06-01T10:00:00Z"
+  }
+}
+```
+
+### `GET /v1/contact-public-keys`
+
+Lists contact public-key metadata owned by the authenticated account.
+
+### `GET /v1/contact-public-keys/{public_key_id}`
+
+Returns one account-owned contact public-key record. Records owned by another
+account return `404 contact_public_key_not_found`.
+
+### `PATCH /v1/contact-public-keys/{public_key_id}`
+
+Updates mutable contact-key metadata. The request may change `display_label`
+and `key_state`. Revoked keys cannot be reactivated.
+
+Request:
+
+```json
+{
+  "display_label": "Verified contact",
+  "key_state": "active"
+}
+```
+
+### `POST /v1/contact-public-keys/{public_key_id}/revoke`
+
+Marks one account-owned contact public key revoked. Revocation prevents the key
+from receiving new sharing grants or future wrapped-key records. It does not
+delete already accepted ciphertext, bundle contents, or any material a future
+authorized actor may already have downloaded.
+
+## Sharing Grants
+
+Sharing-grant routes are mounted on the main API listener and require a valid
+local account session. Grant creation and incident-scoped listing are
+account-owner actions: admins are not allowed to manage another account's
+sharing grants through these product routes unless the admin account owns the
+incident. Public viewer routes remain read-only and do not use these grant
+records.
+
+Sharing grants currently store authorization metadata only. They do not deliver
+wrapped media keys, decrypt media, create trusted-contact sessions, send
+notifications, alter incident-mode behavior, or change public viewer and bundle
+responses.
+
+Grant data classes are:
+
+| Data class | Meaning |
+|---|---|
+| `metadata` | Future metadata access authorization. |
+| `ciphertext` | Future encrypted evidence access authorization. |
+| `metadata_ciphertext` | Future metadata and encrypted evidence access authorization. |
+
+### `POST /v1/incidents/{incident_id}/sharing-grants`
+
+Creates an active sharing-grant record for an incident owned by the
+authenticated account. `stream_id` is optional; omit it for incident scope.
+The referenced contact must have an active contact public key owned by the same
+account. If `contact_public_key_id` is omitted, the latest active key version
+for the contact is used. `recipient_type` defaults to `trusted_contact`,
+`data_class` defaults to `metadata_ciphertext`, and `expires_at`, when present,
+must be in the future.
+
+Request:
+
+```json
+{
+  "stream_id": "str_...",
+  "contact_id": "ctc_...",
+  "data_class": "metadata_ciphertext",
+  "expires_at": "2026-06-08T10:00:00Z"
+}
+```
+
+Response `201`:
+
+```json
+{
+  "sharing_grant": {
+    "grant_id": "sgr_...",
+    "owner_account_id": "acct_...",
+    "incident_id": "inc_...",
+    "stream_id": "str_...",
+    "recipient_type": "trusted_contact",
+    "contact_id": "ctc_...",
+    "contact_public_key_id": "cpk_...",
+    "contact_public_key_version": 1,
+    "data_class": "metadata_ciphertext",
+    "grant_state": "active",
+    "created_at": "2026-06-01T10:00:00Z",
+    "updated_at": "2026-06-01T10:00:00Z",
+    "expires_at": "2026-06-08T10:00:00Z"
+  }
+}
+```
+
+Missing incidents, streams, or active contact public keys return
+`404 sharing_grant_dependency_not_found` without revealing which dependency was
+missing outside the owner boundary.
+
+### `GET /v1/incidents/{incident_id}/sharing-grants`
+
+Lists sharing grants for an incident owned by the authenticated account.
+
+### `GET /v1/sharing-grants/{grant_id}`
+
+Returns one sharing grant owned by the authenticated account.
+
+### `POST /v1/sharing-grants/{grant_id}/revoke`
+
+Marks one account-owned sharing grant revoked and records the revoking account.
+Revocation stops future grant-based authorization or delivery. It does not
+delete encrypted chunks, incident metadata, bundle contents, or anything an
+authorized actor may already have downloaded.
 
 ## Incidents
 

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added owner-scoped contact public-key registration and incident/stream
+  sharing-grant metadata routes with SQLite/PostgreSQL parity, while leaving
+  wrapped-key delivery, trusted-contact accounts, backend decryption, and key
+  custody behavior out of scope.
 - Added a planning design for future contact key sharing, trusted-contact
   grants, and wrapped-key metadata while preserving ciphertext-only backend
   behavior.

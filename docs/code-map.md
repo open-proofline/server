@@ -6,18 +6,21 @@ chunks, groups them into media streams, records metadata in SQLite by default
 or optional PostgreSQL, supports optional Valkey/Redis-compatible short-lived
 coordination, serves authenticated incident deletion and optional closed-incident
 retention workflows, and serves a scoped read-only incident viewer with
-encrypted evidence bundle downloads.
+encrypted evidence bundle downloads. It also stores owner-scoped
+trusted-contact public-key metadata and incident/stream sharing-grant metadata
+without adding wrapped-key delivery or decryption.
 
 This repository is the server/backend component only. In the planned `open-proofline` organisation layout it corresponds to `open-proofline/server`. Future web-client, iOS-client, Android-client, and protocol implementation should live in separate repositories.
 
 The current backend stores generic incidents by default and can store optional
 incident-mode, capture-profile, escalation-policy, and sharing-state metadata on
 main incident create/read routes. Those fields do not drive access,
-notification, retention, sharing, viewer, or key-custody behavior. Mode-driven
-behavior boundaries are documented in [incident-modes.md](incident-modes.md),
-with role and grant boundaries in [v1-access-control.md](v1-access-control.md)
-and future contact key-sharing boundaries in
-[contact-key-sharing-grants.md](contact-key-sharing-grants.md).
+notification, retention, sharing, viewer, or key-custody behavior.
+Account-owner contact public-key and sharing-grant metadata is implemented
+separately behind authenticated `/v1` routes. Mode-driven behavior boundaries
+are documented in [incident-modes.md](incident-modes.md), with role and grant
+boundaries in [v1-access-control.md](v1-access-control.md) and contact
+key-sharing boundaries in [contact-key-sharing-grants.md](contact-key-sharing-grants.md).
 
 ## Package Layout
 
@@ -31,8 +34,8 @@ and future contact key-sharing boundaries in
 - `internal/db`: opens SQLite, enables foreign keys and WAL mode, applies embedded SQLite migrations, records `schema_migrations`, and runs named compatibility migrations.
 - `internal/envelope`: implements the simulator/test AES-256-GCM client-side chunk envelope, associated data builder, and local simulator key file helpers.
 - `internal/auth`: normalizes local account usernames, validates passwords, hashes passwords with bcrypt, and hashes opaque session tokens before storage.
-- `internal/httpapi`: owns separate main and private-admin dashboard muxes, JSON responses, request logging, recovery, local account/session authentication, request validation, upload handling, stream state handlers, incident deletion handlers, ZIP bundle streaming, app-level main API, admin JSON API, and public viewer rate limiting, the private admin web surface, the incident viewer, and the narrow metadata repository boundary consumed by handlers.
-- `internal/incidents`: defines incident/stream/chunk/checkin/account/session/deletion models and provides the SQLite metadata repository implementation, including deletion decisions, tombstones, retry item state, and write guards for deleting incidents.
+- `internal/httpapi`: owns separate main and private-admin dashboard muxes, JSON responses, request logging, recovery, local account/session authentication, request validation, upload handling, stream state handlers, contact public-key handlers, sharing-grant handlers, incident deletion handlers, ZIP bundle streaming, app-level main API, admin JSON API, and public viewer rate limiting, the private admin web surface, the incident viewer, and the narrow metadata repository boundary consumed by handlers.
+- `internal/incidents`: defines incident/stream/chunk/checkin/account/session/deletion/contact-key/sharing-grant models and provides the SQLite metadata repository implementation, including deletion decisions, tombstones, retry item state, contact public-key records, sharing-grant records, and write guards for deleting incidents.
 - `internal/postgresdb`: opens optional PostgreSQL metadata connections, applies PostgreSQL migrations, and implements the metadata repository behavior with PostgreSQL transaction, row-locking, deletion, and constraint semantics.
 - `internal/retention`: runs the background deletion and optional closed-incident retention worker. It claims retryable deletion decisions, removes encrypted blobs through the storage boundary using stored paths snapshotted from metadata, records safe retry state, prunes sensitive child metadata after blob deletion, and logs only non-sensitive counts or error categories.
 - `internal/storage`: defines the blob-store boundary used by HTTP handlers and provides local filesystem and optional S3-compatible implementations, including temp uploads, hashing while streaming, server-controlled stored paths, and immutable final commits.
@@ -110,6 +113,23 @@ Metadata is written after the file is safely committed, through the configured m
 New clients can create a media stream with `POST /v1/incidents/{incident_id}/streams` and include the returned `stream_id` during chunk upload. Streamed chunk indexes start at `1`, and streamed chunk identity is `incident_id + stream_id + chunk_index`. Existing chunks without `stream_id` remain valid and readable as legacy chunk metadata, including older index `0` chunks; legacy unstreamed identity remains `incident_id + media_type + chunk_index`. Legacy unstreamed chunks are not included in completed-stream evidence bundles.
 
 Stream completion is handled by `internal/httpapi.completeMediaStream`. Before a stream moves from `open` to `complete`, the handler verifies that chunks `1..expected_chunk_count` exist contiguously for that stream and that each stored blob can be opened from the configured blob store. `internal/incidents.Repository.CompleteMediaStream` then revalidates the chunk rows in the completion transaction before committing the state change. Failed streams preserve uploaded chunks but are not offered as normal downloads.
+
+Contact public-key registration is handled by
+`POST /v1/contact-public-keys` and related routes in
+`internal/httpapi/sharing_handlers.go`. The handlers use the authenticated
+local account as the owner scope and store only public-key metadata through the
+configured metadata repository. They reject unknown JSON fields and do not
+accept contact private keys, raw media keys, wrapped media keys, plaintext, or
+browser fragment secrets.
+
+Sharing grants are handled by
+`POST /v1/incidents/{incident_id}/sharing-grants`, incident grant listing, and
+grant lookup/revocation routes. Grant creation is owner-only, checks that the
+incident is active, optionally checks that the stream belongs to the incident,
+and requires an active contact public key owned by the same account. Grants
+record incident or stream scope, contact ID, contact key version, data class,
+expiry, and revocation state. They do not deliver wrapped media keys, decrypt
+evidence, or change public incident viewer behavior.
 
 ## Deletion And Retention Flow
 
@@ -202,10 +222,11 @@ This repository should stay focused on server/backend work:
 - SQLite migrations and repository code
 - encrypted blob storage
 - token-scoped incident viewer
+- contact public-key and sharing-grant metadata
 - backend deployment docs
 - backend security, retention, and threat-model docs
 - simulator/reference backend flow
-- planning docs for future contact key-sharing and wrapped-key metadata
+- planning docs for future wrapped-key metadata and decryption clients
 
 Before public exposure, review and add:
 
@@ -224,7 +245,8 @@ Before public exposure, review and add:
 - operational monitoring for failed uploads and storage/DB errors
 - a production review of viewer-token sharing, expiry defaults, and revocation operations
 - mode-driven access, escalation, retention, sharing, viewer, key-custody,
-  trusted-contact, public product API, and broader admin/operator authorization
+  wrapped-key delivery, trusted-contact, public product API, and broader
+  admin/operator authorization
   design before implementing public account workflows or broad public `/v1`
   exposure
 
@@ -232,8 +254,8 @@ Before public exposure, review and add:
 
 The repository does not currently include the web client, iOS app, Android app,
 protocol repository, production local recording client, mode-driven access,
-escalation, retention, sharing, viewer behavior, trusted-contact accounts,
-dead-man switch notifications, production client key storage, key sharing,
+escalation, retention, viewer behavior, trusted-contact accounts, wrapped-key
+delivery, dead-man switch notifications, production client key storage,
 browser/client-side decryption, server-assisted break-glass key access,
 playable media export, push notifications, SMS, Messenger integration, OAuth,
 JWT, public account workflows, or a public admin dashboard. The local

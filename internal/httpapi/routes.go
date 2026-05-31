@@ -6,13 +6,23 @@ func (a *API) mainRoutes() http.Handler {
 	mux := http.NewServeMux()
 	a.registerMainAuthRoutes(mux)
 	a.registerAdminAPIRoutes(mux)
+	a.registerMainContactRoutes(mux)
 	a.registerMainIncidentRoutes(mux)
 	a.registerMainStreamRoutes(mux)
 	a.registerMainIncidentTokenRoutes(mux)
+	a.registerMainSharingGrantRoutes(mux)
 	a.registerPublicIncidentViewerRoutes(mux)
 	mux.HandleFunc("/", a.notFound)
 
 	return a.loggingMiddleware(a.recoveryMiddleware(a.mainSecurityMiddleware(a.publicRateLimitMiddleware(a.mainAPIRouteRateLimitMiddleware(mux)))))
+}
+
+func (a *API) registerMainContactRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("POST /v1/contact-public-keys", a.withPrivateAuth(a.createContactPublicKey))
+	mux.HandleFunc("GET /v1/contact-public-keys", a.withPrivateAuth(a.listContactPublicKeys))
+	mux.HandleFunc("GET /v1/contact-public-keys/{public_key_id}", a.withPrivateAuth(a.getContactPublicKey))
+	mux.HandleFunc("PATCH /v1/contact-public-keys/{public_key_id}", a.withPrivateAuth(a.updateContactPublicKey))
+	mux.HandleFunc("POST /v1/contact-public-keys/{public_key_id}/revoke", a.withPrivateAuth(a.revokeContactPublicKey))
 }
 
 func (a *API) adminRoutes() http.Handler {
@@ -54,6 +64,8 @@ func (a *API) registerMainIncidentRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /v1/incidents/{incident_id}", a.withPrivateAuth(a.getIncident))
 	mux.HandleFunc("GET /v1/incidents/{incident_id}/deletion", a.withPrivateAuth(a.getIncidentDeletion))
 	mux.HandleFunc("POST /v1/incidents/{incident_id}/deletion", a.withPrivateAuth(a.requestIncidentDeletion))
+	mux.HandleFunc("POST /v1/incidents/{incident_id}/sharing-grants", a.withPrivateAuth(a.createSharingGrant))
+	mux.HandleFunc("GET /v1/incidents/{incident_id}/sharing-grants", a.withPrivateAuth(a.listSharingGrants))
 	mux.HandleFunc("POST /v1/incidents/{incident_id}/chunks/reconcile", a.withPrivateAuth(a.reconcileChunk))
 	mux.HandleFunc("POST /v1/incidents/{incident_id}/chunks", a.withPrivateAuth(a.uploadChunk))
 	mux.HandleFunc("GET /v1/incidents/{incident_id}/chunks", a.withPrivateAuth(a.listChunks))
@@ -75,6 +87,11 @@ func (a *API) registerMainStreamRoutes(mux *http.ServeMux) {
 func (a *API) registerMainIncidentTokenRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /v1/incidents/{incident_id}/incident-tokens", a.withPrivateAuth(a.createIncidentToken))
 	mux.HandleFunc("POST /v1/incident-tokens/{token_id}/revoke", a.withPrivateAuth(a.revokeIncidentToken))
+}
+
+func (a *API) registerMainSharingGrantRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("GET /v1/sharing-grants/{grant_id}", a.withPrivateAuth(a.getSharingGrant))
+	mux.HandleFunc("POST /v1/sharing-grants/{grant_id}/revoke", a.withPrivateAuth(a.revokeSharingGrant))
 }
 
 func (a *API) publicRoutes() http.Handler {
