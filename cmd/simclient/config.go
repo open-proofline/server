@@ -27,6 +27,9 @@ type config struct {
 	verifyBundlePath      string
 	encrypt               bool
 	keyFile               string
+	wrappedKeyOutput      string
+	contactKeyFile        string
+	wrappedKeyContactID   string
 	verifyBundleDecrypt   bool
 	simulateFailureEvery  int
 	desktopRecorder       bool
@@ -76,6 +79,9 @@ func parseConfig(args []string) (config, error) {
 	fs.StringVar(&cfg.verifyBundlePath, "verify-bundle", "", "Verify an existing encrypted stream bundle ZIP and exit")
 	fs.BoolVar(&cfg.encrypt, "encrypt", true, "Encrypt simulated chunk bytes before upload")
 	fs.StringVar(&cfg.keyFile, "key-file", "", "Optional simulator encryption key file")
+	fs.StringVar(&cfg.wrappedKeyOutput, "wrapped-key-output", "", "Write simulator-only contact-wrapped key metadata artifact to this path")
+	fs.StringVar(&cfg.contactKeyFile, "contact-key-file", "", "Local simulator trusted-contact private key file for wrapped-key metadata")
+	fs.StringVar(&cfg.wrappedKeyContactID, "wrapped-key-contact-id", defaultWrappedKeyContactID, "Local simulator trusted-contact ID for wrapped-key metadata")
 	fs.BoolVar(&cfg.verifyBundleDecrypt, "verify-bundle-decryption", true, "Decrypt downloaded stream bundles locally when encryption is enabled")
 	fs.IntVar(&cfg.simulateFailureEvery, "simulate-failure-every", 0, "Every Nth chunk should intentionally fail hash verification before retrying")
 	fs.BoolVar(&cfg.desktopRecorder, "desktop-recorder", false, "Use durable desktop recorder simulator mode")
@@ -182,9 +188,15 @@ func parseConfig(args []string) (config, error) {
 		if strings.TrimSpace(cfg.bundleOutput) != "" {
 			return config{}, fmt.Errorf("--verify-bundle cannot be combined with --bundle-output")
 		}
+		if strings.TrimSpace(cfg.wrappedKeyOutput) != "" {
+			return config{}, fmt.Errorf("--verify-bundle cannot be combined with --wrapped-key-output")
+		}
 		if cfg.desktopRecorder {
 			return config{}, fmt.Errorf("--verify-bundle cannot be combined with --desktop-recorder")
 		}
+	}
+	if err := applyWrappedKeyDefaults(&cfg, offlineBundleVerify); err != nil {
+		return config{}, err
 	}
 	if cfg.downloadBundle && !cfg.completeStream {
 		return config{}, fmt.Errorf("--download-bundle requires --complete-stream")
@@ -201,6 +213,29 @@ func parseConfig(args []string) (config, error) {
 	cfg.viewerBase = cleanBaseURL(cfg.viewerBase)
 	cfg.username = strings.TrimSpace(cfg.username)
 	return cfg, nil
+}
+
+func applyWrappedKeyDefaults(cfg *config, offlineBundleVerify bool) error {
+	cfg.wrappedKeyContactID = strings.TrimSpace(cfg.wrappedKeyContactID)
+	if !validWrappedKeyContactID(cfg.wrappedKeyContactID) {
+		return fmt.Errorf("--wrapped-key-contact-id must contain only letters, numbers, underscores, and hyphens")
+	}
+	if strings.TrimSpace(cfg.wrappedKeyOutput) == "" {
+		if strings.TrimSpace(cfg.contactKeyFile) != "" {
+			return fmt.Errorf("--contact-key-file requires --wrapped-key-output")
+		}
+		return nil
+	}
+	if offlineBundleVerify {
+		return fmt.Errorf("--verify-bundle cannot be combined with --wrapped-key-output")
+	}
+	if !cfg.encrypt {
+		return fmt.Errorf("--wrapped-key-output requires --encrypt=true")
+	}
+	if strings.TrimSpace(cfg.contactKeyFile) == "" {
+		cfg.contactKeyFile = filepath.Join(filepath.Dir(cfg.wrappedKeyOutput), defaultContactKeyFileName)
+	}
+	return nil
 }
 
 func validateDesktopConfig(cfg config) error {

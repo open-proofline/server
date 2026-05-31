@@ -66,6 +66,15 @@ func run(ctx context.Context, out io.Writer, args []string) error {
 	}
 	fmt.Fprintf(out, "Stream: %s\n\n", streamID)
 
+	bundleVerificationKey := encryptionKey
+	contactWrappedVerification := false
+	if wrappedKey, ok, err := prepareContactWrappedKey(out, cfg, incidentID, streamID, encryptionKey); err != nil {
+		return err
+	} else if ok {
+		bundleVerificationKey = wrappedKey
+		contactWrappedVerification = true
+	}
+
 	if err := uploadChunks(ctx, out, sim, cfg, incidentID, streamID, encryptionKey); err != nil {
 		return err
 	}
@@ -79,7 +88,7 @@ func run(ctx context.Context, out io.Writer, args []string) error {
 	}
 
 	if cfg.downloadBundle {
-		if err := downloadAndVerifyBundle(ctx, out, sim, cfg, token, incidentID, streamID, encryptionKey); err != nil {
+		if err := downloadAndVerifyBundle(ctx, out, sim, cfg, token, incidentID, streamID, bundleVerificationKey, contactWrappedVerification); err != nil {
 			return err
 		}
 	}

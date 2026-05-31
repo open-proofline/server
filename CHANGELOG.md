@@ -17,6 +17,10 @@
   poor-network retry controls, complete-chunk idempotent uploads, bundle
   decrypt verification, encrypted-only bundle output, offline bundle
   verification, and token/path-safe simulator output.
+- Added opt-in simulator-only contact-wrapped key metadata artifacts using
+  local development contact keys and the maintained `filippo.io/age` wrapping
+  library, while keeping backend manifests, routes, storage, and decryption
+  behavior unchanged.
 - Added optional incident-mode, capture-profile, escalation-policy, and
   sharing-state metadata fields to private incident creation and read responses,
   while preserving generic legacy incidents and leaving access, notifications,
