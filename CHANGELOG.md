@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added a planning design for future contact key sharing, trusted-contact
+  grants, and wrapped-key metadata while preserving ciphertext-only backend
+  behavior.
 - Added optional Valkey/Redis-compatible short-lived complete-upload
   coordination leases with safe retry hints, while keeping metadata-backed
   upload operations and blob no-overwrite behavior authoritative.

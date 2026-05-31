@@ -9,6 +9,9 @@ The goal is to let Proofline test the shape of contact-wrapped media-key
 metadata before production key custody is implemented. The current backend
 continues to receive opaque encrypted chunks, validate SHA-256 over ciphertext,
 store encrypted blobs, and generate encrypted ZIP evidence bundles.
+The production contact public-key lifecycle, grant model, and server-stored
+wrapped-key metadata boundary are designed separately in
+[contact-key-sharing-grants.md](contact-key-sharing-grants.md).
 
 ## Goals
 
