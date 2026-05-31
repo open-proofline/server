@@ -32,6 +32,7 @@ Related source-of-truth docs:
 - [Main API public exposure listener split](public-api-listener-split.md)
 - [Incident capture modes](incident-modes.md)
 - [Key custody and emergency access](key-custody.md)
+- [Contact key sharing, grants, and wrapped-key metadata](contact-key-sharing-grants.md)
 - [Browser-side decryption](browser-decryption.md)
 - [Break-glass key access](break-glass-key-access.md)
 
@@ -298,6 +299,14 @@ An actor allowed to download encrypted bundles is not automatically allowed to
 obtain wrapped keys. An actor allowed to obtain wrapped keys is not necessarily
 allowed to obtain raw keys or plaintext.
 
+Future trusted-contact sharing should follow
+[contact-key-sharing-grants.md](contact-key-sharing-grants.md). Grants authorize
+metadata, ciphertext, and wrapped-key delivery by account owner, incident,
+stream, recipient, data class, expiry, and state. Wrapped-key records remain
+separate access-enabling metadata and should be delivered only under an
+authorized grant; public viewer tokens should not receive wrapped keys by
+default.
+
 ## Audit And Logging Expectations
 
 Future access-control implementation should add auditability without turning
@@ -341,7 +350,8 @@ incremental:
    block `/v1/admin/...` from public reverse-proxy routes until a future
    private admin API route group is explicitly designed.
 2. Define device, trusted-contact, public-link, operator, and optional
-   escrow data model requirements in a protocol/client design task.
+   escrow data model requirements, including the contact key-sharing grant and
+   wrapped-key metadata model, in a protocol/client design task.
 3. Introduce separate future route groups for public product API, private admin
    API, and public incident viewer behavior in design and tests before changing
    exposure.

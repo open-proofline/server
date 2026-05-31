@@ -15,7 +15,9 @@ incident-mode, capture-profile, escalation-policy, and sharing-state metadata on
 main incident create/read routes. Those fields do not drive access,
 notification, retention, sharing, viewer, or key-custody behavior. Mode-driven
 behavior boundaries are documented in [incident-modes.md](incident-modes.md),
-with role and grant boundaries in [v1-access-control.md](v1-access-control.md).
+with role and grant boundaries in [v1-access-control.md](v1-access-control.md)
+and future contact key-sharing boundaries in
+[contact-key-sharing-grants.md](contact-key-sharing-grants.md).
 
 ## Package Layout
 
@@ -203,6 +205,7 @@ This repository should stay focused on server/backend work:
 - backend deployment docs
 - backend security, retention, and threat-model docs
 - simulator/reference backend flow
+- planning docs for future contact key-sharing and wrapped-key metadata
 
 Before public exposure, review and add:
 

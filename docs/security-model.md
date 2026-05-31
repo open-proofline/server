@@ -1,6 +1,6 @@
 # Security Model
 
-This document summarizes the current Proofline backend security assumptions and controls. For a threat-oriented view, see [threat-model.md](threat-model.md). For planned incident-mode behavior, see [incident-modes.md](incident-modes.md). For `/v1` role and grant boundaries, see [v1-access-control.md](v1-access-control.md). For future production key custody and emergency access design, see [key-custody.md](key-custody.md), the simulator-only wrapped-key metadata prototype in [contact-wrapped-key-metadata-simulator.md](contact-wrapped-key-metadata-simulator.md), [browser-decryption.md](browser-decryption.md), [live-partial-stream-access-boundary.md](live-partial-stream-access-boundary.md), and [break-glass-key-access.md](break-glass-key-access.md). For vulnerability reporting, see [../SECURITY.md](../SECURITY.md).
+This document summarizes the current Proofline backend security assumptions and controls. For a threat-oriented view, see [threat-model.md](threat-model.md). For planned incident-mode behavior, see [incident-modes.md](incident-modes.md). For `/v1` role and grant boundaries, see [v1-access-control.md](v1-access-control.md). For future production key custody and emergency access design, see [key-custody.md](key-custody.md), the contact key-sharing and wrapped-key grant design in [contact-key-sharing-grants.md](contact-key-sharing-grants.md), the simulator-only wrapped-key metadata prototype in [contact-wrapped-key-metadata-simulator.md](contact-wrapped-key-metadata-simulator.md), [browser-decryption.md](browser-decryption.md), [live-partial-stream-access-boundary.md](live-partial-stream-access-boundary.md), and [break-glass-key-access.md](break-glass-key-access.md). For vulnerability reporting, see [../SECURITY.md](../SECURITY.md).
 
 ## Maturity
 
@@ -167,6 +167,11 @@ Incident bundle generation fails closed if any completed stream cannot be recons
 Bundles contain encrypted chunk bytes and JSON manifests only. They are not decrypted, playable, or merged media exports.
 
 Bundle manifests may include a non-secret client-side encryption hint. They do not include keys.
+Future wrapped-key records are designed in
+[contact-key-sharing-grants.md](contact-key-sharing-grants.md). They must stay
+separate from viewer tokens and ordinary ciphertext bundle access; public-link
+viewer bundles should remain ciphertext-only unless a later issue explicitly
+designs decryption-bearing public links.
 
 ## Incident Modes And Escalation Boundary
 
@@ -277,7 +282,7 @@ Normal file or object removal is not treated as guaranteed secure erasure. Deplo
 - No implemented mode-driven access, escalation, retention, sharing, key-custody,
   trusted-contact account, dead-man switch notification, or public account portal
   behavior
-- No implemented production client key storage, key sharing, browser decryption, server-assisted break-glass key access, or emergency-contact key access model; the future designs are documented in [key-custody.md](key-custody.md), [browser-decryption.md](browser-decryption.md), and [break-glass-key-access.md](break-glass-key-access.md)
+- No implemented production client key storage, key sharing, browser decryption, server-assisted break-glass key access, or emergency-contact key access model; the future designs are documented in [key-custody.md](key-custody.md), [contact-key-sharing-grants.md](contact-key-sharing-grants.md), [browser-decryption.md](browser-decryption.md), and [break-glass-key-access.md](break-glass-key-access.md)
 - No implemented live or partial stream access beyond current read-only stream
   metadata summaries and completed encrypted bundle downloads; the future
   boundary is documented in

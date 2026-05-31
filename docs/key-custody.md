@@ -23,6 +23,9 @@ Future key custody also depends on the role and grant boundaries in
 [v1-access-control.md](v1-access-control.md). Account-owner,
 trusted-contact, public-link, admin/operator, and optional escrow access must
 be designed separately from the encryption envelope itself.
+The contact public-key lifecycle, trusted-contact grants, and wrapped-key
+metadata boundary are designed in
+[contact-key-sharing-grants.md](contact-key-sharing-grants.md).
 
 ## Goals
 
@@ -241,6 +244,13 @@ Optional future mode:
 - It may use deployment-specific key storage such as a KMS, HSM, locked local secret store, or another reviewed secret-management system.
 
 This document decides the long-term direction: contact-wrapped keys plus client-side decryption should be the default production path, with server escrow or server-side decryption reserved for explicit break-glass modes.
+
+The first production contact-wrapped implementation should follow
+[contact-key-sharing-grants.md](contact-key-sharing-grants.md): access grants
+must remain separate from decryption capability, wrapped-key records must remain
+separate from viewer tokens, and the server must not store raw media keys,
+contact private keys, plaintext, or unwrapped shared secrets in the default
+path.
 
 ## Key Hierarchy
 

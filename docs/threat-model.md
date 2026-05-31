@@ -56,6 +56,9 @@ viewer tokens, and encrypted evidence bundles.
   in [incident-modes.md](incident-modes.md), role and grant boundaries are
   documented in [v1-access-control.md](v1-access-control.md), the intended
   future key custody direction is documented in [key-custody.md](key-custody.md),
+  future contact public-key lifecycle, trusted-contact grants, and wrapped-key
+  metadata are designed in
+  [contact-key-sharing-grants.md](contact-key-sharing-grants.md),
   the simulator-only contact-wrapped key metadata prototype is documented in
   [contact-wrapped-key-metadata-simulator.md](contact-wrapped-key-metadata-simulator.md),
   browser decryption constraints are documented in
@@ -237,7 +240,7 @@ The current backend does not implement incident-mode-specific controls yet, so f
 - No account self-service recovery, email verification, second factor
   authentication, delegated identity provider, or public account portal.
 - Viewer links are bearer tokens and must be shared carefully.
-- No implemented production key-sharing, key recovery, Keychain storage, trusted-contact access, browser decryption, break-glass key access, or playable export. The future key custody and emergency access design is documented in [key-custody.md](key-custody.md), with browser decryption design in [browser-decryption.md](browser-decryption.md) and break-glass design in [break-glass-key-access.md](break-glass-key-access.md).
+- No implemented production key-sharing, key recovery, Keychain storage, trusted-contact access, browser decryption, break-glass key access, or playable export. The future key custody and emergency access design is documented in [key-custody.md](key-custody.md), contact key-sharing and wrapped-key grants are designed in [contact-key-sharing-grants.md](contact-key-sharing-grants.md), browser decryption is designed in [browser-decryption.md](browser-decryption.md), and break-glass access is designed in [break-glass-key-access.md](break-glass-key-access.md).
 
 ## Deployment Guidance
 
