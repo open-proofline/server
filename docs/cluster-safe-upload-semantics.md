@@ -320,8 +320,8 @@ or a simpler complete-chunk retry model. This document does not make partial
 uploads visible as committed evidence and does not design a resumable transfer
 protocol. That follow-up decision is documented in
 [resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md), which
-defers resumable uploads and upload leases for a local desktop recorder
-simulator client.
+keeps the local desktop recorder simulator on complete encrypted chunk retries
+while deferring resumable uploads and upload leases.
 
 This document focuses on the commit and confirmation semantics once an upload
 attempt has enough data to compute the ciphertext hash and decide whether a

@@ -20,7 +20,10 @@ Proofline Server is the experimental Go server backend for private encrypted inc
 
 ## What It Is
 
-This repository currently contains the Go server backend only. It does not contain the web client, iOS client, Android client, protocol repository, account portal, recording implementation, or mobile app code.
+This repository currently contains the Go server backend only. It does not
+contain the web client, iOS client, Android client, protocol repository,
+account portal, production recording client, or mobile app code. The simulator
+may capture or encode local test segments for backend reference flows only.
 
 The intended long-term Proofline product is broader than emergency-only recording: it should support private encrypted incident capture for emergencies, non-emergency interaction records, timed safety checks, and evidence notes.
 
@@ -28,7 +31,12 @@ Future client repositories are expected to record audio/video and supporting met
 
 Evidence bundles are ZIP files containing encrypted chunks and JSON manifests. They are not decrypted, playable, or merged media exports.
 
-The simulator encrypts fake chunks by default with the documented v1 AES-256-GCM envelope and verifies downloaded bundles locally. Keys remain client-side and are not uploaded to the backend. Future production key custody is expected to use a hybrid trusted-contact model; see [docs/key-custody.md](docs/key-custody.md).
+The simulator encrypts generated chunks by default with the documented v1
+AES-256-GCM envelope, can stage local file or ffmpeg test segments in
+desktop-recorder mode, and verifies downloaded bundles locally. Keys remain
+client-side and are not uploaded to the backend. Future production key custody
+is expected to use a hybrid trusted-contact model; see
+[docs/key-custody.md](docs/key-custody.md).
 
 Planned production-cluster work is additive. SQLite metadata and local filesystem blob storage remain supported. Optional PostgreSQL metadata, S3-compatible object storage, and Valkey/Redis-compatible coordination are available only when explicitly configured. Complete-upload idempotency is implemented through metadata-backed upload-operation state, while resumable uploads, leases, and operation-level coordination remain future work. See [docs/production-cluster-scope.md](docs/production-cluster-scope.md).
 
@@ -90,7 +98,8 @@ trusted-contact workflows, or change public viewer and bundle behavior. See
 - Completed encrypted stream and incident ZIP evidence bundle downloads
 - Scoped viewer tokens with a default 24-hour expiry
 - Validated backend-selection config defaults for SQLite metadata, optional PostgreSQL metadata, local encrypted blobs, optional S3-compatible encrypted blobs, no coordination by default, and optional Valkey/Redis-compatible coordination
-- Simulator CLI for encrypted upload, check-in, stream completion, and bundle download/decrypt-verification flows
+- Simulator CLI for encrypted upload, check-in, stream completion, bundle
+  download/decrypt-verification, and durable desktop-recorder staging flows
 - Docker image build and GitHub Actions / GHCR publishing
 
 ## What It Is Not Yet
@@ -99,7 +108,7 @@ trusted-contact workflows, or change public viewer and bundle behavior. See
 - No Android app
 - No web client or account portal
 - No protocol repository or shared conformance test suite
-- No recording implementation
+- No production recording client implementation
 - No mode-driven access, notification, retention, sharing, trusted-contact,
   key-custody, or viewer behavior
 - No production client-side encryption implementation
@@ -174,7 +183,13 @@ PROOFLINE_SIM_PASSWORD='replace-with-a-long-local-password' \
 go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle
 ```
 
-The simulator creates an incident, creates a viewer token, encrypts and uploads test chunks into a media stream, sends checkins, completes the stream, downloads the encrypted bundle, and verifies local decryption.
+The simulator creates an incident, creates a viewer token without printing the
+token-bearing viewer URL, encrypts and uploads test chunks into a media stream,
+sends checkins, completes the stream, downloads the encrypted bundle, and
+verifies local decryption. See [docs/simulator.md](docs/simulator.md) for
+encrypted bundle output, offline bundle verification, the durable
+desktop-recorder mode, local file input, ffmpeg segment capture, and
+poor-network retry controls.
 
 ## Docker
 

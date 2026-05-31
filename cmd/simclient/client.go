@@ -157,6 +157,19 @@ func (c client) completeMediaStream(ctx context.Context, incidentID, streamID st
 	return nil
 }
 
+func (c client) failMediaStream(ctx context.Context, incidentID, streamID, reason string) error {
+	request := map[string]string{"failure_reason": reason}
+	var response mediaStreamResponse
+	path := "/v1/incidents/" + url.PathEscape(incidentID) + "/streams/" + url.PathEscape(streamID) + "/fail"
+	if err := c.postJSON(ctx, path, request, http.StatusOK, &response); err != nil {
+		return fmt.Errorf("fail media stream: %w", err)
+	}
+	if response.Stream.Status != "failed" {
+		return fmt.Errorf("fail media stream: expected failed status, got %q", response.Stream.Status)
+	}
+	return nil
+}
+
 func (c client) closeIncident(ctx context.Context, incidentID string) error {
 	path := "/v1/incidents/" + url.PathEscape(incidentID) + "/close"
 	if err := c.postJSON(ctx, path, map[string]any{}, http.StatusOK, nil); err != nil {
@@ -169,11 +182,11 @@ func (c client) downloadStreamBundle(ctx context.Context, token, streamID string
 	path := "/i/" + url.PathEscape(token) + "/streams/" + url.PathEscape(streamID) + "/download"
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, joinURL(c.viewerBase, path), nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("build bundle download request")
 	}
 	response, err := c.httpClient.Do(request)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("download bundle request failed")
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Added a durable desktop-recorder simulator mode to `cmd/simclient`, with
+  encrypted local staging, restart/resume upload recovery, generated and local
+  pre-recorded file sources, optional ffmpeg video segment capture,
+  poor-network retry controls, complete-chunk idempotent uploads, bundle
+  decrypt verification, encrypted-only bundle output, offline bundle
+  verification, and token/path-safe simulator output.
 - Added optional incident-mode, capture-profile, escalation-policy, and
   sharing-state metadata fields to private incident creation and read responses,
   while preserving generic legacy incidents and leaving access, notifications,

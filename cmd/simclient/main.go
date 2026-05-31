@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 )
 
@@ -20,6 +19,12 @@ func run(ctx context.Context, out io.Writer, args []string) error {
 	if err != nil {
 		return err
 	}
+	if cfg.verifyBundlePath != "" {
+		return runVerifyBundle(out, cfg)
+	}
+	if cfg.desktopRecorder {
+		return runDesktopRecorder(ctx, out, cfg)
+	}
 
 	encryptionKey, err := prepareEncryption(out, cfg)
 	if err != nil {
@@ -27,7 +32,7 @@ func run(ctx context.Context, out io.Writer, args []string) error {
 	}
 
 	sim := client{
-		httpClient: &http.Client{Timeout: clientRequestTimeout},
+		httpClient: newHTTPClient(cfg),
 		apiBase:    cfg.apiBase,
 		viewerBase: cfg.viewerBase,
 	}
@@ -51,7 +56,8 @@ func run(ctx context.Context, out io.Writer, args []string) error {
 	}
 
 	fmt.Fprintf(out, "Incident: %s\n", incidentID)
-	fmt.Fprintf(out, "Incident viewer: %s\n\n", buildViewerURL(sim.viewerBase, token))
+	fmt.Fprintln(out, "Incident viewer token created; URL omitted from output.")
+	fmt.Fprintln(out)
 
 	fmt.Fprintf(out, "Creating %s media stream...\n", cfg.mediaType)
 	streamID, err := sim.createMediaStream(ctx, incidentID, cfg.mediaType)

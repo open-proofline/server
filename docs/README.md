@@ -13,7 +13,7 @@ This directory contains the detailed documentation for Proofline Server, the Go 
 | [Cluster backup, restore, and failure runbook](cluster-backup-restore-runbook.md) | Operational guidance for optional PostgreSQL metadata, S3-compatible encrypted blobs, configuration, coordination, restore validation, and cluster failure modes. |
 | [PostgreSQL metadata migration path](postgresql-metadata-migration.md) | PostgreSQL metadata backend schema parity, migrations, transaction boundaries, tests, migration limits, and restore expectations. |
 | [Cluster-safe upload operation semantics](cluster-safe-upload-semantics.md) | Complete-upload idempotency-key behavior plus remaining cluster-safe upload operation design for commit ordering, retry success, conflict handling, and cleanup across metadata and blob backends. |
-| [Resumable upload and upload lease protocol](resumable-upload-lease-protocol.md) | Planning decision to defer resumable uploads and upload leases for a local desktop recorder simulator client while preserving complete encrypted chunk retry semantics, poor-network simulation, and future account-flow shape. |
+| [Resumable upload and upload lease protocol](resumable-upload-lease-protocol.md) | Planning decision to keep the desktop recorder simulator on complete encrypted chunk retry semantics while deferring resumable uploads and upload leases. |
 | [Incident capture modes](incident-modes.md) | Planned emergency, interaction-record, safety-check, and evidence-note modes, plus future capture-profile, escalation-policy, sharing-state, and migration boundaries. |
 | [/v1 access control](v1-access-control.md) | Current local account/session boundary plus future role, grant, public product API, private admin API listener, audit, and migration boundaries for account-owner, trusted-contact, public-link, admin/operator, and optional escrow access. |
 | [Encryption](encryption.md) | Client-side chunk envelope, simulator key file, and local bundle verification. |
@@ -29,7 +29,7 @@ This directory contains the detailed documentation for Proofline Server, the Go 
 | [Incident deletion and retention enforcement design](incident-deletion-retention-enforcement.md) | Future design for private/admin deletion decisions, retention jobs, tombstones, blob deletion retry, and safe audit boundaries. |
 | [Security model](security-model.md) | Current controls, browser headers, logging posture, and security assumptions. |
 | [Threat model](threat-model.md) | Assets, trust boundaries, controls, limitations, and next security steps. |
-| [Simulator](simulator.md) | Simulator commands and test flows. |
+| [Simulator](simulator.md) | Simulator commands, durable desktop-recorder staging, poor-network controls, and test flows. |
 | [Development](development.md) | Repository layout, commands, AI assistance note, branch rulesets, checks, and release checklist notes. |
 | [Compose smoke tests](../compose/README.md) | Local release-smoke stacks for SQLite/local, PostgreSQL/local, SQLite/S3-compatible MinIO, and full PostgreSQL/MinIO/Valkey combinations. |
 | [Codex change control](codex-change-control.md) | Rollback points, scoped Codex tasks, review steps, and issue-first backlog rules. |
@@ -82,11 +82,12 @@ with already accepted metadata without re-uploading ciphertext; see
 [api.md](api.md).
 The resumable upload and upload lease path is also planning-only; see
 [resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md). It
-defers resumable uploads and leases for a local desktop recorder simulator
-client and keeps the current complete encrypted chunk upload contract. The
-future desktop simulator should include adjustable poor-network simulation and
-use the current local account/session flow unless a later client protocol
-replaces it.
+continues to defer resumable uploads and leases while the desktop recorder
+simulator measures the current complete encrypted chunk upload contract. The
+desktop simulator in `cmd/simclient` includes durable encrypted staging,
+restart/resume drills, local file input, optional ffmpeg segment capture, and
+adjustable poor-network simulation while continuing to use the current local
+account/session flow and complete encrypted chunk upload API.
 
 The long-term Proofline product direction is broader than emergency-only
 recording. Future clients should support emergency incidents, non-emergency

@@ -13,23 +13,21 @@ Complete-upload idempotency keys are implemented separately and documented in
 
 ## Decision
 
-Do not add a resumable-upload or upload-lease protocol before a local desktop
-recorder simulator client is added.
+Do not add a resumable-upload or upload-lease protocol yet. The local desktop
+recorder simulator in `cmd/simclient` keeps the current complete-chunk upload
+contract: record or read short media intervals, encrypt each completed interval
+locally, stage the encrypted envelope durably on the client, and retry the
+whole encrypted chunk when an upload is interrupted or ambiguous.
 
-A local desktop recorder simulator client should keep the current
-complete-chunk upload contract: record short media intervals, encrypt each
-completed interval locally, stage the encrypted envelope durably on the client,
-and retry the whole encrypted chunk when an upload is interrupted or ambiguous.
+This keeps recorder measurement inside the server repository's simulator and
+reference-flow boundary. It also avoids making partially uploaded bytes visible
+as evidence before the project has production cluster storage, durable upload
+operation state, or public `/v1` access control.
 
-This keeps the next recorder milestone inside the server repository's simulator
-and reference-flow boundary. It also avoids making partially uploaded bytes
-visible as evidence before the project has production cluster storage, durable
-upload operation state, or public `/v1` access control.
-
-Revisit explicit resumability after a desktop recorder simulator has measured
-real local capture chunk sizes, retry cost, interruption behavior, and local
-storage pressure. Revalidate the decision again later before native iOS or
-Android recorder work.
+Revisit explicit resumability after the desktop recorder simulator has produced
+enough measurements for real local capture chunk sizes, retry cost,
+interruption behavior, and local storage pressure. Revalidate the decision again
+later before native iOS or Android recorder work.
 
 ## Current Behavior
 
@@ -56,12 +54,14 @@ viewer-visible evidence item.
 
 ## Desktop Recorder Simulator Guidance
 
-For a local desktop recorder simulator client, use the existing complete-chunk
+For the local desktop recorder simulator client, use the existing complete-chunk
 contract.
 
 Client behavior:
 
-- keep chunks short, with the current audio-first default around 5 seconds
+- keep chunks short
+- allow generated chunks, local pre-recorded file chunks, and optional ffmpeg
+  video segment capture for local desktop recording drills
 - encrypt each finalized chunk before upload
 - compute `sha256_hex` over the complete encrypted envelope bytes
 - persist encrypted staged chunks and immutable upload metadata locally
@@ -73,7 +73,8 @@ Client behavior:
   out-of-order upload behavior
 - complete a stream only after chunks `1..expected_chunk_count` are locally
   marked uploaded
-- fail the stream if the client cannot produce a contiguous sequence
+- optionally fail the stream if the client cannot produce or upload a
+  contiguous sequence and local state supports that decision
 - use the current local account/session flow for simulator authentication unless
   a later client protocol replaces it
 
@@ -312,7 +313,7 @@ Add backend tests for:
 - avoiding raw session IDs, tokens, request bodies, uploaded bytes, plaintext,
   raw keys, and paths in logs and responses
 
-Add simulator coverage only after the backend feature exists:
+Add simulator coverage if a backend resumable-upload feature is later added:
 
 - interrupted upload followed by resumable completion
 - expired upload session followed by whole-chunk retry
@@ -320,7 +321,7 @@ Add simulator coverage only after the backend feature exists:
 - hash mismatch at final commit
 - proof that downloaded bundles still contain only committed encrypted chunks
 
-Until then, the simulator should keep using complete encrypted chunk uploads.
+Until then, the simulator keeps using complete encrypted chunk uploads.
 
 ## Out Of Scope
 

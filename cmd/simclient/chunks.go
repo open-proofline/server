@@ -95,14 +95,14 @@ func loadOrCreateSimulatorKey(path string) (envelope.Key, error) {
 		return key, nil
 	}
 	if !errors.Is(err, os.ErrNotExist) {
-		return envelope.Key{}, fmt.Errorf("load key file: %w", err)
+		return envelope.Key{}, safePathError("load key file", err)
 	}
 	key, err = envelope.GenerateKey()
 	if err != nil {
 		return envelope.Key{}, fmt.Errorf("generate encryption key: %w", err)
 	}
 	if err := envelope.SaveKeyFile(path, key); err != nil {
-		return envelope.Key{}, fmt.Errorf("save key file: %w", err)
+		return envelope.Key{}, safePathError("save key file", err)
 	}
 	return key, nil
 }
@@ -119,6 +119,19 @@ func chunkContext(incidentID, streamID, mediaType string, chunkIndex int) envelo
 func sha256Hex(payload []byte) string {
 	sum := sha256.Sum256(payload)
 	return hex.EncodeToString(sum[:])
+}
+
+func validSHA256Hex(value string) bool {
+	if len(value) != 64 {
+		return false
+	}
+	for _, char := range value {
+		if (char >= '0' && char <= '9') || (char >= 'a' && char <= 'f') {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func shouldSimulateFailure(chunkIndex, every int) bool {

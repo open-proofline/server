@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -62,6 +63,7 @@ func TestClientWriteRoutesUsePrivateAPIBase(t *testing.T) {
 		"POST /v1/incidents/inc_1/streams",
 		"POST /v1/incidents/inc_1/checkins",
 		"POST /v1/incidents/inc_1/streams/str_1/complete",
+		"POST /v1/incidents/inc_1/streams/str_1/fail",
 		"POST /v1/incidents/inc_1/close",
 	}
 	var gotPaths []string
@@ -86,6 +88,8 @@ func TestClientWriteRoutesUsePrivateAPIBase(t *testing.T) {
 			return testResponse(http.StatusCreated, "application/json", `{"id":"chk_1"}`), nil
 		case "/v1/incidents/inc_1/streams/str_1/complete":
 			return testResponse(http.StatusOK, "application/json", `{"stream":{"id":"str_1","incident_id":"inc_1","media_type":"audio","status":"complete","created_at":"2026-05-22T10:00:00Z","updated_at":"2026-05-22T10:01:00Z","completed_at":"2026-05-22T10:01:00Z"}}`), nil
+		case "/v1/incidents/inc_1/streams/str_1/fail":
+			return testResponse(http.StatusOK, "application/json", `{"stream":{"id":"str_1","incident_id":"inc_1","media_type":"audio","status":"failed","created_at":"2026-05-22T10:00:00Z","updated_at":"2026-05-22T10:01:00Z","failed_at":"2026-05-22T10:01:00Z"}}`), nil
 		case "/v1/incidents/inc_1/close":
 			return testResponse(http.StatusOK, "application/json", `{"id":"inc_1","status":"closed"}`), nil
 		default:
@@ -131,6 +135,9 @@ func TestClientWriteRoutesUsePrivateAPIBase(t *testing.T) {
 	}
 	if err := sim.completeMediaStream(ctx, incidentID, streamID, 1); err != nil {
 		t.Fatalf("completeMediaStream returned error: %v", err)
+	}
+	if err := sim.failMediaStream(ctx, incidentID, streamID, "test failure"); err != nil {
+		t.Fatalf("failMediaStream returned error: %v", err)
 	}
 	if err := sim.closeIncident(ctx, incidentID); err != nil {
 		t.Fatalf("closeIncident returned error: %v", err)
@@ -313,6 +320,51 @@ func TestParseConfigStreamFlags(t *testing.T) {
 	}
 }
 
+func TestParseConfigBundleOutput(t *testing.T) {
+	cfg, err := parseConfig(withAuthArgs(
+		"--chunks", "2",
+		"--interval", "0",
+		"--download-bundle",
+		"--bundle-output", "bundle.zip",
+	))
+	if err != nil {
+		t.Fatalf("parseConfig returned error: %v", err)
+	}
+	if cfg.bundleOutput != "bundle.zip" {
+		t.Fatalf("bundleOutput = %q", cfg.bundleOutput)
+	}
+}
+
+func TestParseConfigVerifyBundleDoesNotRequireAuth(t *testing.T) {
+	cfg, err := parseConfig([]string{
+		"--verify-bundle", "bundle.zip",
+		"--key-file", "key.json",
+	})
+	if err != nil {
+		t.Fatalf("parseConfig returned error: %v", err)
+	}
+	if cfg.verifyBundlePath != "bundle.zip" {
+		t.Fatalf("verifyBundlePath = %q", cfg.verifyBundlePath)
+	}
+	if cfg.keyFile != "key.json" {
+		t.Fatalf("keyFile = %q", cfg.keyFile)
+	}
+}
+
+func TestParseConfigVerifyBundleUsesStageKeyByDefault(t *testing.T) {
+	cfg, err := parseConfig([]string{
+		"--verify-bundle", "bundle.zip",
+		"--stage-dir", "stage",
+	})
+	if err != nil {
+		t.Fatalf("parseConfig returned error: %v", err)
+	}
+	want := filepath.Join("stage", "simulator-key.json")
+	if cfg.keyFile != want {
+		t.Fatalf("keyFile = %q, want %q", cfg.keyFile, want)
+	}
+}
+
 func TestParseConfigEncryptionDefaults(t *testing.T) {
 	cfg, err := parseConfig(withAuthArgs("--chunks", "2", "--interval", "0"))
 	if err != nil {
@@ -401,6 +453,42 @@ func TestParseConfigRejectsInvalidValues(t *testing.T) {
 			name: "negative failure interval",
 			args: withAuthArgs("--simulate-failure-every", "-1"),
 		},
+		{
+			name: "desktop recorder without stage dir",
+			args: withAuthArgs("--desktop-recorder"),
+		},
+		{
+			name: "desktop files without input",
+			args: withAuthArgs("--desktop-recorder", "--stage-dir", "stage", "--desktop-source", "files"),
+		},
+		{
+			name: "ffmpeg requires video media type",
+			args: withAuthArgs("--desktop-recorder", "--stage-dir", "stage", "--desktop-source", "ffmpeg"),
+		},
+		{
+			name: "invalid network failure rate",
+			args: withAuthArgs("--network-failure-rate", "1.5"),
+		},
+		{
+			name: "bundle output without bundle download",
+			args: withAuthArgs("--bundle-output", "bundle.zip"),
+		},
+		{
+			name: "bundle output requires encrypted upload",
+			args: withAuthArgs("--download-bundle", "--bundle-output", "bundle.zip", "--encrypt=false"),
+		},
+		{
+			name: "verify bundle requires key source",
+			args: []string{"--verify-bundle", "bundle.zip"},
+		},
+		{
+			name: "verify bundle requires encrypted bundle",
+			args: []string{"--verify-bundle", "bundle.zip", "--key-file", "key.json", "--encrypt=false"},
+		},
+		{
+			name: "verify bundle is offline",
+			args: withAuthArgs("--verify-bundle", "bundle.zip", "--key-file", "key.json", "--download-bundle"),
+		},
 	}
 
 	for _, tt := range tests {
@@ -409,6 +497,68 @@ func TestParseConfigRejectsInvalidValues(t *testing.T) {
 				t.Fatal("expected error")
 			}
 		})
+	}
+}
+
+func TestParseConfigDesktopRecorderFilesMode(t *testing.T) {
+	cfg, err := parseConfig(withAuthArgs(
+		"--desktop-recorder",
+		"--stage-dir", "stage",
+		"--desktop-source", "files",
+		"--input-file", "first.mp4",
+		"--input-file", "second.mp4",
+		"--network-bandwidth", "256KiB",
+		"--network-latency", "25ms",
+		"--network-jitter", "10ms",
+		"--network-timeout", "5s",
+		"--desktop-max-attempts", "3",
+	))
+	if err != nil {
+		t.Fatalf("parseConfig returned error: %v", err)
+	}
+	if !cfg.desktopRecorder || cfg.desktopSource != desktopSourceFiles {
+		t.Fatalf("desktop config not set: %+v", cfg)
+	}
+	if len(cfg.desktopInputFiles) != 2 {
+		t.Fatalf("desktop input files = %v", cfg.desktopInputFiles)
+	}
+	if cfg.networkBandwidth != 256*1024 {
+		t.Fatalf("networkBandwidth = %d", cfg.networkBandwidth)
+	}
+	if cfg.networkTimeout != 5*time.Second {
+		t.Fatalf("networkTimeout = %s", cfg.networkTimeout)
+	}
+	if cfg.desktopMaxAttempts != 3 {
+		t.Fatalf("desktopMaxAttempts = %d", cfg.desktopMaxAttempts)
+	}
+}
+
+func TestParseConfigDesktopRecorderFFmpegMode(t *testing.T) {
+	cfg, err := parseConfig(withAuthArgs(
+		"--desktop-recorder",
+		"--stage-dir", "stage",
+		"--desktop-source", "ffmpeg",
+		"--media-type", "video",
+		"--ffmpeg-input-format", "x11grab",
+		"--ffmpeg-input", ":0.0",
+		"--ffmpeg-video-codec", "mpeg4",
+		"--ffmpeg-duration", "2s",
+		"--ffmpeg-segment-time", "1s",
+	))
+	if err != nil {
+		t.Fatalf("parseConfig returned error: %v", err)
+	}
+	if cfg.desktopSource != desktopSourceFFmpeg {
+		t.Fatalf("desktopSource = %q", cfg.desktopSource)
+	}
+	if cfg.mediaType != "video" {
+		t.Fatalf("mediaType = %q", cfg.mediaType)
+	}
+	if cfg.ffmpegInputFormat != "x11grab" || cfg.ffmpegInput != ":0.0" {
+		t.Fatalf("ffmpeg input = %q %q", cfg.ffmpegInputFormat, cfg.ffmpegInput)
+	}
+	if cfg.ffmpegVideoCodec != "mpeg4" {
+		t.Fatalf("ffmpegVideoCodec = %q", cfg.ffmpegVideoCodec)
 	}
 }
 
@@ -555,6 +705,243 @@ func TestNewEncryptedChunkUploadCanDecryptEnvelope(t *testing.T) {
 	}
 }
 
+func TestDesktopStageChunkCreatesEncryptedDurableUpload(t *testing.T) {
+	stage, err := openDesktopStage(t.TempDir())
+	if err != nil {
+		t.Fatalf("openDesktopStage returned error: %v", err)
+	}
+	key, err := envelope.GenerateKey()
+	if err != nil {
+		t.Fatalf("GenerateKey returned error: %v", err)
+	}
+	manifest := newDesktopManifest("inc_stage", "str_stage", "audio", desktopSourceFiles)
+	startedAt := time.Date(2026, 5, 22, 10, 0, 0, 0, time.UTC)
+	if err := stage.stageChunk(&manifest, key, []byte("encoded media bytes"), startedAt, startedAt.Add(chunkDuration)); err != nil {
+		t.Fatalf("stageChunk returned error: %v", err)
+	}
+	if len(manifest.Chunks) != 1 {
+		t.Fatalf("manifest chunks = %d, want 1", len(manifest.Chunks))
+	}
+	if strings.Contains(manifest.Chunks[0].Filename, string(os.PathSeparator)) {
+		t.Fatalf("staged filename contains path separator: %q", manifest.Chunks[0].Filename)
+	}
+
+	loaded, err := stage.loadManifest()
+	if err != nil {
+		t.Fatalf("loadManifest returned error: %v", err)
+	}
+	upload, err := stage.chunkUpload(loaded, loaded.Chunks[0])
+	if err != nil {
+		t.Fatalf("chunkUpload returned error: %v", err)
+	}
+	if upload.incidentID != "inc_stage" || upload.streamID != "str_stage" || upload.chunkIndex != 1 {
+		t.Fatalf("unexpected upload identity: %+v", upload)
+	}
+	plaintext, err := envelope.DecryptChunk(key, chunkContext(upload.incidentID, upload.streamID, upload.mediaType, upload.chunkIndex), upload.body)
+	if err != nil {
+		t.Fatalf("DecryptChunk returned error: %v", err)
+	}
+	if string(plaintext) != "encoded media bytes" {
+		t.Fatalf("decrypted body = %q", plaintext)
+	}
+	if upload.sha256Hex != sha256Hex(upload.body) {
+		t.Fatalf("upload sha256Hex = %q, want %q", upload.sha256Hex, sha256Hex(upload.body))
+	}
+}
+
+func TestValidateDesktopManifestRejectsChunkIndexGaps(t *testing.T) {
+	manifest := newDesktopManifest("inc_stage", "str_stage", "audio", desktopSourceGenerated)
+	startedAt := time.Date(2026, 5, 22, 10, 0, 0, 0, time.UTC)
+	manifest.Chunks = []desktopStageChunk{
+		{
+			ChunkIndex: 1,
+			MediaType:  "audio",
+			StartedAt:  startedAt,
+			EndedAt:    startedAt.Add(chunkDuration),
+			Filename:   "audio_000001.enc",
+			ByteSize:   16,
+			SHA256Hex:  strings.Repeat("a", 64),
+		},
+		{
+			ChunkIndex: 3,
+			MediaType:  "audio",
+			StartedAt:  startedAt.Add(chunkDuration),
+			EndedAt:    startedAt.Add(2 * chunkDuration),
+			Filename:   "audio_000003.enc",
+			ByteSize:   16,
+			SHA256Hex:  strings.Repeat("b", 64),
+		},
+	}
+
+	if err := validateDesktopManifest(manifest); err == nil {
+		t.Fatal("expected non-contiguous manifest to be rejected")
+	}
+}
+
+func TestUploadDesktopStageRetriesAndPersistsUploadState(t *testing.T) {
+	stage, err := openDesktopStage(t.TempDir())
+	if err != nil {
+		t.Fatalf("openDesktopStage returned error: %v", err)
+	}
+	key, err := envelope.GenerateKey()
+	if err != nil {
+		t.Fatalf("GenerateKey returned error: %v", err)
+	}
+	manifest := newDesktopManifest("inc_retry", "str_retry", "audio", desktopSourceGenerated)
+	startedAt := time.Date(2026, 5, 22, 10, 0, 0, 0, time.UTC)
+	if err := stage.stageChunk(&manifest, key, []byte("retry body"), startedAt, startedAt.Add(chunkDuration)); err != nil {
+		t.Fatalf("stageChunk returned error: %v", err)
+	}
+
+	requests := 0
+	httpClient := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		requests++
+		if requests == 1 {
+			return nil, errSimulatedNetwork
+		}
+		if r.Method != http.MethodPost || r.URL.Path != "/v1/incidents/inc_retry/chunks" {
+			t.Fatalf("unexpected upload route %s %s", r.Method, r.URL.Path)
+		}
+		if r.Header.Get("Idempotency-Key") == "" {
+			t.Fatalf("upload omitted idempotency key")
+		}
+		return testResponse(http.StatusCreated, "application/json", `{"id":"chunk_1"}`), nil
+	})}
+	sim := client{
+		httpClient:   httpClient,
+		apiBase:      "http://api.example",
+		viewerBase:   "http://viewer.example",
+		sessionToken: "session-token",
+	}
+	cfg := config{desktopMaxAttempts: 2, desktopRetryDelay: 0}
+	if err := uploadDesktopStage(context.Background(), io.Discard, sim, cfg, stage, &manifest); err != nil {
+		t.Fatalf("uploadDesktopStage returned error: %v", err)
+	}
+	if requests != 2 {
+		t.Fatalf("requests = %d, want 2", requests)
+	}
+	if !manifest.Chunks[0].Uploaded {
+		t.Fatal("chunk was not marked uploaded")
+	}
+	if manifest.Chunks[0].UploadAttempts != 2 {
+		t.Fatalf("UploadAttempts = %d, want 2", manifest.Chunks[0].UploadAttempts)
+	}
+	loaded, err := stage.loadManifest()
+	if err != nil {
+		t.Fatalf("loadManifest returned error: %v", err)
+	}
+	if !loaded.Chunks[0].Uploaded || loaded.Chunks[0].UploadAttempts != 2 {
+		t.Fatalf("persisted upload state = %+v", loaded.Chunks[0])
+	}
+}
+
+func TestRunDesktopRecorderFailsIncompleteFFmpegStream(t *testing.T) {
+	dir := t.TempDir()
+	ffmpegBin := filepath.Join(dir, "fake-ffmpeg")
+	script := `#!/bin/sh
+last=
+for arg do
+	last="$arg"
+done
+out=$(printf '%s\n' "$last" | sed 's/%06d/000000/')
+printf 'fake encoded segment' > "$out"
+`
+	if err := os.WriteFile(ffmpegBin, []byte(script), 0o700); err != nil {
+		t.Fatalf("write fake ffmpeg: %v", err)
+	}
+
+	uploadRequests := 0
+	failRequests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/v1/auth/login":
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"token":"session-token"}`))
+		case "/v1/incidents":
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"incident_id":"inc_ffmpeg","status":"open"}`))
+		case "/v1/incidents/inc_ffmpeg/streams":
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"stream":{"id":"str_ffmpeg","incident_id":"inc_ffmpeg","media_type":"video","status":"open","created_at":"2026-05-22T10:00:00Z","updated_at":"2026-05-22T10:00:00Z"}}`))
+		case "/v1/incidents/inc_ffmpeg/chunks":
+			uploadRequests++
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte(`{"error":{"code":"simulated_upload_failure","message":"upload failed"}}`))
+		case "/v1/incidents/inc_ffmpeg/streams/str_ffmpeg/fail":
+			failRequests++
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"stream":{"id":"str_ffmpeg","incident_id":"inc_ffmpeg","media_type":"video","status":"failed","created_at":"2026-05-22T10:00:00Z","updated_at":"2026-05-22T10:01:00Z","failed_at":"2026-05-22T10:01:00Z"}}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"error":{"code":"not_found"}}`))
+		}
+	}))
+	defer server.Close()
+
+	cfg := config{
+		apiBase:               server.URL,
+		viewerBase:            "http://viewer.example",
+		username:              "admin",
+		password:              "test-password",
+		mediaType:             "video",
+		chunkSize:             16,
+		completeStream:        true,
+		encrypt:               true,
+		desktopRecorder:       true,
+		desktopStageDir:       filepath.Join(dir, "stage"),
+		desktopFailIncomplete: true,
+		desktopSource:         desktopSourceFFmpeg,
+		desktopMaxAttempts:    1,
+		networkTimeout:        clientRequestTimeout,
+		ffmpegBin:             ffmpegBin,
+		ffmpegInputFormat:     defaultFFmpegInputFormat,
+		ffmpegInput:           defaultFFmpegInput,
+		ffmpegVideoCodec:      defaultFFmpegVideoCodec,
+		ffmpegDuration:        time.Second,
+		ffmpegSegmentTime:     time.Second,
+	}
+
+	var out bytes.Buffer
+	err := runDesktopRecorder(context.Background(), &out, cfg)
+	if err == nil {
+		t.Fatal("expected ffmpeg upload failure")
+	}
+	if uploadRequests != 1 {
+		t.Fatalf("uploadRequests = %d, want 1", uploadRequests)
+	}
+	if failRequests != 1 {
+		t.Fatalf("failRequests = %d, want 1", failRequests)
+	}
+	if !strings.Contains(out.String(), "Failing stream because local staged chunks did not fully upload.") {
+		t.Fatalf("output did not mention stream failure: %q", out.String())
+	}
+}
+
+func TestNetworkTransportFailsEveryNthRequest(t *testing.T) {
+	baseRequests := 0
+	transport := newNetworkTransport(networkProfile{
+		offlineEvery: 2,
+		seed:         1,
+	}, roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		baseRequests++
+		return testResponse(http.StatusOK, "text/plain", "ok"), nil
+	}))
+	request, err := http.NewRequest(http.MethodGet, "http://api.example/v1/health/live", nil)
+	if err != nil {
+		t.Fatalf("NewRequest returned error: %v", err)
+	}
+	if _, err := transport.RoundTrip(request); err != nil {
+		t.Fatalf("first request returned error: %v", err)
+	}
+	if _, err := transport.RoundTrip(request); err != errSimulatedNetwork {
+		t.Fatalf("second request error = %v, want simulated network", err)
+	}
+	if baseRequests != 1 {
+		t.Fatalf("baseRequests = %d, want 1", baseRequests)
+	}
+}
+
 func TestVerifyStreamBundleDecryption(t *testing.T) {
 	key, err := envelope.GenerateKey()
 	if err != nil {
@@ -588,6 +975,53 @@ func TestVerifyStreamBundleDecryption(t *testing.T) {
 	}
 }
 
+func TestRunVerifyBundle(t *testing.T) {
+	key, err := envelope.GenerateKey()
+	if err != nil {
+		t.Fatalf("GenerateKey returned error: %v", err)
+	}
+	dir := t.TempDir()
+	keyPath := filepath.Join(dir, "key.json")
+	if err := envelope.SaveKeyFile(keyPath, key); err != nil {
+		t.Fatalf("SaveKeyFile returned error: %v", err)
+	}
+
+	incidentID := "inc_bundle"
+	streamID := "str_bundle"
+	mediaType := "audio"
+	chunk := mustEncryptTestChunk(t, key, incidentID, streamID, mediaType, 1, []byte("plaintext"))
+	bundleBytes := makeTestBundle(t, streamBundleManifest{
+		IncidentID: incidentID,
+		StreamID:   streamID,
+		MediaType:  mediaType,
+		ChunkCount: 1,
+		Chunks: []bundleChunkManifest{
+			{ChunkIndex: 1, MediaType: mediaType, SHA256Hex: sha256Hex(chunk)},
+		},
+	}, map[string][]byte{
+		"chunks/audio_000001.enc": chunk,
+	})
+	bundlePath := filepath.Join(dir, "bundle.zip")
+	if err := os.WriteFile(bundlePath, bundleBytes, 0o600); err != nil {
+		t.Fatalf("write test bundle: %v", err)
+	}
+
+	var out bytes.Buffer
+	if err := run(context.Background(), &out, []string{
+		"--verify-bundle", bundlePath,
+		"--key-file", keyPath,
+	}); err != nil {
+		t.Fatalf("run returned error: %v", err)
+	}
+	output := out.String()
+	if !strings.Contains(output, "Verified decrypt of 1 encrypted chunks.") {
+		t.Fatalf("output = %q", output)
+	}
+	if strings.Contains(output, bundlePath) || strings.Contains(output, keyPath) {
+		t.Fatalf("output leaked a local path: %q", output)
+	}
+}
+
 func TestVerifyStreamBundleDecryptionRejectsWrongMetadata(t *testing.T) {
 	key, err := envelope.GenerateKey()
 	if err != nil {
@@ -611,6 +1045,32 @@ func TestVerifyStreamBundleDecryptionRejectsWrongMetadata(t *testing.T) {
 
 	if _, err := verifyStreamBundleDecryption(bundleBytes, key, "inc_changed", streamID, mediaType); err == nil {
 		t.Fatal("verifyStreamBundleDecryption succeeded with wrong incident id")
+	}
+}
+
+func TestWriteEncryptedBundleDoesNotOverwrite(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "nested", "bundle.zip")
+	first := []byte("encrypted bundle bytes")
+	if err := writeEncryptedBundle(path, first); err != nil {
+		t.Fatalf("writeEncryptedBundle returned error: %v", err)
+	}
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile returned error: %v", err)
+	}
+	if !bytes.Equal(got, first) {
+		t.Fatalf("written bundle = %q, want %q", got, first)
+	}
+	if err := writeEncryptedBundle(path, []byte("replacement")); err == nil {
+		t.Fatal("expected second write to fail")
+	}
+	got, err = os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile after failed overwrite returned error: %v", err)
+	}
+	if !bytes.Equal(got, first) {
+		t.Fatalf("bundle was overwritten: %q", got)
 	}
 }
 
