@@ -8,6 +8,15 @@ import (
 
 // CreateCheckin inserts a checkin for an incident.
 func (r *Repository) CreateCheckin(ctx context.Context, incidentID string, params CreateCheckinParams) (Checkin, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return Checkin{}, fmt.Errorf("begin create checkin: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	if err := requireActiveIncidentTx(ctx, tx, incidentID); err != nil {
+		return Checkin{}, err
+	}
+
 	id, err := newID("cin")
 	if err != nil {
 		return Checkin{}, err
@@ -23,7 +32,7 @@ func (r *Repository) CreateCheckin(ctx context.Context, incidentID string, param
 		AccuracyMeters:       params.AccuracyMeters,
 	}
 
-	_, err = r.db.ExecContext(ctx, `
+	_, err = tx.ExecContext(ctx, `
 		INSERT INTO checkins (
 			id, incident_id, created_at, device_battery_percent, device_network,
 			latitude, longitude, accuracy_meters
@@ -43,6 +52,9 @@ func (r *Repository) CreateCheckin(ctx context.Context, incidentID string, param
 			return Checkin{}, ErrNotFound
 		}
 		return Checkin{}, fmt.Errorf("insert checkin: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return Checkin{}, fmt.Errorf("commit create checkin: %w", err)
 	}
 
 	return checkin, nil

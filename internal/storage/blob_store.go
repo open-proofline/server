@@ -14,8 +14,8 @@ import (
 //   - CommitTemp moves a verified staged upload to a server-controlled stored
 //     path and must never overwrite an existing committed blob.
 //   - Open accepts only previously stored server-controlled paths from metadata.
-//   - Remove is for rollback of a just-committed blob when metadata insertion
-//     fails; it must not accept client-provided paths.
+//   - Remove deletes only server-controlled stored paths from metadata or
+//     rollback state; it must not accept client-provided paths.
 type BlobStore interface {
 	Check(ctx context.Context) error
 	SaveTemp(ctx context.Context, reader io.Reader, maxBytes int64) (*TempUpload, error)

@@ -227,7 +227,11 @@ Future design should decide:
 - how retention applies to wrapped keys, public links, trusted-contact grants, and bundle manifests
 - what audit fields can be retained without leaking raw tokens, raw keys, plaintext, request bodies, uploaded bytes, or private deployment details
 
-The current backend does not implement automatic expiration or incident deletion APIs. Future work should align with [retention-backup-deletion.md](retention-backup-deletion.md) and [incident-deletion-retention-enforcement.md](incident-deletion-retention-enforcement.md).
+The current backend implements generic incident deletion and optional
+closed-incident retention, but it does not implement mode-specific retention or
+mode-specific deletion behavior. Future work should align with
+[retention-backup-deletion.md](retention-backup-deletion.md) and
+[incident-deletion-retention-enforcement.md](incident-deletion-retention-enforcement.md).
 
 ## Dependencies Before Implementation
 

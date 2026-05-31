@@ -10,6 +10,15 @@ import (
 
 // CreateMediaStream inserts a new open stream for one incident.
 func (r *Repository) CreateMediaStream(ctx context.Context, incidentID, mediaType, label string) (MediaStream, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return MediaStream{}, fmt.Errorf("begin create media stream: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	if err := requireActiveIncidentTx(ctx, tx, incidentID); err != nil {
+		return MediaStream{}, err
+	}
+
 	now := time.Now().UTC()
 	id, err := newID("str")
 	if err != nil {
@@ -25,7 +34,7 @@ func (r *Repository) CreateMediaStream(ctx context.Context, incidentID, mediaTyp
 		UpdatedAt:  now,
 	}
 
-	_, err = r.db.ExecContext(ctx, `
+	_, err = tx.ExecContext(ctx, `
 		INSERT INTO media_streams (
 			id, incident_id, media_type, label, status, created_at, updated_at
 		)
@@ -43,6 +52,9 @@ func (r *Repository) CreateMediaStream(ctx context.Context, incidentID, mediaTyp
 			return MediaStream{}, ErrNotFound
 		}
 		return MediaStream{}, fmt.Errorf("insert media stream: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return MediaStream{}, fmt.Errorf("commit create media stream: %w", err)
 	}
 	return stream, nil
 }
@@ -148,6 +160,10 @@ func (r *Repository) CompleteMediaStream(ctx context.Context, incidentID, stream
 	if err != nil {
 		return MediaStream{}, fmt.Errorf("begin complete media stream: %w", err)
 	}
+	defer func() { _ = tx.Rollback() }()
+	if err := requireActiveIncidentTx(ctx, tx, incidentID); err != nil {
+		return MediaStream{}, err
+	}
 
 	result, err := tx.ExecContext(ctx, `
 		UPDATE media_streams
@@ -163,16 +179,13 @@ func (r *Repository) CompleteMediaStream(ctx context.Context, incidentID, stream
 		StreamStatusOpen,
 	)
 	if err != nil {
-		_ = tx.Rollback()
 		return MediaStream{}, fmt.Errorf("complete media stream: %w", err)
 	}
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		_ = tx.Rollback()
 		return MediaStream{}, fmt.Errorf("complete media stream rows affected: %w", err)
 	}
 	if rowsAffected == 0 {
-		_ = tx.Rollback()
 		if _, err := r.GetMediaStream(ctx, incidentID, streamID); errors.Is(err, ErrNotFound) {
 			return MediaStream{}, ErrNotFound
 		}
@@ -187,11 +200,9 @@ func (r *Repository) CompleteMediaStream(ctx context.Context, incidentID, stream
 		streamID,
 	).Scan(&mediaType)
 	if err != nil {
-		_ = tx.Rollback()
 		return MediaStream{}, fmt.Errorf("read completed stream media type: %w", err)
 	}
 	if err := validateCompleteStreamChunkRows(ctx, tx, incidentID, streamID, mediaType, expectedChunkCount); err != nil {
-		_ = tx.Rollback()
 		return MediaStream{}, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -238,7 +249,16 @@ func validateCompleteStreamChunkRows(ctx context.Context, tx *sql.Tx, incidentID
 // FailMediaStream marks an open stream failed while preserving uploaded chunks.
 func (r *Repository) FailMediaStream(ctx context.Context, incidentID, streamID, reason string) (MediaStream, error) {
 	now := time.Now().UTC()
-	result, err := r.db.ExecContext(ctx, `
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return MediaStream{}, fmt.Errorf("begin fail media stream: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	if err := requireActiveIncidentTx(ctx, tx, incidentID); err != nil {
+		return MediaStream{}, err
+	}
+
+	result, err := tx.ExecContext(ctx, `
 		UPDATE media_streams
 		SET status = ?, updated_at = ?, failed_at = ?, failure_reason = ?,
 			completed_at = NULL
@@ -263,6 +283,9 @@ func (r *Repository) FailMediaStream(ctx context.Context, incidentID, streamID, 
 			return MediaStream{}, ErrNotFound
 		}
 		return MediaStream{}, ErrInvalidState
+	}
+	if err := tx.Commit(); err != nil {
+		return MediaStream{}, fmt.Errorf("commit fail media stream: %w", err)
 	}
 	return r.GetMediaStream(ctx, incidentID, streamID)
 }

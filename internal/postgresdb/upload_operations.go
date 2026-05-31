@@ -18,6 +18,15 @@ const uploadOperationColumns = `
 // ReserveUploadOperation binds an idempotency-key hash to immutable upload
 // inputs. Reusing the same key with different inputs returns ErrIdempotencyConflict.
 func (r *Repository) ReserveUploadOperation(ctx context.Context, params incidents.UploadOperationParams) (incidents.UploadOperation, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return incidents.UploadOperation{}, fmt.Errorf("begin reserve postgres upload operation: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	if err := lockActiveIncident(ctx, tx, params.IncidentID); err != nil {
+		return incidents.UploadOperation{}, err
+	}
+
 	now := time.Now().UTC()
 	id, err := newID("uop")
 	if err != nil {
@@ -42,7 +51,7 @@ func (r *Repository) ReserveUploadOperation(ctx context.Context, params incident
 		UpdatedAt:          now,
 	}
 
-	_, err = r.db.ExecContext(ctx, `
+	_, err = tx.ExecContext(ctx, `
 		INSERT INTO upload_operations (
 			id, operation, idempotency_key_hash, incident_id, stream_id, chunk_index,
 			media_type, started_at, ended_at, original_filename, byte_size, sha256_hex,
@@ -67,6 +76,9 @@ func (r *Repository) ReserveUploadOperation(ctx context.Context, params incident
 		operation.UpdatedAt,
 	)
 	if err == nil {
+		if err := tx.Commit(); err != nil {
+			return incidents.UploadOperation{}, fmt.Errorf("commit reserve postgres upload operation: %w", err)
+		}
 		return operation, nil
 	}
 	if isForeignKeyViolation(err) {
@@ -75,6 +87,7 @@ func (r *Repository) ReserveUploadOperation(ctx context.Context, params incident
 	if !isUniqueViolation(err) {
 		return incidents.UploadOperation{}, fmt.Errorf("insert postgres upload operation: %w", err)
 	}
+	_ = tx.Rollback()
 
 	existing, getErr := r.getUploadOperationByKey(ctx, params.Operation, params.IdempotencyKeyHash)
 	if errors.Is(getErr, incidents.ErrNotFound) {

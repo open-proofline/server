@@ -117,7 +117,7 @@ trusted-contact workflows, or change public viewer and bundle behavior. See
 - No backend/browser decryption, key sharing, server escrow, break-glass key access, or playable media export
 - No push notifications, SMS, or Messenger integration
 - No OAuth, JWT, public account portal, or public admin dashboard
-- No built-in TLS, app-level rate limiting, automated retention/deletion enforcement, or production deployment hardening
+- No built-in TLS, app-level rate limiting, mode-specific retention policy, backup lifecycle enforcement, or production deployment hardening
 - No emergency-services integration; users or trusted contacts remain responsible for contacting emergency services
 
 ## Architecture
@@ -238,7 +238,7 @@ Container defaults bind to `0.0.0.0` inside the container. Restrict host exposur
 - [API reference](docs/api.md)
 - [Deployment notes](docs/deployment.md), including SQLite WAL operations
 - [Retention, backup, and deletion](docs/retention-backup-deletion.md)
-- [Incident deletion and retention enforcement design](docs/incident-deletion-retention-enforcement.md)
+- [Incident deletion and retention enforcement](docs/incident-deletion-retention-enforcement.md)
 - [Security model](docs/security-model.md)
 - [Threat model](docs/threat-model.md)
 - [Simulator](docs/simulator.md)

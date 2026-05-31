@@ -85,6 +85,34 @@ func TestMigrateAddsIncidentModeColumns(t *testing.T) {
 	}
 }
 
+func TestMigrateAddsIncidentDeletionRetentionSchema(t *testing.T) {
+	ctx := context.Background()
+	conn := openMemoryDB(t)
+	defer conn.Close()
+
+	if err := Migrate(ctx, conn); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	if !hasColumn(t, ctx, conn, "incidents", "deletion_state") {
+		t.Fatal("expected incidents.deletion_state column")
+	}
+	for _, tableName := range []string{"incident_deletion_decisions", "incident_deletion_items"} {
+		if !hasTable(t, ctx, conn, tableName) {
+			t.Fatalf("expected %s table", tableName)
+		}
+	}
+	if _, err := conn.ExecContext(ctx, `
+		INSERT INTO incidents (id, created_at, updated_at, status, deletion_state)
+		VALUES ('inc_deleting', '2026-05-21T10:00:00Z', '2026-05-21T10:00:00Z', 'open', 'deleting')`); err != nil {
+		t.Fatalf("insert incident with valid deletion state: %v", err)
+	}
+	if _, err := conn.ExecContext(ctx, `
+		INSERT INTO incidents (id, created_at, updated_at, status, deletion_state)
+		VALUES ('inc_bad_delete_state', '2026-05-21T10:00:00Z', '2026-05-21T10:00:00Z', 'open', 'purged')`); err == nil {
+		t.Fatal("expected invalid deletion_state to fail")
+	}
+}
+
 func TestMigrateRejectsRecordedChecksumMismatch(t *testing.T) {
 	ctx := context.Background()
 	conn := openMemoryDB(t)

@@ -52,8 +52,14 @@ func TestIncidentAuthorizationScopeAllowed(t *testing.T) {
 			want:      false,
 		},
 		{
-			name:      "unknown action",
+			name:      "delete incident",
 			action:    "delete_incident",
+			dataClass: dataClassIncidentMetadata,
+			want:      true,
+		},
+		{
+			name:      "unknown action",
+			action:    "delete_everything",
 			dataClass: dataClassIncidentMetadata,
 			want:      false,
 		},

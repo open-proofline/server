@@ -8,10 +8,12 @@ The current API stores incidents owned by local accounts. Incidents are generic
 by default and may include optional `incident_mode`, `capture_profile`,
 `escalation_policy`, and `sharing_state` metadata on the private create/read
 routes. Those fields are metadata only: they do not grant access, send
-notifications, change retention, change key custody, expose trusted-contact
-workflows, or change public viewer and bundle behavior. Planned mode-driven
-behavior is documented in [incident-modes.md](incident-modes.md). Trusted-contact
-and public product APIs do not exist yet.
+notifications, change key custody, expose trusted-contact workflows, or change
+public viewer and bundle behavior. Mode-specific retention behavior is not
+implemented; deletion and closed-incident retention enforcement are documented
+in [retention-backup-deletion.md](retention-backup-deletion.md). Planned
+mode-driven behavior is documented in [incident-modes.md](incident-modes.md).
+Trusted-contact and public product APIs do not exist yet.
 
 Default bind addresses:
 
@@ -227,7 +229,7 @@ Authorization headers, plaintext, raw keys, stored paths, object keys, private
 deployment details, or sensitive evidence metadata. It is not a public admin
 dashboard and must stay on the private listener.
 
-### Admin Account API Routes
+### Admin API Routes
 
 The following routes require an admin account session:
 
@@ -235,6 +237,8 @@ The following routes require an admin account session:
 - `POST /v1/admin/accounts`
 - `POST /v1/admin/accounts/{account_id}/password`
 - `POST /v1/admin/accounts/{account_id}/sessions/revoke`
+- `GET /v1/admin/incidents/{incident_id}/deletion`
+- `POST /v1/admin/incidents/{incident_id}/deletion`
 
 `POST /v1/admin/accounts` accepts `username`, `password`, and `role`, where `role` is `user` or `admin`. Admin password reset and explicit session revocation revoke all sessions for the selected account.
 
@@ -304,7 +308,8 @@ Response `200`:
     "incident_mode": "interaction_record",
     "capture_profile": "audio_location",
     "escalation_policy": "none",
-    "sharing_state": "private"
+    "sharing_state": "private",
+    "deletion_state": "active"
   },
   "streams": [],
   "chunks": [],
@@ -320,6 +325,79 @@ Response `200` is the updated private incident object. If the incident has
 optional mode metadata, the same fields shown in the `GET` incident object can
 be present. Closing an incident does not change sharing, retention, viewer,
 notification, or key-custody behavior.
+
+### `POST /v1/incidents/{incident_id}/deletion`
+
+Requests deletion for an incident owned by the authenticated account. Admins
+can use this route only for incidents they own; use the admin route below for
+global deletion. The route creates durable deletion state and snapshots
+server-controlled stored paths from metadata before any blob is deleted. It is
+mounted only on the private API listener.
+
+Request:
+
+```json
+{
+  "reason_code": "account_delete",
+  "allow_open": true
+}
+```
+
+`reason_code` is optional and must be a short non-sensitive code using letters,
+digits, `_`, `-`, `.`, or `:`. It must not contain raw tokens, request bodies,
+evidence notes, private deployment details, plaintext, raw keys, stored paths,
+object keys, or user safety narrative. Open incidents are rejected unless
+`allow_open` is true. Repeating a deletion request for the same incident returns
+the existing deletion decision.
+
+Response `202`:
+
+```json
+{
+  "deletion": {
+    "decision_id": "del_...",
+    "incident_id": "inc_...",
+    "source": "account_request",
+    "reason_code": "account_delete",
+    "actor_account_id": "acct_...",
+    "allow_open": true,
+    "state": "deletion_pending",
+    "item_count": 2,
+    "requested_at": "2026-05-31T10:00:00Z",
+    "updated_at": "2026-05-31T10:00:00Z"
+  }
+}
+```
+
+### `GET /v1/incidents/{incident_id}/deletion`
+
+Returns the non-sensitive deletion status for an incident visible to the
+authenticated account.
+
+### `POST /v1/admin/incidents/{incident_id}/deletion`
+
+Requests deletion for any incident visible to an admin account. The request and
+response shape match the account route, but the `source` is `admin_request`.
+
+### `GET /v1/admin/incidents/{incident_id}/deletion`
+
+Returns the non-sensitive deletion status for any incident by ID. This route
+requires an admin account.
+
+Deletion states are:
+
+| State | Meaning |
+|---|---|
+| `active` | Incident is not being deleted. |
+| `deletion_pending` | A deletion decision exists and blob deletion items have been prepared. |
+| `deleting` | The background worker is deleting encrypted blobs and metadata. |
+| `deletion_failed` | Blob deletion failed and the deletion is retryable. |
+| `deleted` | Encrypted blobs and sensitive child metadata have been removed or confirmed absent. |
+
+While an incident is not `active`, write routes, bundle routes, chunk upload,
+and new incident-token creation fail closed. Public viewer token lookups for
+the incident return the same `404 incident_token_invalid` shape used for
+invalid, expired, or revoked tokens and do not reveal deletion state.
 
 ## Chunks
 

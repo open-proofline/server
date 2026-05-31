@@ -37,17 +37,20 @@ func (r *Repository) CreateIncidentToken(ctx context.Context, incidentID, label 
 		ExpiresAt:  utcTimePtr(expiresAt),
 	}
 
-	_, err = r.db.ExecContext(ctx, `
+	result, err := r.db.ExecContext(ctx, `
 		INSERT INTO incident_tokens (
 			id, incident_id, token_hash, label, created_at, expires_at
 		)
-		VALUES (?, ?, ?, ?, ?, ?)`,
+		SELECT ?, id, ?, ?, ?, ?
+		FROM incidents
+		WHERE id = ? AND deletion_state = ?`,
 		token.ID,
-		token.IncidentID,
 		token.TokenHash,
 		nullableString(token.Label),
 		formatDBTime(token.CreatedAt),
 		nullableTime(token.ExpiresAt),
+		token.IncidentID,
+		IncidentDeletionStateActive,
 	)
 	if err != nil {
 		// Constraint failures include missing incident foreign keys and the
@@ -58,6 +61,13 @@ func (r *Repository) CreateIncidentToken(ctx context.Context, incidentID, label 
 		}
 		return IncidentToken{}, "", fmt.Errorf("insert incident token: %w", err)
 	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return IncidentToken{}, "", fmt.Errorf("insert incident token rows affected: %w", err)
+	}
+	if rowsAffected == 0 {
+		return IncidentToken{}, "", ErrNotFound
+	}
 
 	return token, rawToken, nil
 }
@@ -67,10 +77,14 @@ func (r *Repository) CreateIncidentToken(ctx context.Context, incidentID, label 
 func (r *Repository) LookupIncidentToken(ctx context.Context, rawToken string) (IncidentToken, error) {
 	tokenHash := hashIncidentToken(rawToken)
 	row := r.db.QueryRowContext(ctx, `
-		SELECT id, incident_id, token_hash, label, created_at, expires_at, revoked_at
-		FROM incident_tokens
-		WHERE token_hash = ?`,
+			SELECT incident_tokens.id, incident_tokens.incident_id, incident_tokens.token_hash,
+				incident_tokens.label, incident_tokens.created_at, incident_tokens.expires_at,
+				incident_tokens.revoked_at
+			FROM incident_tokens
+			JOIN incidents ON incidents.id = incident_tokens.incident_id
+			WHERE incident_tokens.token_hash = ? AND incidents.deletion_state = ?`,
 		tokenHash,
+		IncidentDeletionStateActive,
 	)
 
 	token, err := scanIncidentToken(row)

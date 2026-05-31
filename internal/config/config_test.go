@@ -48,6 +48,17 @@ func TestLoadDefaultSessionTTL(t *testing.T) {
 	}
 }
 
+func TestLoadDefaultDeletionRetentionConfig(t *testing.T) {
+	cfg := loadConfigForTest(t, nil)
+
+	if cfg.DeletionWorkerInterval != time.Minute {
+		t.Fatalf("deletion worker interval = %s, want 1m", cfg.DeletionWorkerInterval)
+	}
+	if cfg.ClosedIncidentRetention != 0 {
+		t.Fatalf("closed incident retention = %s, want disabled", cfg.ClosedIncidentRetention)
+	}
+}
+
 func TestLoadAuthBootstrapSecret(t *testing.T) {
 	cfg := loadConfigForTest(t, map[string]string{
 		"SAFE_AUTH_BOOTSTRAP_SECRET": " bootstrap-secret ",
@@ -443,6 +454,34 @@ func TestLoadSessionTTLFromEnv(t *testing.T) {
 	}
 }
 
+func TestLoadDeletionRetentionConfigFromEnv(t *testing.T) {
+	cfg := loadConfigForTest(t, map[string]string{
+		"SAFE_DELETION_WORKER_INTERVAL":  "30s",
+		"SAFE_CLOSED_INCIDENT_RETENTION": "720h",
+	})
+
+	if cfg.DeletionWorkerInterval != 30*time.Second {
+		t.Fatalf("deletion worker interval = %s, want 30s", cfg.DeletionWorkerInterval)
+	}
+	if cfg.ClosedIncidentRetention != 720*time.Hour {
+		t.Fatalf("closed incident retention = %s, want 720h", cfg.ClosedIncidentRetention)
+	}
+}
+
+func TestLoadCanDisableDeletionWorkerAndRetention(t *testing.T) {
+	cfg := loadConfigForTest(t, map[string]string{
+		"SAFE_DELETION_WORKER_INTERVAL":  "0",
+		"SAFE_CLOSED_INCIDENT_RETENTION": "0",
+	})
+
+	if cfg.DeletionWorkerInterval != 0 {
+		t.Fatalf("deletion worker interval = %s, want disabled", cfg.DeletionWorkerInterval)
+	}
+	if cfg.ClosedIncidentRetention != 0 {
+		t.Fatalf("closed incident retention = %s, want disabled", cfg.ClosedIncidentRetention)
+	}
+}
+
 func TestLoadRejectsInvalidIncidentTokenTTL(t *testing.T) {
 	tests := map[string]string{
 		"negative": "-1s",
@@ -482,6 +521,33 @@ func TestLoadRejectsInvalidSessionTTL(t *testing.T) {
 			}
 			if !strings.Contains(err.Error(), "parse SAFE_SESSION_TTL") {
 				t.Fatalf("expected SAFE_SESSION_TTL parse context, got %v", err)
+			}
+		})
+	}
+}
+
+func TestLoadRejectsInvalidDeletionRetentionConfig(t *testing.T) {
+	tests := map[string]map[string]string{
+		"negative worker": {
+			"SAFE_DELETION_WORKER_INTERVAL": "-1s",
+		},
+		"invalid worker": {
+			"SAFE_DELETION_WORKER_INTERVAL": "soon",
+		},
+		"empty retention": {
+			"SAFE_CLOSED_INCIDENT_RETENTION": "",
+		},
+	}
+
+	for name, env := range tests {
+		t.Run(name, func(t *testing.T) {
+			_, err := loadConfigForTestErr(t, env)
+			if err == nil {
+				t.Fatal("expected deletion retention config error")
+			}
+			if !strings.Contains(err.Error(), "SAFE_DELETION_WORKER_INTERVAL") &&
+				!strings.Contains(err.Error(), "SAFE_CLOSED_INCIDENT_RETENTION") {
+				t.Fatalf("expected deletion env var parse context, got %v", err)
 			}
 		})
 	}
@@ -701,6 +767,8 @@ func loadConfigForTestErr(t *testing.T, env map[string]string) (Config, error) {
 		"SAFE_DEFAULT_INCIDENT_TOKEN_TTL",
 		"SAFE_SESSION_TTL",
 		"SAFE_AUTH_BOOTSTRAP_SECRET",
+		"SAFE_DELETION_WORKER_INTERVAL",
+		"SAFE_CLOSED_INCIDENT_RETENTION",
 		"SAFE_PRIVATE_READ_HEADER_TIMEOUT",
 		"SAFE_PRIVATE_READ_TIMEOUT",
 		"SAFE_PRIVATE_WRITE_TIMEOUT",

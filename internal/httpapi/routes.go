@@ -30,6 +30,8 @@ func (a *API) registerPrivateAuthRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /v1/admin/accounts", a.createAccount)
 	mux.HandleFunc("POST /v1/admin/accounts/{account_id}/password", a.resetAccountPassword)
 	mux.HandleFunc("POST /v1/admin/accounts/{account_id}/sessions/revoke", a.revokeAccountSessions)
+	mux.HandleFunc("GET /v1/admin/incidents/{incident_id}/deletion", a.getAdminIncidentDeletion)
+	mux.HandleFunc("POST /v1/admin/incidents/{incident_id}/deletion", a.requestAdminIncidentDeletion)
 }
 
 func (a *API) registerPrivateAdminWebRoutes(mux *http.ServeMux) {
@@ -45,6 +47,8 @@ func (a *API) registerPrivateAdminWebRoutes(mux *http.ServeMux) {
 func (a *API) registerPrivateIncidentRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /v1/incidents", a.createIncident)
 	mux.HandleFunc("GET /v1/incidents/{incident_id}", a.getIncident)
+	mux.HandleFunc("GET /v1/incidents/{incident_id}/deletion", a.getIncidentDeletion)
+	mux.HandleFunc("POST /v1/incidents/{incident_id}/deletion", a.requestIncidentDeletion)
 	mux.HandleFunc("POST /v1/incidents/{incident_id}/chunks/reconcile", a.reconcileChunk)
 	mux.HandleFunc("POST /v1/incidents/{incident_id}/chunks", a.uploadChunk)
 	mux.HandleFunc("GET /v1/incidents/{incident_id}/chunks", a.listChunks)

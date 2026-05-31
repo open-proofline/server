@@ -84,6 +84,33 @@ const (
 	// UploadOperationStateMetadataCommitted means the upload operation has a
 	// confirmed final chunk row and can be replayed safely.
 	UploadOperationStateMetadataCommitted = "metadata_committed"
+
+	// IncidentDeletionStateActive means no deletion decision is in progress.
+	IncidentDeletionStateActive = "active"
+	// IncidentDeletionStatePending means deletion state has been durably prepared.
+	IncidentDeletionStatePending = "deletion_pending"
+	// IncidentDeletionStateDeleting means a worker is deleting blobs or metadata.
+	IncidentDeletionStateDeleting = "deleting"
+	// IncidentDeletionStateFailed means deletion stopped with retryable failures.
+	IncidentDeletionStateFailed = "deletion_failed"
+	// IncidentDeletionStateDeleted means sensitive child rows and blobs are gone
+	// or confirmed absent, leaving only a minimal tombstone.
+	IncidentDeletionStateDeleted = "deleted"
+
+	// IncidentDeletionSourceAccountRequest records an owner-scoped private request.
+	IncidentDeletionSourceAccountRequest = "account_request"
+	// IncidentDeletionSourceAdminRequest records an admin-wide private request.
+	IncidentDeletionSourceAdminRequest = "admin_request"
+	// IncidentDeletionSourceRetentionPolicy records an automatic retention decision.
+	IncidentDeletionSourceRetentionPolicy = "retention_policy"
+
+	// IncidentDeletionItemStatePending means the stored path still needs deletion.
+	IncidentDeletionItemStatePending = "pending"
+	// IncidentDeletionItemStateDeleted means the stored path was deleted or
+	// confirmed already absent by a metadata-created deletion item.
+	IncidentDeletionItemStateDeleted = "deleted"
+	// IncidentDeletionItemStateFailed means deletion should be retried.
+	IncidentDeletionItemStateFailed = "failed"
 )
 
 // Incident is the top-level recording session tracked by the backend.
@@ -99,6 +126,7 @@ type Incident struct {
 	CaptureProfile   string    `json:"capture_profile,omitempty"`
 	EscalationPolicy string    `json:"escalation_policy,omitempty"`
 	SharingState     string    `json:"sharing_state,omitempty"`
+	DeletionState    string    `json:"deletion_state"`
 }
 
 // MediaStream groups encrypted chunks that belong to one recording stream.
@@ -217,6 +245,52 @@ type UploadOperationParams struct {
 	ByteSize           int64
 	SHA256Hex          string
 	FingerprintHash    string
+}
+
+// IncidentDeletionRequest records the non-sensitive inputs for a deletion
+// decision. Stored paths are always snapshotted from metadata by the repository.
+type IncidentDeletionRequest struct {
+	IncidentID      string
+	Source          string
+	ReasonCode      string
+	ActorAccountID  string
+	AllowOpen       bool
+	RequireOwnerID  string
+	RetentionCutoff *time.Time
+}
+
+// IncidentDeletionStatus is the private/admin status response and the scheduler
+// work item. It deliberately excludes stored paths and token hashes.
+type IncidentDeletionStatus struct {
+	DecisionID     string     `json:"decision_id"`
+	IncidentID     string     `json:"incident_id"`
+	Source         string     `json:"source"`
+	ReasonCode     string     `json:"reason_code,omitempty"`
+	ActorAccountID string     `json:"actor_account_id,omitempty"`
+	AllowOpen      bool       `json:"allow_open"`
+	State          string     `json:"state"`
+	ItemCount      int        `json:"item_count"`
+	ErrorCode      string     `json:"error_code,omitempty"`
+	RequestedAt    time.Time  `json:"requested_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+	StartedAt      *time.Time `json:"started_at,omitempty"`
+	CompletedAt    *time.Time `json:"completed_at,omitempty"`
+}
+
+// IncidentDeletionItem is internal retry state for one server-controlled stored
+// path. Do not expose it in public responses or logs.
+type IncidentDeletionItem struct {
+	ID            string
+	DecisionID    string
+	IncidentID    string
+	StoredPath    string
+	State         string
+	Attempts      int
+	ErrorCode     string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	LastAttemptAt *time.Time
+	CompletedAt   *time.Time
 }
 
 // CreateCheckinParams contains optional device metadata for a checkin.

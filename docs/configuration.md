@@ -37,6 +37,8 @@ Configuration is read from environment variables when the Proofline API starts.
 | `SAFE_DEFAULT_INCIDENT_TOKEN_TTL` | `24h` | Default lifetime for viewer tokens created without `expires_at`. Set to `0` to disable the default for omitted `expires_at` values. |
 | `SAFE_SESSION_TTL` | `12h` | Lifetime for local account sessions created by `/v1/auth/login`. |
 | `SAFE_AUTH_BOOTSTRAP_SECRET` | unset | One-time bootstrap secret required to create the first admin account when no admin exists. Remove after bootstrap. |
+| `SAFE_DELETION_WORKER_INTERVAL` | `1m` | Background deletion maintenance interval. Set to `0` to disable the automatic scheduler while keeping deletion decisions durable for a later run. |
+| `SAFE_CLOSED_INCIDENT_RETENTION` | `0` | Retention window for closed incidents. `0` disables automatic retention deletion; positive Go durations delete closed incidents older than the window. |
 | `SAFE_PRIVATE_READ_HEADER_TIMEOUT` | `10s` | Private API HTTP read-header timeout. |
 | `SAFE_PRIVATE_READ_TIMEOUT` | `0s` | Private API HTTP read timeout. `0` disables it for large or slow uploads. |
 | `SAFE_PRIVATE_WRITE_TIMEOUT` | `0s` | Private API HTTP write timeout. `0` disables it for large or slow downloads. |
@@ -226,6 +228,36 @@ Treat the bootstrap secret, account passwords, session tokens, raw
 idempotency keys, and Authorization headers as secrets. They must not appear in
 public issues, logs, dashboards, screenshots, support tickets, or shell
 history.
+
+## Deletion And Retention
+
+The server starts a background deletion worker by default. The worker processes
+durable incident deletion decisions created through private owner-scoped or
+admin routes, deletes encrypted blobs by server-controlled stored paths from
+metadata, prunes sensitive child metadata after blob deletion, and leaves a
+minimal tombstone.
+
+```bash
+SAFE_DELETION_WORKER_INTERVAL=30s \
+go run ./cmd/api
+```
+
+Set `SAFE_DELETION_WORKER_INTERVAL=0` to disable the automatic scheduler. This
+does not delete or discard pending deletion decisions; a later process run with
+the worker enabled can resume them.
+
+Closed-incident retention is disabled by default. To queue deletion decisions
+for closed incidents older than a configured window, set a positive duration:
+
+```bash
+SAFE_CLOSED_INCIDENT_RETENTION=720h \
+go run ./cmd/api
+```
+
+Open incidents are not selected by automatic retention. Deleting an open
+incident requires an explicit private deletion request with `allow_open: true`.
+Mode-specific retention windows, token metadata pruning, tombstone expiry,
+orphan temp cleanup, and backup expiry are not configured by these variables.
 
 ## HTTP Timeouts
 

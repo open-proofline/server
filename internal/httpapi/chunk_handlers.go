@@ -106,6 +106,10 @@ func (a *API) uploadChunk(w http.ResponseWriter, r *http.Request) {
 			idempotencyConflictError(w)
 			return
 		}
+		if errors.Is(err, incidents.ErrIncidentDeleting) {
+			writeIncidentDeleting(w)
+			return
+		}
 		if err != nil {
 			a.internalError(w, "reserve upload operation", err)
 			return
@@ -182,6 +186,11 @@ func (a *API) uploadChunk(w http.ResponseWriter, r *http.Request) {
 	if errors.Is(err, incidents.ErrIncidentClosed) {
 		a.removeCommittedBlobAfterMetadataFailure(storedPath)
 		writeError(w, http.StatusConflict, "incident_closed", "incident is closed")
+		return
+	}
+	if errors.Is(err, incidents.ErrIncidentDeleting) {
+		a.removeCommittedBlobAfterMetadataFailure(storedPath)
+		writeIncidentDeleting(w)
 		return
 	}
 	if errors.Is(err, incidents.ErrInvalidState) {

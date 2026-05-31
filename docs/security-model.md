@@ -177,6 +177,11 @@ admin/operator, escrow, key, or plaintext access.
 
 Request logging records method, redacted route pattern, status, byte count, and duration. It does not log request bodies, uploaded bytes, Authorization headers, raw session tokens, raw viewer tokens, raw incident tokens, raw idempotency keys, plaintext, or raw keys.
 
+Background deletion maintenance logs only non-sensitive summary counts and safe
+error categories. It does not log stored paths, object keys, bucket names,
+private endpoints, request bodies, uploaded bytes, plaintext, raw keys, raw
+tokens, Authorization headers, or backend error strings.
+
 The Go app sets these headers on public incident viewer pages, JSON responses, static assets, ZIP downloads, and private admin web responses:
 
 - `Content-Security-Policy`
@@ -197,11 +202,13 @@ The Go app does not include an app-level rate limiter. Deployment-edge rate limi
 
 Retention, backup, restore, secure deletion limits, and disk encryption posture
 are documented in
-[retention-backup-deletion.md](retention-backup-deletion.md). The future
-incident deletion and retention enforcement design is documented in
+[retention-backup-deletion.md](retention-backup-deletion.md). Incident deletion
+and retention enforcement details are documented in
 [incident-deletion-retention-enforcement.md](incident-deletion-retention-enforcement.md).
-The current backend preserves accepted evidence by default and does not
-automatically expire incidents or expose incident deletion APIs.
+The current backend preserves accepted evidence by default, exposes private
+owner-scoped and admin-global deletion APIs, and starts a deletion worker by
+default. Automatic closed-incident retention is disabled unless
+`SAFE_CLOSED_INCIDENT_RETENTION` is configured.
 
 SQLite WAL file expectations, same-host storage constraints, checkpoint
 pressure symptoms, and local file-size checks are documented in
@@ -240,10 +247,10 @@ Normal file or object removal is not treated as guaranteed secure erasure. Deplo
   metadata summaries and completed encrypted bundle downloads; the future
   boundary is documented in
   [live-partial-stream-access-boundary.md](live-partial-stream-access-boundary.md)
-- No automated retention/deletion enforcement or built-in disk encryption; the
-  operational policy is documented in
-  [retention-backup-deletion.md](retention-backup-deletion.md), with future
-  enforcement design in
+- No mode-specific retention, token metadata pruning, tombstone expiry, backup
+  lifecycle enforcement, or built-in disk encryption; the operational policy is
+  documented in [retention-backup-deletion.md](retention-backup-deletion.md),
+  with enforcement details in
   [incident-deletion-retention-enforcement.md](incident-deletion-retention-enforcement.md)
 - No malware/content scanning for uploaded encrypted blobs
 - No implemented account self-service recovery, email verification, second

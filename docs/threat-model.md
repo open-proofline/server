@@ -191,12 +191,13 @@ The current backend does not implement incident-mode-specific controls yet, so f
   should retry complete encrypted chunk uploads; the future design is planned
   in [resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md).
 - Retention, backup, restore, and deletion policy is documented in
-  [retention-backup-deletion.md](retention-backup-deletion.md), with future
-  enforcement design in
-  [incident-deletion-retention-enforcement.md](incident-deletion-retention-enforcement.md),
-  but the backend does not yet implement automatic expiration, incident
-  deletion APIs, built-in disk encryption, or object-bucket lifecycle policy
-  enforcement.
+  [retention-backup-deletion.md](retention-backup-deletion.md), with enforcement
+  details in
+  [incident-deletion-retention-enforcement.md](incident-deletion-retention-enforcement.md).
+  The backend implements private incident deletion APIs and optional
+  closed-incident retention, but it does not implement mode-specific retention,
+  token metadata pruning, tombstone expiry, built-in disk encryption, or
+  object-bucket lifecycle policy enforcement.
 - Cluster backup, restore, and failure runbooks are operational guidance only
   and do not make optional PostgreSQL, S3-compatible storage, or
   Valkey/Redis-compatible coordination production-cluster readiness by
@@ -230,7 +231,9 @@ The Go app does not set `Strict-Transport-Security` by default because local dev
   authorization boundaries.
 - Tune deployment-edge rate limits for token guesses, uploads, downloads, and admin actions, and consider app-level rate limiting separately.
 - Review viewer-token expiry tuning and revocation workflows.
-- Implement the documented retention, backup, restore, and deletion operations.
+- Extend the implemented deletion workflow with deployment-specific backup
+  expiry, restore reconciliation, token pruning, and any needed mode-specific
+  retention policy.
 - Prototype the documented hybrid key custody model without weakening the current ciphertext-only backend.
 - Prototype browser decryption only after accepting the browser trust model and malicious-server limitations.
 - Treat server-assisted break-glass access as an optional future mode only after explicit policy, audit, and deployment design.
