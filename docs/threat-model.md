@@ -65,6 +65,10 @@ viewer tokens, and encrypted evidence bundles.
 
 - The private API server binds separately from the public incident viewer server. By default it listens on `127.0.0.1:8080`, and it can listen on multiple addresses through `SAFE_PRIVATE_BIND_ADDRS`.
 - The public incident viewer server binds separately from the private API server. By default it listens on `127.0.0.1:8081`, and it can listen on multiple addresses through `SAFE_PUBLIC_BIND_ADDRS`.
+- A future target topology may put public-ready main API routes and the
+  read-only incident viewer on `8080` while keeping admin and operator routes
+  on private `8081`, but that design is planning-only in
+  [public-api-listener-split.md](public-api-listener-split.md).
 - `/v1` routes are authenticated private/admin routes except for the
   unauthenticated private-only `/v1/health/live` and `/v1/health/ready`
   operator checks. Authenticated routes can create incidents, create streams,
@@ -235,7 +239,8 @@ The Go app does not set `Strict-Transport-Security` by default because local dev
   interaction-record, safety-check, or dead-man switch workflows.
 - Define the future public product API and separately bound private admin API,
   including account-owner, trusted-contact, web-client, and admin/operator
-  authorization boundaries.
+  authorization boundaries, using the target listener split in
+  [public-api-listener-split.md](public-api-listener-split.md).
 - Tune deployment-edge and app-level rate limits for token guesses, uploads,
   downloads, static assets, and admin actions.
 - Review viewer-token expiry tuning and revocation workflows.

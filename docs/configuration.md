@@ -60,6 +60,13 @@ Configuration is read from environment variables when the Proofline API starts.
 
 The older singular variables `SAFE_PRIVATE_BIND_ADDR` and `SAFE_PUBLIC_BIND_ADDR` are still supported when the matching plural variable is unset. Plural variables take precedence.
 
+These names describe the current topology: `SAFE_PRIVATE_BIND_ADDRS` serves
+`/v1` and `/admin`, while `SAFE_PUBLIC_BIND_ADDRS` serves the read-only
+incident viewer. The future target split for a public-ready main API plus
+viewer on `8080` and a private admin-dashboard listener on `8081` is
+planning-only in [public-api-listener-split.md](public-api-listener-split.md).
+It is not implemented yet.
+
 ## Backend Selection Scaffold
 
 The backend selector variables are a startup validation scaffold for cluster support. Local-first values remain the defaults:

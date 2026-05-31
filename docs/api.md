@@ -22,6 +22,12 @@ Default bind addresses:
 
 Use `SAFE_PRIVATE_BIND_ADDRS` and `SAFE_PUBLIC_BIND_ADDRS` for comma-separated bind-address lists. The older singular variables remain supported when the matching plural variable is unset.
 
+A future implementation may move public-ready main API routes and the read-only
+incident viewer onto `8080` while keeping admin and operator routes on private
+`8081`. That target topology is planning-only in
+[public-api-listener-split.md](public-api-listener-split.md) and does not
+change the current route mounting.
+
 ## Common Responses
 
 Errors use:

@@ -27,6 +27,7 @@ Related source-of-truth docs:
 - [Security model](security-model.md)
 - [Threat model](threat-model.md)
 - [Deployment](deployment.md)
+- [Main API public exposure listener split](public-api-listener-split.md)
 - [Incident capture modes](incident-modes.md)
 - [Key custody and emergency access](key-custody.md)
 - [Browser-side decryption](browser-decryption.md)
@@ -90,7 +91,10 @@ deployment details.
 ## Future Listener Topology
 
 Future implementation should avoid treating `/v1` as one public control plane.
-The intended topology is separate listener groups with separate route trees:
+The intended topology is separate listener groups with separate route trees.
+The target `8080` main API/viewer and `8081` private admin-dashboard split is
+documented in
+[main API public exposure listener split](public-api-listener-split.md):
 
 | Listener group | Future route scope | Exposure |
 |---|---|---|

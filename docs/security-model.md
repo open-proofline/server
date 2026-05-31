@@ -21,7 +21,9 @@ local account sessions, owner-scoped incident access, admin account routes, and
 private route authentication. It does not make `/v1` safe to expose publicly as
 a product API. Future topology still separates a public authenticated product
 API from a separately bound private admin API listener that requires
-authentication and authorization.
+authentication and authorization; the target main API/public viewer and private
+admin-dashboard listener split is planning-only in
+[public-api-listener-split.md](public-api-listener-split.md).
 
 ## Listener Boundary
 
@@ -239,6 +241,7 @@ Normal file or object removal is not treated as guaranteed secure erasure. Deplo
 
 - No implemented public product API exposure model for `/v1`; local account
   sessions are a private API control, not a complete public security model
+  and the future listener split is not implemented
 - No built-in TLS
 - No general-purpose abuse-throttling system beyond public viewer route-class
   rate limiting

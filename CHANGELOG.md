@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added a planning document for the future main API/public viewer listener split
+  and private admin-dashboard listener boundary.
 - Added a mode-aware retention policy design covering future retention inputs
   for incident modes, safety-check states, sharing/export state, grants, wrapped
   keys, tombstones, backups, dry runs, and public viewer fail-closed behavior.
