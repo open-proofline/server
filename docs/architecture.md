@@ -4,7 +4,7 @@ Proofline Server is currently a single Go backend binary with separate main
 API/viewer and private-admin HTTP listener groups. It stores incident metadata
 in SQLite by default or optional PostgreSQL, encrypted uploaded chunks on local
 disk by default with optional S3-compatible object storage for committed
-encrypted chunks, private coarse liveness/readiness checks, and optional
+encrypted chunks, a private `/admin` dashboard listener, and optional
 Valkey/Redis-compatible short-lived coordination when explicitly configured.
 
 This repository is the server/backend component only. In the planned multi-repo layout it corresponds to `open-proofline/server`. Web, iOS, Android, and shared protocol work are expected to live in separate future repositories.
@@ -15,8 +15,8 @@ timed safety checks, and evidence notes. The current backend stores generic
 incidents by default, can store optional incident-mode, capture-profile,
 escalation-policy, and sharing-state metadata on main incident create/read
 routes, and has local username/password accounts with opaque server-side
-sessions for the main `/v1` API, private-admin unauthenticated health/readiness
-checks, plus a private admin web surface under `/admin`.
+sessions for the main `/v1` API, existing admin-only JSON routes under
+`/v1/admin/...`, plus a private admin web surface under `/admin`.
 Mode-driven access, escalation, retention, sharing, key custody,
 trusted-contact accounts, notification delivery, and mobile/web clients are not
 implemented yet. Planned mode behavior, escalation, migration, and
@@ -44,14 +44,12 @@ flowchart LR
     FutureClients["Future clients<br/>separate repos"] -->|"future encrypted chunks"| MainAPI["Main /v1 API<br/>local session auth"]
     Operator["Admin browser<br/>private network"] -->|"bootstrap/login/account passwords"| AdminListener["Private-admin listener"]
     AdminListener --> AdminWeb["/admin web<br/>admin cookie session"]
-    AdminListener --> AdminHealth["/v1/health ready/live"]
     Simulator["Simulator CLI<br/>implemented here"] -->|"login + upload"| MainAPI
     MainAPI --> Repo["Incident repository"]
     Repo --> DB[(SQLite or PostgreSQL metadata)]
     AdminWeb -->|"local accounts"| DB
     MainAPI --> Store["Blob storage"]
     Store --> Files[(Encrypted chunk files)]
-    OperatorCheck["Private operator check"] -->|"GET /v1/health/ready"| AdminHealth
     MainAPI --> Coord["Optional coordination<br/>startup-checked Valkey/Redis"]
     MainAPI --> Token["Viewer token creation"]
     Contact["Trusted contact"] --> Viewer["Public incident viewer<br/>/i/{token}"]
@@ -108,7 +106,7 @@ flowchart TB
         FuturePhone["Future mobile client<br/>separate repo"] --> WireGuard["WireGuard / LAN / firewall"]
         Simulator["Simulator CLI"] --> MainListener["Main API/viewer listener<br/>SAFE_MAIN_BIND_ADDRS"]
         WireGuard --> MainListener
-        MainListener --> V1["non-admin /v1 API"]
+        MainListener --> V1["/v1 API<br/>product + admin JSON routes"]
         V1 --> Auth["Local account sessions"]
         Auth --> Storage["SQLite or PostgreSQL + local or S3 encrypted blobs"]
         MainListener --> Coordination["Optional Valkey/Redis coordination"]
@@ -123,7 +121,6 @@ flowchart TB
 
     subgraph AdminBoundary["Private-admin boundary"]
         AdminClient["Operator"] --> AdminListener["Private-admin listener<br/>SAFE_ADMIN_BIND_ADDRS"]
-        AdminListener --> Health["/v1/health/live<br/>/v1/health/ready"]
         AdminListener --> AdminWeb["/admin web"]
         AdminWeb --> Auth
     end
@@ -169,7 +166,7 @@ behavior.
 ```mermaid
 flowchart LR
     subgraph MainMux["Main mux"]
-        V1["non-admin /v1 routes<br/>create incidents, upload chunks,<br/>create/revoke tokens, complete streams"]
+        V1["/v1 routes<br/>auth, incidents, uploads,<br/>tokens, admin JSON APIs"]
         Viewer["/i/{token} routes<br/>read-only page, JSON,<br/>completed bundle downloads"]
         LegacyViewer["/e/{token} aliases<br/>pre-rename compatibility"]
         Static["/static assets<br/>token-neutral"]
@@ -177,14 +174,12 @@ flowchart LR
 
     subgraph AdminMux["Private-admin mux"]
         AdminWeb["/admin routes<br/>bootstrap, login, account list,<br/>password workflows"]
-        AdminAPI["/v1/admin routes<br/>admin API actions"]
-        BootstrapHealth["/v1/bootstrap/admin<br/>/v1/health routes"]
     end
 
     MainMux --> MainBind["SAFE_MAIN_BIND_ADDRS"]
     AdminMux --> AdminBind["SAFE_ADMIN_BIND_ADDRS"]
 
-    Warning["Do not mount /admin, /v1/admin, bootstrap, or private health on main"]
+    Warning["Do not mount /admin on main; do not mount /v1, /i, /e, or /static on private admin"]
 ```
 
 ## Evidence Bundles

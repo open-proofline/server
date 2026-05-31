@@ -9,10 +9,12 @@ Proofline is experimental and not production-ready public infrastructure. Treat 
 The `/v1` access-control direction is documented in
 [v1-access-control.md](v1-access-control.md). Current local account sessions
 do not by themselves make `/v1` production-ready public infrastructure.
-Admin/operator routes use their own private listener that can be bound to
-loopback, LAN, WireGuard, VPN, firewall, or a private reverse proxy, but that
-private placement must not replace admin authentication. The main API/public
-viewer listener split is documented in
+Existing `/v1/admin/...` JSON routes are authenticated admin-only routes on the
+main handler, but they are not public-ready routes and must be blocked by any
+public reverse proxy. The private-admin listener is the `/admin` dashboard
+surface only and can be bound to loopback, LAN, WireGuard, VPN, firewall, or a
+private reverse proxy. Private placement must not replace admin
+authentication. The main API/public viewer listener split is documented in
 [public-api-listener-split.md](public-api-listener-split.md).
 
 The current module and artifact names use the `open-proofline/server` repository namespace. The published GHCR image is `ghcr.io/open-proofline/server`, local examples use the `proofline-server` image name, and release binaries use `proofline-server-*` names. Compatibility identifiers such as the v1 encryption envelope scheme and default SQLite filename may still use earlier `safety-recorder` names until separate protocol or data-layout migrations are explicitly performed.
@@ -31,40 +33,29 @@ Defaults:
 | Listener | Address |
 |---|---|
 | Main API and incident viewer | `127.0.0.1:8080` |
-| Private admin and operator routes | `127.0.0.1:8081` |
+| Private admin dashboard | `127.0.0.1:8081` |
 
 The server fails closed until an admin account exists. For a new local
 database, create the first admin while `SAFE_AUTH_BOOTSTRAP_SECRET` is set:
 
 ```bash
-curl -sS -X POST http://127.0.0.1:8081/v1/bootstrap/admin \
-  -H 'Content-Type: application/json' \
-  -H 'X-Proofline-Bootstrap-Secret: replace-with-local-bootstrap-secret' \
-  -d '{"username":"admin","password":"replace-with-a-long-local-password"}'
+curl -sS -X POST http://127.0.0.1:8081/admin/bootstrap \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  --data-urlencode 'bootstrap_secret=replace-with-local-bootstrap-secret' \
+  --data-urlencode 'username=admin' \
+  --data-urlencode 'password=replace-with-a-long-local-password'
 ```
 
 After bootstrap, remove `SAFE_AUTH_BOOTSTRAP_SECRET` and restart. The
-bootstrap route is disabled after an admin account exists. Treat the bootstrap
+bootstrap form is disabled after an admin account exists. Treat the bootstrap
 secret, account passwords, raw session tokens, raw idempotency keys, and
 Authorization headers as secrets.
 
-The private-admin listener also exposes unauthenticated liveness and readiness
-checks for local operators:
-
-```bash
-curl -fsS http://127.0.0.1:8081/v1/health/live
-curl -fsS http://127.0.0.1:8081/v1/health/ready
-```
-
-`/v1/health/live` checks only that the process is serving requests.
-`/v1/health/ready` checks the selected metadata, blob, and coordination
-backends and returns only coarse backend type and `ok` or `unavailable`
-statuses. It does not expose DSNs, credentials, bucket names, object keys,
-stored paths, local filesystem paths, private hostnames, tokens, request
-bodies, uploaded bytes, raw idempotency keys, plaintext, raw keys, or private
-deployment details.
-Keep these routes on the private-admin listener; they do not make main `/v1`
-routes safe for public exposure.
+The current listener split does not mount `/v1/health/live` or
+`/v1/health/ready` on either listener. Private/local smoke checks can use the
+token-neutral `/admin/static/styles.css` asset to confirm the private dashboard
+listener is serving, then use the admin bootstrap or login flow to confirm the
+metadata store accepts account operations.
 
 The deletion worker starts automatically by default and processes durable
 incident deletion decisions every minute. Set
@@ -126,8 +117,9 @@ checks. The CSS under `/admin/static/...` is unauthenticated because it is
 token-neutral static source, but the admin pages and form handlers remain
 private-admin listener routes.
 
-This is not a public admin dashboard. Do not expose `/admin`, `/admin/...`, or
-`/v1/admin/...` outside the private-admin boundary.
+This is not a public admin dashboard. Do not expose `/admin` or `/admin/...`
+outside the private-admin boundary. Existing `/v1/admin/...` JSON routes are on
+the main API handler and must not be routed from public entry points.
 
 ## Docker
 
@@ -148,19 +140,15 @@ docker run --rm \
   proofline-server
 ```
 
-Create the first admin account through `POST /v1/bootstrap/admin`, then restart
-without `SAFE_AUTH_BOOTSTRAP_SECRET`.
+Create the first admin account through the private `/admin` bootstrap screen or
+`POST /admin/bootstrap`, then restart without `SAFE_AUTH_BOOTSTRAP_SECRET`.
 
-From the host, Docker deployments can use the private readiness route through
-the loopback-published private-admin port:
+From the host, Docker deployments can confirm the private dashboard listener is
+serving through the loopback-published private-admin port:
 
 ```bash
-curl -fsS http://127.0.0.1:8081/v1/health/ready
+curl -fsS http://127.0.0.1:8081/admin/static/styles.css
 ```
-
-Do not publish or proxy the private health routes on the main API/viewer
-origin. They are intended for local Docker checks, private reverse-proxy
-upstream checks, and operator troubleshooting inside the private boundary.
 
 In this shape both listeners are reachable only through the host loopback interface. It is useful for local testing, SSH port forwarding, or a same-host reverse proxy. It does not expose the main API, incident viewer, or private-admin listener directly to the network.
 
@@ -380,8 +368,8 @@ to stream.
 If exposing only the incident viewer publicly, route only the viewer paths from
 the public edge to the main listener. Do not forward a public wildcard or host
 fallback to the main listener unless the deployment has explicitly reviewed
-public main-API exposure. Admin/operator routes must stay on the private-admin
-listener and still authenticate operators.
+public main-API exposure. Public edges must not route `/admin`, `/admin/...`,
+or `/v1/admin/...`.
 
 The checklist below is a deployment review aid. Completing it does not make
 Proofline production-ready public infrastructure, and it does not make `/v1`
@@ -393,8 +381,8 @@ Before exposing the public incident viewer:
       and token-neutral `/static/...`) to the main listener configured by
       `SAFE_MAIN_BIND_ADDRS`.
 - [ ] No public reverse-proxy route, service, wildcard rule, or fallback reaches
-      `/v1`, `/admin`, `/v1/admin/...`, private health/readiness, or the
-      private-admin listener configured by `SAFE_ADMIN_BIND_ADDRS`.
+      `/v1`, `/admin`, `/v1/admin/...`, or the private-admin listener
+      configured by `SAFE_ADMIN_BIND_ADDRS`.
 - [ ] TLS is terminated at the deployment edge for the public hostname.
 - [ ] HSTS is enabled at the HTTPS edge only after TLS is working reliably for
       the public hostname.
@@ -456,8 +444,8 @@ https://developer.mozilla.org/en-US/observatory
 ### HTTPS Incident Viewer With Traefik
 
 The reverse proxy should route only viewer paths to the main listener. Private
-admin/operator routes should stay on localhost, WireGuard, LAN, or another
-private boundary.
+dashboard routes should stay on localhost, WireGuard, LAN, or another private
+boundary, and public edges must block `/v1/admin/...`.
 
 One same-host shape is:
 
@@ -535,7 +523,7 @@ http:
 ```
 
 There should be no public Traefik router, service, or rule for `/v1`, `/admin`,
-`/v1/admin/...`, private health/readiness, or `127.0.0.1:8081`. If Traefik
+`/v1/admin/...`, or `127.0.0.1:8081`. If Traefik
 runs in a different container or on another host, point it at a private address
 that only Traefik can reach, and keep private-admin addresses off the public
 internet.
@@ -555,12 +543,13 @@ Suggested route groups:
 | Viewer ZIP downloads | `GET /i/{token}/streams/{stream_id}/download`, `GET /i/{token}/incident/download` | Limit download starts without cutting off long encrypted ZIP responses; coordinate with proxy and app timeouts. |
 | Public static assets | `GET /static/...` | Static assets are token-neutral and can usually tolerate a looser limit. |
 | Main chunk uploads | `POST /v1/incidents/{incident_id}/chunks` | Tune for expected chunk cadence, upload retries, body size limits, and client network conditions. |
-| Main incident, stream, check-in, and token actions | Other non-admin `/v1/...` routes | Use limits as an abuse backstop, not as the only security control. |
-| Private admin actions | `/admin/...`, `/v1/admin/...`, `/v1/bootstrap/admin`, `/v1/health/...` | Keep on the private-admin listener and do not route from public entry points. |
+| Main incident, stream, check-in, and token actions | Other product `/v1/...` routes | Use limits as an abuse backstop, not as the only security control. |
+| Private admin dashboard actions | `/admin/...` | Keep on the private-admin listener and do not route from public entry points. |
+| Admin JSON API actions | `/v1/admin/...` | Authenticated admin-only routes on the main handler; do not route from public entry points. |
 
 Rate limiting does not make `/v1` production-ready public infrastructure by
 itself. Keep the main API behind the reviewed deployment boundary for the
-deployment, and keep private-admin routes on localhost, LAN, WireGuard,
+deployment, and keep private-admin dashboard routes on localhost, LAN, WireGuard,
 firewall rules, or a private reverse-proxy entry point.
 
 Exact limits are deployment-specific. Start with conservative values, watch legitimate simulator/client behavior, then adjust. Avoid sending raw `/i/{token}` paths or pre-rename compatibility `/e/{token}` paths to metrics, dashboards, or logs while measuring limiter behavior.

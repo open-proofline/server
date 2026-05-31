@@ -126,14 +126,6 @@ func newTestAppWithOptionsAndTestAccount(t *testing.T, options httpapi.Options, 
 		}
 	}
 	var metadataRepo httpapi.MetadataRepository = repo
-	if options.ReadinessChecks == nil {
-		options.ReadinessChecks = []httpapi.ReadinessCheck{
-			{Name: "metadata", Backend: "sqlite", Check: repo.Check},
-			{Name: "blob", Backend: "local", Check: blobStore.Check},
-			{Name: "coordination", Backend: "none", Check: func(context.Context) error { return nil }},
-		}
-	}
-
 	mainHandler := httpapi.NewMain(metadataRepo, blobStore, options)
 	adminHandler := httpapi.NewAdmin(metadataRepo, blobStore, options)
 	return &testApp{

@@ -22,14 +22,14 @@ with role and grant boundaries in [v1-access-control.md](v1-access-control.md).
 - `go.mod`: defines the root Go module `github.com/open-proofline/server`.
 - `.github/workflows/ci.yml`: runs Go tests with a coverage signal on pull requests and pushes, runs `govulncheck`, builds the `proofline-server-linux-amd64` binary artifact, gates release binary attestation and trusted GHCR publishing on the vulnerability scan, uploads the binary as a GitHub Release asset on `v*` tag pushes, builds the Docker image, and publishes attested images to GitHub Container Registry from a trusted job limited to `main`, `develop`, and `v*` tag pushes.
 - `.dockerignore`: excludes local runtime, review, and build artifacts from the root Docker build context used by `Dockerfile`.
-- `cmd/api`: starts one main API/viewer HTTP server per main bind address and one private-admin HTTP server per admin bind address, loads config, enforces the local account bootstrap gate, checks the selected coordination backend, opens the selected metadata backend, creates storage, wires shared handlers including private health/readiness checks plus main API, admin API, and public viewer rate limiting, starts the deletion worker, and handles graceful shutdown.
+- `cmd/api`: starts one main API/viewer HTTP server per main bind address and one private-admin dashboard HTTP server per admin bind address, loads config, enforces the local account bootstrap gate, checks the selected coordination backend, opens the selected metadata backend, creates storage, wires shared handlers including main API, admin JSON API, public viewer rate limiting, and the private `/admin` dashboard, starts the deletion worker, and handles graceful shutdown.
 - `cmd/simclient`: simulates future client flows by logging in, creating an incident, creating a media stream, encrypting and uploading complete chunks, completing or failing streams, sending periodic checkins, and optionally testing hash-failure retry, bundle download, local decrypt verification, durable desktop-recorder staging, local file input, ffmpeg segment capture, restart/resume behavior, and poor-network retry controls. Token-bearing viewer URLs are omitted from simulator output.
 - `internal/config`: reads environment variables such as backend selectors, backend-specific settings, main and private-admin bind address lists, legacy singular bind addresses, data directory, database path, max upload size, main API and public viewer rate limits, HTTP server timeouts, local account bootstrap secret, session TTL, deletion worker interval, closed-incident retention window, token metadata retention window, and tombstone retention window.
 - `internal/coordination`: defines the small optional coordination boundary, the default no-coordination backend, and the Valkey/Redis-compatible startup check plus main API and public viewer rate-limit counter backend.
 - `internal/db`: opens SQLite, enables foreign keys and WAL mode, applies embedded SQLite migrations, records `schema_migrations`, and runs named compatibility migrations.
 - `internal/envelope`: implements the simulator/test AES-256-GCM client-side chunk envelope, associated data builder, and local simulator key file helpers.
 - `internal/auth`: normalizes local account usernames, validates passwords, hashes passwords with bcrypt, and hashes opaque session tokens before storage.
-- `internal/httpapi`: owns separate main and private-admin muxes, JSON responses, request logging, recovery, local account/session authentication, request validation, upload handling, stream state handlers, incident deletion handlers, ZIP bundle streaming, app-level main API, admin API, and public viewer rate limiting, the private admin web surface, the incident viewer, and the narrow metadata repository boundary consumed by handlers.
+- `internal/httpapi`: owns separate main and private-admin dashboard muxes, JSON responses, request logging, recovery, local account/session authentication, request validation, upload handling, stream state handlers, incident deletion handlers, ZIP bundle streaming, app-level main API, admin JSON API, and public viewer rate limiting, the private admin web surface, the incident viewer, and the narrow metadata repository boundary consumed by handlers.
 - `internal/incidents`: defines incident/stream/chunk/checkin/account/session/deletion models and provides the SQLite metadata repository implementation, including deletion decisions, tombstones, retry item state, and write guards for deleting incidents.
 - `internal/postgresdb`: opens optional PostgreSQL metadata connections, applies PostgreSQL migrations, and implements the metadata repository behavior with PostgreSQL transaction, row-locking, deletion, and constraint semantics.
 - `internal/retention`: runs the background deletion and optional closed-incident retention worker. It claims retryable deletion decisions, removes encrypted blobs through the storage boundary using stored paths snapshotted from metadata, records safe retry state, prunes sensitive child metadata after blob deletion, and logs only non-sensitive counts or error categories.
@@ -43,20 +43,16 @@ with role and grant boundaries in [v1-access-control.md](v1-access-control.md).
 
 ## Main Request Flow
 
-Main non-admin `/v1` routes require `Authorization: Bearer <session_token>`
-except for login. Bootstrap, private health/readiness, and admin API routes are
-mounted on the private-admin listener. Bootstrap creates the first admin
-account when no admin exists and `SAFE_AUTH_BOOTSTRAP_SECRET` is configured.
+Main `/v1` routes require `Authorization: Bearer <session_token>` except for
+login. Existing `/v1/admin/...` JSON routes are mounted on the main handler and
+require an admin account. First-admin bootstrap uses the private
+`/admin/bootstrap` form when no admin exists and `SAFE_AUTH_BOOTSTRAP_SECRET`
+is configured.
 Session tokens are opaque, returned only to the client, and stored as hashes by
 the metadata repository.
 
-`GET /v1/health/live` and `GET /v1/health/ready` are mounted only on the
-private-admin listener. Liveness reports process availability. Readiness checks the
-selected metadata, blob, and coordination backends and returns only coarse
-backend type plus `ok` or `unavailable` status values. It does not expose DSNs,
-credentials, bucket names, object keys, stored paths, local filesystem paths,
-private hostnames, tokens, uploaded bytes, plaintext, raw keys, or underlying
-error strings.
+The current listener split does not mount `/v1/health/live` or
+`/v1/health/ready` on either listener.
 
 Incidents are created in `internal/httpapi.createIncident`, which calls
 `CreateIncidentForAccount` on the configured metadata repository and records the
@@ -113,9 +109,9 @@ Stream completion is handled by `internal/httpapi.completeMediaStream`. Before a
 
 Main owner-scoped deletion requests are handled by
 `POST /v1/incidents/{incident_id}/deletion`. Admin-global deletion requests are
-handled by `POST /v1/admin/incidents/{incident_id}/deletion`. Both route groups
-are separated between the main listener and private-admin listener. Public
-incident viewer routes do not expose deletion controls or deletion status.
+handled by `POST /v1/admin/incidents/{incident_id}/deletion` on the main
+handler with an admin account. Public incident viewer routes do not expose
+deletion controls or deletion status.
 
 The configured metadata repository creates or returns one durable deletion
 decision for the incident. In the same transaction, it snapshots

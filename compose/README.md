@@ -11,8 +11,9 @@ The smoke script starts the server with a local bootstrap secret, creates a
 temporary admin account over the private-admin loopback listener, and runs the
 simulator against the main API/viewer listener with that account. The default
 bootstrap secret and password are placeholders for local throwaway smoke volumes
-only. The script waits for `GET /v1/health/ready` on the private-admin loopback
-port before bootstrapping the test account.
+only. The script waits for token-neutral `/admin/static/styles.css` on the
+private-admin loopback port before bootstrapping the test account through
+`POST /admin/bootstrap`.
 
 ## Variants
 

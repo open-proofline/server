@@ -26,8 +26,8 @@ viewer tokens, and encrypted evidence bundles.
 - Optional Valkey/Redis-compatible coordination is startup-checked when
   explicitly configured, but it is short-lived coordination state only and is
   not durable evidence storage
-- Private health/readiness responses expose only coarse backend type and
-  `ok`/`unavailable` status for metadata, blob, and coordination checks
+- The current listener split does not expose `/v1` health/readiness routes on
+  either listener
 - Complete chunk upload idempotency is implemented with hashed
   `Idempotency-Key` metadata, equivalent retry success, and conflict detection;
   remaining cluster-safe upload semantics and cleanup expectations are
@@ -69,13 +69,14 @@ viewer tokens, and encrypted evidence bundles.
 - The private-admin server binds separately from the main API/viewer server. By
   default it listens on `127.0.0.1:8081`, and it can listen on multiple
   addresses through `SAFE_ADMIN_BIND_ADDRS`.
-- Main `/v1` routes are authenticated non-admin product routes except for
-  `/v1/auth/login`. Authenticated routes can create incidents, create streams,
-  upload chunks, complete/fail streams, close incidents, create viewer tokens,
-  revoke tokens, and read encrypted bytes. They are mounted on the main
-  API/viewer server.
-- `/v1/admin/...`, `/v1/bootstrap/admin`, `/v1/health/live`, and
-  `/v1/health/ready` are mounted only on the private-admin server.
+- Main `/v1` routes are authenticated product and admin JSON routes except for
+  `/v1/auth/login`. Authenticated product routes can create incidents, create
+  streams, upload chunks, complete/fail streams, close incidents, create viewer
+  tokens, revoke tokens, and read encrypted bytes. Existing `/v1/admin/...`
+  JSON routes require an admin account and must not be routed from public entry
+  points. They are mounted on the main API/viewer server.
+- `/v1/bootstrap/admin`, `/v1/health/live`, and `/v1/health/ready` are not
+  mounted on either listener.
 - `/admin`, `/admin/login`, `/admin/bootstrap`, `/admin/logout`,
   `/admin/password`, and `/admin/accounts/{account_id}/password` are private
   admin web routes. They use the same server-side session store as `/v1`
@@ -111,16 +112,13 @@ viewer tokens, and encrypted evidence bundles.
   explicitly configured but unavailable.
 - Route-class rate limiting groups main API authentication, account, incident,
   upload, reconciliation, stream, token, and download requests, plus
-  private-admin bootstrap and admin API requests, by safe class labels and a
-  hash of the socket peer identity. Limiter
+  admin API requests, by safe class labels and a hash of the socket peer identity. Limiter
   keys do not include raw session tokens, Authorization headers, raw
   idempotency keys, request bodies, uploaded bytes, incident IDs, stored paths,
   object keys, plaintext, raw keys, or private deployment details.
-- Private `/v1/health/live` and `/v1/health/ready` routes are mounted only on
-  the private-admin server. Readiness responses are coarse and do not include
-  DSNs, credentials, bucket names, object keys, stored paths, local filesystem
-  paths, private hostnames, tokens, request bodies, uploaded bytes, plaintext,
-  raw keys, private deployment details, or underlying error strings.
+- The current listener split does not expose `/v1/health/live` or
+  `/v1/health/ready`; operator readiness details should not be published on
+  the main API/viewer origin or on the dashboard-only private-admin listener.
 - Media streams must be open before new chunks can be attached. The repository rechecks incident and stream state when chunk metadata is inserted.
 - Stream completion verifies contiguous chunks plus readable stored files, and the repository revalidates chunk rows before committing the stream to `complete`.
 - Local account passwords are stored as bcrypt hashes. Private `/v1` requests
@@ -240,8 +238,9 @@ For local/private use, bind the main API/viewer server to localhost or a
 private network and restrict access with WireGuard, firewall rules, or a
 reverse proxy. If exposing only the incident viewer publicly, route only
 viewer paths (`/i/...`, `/e/...`, and `/static/...`) to the main listener and
-do not forward public wildcard traffic to `/v1`. Admin/operator routes use the
-separately bound private-admin listener and still require admin authentication.
+do not forward public wildcard traffic to `/v1`. Public edges must block
+`/v1/admin/...`. The `/admin` dashboard uses the separately bound
+private-admin listener and still requires admin authentication.
 Inside Docker containers, bind to container addresses such as `0.0.0.0:8080`
 and restrict host exposure with port publishing, firewall rules, WireGuard, or
 reverse proxy configuration.

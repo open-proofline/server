@@ -5,6 +5,7 @@ import "net/http"
 func (a *API) mainRoutes() http.Handler {
 	mux := http.NewServeMux()
 	a.registerMainAuthRoutes(mux)
+	a.registerAdminAPIRoutes(mux)
 	a.registerMainIncidentRoutes(mux)
 	a.registerMainStreamRoutes(mux)
 	a.registerMainIncidentTokenRoutes(mux)
@@ -16,18 +17,10 @@ func (a *API) mainRoutes() http.Handler {
 
 func (a *API) adminRoutes() http.Handler {
 	mux := http.NewServeMux()
-	a.registerPrivateHealthRoutes(mux)
-	a.registerAdminBootstrapRoutes(mux)
-	a.registerAdminAPIRoutes(mux)
 	a.registerPrivateAdminWebRoutes(mux)
 	mux.HandleFunc("/", a.notFound)
 
-	return a.loggingMiddleware(a.recoveryMiddleware(a.privateSecurityMiddleware(a.adminAPIRouteRateLimitMiddleware(mux))))
-}
-
-func (a *API) registerPrivateHealthRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("GET /v1/health/live", a.healthLive)
-	mux.HandleFunc("GET /v1/health/ready", a.healthReady)
+	return a.loggingMiddleware(a.recoveryMiddleware(a.privateSecurityMiddleware(mux)))
 }
 
 func (a *API) registerMainAuthRoutes(mux *http.ServeMux) {
@@ -35,10 +28,6 @@ func (a *API) registerMainAuthRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /v1/auth/logout", a.withPrivateAuth(a.logout))
 	mux.HandleFunc("GET /v1/account", a.withPrivateAuth(a.getCurrentAccount))
 	mux.HandleFunc("POST /v1/account/password", a.withPrivateAuth(a.changeOwnPassword))
-}
-
-func (a *API) registerAdminBootstrapRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("POST /v1/bootstrap/admin", a.bootstrapAdmin)
 }
 
 func (a *API) registerAdminAPIRoutes(mux *http.ServeMux) {

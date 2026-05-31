@@ -2,8 +2,11 @@
 
 ## Unreleased
 
+- Kept the private-admin listener dashboard-only under `/admin`, moved existing
+  admin JSON APIs onto the main handler with admin-only access, and switched
+  bootstrap/smoke flows to the private `/admin/bootstrap` form.
 - Moved the read-only incident viewer onto the main listener with authenticated
-  non-admin `/v1` routes, split private-admin routes onto their own listener,
+  `/v1` routes, split private-admin routes onto their own listener,
   and added main/admin listener configuration with legacy private-bind aliases.
 - Added configurable main API route-class rate limiting for authentication,
   bootstrap, account, incident, upload, reconciliation, stream, token, download,

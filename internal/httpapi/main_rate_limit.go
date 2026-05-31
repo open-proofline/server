@@ -31,13 +31,7 @@ func (a *API) mainRateLimitMiddleware(next http.Handler) http.Handler {
 
 func (a *API) mainAPIRouteRateLimitMiddleware(next http.Handler) http.Handler {
 	return a.mainRateLimitMiddlewareWithClassFilter(next, func(class mainRateLimitClass) bool {
-		return class != mainRateLimitAdmin && class != mainRateLimitBootstrap
-	})
-}
-
-func (a *API) adminAPIRouteRateLimitMiddleware(next http.Handler) http.Handler {
-	return a.mainRateLimitMiddlewareWithClassFilter(next, func(class mainRateLimitClass) bool {
-		return class == mainRateLimitAdmin || class == mainRateLimitBootstrap
+		return class != mainRateLimitBootstrap
 	})
 }
 

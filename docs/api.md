@@ -1,6 +1,6 @@
 # API
 
-This is the current backend-only HTTP surface for Proofline. The API binary starts a main API/viewer listener and a private-admin listener on one or more configured bind addresses. Main non-admin `/v1` routes require local account authentication except for login. The private-admin listener serves first-admin bootstrap, private health/readiness, private admin API routes, and `/admin`. Incident viewer routes are token-gated, read-only, and mounted on the main listener. Planned web, iOS, and Android clients are not part of this repository yet.
+This is the current backend-only HTTP surface for Proofline. The API binary starts a main API/viewer listener and a private-admin listener on one or more configured bind addresses. Main `/v1` routes require local account authentication except for login. Existing `/v1/admin/...` JSON routes require an admin account and are mounted on the main handler; they are not public-ready routes. The private-admin listener serves only the `/admin` dashboard route tree. Incident viewer routes are token-gated, read-only, and mounted on the main listener. Planned web, iOS, and Android clients are not part of this repository yet.
 
 Media bundle downloads are encrypted chunk bundles. The backend does not decrypt, merge, or produce playable media. The simulator's current encrypted uploads use the envelope documented in [encryption.md](encryption.md), but the API treats uploaded bytes as opaque ciphertext.
 
@@ -18,7 +18,7 @@ Trusted-contact and public product APIs do not exist yet.
 Default bind addresses:
 
 - main API and incident viewer listener: `127.0.0.1:8080`
-- private admin and operator listener: `127.0.0.1:8081`
+- private admin dashboard listener: `127.0.0.1:8081`
 
 Use `SAFE_MAIN_BIND_ADDRS` and `SAFE_ADMIN_BIND_ADDRS` for comma-separated
 bind-address lists. Legacy `SAFE_PRIVATE_BIND_ADDRS` still maps to the main
@@ -50,65 +50,14 @@ coordination limiter failure returns `503 rate_limit_unavailable` with a
 generic response. See [configuration](configuration.md) for
 `SAFE_MAIN_API_RATE_LIMIT_*` settings.
 
-## Private Health And Readiness
+## Health And Readiness
 
-The private-admin listener exposes unauthenticated operator checks under `/v1`
-so Docker, local scripts, and private reverse proxies can test process and
-backend readiness without storing a session token. These routes must stay on
-the private-admin listener and must not be forwarded from the main API/viewer
-origin.
-
-### `GET /v1/health/live`
-
-Reports that the HTTP process is serving requests. It does not check backend
-dependencies.
-
-Response `200`:
-
-```json
-{
-  "status": "ok"
-}
-```
-
-### `GET /v1/health/ready`
-
-Checks the selected metadata, blob, and coordination backends at a coarse
-operator level. SQLite and PostgreSQL metadata are checked through the metadata
-database handle, local blob storage checks local staging/storage writability,
-S3-compatible blob storage checks local staging plus bucket reachability, and
-`none`, Valkey, or Redis-compatible coordination uses the configured
-coordination check.
-
-Response `200` when all selected checks pass:
-
-```json
-{
-  "status": "ok",
-  "checks": [
-    {"name": "metadata", "backend": "sqlite", "status": "ok"},
-    {"name": "blob", "backend": "local", "status": "ok"},
-    {"name": "coordination", "backend": "none", "status": "ok"}
-  ]
-}
-```
-
-Response `503` when one or more checks fail:
-
-```json
-{
-  "status": "unavailable",
-  "checks": [
-    {"name": "metadata", "backend": "postgresql", "status": "unavailable"},
-    {"name": "blob", "backend": "s3", "status": "ok"},
-    {"name": "coordination", "backend": "valkey", "status": "ok"}
-  ]
-}
-```
-
-The response deliberately omits DSNs, credentials, bucket names, object keys,
-stored paths, local filesystem paths, private hostnames, request bodies,
-uploaded bytes, tokens, plaintext, raw keys, and underlying error strings.
+The current listener split does not mount `/v1/health/live` or
+`/v1/health/ready` on either listener. The private-admin listener is a
+dashboard-only `/admin` surface, and the main listener must not publish
+operator readiness details on the same origin as future public product API
+routes. Local and CI smoke checks use token-neutral static assets plus the
+admin bootstrap/login flow to prove both listener trees are serving.
 
 ## Authentication And Accounts
 
@@ -120,39 +69,12 @@ Authorization: Bearer <session_token>
 
 Session tokens are opaque server-side credentials. The raw token is returned only by login, while the metadata backend stores only its SHA-256 hash. Sessions expire after `SAFE_SESSION_TTL`, defaulting to `12h`, and can be revoked by logout, password reset, or the admin session-revocation route.
 
-On startup, the server fails closed unless an admin account already exists or `SAFE_AUTH_BOOTSTRAP_SECRET` is set. With that secret set, create the first admin through the one-time bootstrap route, then remove the environment variable and restart or redeploy without it. The bootstrap route is disabled after an admin account exists.
-
-### `POST /v1/bootstrap/admin`
-
-Creates the first local admin account when no admin exists. This route does not require a session, but it requires the bootstrap secret header:
-
-```http
-X-Proofline-Bootstrap-Secret: ...
-```
-
-Request:
-
-```json
-{
-  "username": "admin",
-  "password": "long local password"
-}
-```
-
-Response `201`:
-
-```json
-{
-  "account": {
-    "id": "acct_...",
-    "username": "admin",
-    "role": "admin",
-    "created_at": "2026-05-31T10:00:00Z",
-    "updated_at": "2026-05-31T10:00:00Z",
-    "password_changed_at": "2026-05-31T10:00:00Z"
-  }
-}
-```
+On startup, the server fails closed unless an admin account already exists or
+`SAFE_AUTH_BOOTSTRAP_SECRET` is set. With that secret set, create the first
+admin through the private `/admin` bootstrap screen or by posting form fields
+to `POST /admin/bootstrap`, then remove the environment variable and restart or
+redeploy without it. JSON `POST /v1/bootstrap/admin` is not mounted on either
+listener.
 
 ### `POST /v1/auth/login`
 
@@ -255,11 +177,20 @@ The following routes require an admin account session:
 
 `POST /v1/admin/accounts` accepts `username`, `password`, and `role`, where `role` is `user` or `admin`. Admin password reset and explicit session revocation revoke all sessions for the selected account.
 
-Local account authentication and app-level rate limiting do not by themselves make `/v1` production-ready public infrastructure. Expose the main API only after deployment-specific TLS, abuse controls, browser credential rules, CSRF decisions, logging review, and production operations are explicitly designed and reviewed. Keep private-admin listeners behind localhost, LAN, WireGuard, firewall rules, or a strict private reverse proxy.
+These routes are mounted on the main `/v1` handler so the private-admin
+listener can remain a dashboard-only `/admin` tree. Local account
+authentication, admin-role checks, and app-level rate limiting do not by
+themselves make `/v1` production-ready public infrastructure. Expose the main
+API only after deployment-specific TLS, path routing, abuse controls, browser
+credential rules, CSRF decisions, logging review, and production operations are
+explicitly designed and reviewed. Public reverse proxies must not route
+`/v1/admin/...` from a public edge. Keep private-admin dashboard listeners
+behind localhost, LAN, WireGuard, firewall rules, or a strict private reverse
+proxy.
 
 ## Incidents
 
-Incident routes are mounted on the main API listener and require a valid session. Incidents are owned by the account that creates them. Regular users can access only their own incidents; admins can access incidents across accounts through the main non-admin route set. Legacy unowned incidents are admin-only until a future private reassignment or quarantine workflow is implemented; see [legacy unowned incident reassignment](legacy-unowned-incident-reassignment.md).
+Incident routes are mounted on the main API listener and require a valid session. Incidents are owned by the account that creates them. Regular users can access only their own incidents; admins can access incidents across accounts through the main product route set. Legacy unowned incidents are admin-only until a future private reassignment or quarantine workflow is implemented; see [legacy unowned incident reassignment](legacy-unowned-incident-reassignment.md).
 
 ### `POST /v1/incidents`
 

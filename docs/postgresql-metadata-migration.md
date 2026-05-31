@@ -510,8 +510,8 @@ Before copying any data:
 6. Create an empty PostgreSQL database and apply the embedded PostgreSQL
    migrations through the application migration runner.
 7. Keep both listeners private during the drill. Restore or migration
-   validation must not expose `/v1`, `/admin`, private health routes, raw viewer
-   tokens, or private deployment details publicly.
+   validation must not expose `/v1`, `/admin`, admin JSON API routes, raw
+   viewer tokens, or private deployment details publicly.
 
 If these preconditions cannot be met, stop and keep the deployment on SQLite
 until the operator can perform a private restore drill.
@@ -600,9 +600,9 @@ Minimum checks:
   `owner_account_id`, and confirm legacy unowned incidents remain admin-only.
 - Test expired and revoked incident tokens and sessions preserve their existing
   failure behavior.
-- Confirm the private `/v1/health/ready` route reports only coarse PostgreSQL
-  readiness and does not print DSNs, credentials, private hostnames, object
-  keys, stored paths, tokens, plaintext, or raw keys.
+- Confirm startup, private `/admin` dashboard access, and private account
+  operations do not print DSNs, credentials, private hostnames, object keys,
+  stored paths, tokens, plaintext, or raw keys.
 
 Only switch `SAFE_METADATA_BACKEND=postgresql` after these checks pass and the
 operator has a documented rollback point.
