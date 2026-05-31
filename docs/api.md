@@ -381,28 +381,22 @@ legal-record guarantees, or download path construction.
 
 The current API does not implement resumable uploads, upload leases, or
 client-side queue summary endpoints. Clients should retry complete encrypted
-chunks and use `Idempotency-Key` for ambiguous complete-upload outcomes unless
-a later explicit resumable-upload protocol is implemented. The resumable-upload
-planning decision is documented in
+chunks, use `Idempotency-Key` for ambiguous complete-upload outcomes, and use
+the duplicate chunk reconciliation route when they need to compare a duplicate
+accepted chunk with a local expected fingerprint. The resumable-upload planning
+decision is documented in
 [resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md).
 
-### Planned Duplicate Chunk Reconciliation
+### `POST /v1/incidents/{incident_id}/chunks/reconcile`
 
-This section is a design contract for future implementation. The current server
-does not yet expose the reconciliation route described here; duplicate uploads
-without idempotency-key replay still return `409 duplicate_chunk`.
+Reconciles a duplicate chunk identity against already accepted metadata without
+re-uploading ciphertext. The route is mounted only on the private API server.
 
-The planned API shape is a separate private query workflow, not a public route
-and not an enriched `409 duplicate_chunk` upload response. A separate route lets
-clients compare expected metadata without re-uploading ciphertext, keeps
-duplicate upload errors small, and can coexist with the current
-idempotency-key retry-success path.
-
-Planned route:
-
-```http
-POST /v1/incidents/{incident_id}/chunks/reconcile
-```
+This is a separate private query workflow, not a public route and not an
+enriched `409 duplicate_chunk` upload response. A separate route lets clients
+compare expected metadata without re-uploading ciphertext, keeps duplicate
+upload errors small, and coexists with the current idempotency-key
+retry-success path.
 
 Request:
 
@@ -435,9 +429,10 @@ The comparison fingerprint is:
 - ciphertext `byte_size`
 - ciphertext `sha256_hex`
 
-The route should allow reconciliation after an incident is closed or a stream is
+The route allows reconciliation after an incident is closed or a stream is
 complete or failed, because it is read-only and only confirms already accepted
-metadata. It must not overwrite, replace, delete, or rewrite stored chunks.
+metadata. It does not overwrite, replace, delete, rewrite, or re-commit stored
+chunks.
 
 Matched response `200`:
 
@@ -487,7 +482,8 @@ stored values. If no accepted chunk exists for the requested identity, return
 `404 chunk_not_found`. Invalid identity or fingerprint fields should reuse the
 existing upload validation error codes where practical, such as
 `400 invalid_chunk_index`, `400 invalid_media_type`, or
-`400 invalid_sha256_hex`.
+`400 invalid_sha256_hex`. Invalid or missing `byte_size` returns
+`400 invalid_byte_size`.
 
 Safe reconciliation responses may return server-generated chunk ID, normalized
 identity fields, timestamps, byte size, ciphertext hash, creation time, and
@@ -496,7 +492,7 @@ plaintext, raw keys, raw tokens, request bodies, local filesystem paths,
 `stored_path`, staging paths, object-storage keys, or object-storage
 credentials.
 
-Future implementation should extend `internal/httpapi/uploads_test.go` for:
+HTTP coverage in `internal/httpapi/uploads_test.go` includes:
 
 - matched streamed duplicate reconciliation
 - conflicting streamed duplicate reconciliation

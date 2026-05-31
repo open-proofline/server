@@ -123,8 +123,13 @@ Every fourth chunk intentionally fails SHA-256 verification before being
 retried. Hash-mismatch attempts do not reserve idempotency state because the
 server has not accepted the immutable fingerprint. The first successfully
 uploaded chunk is then resent with the same `Idempotency-Key` to verify
-equivalent retry success. Broader ambiguous-network and process-restart drills
-remain future simulator work planned in
+equivalent retry success.
+
+The simulator does not yet call the duplicate chunk reconciliation route. Future
+ambiguous-network and process-restart drills can use
+`POST /v1/incidents/{incident_id}/chunks/reconcile` to compare a local expected
+chunk fingerprint with accepted server metadata without re-uploading ciphertext.
+Broader simulator drills remain future work planned in
 [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md).
 
 ## Useful Flags

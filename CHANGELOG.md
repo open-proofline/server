@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added the private duplicate chunk reconciliation route for comparing expected
+  chunk fingerprints with accepted metadata without re-uploading ciphertext or
+  exposing stored values.
 - Added `Idempotency-Key` support for complete encrypted chunk uploads, with
   hashed key storage in SQLite or PostgreSQL metadata, equivalent retry success,
   conflict handling for key reuse with different upload inputs, simulator

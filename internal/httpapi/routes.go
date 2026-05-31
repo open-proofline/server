@@ -45,6 +45,7 @@ func (a *API) registerPrivateAdminWebRoutes(mux *http.ServeMux) {
 func (a *API) registerPrivateIncidentRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /v1/incidents", a.createIncident)
 	mux.HandleFunc("GET /v1/incidents/{incident_id}", a.getIncident)
+	mux.HandleFunc("POST /v1/incidents/{incident_id}/chunks/reconcile", a.reconcileChunk)
 	mux.HandleFunc("POST /v1/incidents/{incident_id}/chunks", a.uploadChunk)
 	mux.HandleFunc("GET /v1/incidents/{incident_id}/chunks", a.listChunks)
 	mux.HandleFunc("GET /v1/incidents/{incident_id}/chunks/{media_type}/{chunk_index}", a.getChunkBytes)
