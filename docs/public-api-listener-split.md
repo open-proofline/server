@@ -1,20 +1,20 @@
 # Main API Public Exposure Listener Split Design
 
-This document defines the planning boundary for a future listener split that
-prepares Proofline's main API routes for public exposure without exposing admin
-or operator surfaces.
+This document defines the listener split that prepares Proofline's main API
+routes for future public exposure without exposing admin or operator surfaces.
 
-This is not implemented yet. The current defaults still keep `/v1` and
-`/admin` on the private API listener at `127.0.0.1:8080`, and the read-only
-incident viewer on the public incident viewer listener at `127.0.0.1:8081`.
-Do not expose the current `/v1` listener publicly as-is.
+The initial implementation is now in place: the default `127.0.0.1:8080` main
+listener serves authenticated non-admin `/v1` product routes and the read-only
+incident viewer, while the default `127.0.0.1:8081` private-admin listener
+serves `/admin`, `/v1/admin/...`, first-admin bootstrap, and private
+health/readiness. This does not make the main `/v1` API production-ready
+public infrastructure.
 
 ## Goals
 
 - Define the target main `8080` listener route set.
 - Define the target private `8081` admin-dashboard listener route set.
-- Move the public incident viewer route group onto the main listener in a
-  later implementation issue.
+- Keep the public incident viewer route group on the main listener.
 - Keep `/admin`, `/admin/...`, `/v1/admin/...`, private health/readiness, and
   first-admin bootstrap off the public-facing main listener.
 - Define required app-level rate-limit route classes before any main API route
@@ -26,8 +26,8 @@ Do not expose the current `/v1` listener publicly as-is.
 
 ## Non-Goals
 
-- No listener, route, configuration, schema, or auth behavior changes in this
-  issue.
+- No declaration that the main `/v1` API is production-ready public
+  infrastructure.
 - No declaration that Proofline is production-ready public infrastructure.
 - No OAuth, JWT, external identity provider, public account portal, public
   admin dashboard, web-client, iOS-client, Android-client, or protocol
@@ -43,26 +43,25 @@ The current server starts two handler trees:
 
 | Listener group | Default address | Current routes | Current exposure |
 |---|---:|---|---|
-| Private API | `127.0.0.1:8080` | `/v1/...`, `/v1/admin/...`, `/v1/health/live`, `/v1/health/ready`, `/admin`, `/admin/...`, `/admin/static/...` | Localhost, LAN, WireGuard, firewall, or strict private reverse proxy only. |
-| Public incident viewer | `127.0.0.1:8081` | `/i/{token}`, `/i/{token}/data`, `/i/{token}/streams/{stream_id}/download`, `/i/{token}/incident/download`, legacy `/e/{token}` aliases, `/static/...` | Public HTTPS/reverse proxy may expose this read-only viewer. |
+| Main API and viewer | `127.0.0.1:8080` | Authenticated non-admin `/v1/...` product routes, `/i/{token}`, `/i/{token}/data`, viewer bundle downloads, legacy `/e/{token}` aliases, `/static/...` | Public HTTPS/reverse proxy only after deployment-specific TLS, abuse controls, browser credential review, logging review, and operations are complete. |
+| Private admin and operator | `127.0.0.1:8081` | `/admin`, `/admin/...`, `/admin/static/...`, `/v1/admin/...`, `/v1/bootstrap/admin`, `/v1/health/live`, `/v1/health/ready` | Localhost, LAN, WireGuard, firewall, or strict private reverse proxy only. |
 
-Current `/v1` routes use local username/password accounts and opaque
-server-side sessions. That is a private API control, not a complete public
+Current `/v1` routes use local username/password accounts, opaque server-side
+sessions, and app-level route-class rate limits. That is not a complete public
 product API security model.
 
-## Target Listener Topology
+## Listener Topology
 
-The target implementation should keep two route trees, but their purpose should
-change:
+The implementation keeps two route trees:
 
 | Target listener | Target default address | Route groups | Exposure |
 |---|---:|---|---|
 | Main API and viewer | `127.0.0.1:8080` | Public-ready non-admin product API routes plus read-only incident viewer routes. | Public HTTPS/reverse proxy only after authentication, authorization, rate limits, logging redaction, browser credential rules, and deployment guidance are implemented and tested. |
 | Private admin dashboard | `127.0.0.1:8081` | Private `/admin` dashboard routes, admin-only API routes, first-admin bootstrap, and private operator health/readiness checks. | Localhost, LAN, WireGuard, VPN, firewall, or strict private reverse proxy only. Still authenticated and authorized. |
 
-The target `8080` main listener is public-facing only after the implementation
-issue has added the required controls. It must not become a public catch-all for
-every current private route.
+The `8080` main listener is public-facing only after the deployment has added
+the required controls. It must not become a public catch-all for every current
+admin/operator route.
 
 The target `8081` private admin-dashboard listener must not serve public
 incident viewer routes, product upload routes, public link routes, or general
@@ -80,13 +79,14 @@ The main listener may serve these route classes after public hardening exists:
 | `/v1/auth/login`, `/v1/auth/logout` | Main listener only if treated as public product authentication. | Per-route login abuse limits, audit, redacted errors, TLS, browser credential decision, and tests that the returned session cannot reach absent admin routes on the main listener. |
 | `/v1/account`, `/v1/account/password` | Main listener as account-owner product routes. | Authenticated account scope, password-change rate limits, session revocation behavior, and CSRF protection if browser cookies are used. |
 | `/v1/incidents`, `/v1/incidents/{incident_id}`, `/v1/incidents/{incident_id}/close`, owner-scoped `/v1/incidents/{incident_id}/deletion` | Main listener as account-owner product routes. | Owner/admin authorization review for public use, action/data-class policy, incident-mode non-escalation guarantees, audit, route limits, and deletion fail-closed tests. |
-| `/v1/incidents/{incident_id}/chunks`, `/v1/incidents/{incident_id}/chunks/reconcile`, chunk metadata and private chunk byte reads | Main listener as capture/account-owner product routes. | Body-size limits, upload rate limits, idempotency-key redaction, reconciliation response limits, immutable chunk guards, and slow-upload timeout review. |
-| `/v1/incidents/{incident_id}/streams`, stream state routes, private stream/incident encrypted bundle downloads | Main listener as account-owner product routes. | State-transition authorization, download limits, no-store ZIP headers, server-controlled ZIP entry names, and encrypted-bundle wording. |
+| `/v1/incidents/{incident_id}/chunks`, `/v1/incidents/{incident_id}/chunks/reconcile`, chunk metadata and authenticated chunk byte reads | Main listener as capture/account-owner product routes. | Body-size limits, upload rate limits, idempotency-key redaction, reconciliation response limits, immutable chunk guards, and slow-upload timeout review. |
+| `/v1/incidents/{incident_id}/streams`, stream state routes, authenticated stream/incident encrypted bundle downloads | Main listener as account-owner product routes. | State-transition authorization, download limits, no-store ZIP headers, server-controlled ZIP entry names, and encrypted-bundle wording. |
 | `/v1/incidents/{incident_id}/checkins` | Main listener as capture/account-owner product route. | Check-in rate limits, body limits, actor binding, and no notification side effects from labels alone. |
 | `/v1/incidents/{incident_id}/incident-tokens`, `/v1/incident-tokens/{token_id}/revoke` | Main listener as account-owner sharing routes. | Grant-creation limits, token hash storage, raw token returned once, token-label redaction guidance, revoke audit, and no admin/operator grant management on the main listener. |
 
-These routes should be explicit public product API routes. Implementation should
-avoid a mechanical move of the current private mux to the main listener.
+These routes should remain explicit product API routes. The implementation keeps
+admin, bootstrap, and private health/readiness routes off the main listener
+instead of mounting one broad legacy handler tree there.
 
 ## Target Private `8081` Route Set
 
@@ -104,7 +104,7 @@ operator route classes:
 
 If future implementation renames admin API routes from `/v1/admin/...` to a
 new private prefix, it should keep compatibility or migration guidance explicit
-and keep the private route tree separate from the main listener.
+and keep the private-admin route tree separate from the main listener.
 
 ## Explicit Exclusions From The Main Listener
 
@@ -197,16 +197,15 @@ and extend the current redaction posture:
 
 ## Configuration Migration
 
-Current configuration names describe the current topology:
+Current configuration names describe the implemented topology:
 
-- `SAFE_PRIVATE_BIND_ADDRS` serves `/v1` and `/admin`
-- `SAFE_PUBLIC_BIND_ADDRS` serves the public incident viewer
+- `SAFE_MAIN_BIND_ADDRS` serves the main API and read-only incident viewer
+- `SAFE_ADMIN_BIND_ADDRS` serves the private admin and operator routes
 
-The implementation issue should either introduce clearer names such as
-`SAFE_MAIN_BIND_ADDRS` and `SAFE_ADMIN_BIND_ADDRS`, or explicitly document how
-the existing names map during a compatibility period. It must update
-configuration docs, deployment docs, Docker examples, simulator viewer-base
-examples, and tests together.
+`SAFE_PRIVATE_BIND_ADDRS` and `SAFE_PRIVATE_BIND_ADDR` remain accepted as
+legacy aliases for the main listener. `SAFE_PUBLIC_BIND_ADDRS` and
+`SAFE_PUBLIC_BIND_ADDR` fail startup so a previously public viewer bind cannot
+silently become the private-admin listener.
 
 The target default ports are:
 
@@ -222,7 +221,7 @@ is a complete security model.
 
 ## Implementation Test Requirements
 
-Follow-up implementation issues should include tests that prove:
+Implementation and follow-up issues should include tests that prove:
 
 - main listener serves the intended public-ready product API routes
 - main listener serves `/i/...`, legacy `/e/...`, and `/static/...`
@@ -246,6 +245,7 @@ Follow-up implementation issues should include tests that prove:
 - simulator smoke tests use the updated main/viewer base URL after listener
   defaults change
 
-Until those tests and docs land, the current deployment rule remains:
-`/v1` and `/admin` stay private, and only the read-only incident viewer may be
-considered for public HTTPS exposure.
+The current deployment rule remains: `/admin`, `/v1/admin/...`, bootstrap, and
+private health/readiness stay private. The main `/v1` API must not be exposed
+as production public infrastructure until public deployment controls are
+explicitly reviewed for the deployment.

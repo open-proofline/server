@@ -26,7 +26,7 @@ This directory contains the detailed documentation for Proofline Server, the Go 
 | [Browser-side decryption](browser-decryption.md) | Future incident viewer decryption options, risks, and phased direction. |
 | [Live partial stream access boundary](live-partial-stream-access-boundary.md) | Future live or partial stream access roles, stream-state exposure, partial manifests, caching, and key-custody dependencies. |
 | [Break-glass key access](break-glass-key-access.md) | Future optional server-assisted emergency key access and dead-man-switch design. |
-| [API](api.md) | Current private `/v1` API routes including health/readiness checks, private `/admin` web routes, request examples, response examples, and bundle formats. |
+| [API](api.md) | Current main `/v1` product routes, private-admin health/readiness and `/admin` routes, request examples, response examples, and bundle formats. |
 | [Deployment](deployment.md) | Local, Docker, SQLite WAL operations, reverse proxy, TLS, and public exposure notes. |
 | [Retention, backup, and deletion](retention-backup-deletion.md) | Operational policy for evidence lifecycle, backups, restores, and deletion limits. |
 | [Incident deletion and retention enforcement](incident-deletion-retention-enforcement.md) | Current private/admin deletion decisions, retention worker behavior, tombstones, blob deletion retry, and remaining lifecycle boundaries. |
@@ -75,11 +75,11 @@ see [postgresql-metadata-migration.md](postgresql-metadata-migration.md). It
 does not change the current SQLite default or perform automatic
 SQLite-to-PostgreSQL data migration.
 
-The complete-upload idempotency-key path is implemented for private chunk
+The complete-upload idempotency-key path is implemented for authenticated chunk
 uploads; see
 [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md). It does
 not implement resumable uploads, upload leases, or operation-level use of
-Valkey/Redis-compatible coordination. The private duplicate chunk
+Valkey/Redis-compatible coordination. The authenticated duplicate chunk
 reconciliation route is implemented for comparing an expected chunk fingerprint
 with already accepted metadata without re-uploading ciphertext; see
 [api.md](api.md).
@@ -96,7 +96,7 @@ The long-term Proofline product direction is broader than emergency-only
 recording. Future clients should support emergency incidents, non-emergency
 interaction records, timed safety checks, and evidence notes while keeping
 capture, escalation, sharing, and legal/export actions separate. The current
-private incident create/read routes support optional incident-mode,
+main incident create/read routes support optional incident-mode,
 capture-profile, escalation-policy, and sharing-state metadata, but those fields
 do not drive access, notification, retention, sharing, viewer, or key-custody
 behavior. Mode-driven behavior and migration boundaries are documented in
@@ -108,7 +108,7 @@ Legacy unowned incidents remain admin-only until a future private reassignment
 or quarantine workflow is implemented; the planning boundary is documented in
 [legacy-unowned-incident-reassignment.md](legacy-unowned-incident-reassignment.md).
 
-The future iOS incident-capture prototype is planned in [ios-local-recorder-prototype.md](ios-local-recorder-prototype.md). Future production key custody is documented in [key-custody.md](key-custody.md), with a simulator-only contact-wrapped key metadata prototype in [contact-wrapped-key-metadata-simulator.md](contact-wrapped-key-metadata-simulator.md), browser decryption and break-glass follow-up designs in [browser-decryption.md](browser-decryption.md) and [break-glass-key-access.md](break-glass-key-access.md), and live or partial stream access boundaries in [live-partial-stream-access-boundary.md](live-partial-stream-access-boundary.md). None of those future designs make the current private `/v1` API or `/admin` surface safe for broad public exposure.
+The future iOS incident-capture prototype is planned in [ios-local-recorder-prototype.md](ios-local-recorder-prototype.md). Future production key custody is documented in [key-custody.md](key-custody.md), with a simulator-only contact-wrapped key metadata prototype in [contact-wrapped-key-metadata-simulator.md](contact-wrapped-key-metadata-simulator.md), browser decryption and break-glass follow-up designs in [browser-decryption.md](browser-decryption.md) and [break-glass-key-access.md](break-glass-key-access.md), and live or partial stream access boundaries in [live-partial-stream-access-boundary.md](live-partial-stream-access-boundary.md). None of those future designs make the current main `/v1` API or `/admin` surface safe for broad public exposure.
 
 Evidence bundles are encrypted chunk bundles with JSON manifests. They are not decrypted, playable, or merged media exports.
 
@@ -116,7 +116,7 @@ Retention, backup, and deletion policy is documented in
 [retention-backup-deletion.md](retention-backup-deletion.md), with incident
 deletion and retention enforcement details in
 [incident-deletion-retention-enforcement.md](incident-deletion-retention-enforcement.md).
-The backend implements private incident deletion APIs and an automatic
+The backend implements authenticated incident deletion APIs and an automatic
 background deletion worker; closed-incident retention is disabled unless
 configured with `SAFE_CLOSED_INCIDENT_RETENTION`.
 Future mode-aware retention is planning-only and documented in
@@ -131,4 +131,4 @@ production-ready public infrastructure.
 
 ## Security Reminder
 
-The private `/v1` API and `/admin` web surface use local account sessions but are still not public product surfaces. Keep them behind localhost, LAN, WireGuard, firewall rules, or a strict reverse proxy. Separate private/public bind addresses reduce accidental exposure, but they are not a complete security model.
+The main `/v1` API and `/admin` web surface use local account sessions but are still not public product surfaces. Keep main `/v1` behind the reviewed deployment boundary, and keep `/admin` behind localhost, LAN, WireGuard, firewall rules, or a strict private reverse proxy. Separate main/private-admin bind addresses reduce accidental exposure, but they are not a complete security model.

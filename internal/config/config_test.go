@@ -11,20 +11,20 @@ import (
 func TestLoadDefaultBindAddrs(t *testing.T) {
 	cfg := loadConfigForTest(t, nil)
 
-	assertStringsEqual(t, cfg.PrivateBindAddrs, []string{"127.0.0.1:8080"})
-	assertStringsEqual(t, cfg.PublicBindAddrs, []string{"127.0.0.1:8081"})
+	assertStringsEqual(t, cfg.MainBindAddrs, []string{"127.0.0.1:8080"})
+	assertStringsEqual(t, cfg.AdminBindAddrs, []string{"127.0.0.1:8081"})
 }
 
 func TestLoadDefaultHTTPTimeouts(t *testing.T) {
 	cfg := loadConfigForTest(t, nil)
 
-	assertTimeoutsEqual(t, cfg.PrivateTimeouts, HTTPTimeouts{
+	assertTimeoutsEqual(t, cfg.MainTimeouts, HTTPTimeouts{
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       0,
 		WriteTimeout:      0,
 		IdleTimeout:       120 * time.Second,
 	})
-	assertTimeoutsEqual(t, cfg.PublicTimeouts, HTTPTimeouts{
+	assertTimeoutsEqual(t, cfg.AdminTimeouts, HTTPTimeouts{
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      300 * time.Second,
@@ -801,23 +801,23 @@ func TestLoadRejectsInvalidDeletionRetentionConfig(t *testing.T) {
 
 func TestLoadHTTPTimeoutsFromEnv(t *testing.T) {
 	cfg := loadConfigForTest(t, map[string]string{
-		"SAFE_PRIVATE_READ_HEADER_TIMEOUT": "11s",
-		"SAFE_PRIVATE_READ_TIMEOUT":        "0",
-		"SAFE_PRIVATE_WRITE_TIMEOUT":       "0s",
-		"SAFE_PRIVATE_IDLE_TIMEOUT":        "2m",
-		"SAFE_PUBLIC_READ_HEADER_TIMEOUT":  "12s",
-		"SAFE_PUBLIC_READ_TIMEOUT":         "31s",
-		"SAFE_PUBLIC_WRITE_TIMEOUT":        "5m",
-		"SAFE_PUBLIC_IDLE_TIMEOUT":         "3m",
+		"SAFE_MAIN_READ_HEADER_TIMEOUT":  "11s",
+		"SAFE_MAIN_READ_TIMEOUT":         "0",
+		"SAFE_MAIN_WRITE_TIMEOUT":        "0s",
+		"SAFE_MAIN_IDLE_TIMEOUT":         "2m",
+		"SAFE_ADMIN_READ_HEADER_TIMEOUT": "12s",
+		"SAFE_ADMIN_READ_TIMEOUT":        "31s",
+		"SAFE_ADMIN_WRITE_TIMEOUT":       "5m",
+		"SAFE_ADMIN_IDLE_TIMEOUT":        "3m",
 	})
 
-	assertTimeoutsEqual(t, cfg.PrivateTimeouts, HTTPTimeouts{
+	assertTimeoutsEqual(t, cfg.MainTimeouts, HTTPTimeouts{
 		ReadHeaderTimeout: 11 * time.Second,
 		ReadTimeout:       0,
 		WriteTimeout:      0,
 		IdleTimeout:       2 * time.Minute,
 	})
-	assertTimeoutsEqual(t, cfg.PublicTimeouts, HTTPTimeouts{
+	assertTimeoutsEqual(t, cfg.AdminTimeouts, HTTPTimeouts{
 		ReadHeaderTimeout: 12 * time.Second,
 		ReadTimeout:       31 * time.Second,
 		WriteTimeout:      5 * time.Minute,
@@ -828,13 +828,13 @@ func TestLoadHTTPTimeoutsFromEnv(t *testing.T) {
 func TestLoadRejectsInvalidHTTPTimeouts(t *testing.T) {
 	tests := map[string]map[string]string{
 		"negative": {
-			"SAFE_PRIVATE_READ_TIMEOUT": "-1s",
+			"SAFE_MAIN_READ_TIMEOUT": "-1s",
 		},
 		"invalid": {
-			"SAFE_PUBLIC_WRITE_TIMEOUT": "soon",
+			"SAFE_ADMIN_WRITE_TIMEOUT": "soon",
 		},
 		"empty": {
-			"SAFE_PUBLIC_IDLE_TIMEOUT": "",
+			"SAFE_ADMIN_IDLE_TIMEOUT": "",
 		},
 	}
 
@@ -853,59 +853,89 @@ func TestLoadRejectsInvalidHTTPTimeouts(t *testing.T) {
 
 func TestLoadSingularBindAddrs(t *testing.T) {
 	cfg := loadConfigForTest(t, map[string]string{
-		"SAFE_PRIVATE_BIND_ADDR": "10.66.0.1:8080",
-		"SAFE_PUBLIC_BIND_ADDR":  "192.168.1.20:8081",
+		"SAFE_MAIN_BIND_ADDR":  "10.66.0.1:8080",
+		"SAFE_ADMIN_BIND_ADDR": "192.168.1.20:8081",
 	})
 
-	assertStringsEqual(t, cfg.PrivateBindAddrs, []string{"10.66.0.1:8080"})
-	assertStringsEqual(t, cfg.PublicBindAddrs, []string{"192.168.1.20:8081"})
+	assertStringsEqual(t, cfg.MainBindAddrs, []string{"10.66.0.1:8080"})
+	assertStringsEqual(t, cfg.AdminBindAddrs, []string{"192.168.1.20:8081"})
 }
 
 func TestLoadPluralBindAddrs(t *testing.T) {
 	cfg := loadConfigForTest(t, map[string]string{
-		"SAFE_PRIVATE_BIND_ADDRS": "127.0.0.1:8080,10.66.0.1:8080",
-		"SAFE_PUBLIC_BIND_ADDRS":  "127.0.0.1:8081,192.168.1.20:8081",
+		"SAFE_MAIN_BIND_ADDRS":  "127.0.0.1:8080,10.66.0.1:8080",
+		"SAFE_ADMIN_BIND_ADDRS": "127.0.0.1:8081,192.168.1.20:8081",
 	})
 
-	assertStringsEqual(t, cfg.PrivateBindAddrs, []string{"127.0.0.1:8080", "10.66.0.1:8080"})
-	assertStringsEqual(t, cfg.PublicBindAddrs, []string{"127.0.0.1:8081", "192.168.1.20:8081"})
+	assertStringsEqual(t, cfg.MainBindAddrs, []string{"127.0.0.1:8080", "10.66.0.1:8080"})
+	assertStringsEqual(t, cfg.AdminBindAddrs, []string{"127.0.0.1:8081", "192.168.1.20:8081"})
 }
 
 func TestLoadPluralBindAddrsTakePrecedenceOverSingular(t *testing.T) {
 	cfg := loadConfigForTest(t, map[string]string{
-		"SAFE_PRIVATE_BIND_ADDR":  "10.0.0.1:8080",
-		"SAFE_PRIVATE_BIND_ADDRS": "127.0.0.1:8080,10.66.0.1:8080",
-		"SAFE_PUBLIC_BIND_ADDR":   "10.0.0.2:8081",
-		"SAFE_PUBLIC_BIND_ADDRS":  "127.0.0.1:8081",
+		"SAFE_MAIN_BIND_ADDR":   "10.0.0.1:8080",
+		"SAFE_MAIN_BIND_ADDRS":  "127.0.0.1:8080,10.66.0.1:8080",
+		"SAFE_ADMIN_BIND_ADDR":  "10.0.0.2:8081",
+		"SAFE_ADMIN_BIND_ADDRS": "127.0.0.1:8081",
 	})
 
-	assertStringsEqual(t, cfg.PrivateBindAddrs, []string{"127.0.0.1:8080", "10.66.0.1:8080"})
-	assertStringsEqual(t, cfg.PublicBindAddrs, []string{"127.0.0.1:8081"})
+	assertStringsEqual(t, cfg.MainBindAddrs, []string{"127.0.0.1:8080", "10.66.0.1:8080"})
+	assertStringsEqual(t, cfg.AdminBindAddrs, []string{"127.0.0.1:8081"})
 }
 
 func TestLoadBindAddrsTrimWhitespace(t *testing.T) {
 	cfg := loadConfigForTest(t, map[string]string{
-		"SAFE_PRIVATE_BIND_ADDRS": " 127.0.0.1:8080 , 10.66.0.1:8080 ",
-		"SAFE_PUBLIC_BIND_ADDRS":  " 127.0.0.1:8081 ",
+		"SAFE_MAIN_BIND_ADDRS":  " 127.0.0.1:8080 , 10.66.0.1:8080 ",
+		"SAFE_ADMIN_BIND_ADDRS": " 127.0.0.1:8081 ",
 	})
 
-	assertStringsEqual(t, cfg.PrivateBindAddrs, []string{"127.0.0.1:8080", "10.66.0.1:8080"})
-	assertStringsEqual(t, cfg.PublicBindAddrs, []string{"127.0.0.1:8081"})
+	assertStringsEqual(t, cfg.MainBindAddrs, []string{"127.0.0.1:8080", "10.66.0.1:8080"})
+	assertStringsEqual(t, cfg.AdminBindAddrs, []string{"127.0.0.1:8081"})
+}
+
+func TestLoadLegacyPrivateBindAddrsConfigureMainListener(t *testing.T) {
+	cfg := loadConfigForTest(t, map[string]string{
+		"SAFE_PRIVATE_BIND_ADDRS": "127.0.0.1:8080,10.66.0.1:8080",
+	})
+
+	assertStringsEqual(t, cfg.MainBindAddrs, []string{"127.0.0.1:8080", "10.66.0.1:8080"})
+	assertStringsEqual(t, cfg.AdminBindAddrs, []string{"127.0.0.1:8081"})
+}
+
+func TestLoadRejectsLegacyPublicBindAddrs(t *testing.T) {
+	tests := map[string]map[string]string{
+		"plural":   {"SAFE_PUBLIC_BIND_ADDRS": "0.0.0.0:8081"},
+		"singular": {"SAFE_PUBLIC_BIND_ADDR": "0.0.0.0:8081"},
+	}
+
+	for name, env := range tests {
+		t.Run(name, func(t *testing.T) {
+			_, err := loadConfigForTestErr(t, env)
+			if err == nil {
+				t.Fatal("expected legacy public bind config error")
+			}
+			if !strings.Contains(err.Error(), "SAFE_PUBLIC_BIND_ADDR") ||
+				!strings.Contains(err.Error(), "SAFE_MAIN_BIND_ADDRS") ||
+				!strings.Contains(err.Error(), "SAFE_ADMIN_BIND_ADDRS") {
+				t.Fatalf("expected migration guidance, got %v", err)
+			}
+		})
+	}
 }
 
 func TestLoadBindAddrsRejectEmptyEntries(t *testing.T) {
 	tests := map[string]map[string]string{
 		"fully empty private list": {
-			"SAFE_PRIVATE_BIND_ADDRS": "",
+			"SAFE_MAIN_BIND_ADDRS": "",
 		},
-		"comma-only public list": {
-			"SAFE_PUBLIC_BIND_ADDRS": ",",
+		"comma-only admin list": {
+			"SAFE_ADMIN_BIND_ADDRS": ",",
 		},
 		"middle empty entry": {
-			"SAFE_PRIVATE_BIND_ADDRS": "127.0.0.1:8080,,10.66.0.1:8080",
+			"SAFE_MAIN_BIND_ADDRS": "127.0.0.1:8080,,10.66.0.1:8080",
 		},
 		"singular empty entry": {
-			"SAFE_PRIVATE_BIND_ADDR": "",
+			"SAFE_MAIN_BIND_ADDR": "",
 		},
 	}
 
@@ -1000,6 +1030,10 @@ func loadConfigForTest(t *testing.T, env map[string]string) Config {
 func loadConfigForTestErr(t *testing.T, env map[string]string) (Config, error) {
 	t.Helper()
 	names := []string{
+		"SAFE_MAIN_BIND_ADDRS",
+		"SAFE_ADMIN_BIND_ADDRS",
+		"SAFE_MAIN_BIND_ADDR",
+		"SAFE_ADMIN_BIND_ADDR",
 		"SAFE_PRIVATE_BIND_ADDRS",
 		"SAFE_PUBLIC_BIND_ADDRS",
 		"SAFE_PRIVATE_BIND_ADDR",
@@ -1038,6 +1072,14 @@ func loadConfigForTestErr(t *testing.T, env map[string]string) (Config, error) {
 		"SAFE_PUBLIC_VIEWER_RATE_LIMIT_DATA",
 		"SAFE_PUBLIC_VIEWER_RATE_LIMIT_DOWNLOAD",
 		"SAFE_PUBLIC_VIEWER_RATE_LIMIT_STATIC",
+		"SAFE_MAIN_READ_HEADER_TIMEOUT",
+		"SAFE_MAIN_READ_TIMEOUT",
+		"SAFE_MAIN_WRITE_TIMEOUT",
+		"SAFE_MAIN_IDLE_TIMEOUT",
+		"SAFE_ADMIN_READ_HEADER_TIMEOUT",
+		"SAFE_ADMIN_READ_TIMEOUT",
+		"SAFE_ADMIN_WRITE_TIMEOUT",
+		"SAFE_ADMIN_IDLE_TIMEOUT",
 		"SAFE_PRIVATE_READ_HEADER_TIMEOUT",
 		"SAFE_PRIVATE_READ_TIMEOUT",
 		"SAFE_PRIVATE_WRITE_TIMEOUT",

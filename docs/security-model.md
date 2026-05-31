@@ -4,7 +4,7 @@ This document summarizes the current Proofline backend security assumptions and 
 
 ## Maturity
 
-Proofline is experimental and not production-ready public infrastructure. The private `/v1` API has local username/password accounts and opaque server-side sessions. It still has no OAuth, no JWT protection, no public product API hardening, and no public account portal.
+Proofline is experimental and not production-ready public infrastructure. The main `/v1` API has local username/password accounts and opaque server-side sessions. It still has no OAuth, no JWT protection, no complete public product API hardening, and no public account portal.
 
 The current backend stores incidents owned by local accounts. Incidents are
 generic by default and may include optional incident-mode, capture-profile,
@@ -18,11 +18,10 @@ product access.
 The `/v1` access-control direction is documented in
 [v1-access-control.md](v1-access-control.md). The current implementation covers
 local account sessions, owner-scoped incident access, admin account routes, and
-private route authentication. It does not make `/v1` safe to expose publicly as
-a product API. Future topology still separates a public authenticated product
-API from a separately bound private admin API listener that requires
-authentication and authorization; the target main API/public viewer and private
-admin-dashboard listener split is planning-only in
+route authentication. It does not make `/v1` safe to expose publicly as a
+product API. The current topology separates the main API/viewer listener from a
+separately bound private-admin listener that requires authentication and
+authorization for admin actions; see
 [public-api-listener-split.md](public-api-listener-split.md).
 
 ## Listener Boundary
@@ -31,10 +30,11 @@ The API binary starts separate listener groups:
 
 | Listener group | Routes | Intended exposure |
 |---|---|---|
-| Private API | Authenticated `/v1/...`, unauthenticated private `/v1/health/live` and `/v1/health/ready`, plus private `/admin` web routes | Localhost, LAN, WireGuard, firewall, or strict reverse proxy only. |
-| Public incident viewer | `/i/{token}` and related read-only routes, plus pre-rename `/e/{token}` compatibility aliases | HTTPS/reverse proxy when exposed. |
+| Main API and viewer | Authenticated non-admin `/v1/...`, `/i/{token}` and related read-only routes, plus pre-rename `/e/{token}` compatibility aliases | Reviewed main API deployment boundary; viewer paths may be routed publicly when only viewer paths are forwarded. |
+| Private admin and operator | `/admin`, `/admin/...`, `/v1/admin/...`, `/v1/bootstrap/admin`, `/v1/health/live`, and `/v1/health/ready` | Localhost, LAN, WireGuard, firewall, or strict reverse proxy only. |
 
-Private write/admin routes must not be mounted on public incident viewer listeners. Incident viewer routes are read-only.
+Admin/operator routes must not be mounted on the main listener. Incident
+viewer routes are read-only.
 
 ## Account And Token Handling
 
@@ -54,14 +54,14 @@ secrets.
 `GET /v1/health/live` and `GET /v1/health/ready` are unauthenticated because
 they are intended for local Docker checks, private reverse-proxy upstream
 checks, and operator troubleshooting without storing a session token. They are
-mounted only on the private API mux. Their responses are coarse and must not
+mounted only on the private-admin mux. Their responses are coarse and must not
 expose DSNs, credentials, bucket names, object keys, stored paths, local
 filesystem paths, private hostnames, tokens, request bodies, uploaded bytes,
 plaintext, raw keys, private deployment details, or underlying error strings.
 
 The private `/admin` page, login form, bootstrap form, and account password
-workflows are mounted only on the private API mux, not on the public incident
-viewer mux. The browser flow uses the same server-side session store as `/v1`
+workflows are mounted only on the private-admin mux, not on the main API/viewer
+mux. The browser flow uses the same server-side session store as `/v1`
 authentication and stores the raw session token in an HttpOnly SameSite=Strict
 cookie scoped to `/admin`. Authenticated `/admin` pages require the `admin`
 role. Authenticated state-changing admin web forms use a session-bound CSRF
@@ -83,7 +83,7 @@ Viewer URLs contain bearer tokens and should be treated as secrets. Reverse prox
 - Local storage commits use no-overwrite hard links. Optional S3-compatible storage commits final objects with conditional no-overwrite writes.
 - Streamed uploads require positive chunk indexes, while legacy unstreamed uploads may still use index `0`.
 - `original_filename` is optional client-supplied display metadata. The server
-  strips it to a basename and may return it in private chunk metadata,
+  strips it to a basename and may return it in authenticated chunk metadata,
   token-scoped public incident viewer summaries, and bundle manifests. Future
   clients should omit it by default or use a generic basename unless preserving
   filename context is an explicit user or protocol decision.
@@ -102,14 +102,14 @@ Viewer URLs contain bearer tokens and should be treated as secrets. Reverse prox
   session tokens, Authorization headers, raw idempotency keys, request bodies,
   uploaded bytes, incident IDs, stored paths, object keys, plaintext, raw keys,
   or private deployment details.
-- The private duplicate chunk reconciliation route compares a requested
+- The authenticated duplicate chunk reconciliation route compares a requested
   normalized chunk identity and expected immutable fingerprint against accepted
   chunk metadata without re-uploading ciphertext, reading stored bytes, or
   returning stored paths, object keys, uploaded bytes, plaintext, raw keys, raw
   tokens, or conflicting stored values.
 - Chunk metadata inserts recheck incident and stream state in the repository so uploads racing with close or completion are rejected.
 - Media stream completion verifies contiguous chunks and readable stored files, then rechecks chunk rows transactionally before committing completion.
-- Local account authorization binds private incident access to the
+- Local account authorization binds authenticated incident access to the
   authenticated account, the incident owner, and the role. Current private
   incident routes also pass route-level action and data-class labels, but all
   current incident actions share the same owner-or-admin policy. Regular users
@@ -163,7 +163,7 @@ Bundle manifests may include a non-secret client-side encryption hint. They do n
 
 ## Incident Modes And Escalation Boundary
 
-Incident-mode metadata is currently limited to optional private incident fields.
+Incident-mode metadata is currently limited to optional main incident fields.
 Emergency incidents, interaction records, safety checks, and evidence notes must
 not weaken the current storage, encryption, listener, or logging boundaries. The
 schema keeps incident mode, capture profile, escalation policy, and sharing state
@@ -200,11 +200,14 @@ The Go app sets these headers on public incident viewer pages, JSON responses, s
 - `Permissions-Policy: geolocation=(), microphone=(), camera=()`
 - `X-Frame-Options: DENY`
 
-Token-protected incident pages, JSON responses, errors, ZIP downloads, and admin web pages also use `Cache-Control: no-store`, including automatic method-mismatch errors on token-bearing paths. Private API responses use `X-Content-Type-Options: nosniff` and `Cache-Control: no-store`; JSON responses also use `Content-Type: application/json`.
+Token-protected incident pages, JSON responses, errors, ZIP downloads, and admin web pages also use `Cache-Control: no-store`, including automatic method-mismatch errors on token-bearing paths. Main and private-admin JSON responses use `X-Content-Type-Options: nosniff` and `Cache-Control: no-store`; JSON responses also use `Content-Type: application/json`.
 
 HSTS is not enabled by default in the Go app because local development uses plain HTTP and HSTS should only be sent over HTTPS. Set `Strict-Transport-Security` at the production HTTPS reverse proxy after TLS is established for the public hostname. After deployment, test the public incident viewer with the MDN HTTP Observatory.
 
-HTTP server timeouts are configurable separately for private and public listener groups. Private read/write timeouts default to disabled for large uploads/downloads; public viewer timeouts are finite by default and should be coordinated with reverse-proxy timeouts.
+HTTP server timeouts are configurable separately for main and private-admin
+listener groups. Main read/write timeouts default to disabled for large
+uploads/downloads and viewer ZIP downloads; private-admin timeouts are finite
+by default and should be coordinated with reverse-proxy timeouts.
 
 The Go app includes app-level public viewer rate limiting by route class for
 viewer page lookups, JSON polling, encrypted ZIP download starts, and static
@@ -213,8 +216,8 @@ identity; they do not include raw `/i/{token}` paths, legacy `/e/{token}`
 paths, raw tokens, request bodies, Authorization headers, uploaded bytes,
 plaintext, raw keys, or private deployment details. Deployment-edge rate
 limiting guidance is documented in [deployment.md](deployment.md), and those
-proxy controls still do not replace private `/v1` access boundaries, local
-account authentication, or future public product API abuse controls.
+proxy controls still do not replace reviewed main `/v1` deployment boundaries,
+local account authentication, or future public product API abuse controls.
 
 ## Retention, Backups, And Deletion
 
@@ -247,8 +250,8 @@ Normal file or object removal is not treated as guaranteed secure erasure. Deplo
 ## Known Security Gaps
 
 - No implemented public product API exposure model for `/v1`; local account
-  sessions are a private API control, not a complete public security model
-  and the future listener split is not implemented
+  sessions are an authenticated main-API control, not a complete public security
+  model
 - No built-in TLS
 - No general-purpose abuse-throttling system beyond main API and public viewer
   route-class rate limiting

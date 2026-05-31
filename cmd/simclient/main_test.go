@@ -58,7 +58,7 @@ func TestBuildViewerURL(t *testing.T) {
 	}
 }
 
-func TestClientWriteRoutesUsePrivateAPIBase(t *testing.T) {
+func TestClientWriteRoutesUseMainAPIBase(t *testing.T) {
 	expectedPaths := []string{
 		"POST /v1/auth/login",
 		"POST /v1/incidents",
@@ -156,7 +156,7 @@ func TestClientWriteRoutesUsePrivateAPIBase(t *testing.T) {
 	}
 }
 
-func TestClientUploadChunkUsesPrivateAPIBaseAndStreamID(t *testing.T) {
+func TestClientUploadChunkUsesMainAPIBaseAndStreamID(t *testing.T) {
 	body := []byte("encrypted bytes")
 	upload := buildChunkUpload("inc_1", "str_1", 2, "audio", time.Date(2026, 5, 22, 10, 0, 0, 0, time.UTC), body)
 

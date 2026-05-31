@@ -21,37 +21,37 @@ import (
 )
 
 func TestNewHTTPServersCreatesOneServerPerBindAddress(t *testing.T) {
-	privateHandler := http.NewServeMux()
-	publicHandler := http.NewServeMux()
+	mainHandler := http.NewServeMux()
+	adminHandler := http.NewServeMux()
 	cfg := config.Config{
-		PrivateBindAddrs: []string{"127.0.0.1:8080", "10.66.0.1:8080"},
-		PublicBindAddrs:  []string{"127.0.0.1:8081", "192.168.1.20:8081"},
+		MainBindAddrs:  []string{"127.0.0.1:8080", "10.66.0.1:8080"},
+		AdminBindAddrs: []string{"127.0.0.1:8081", "192.168.1.20:8081"},
 	}
 
-	servers := newHTTPServers(cfg, privateHandler, publicHandler)
+	servers := newHTTPServers(cfg, mainHandler, adminHandler)
 
 	if len(servers) != 4 {
 		t.Fatalf("got %d servers, want 4", len(servers))
 	}
-	assertServer(t, servers[0], "private api", "127.0.0.1:8080", privateHandler)
-	assertServer(t, servers[1], "private api", "10.66.0.1:8080", privateHandler)
-	assertServer(t, servers[2], "public incident viewer", "127.0.0.1:8081", publicHandler)
-	assertServer(t, servers[3], "public incident viewer", "192.168.1.20:8081", publicHandler)
+	assertServer(t, servers[0], "main api and viewer", "127.0.0.1:8080", mainHandler)
+	assertServer(t, servers[1], "main api and viewer", "10.66.0.1:8080", mainHandler)
+	assertServer(t, servers[2], "private admin", "127.0.0.1:8081", adminHandler)
+	assertServer(t, servers[3], "private admin", "192.168.1.20:8081", adminHandler)
 }
 
-func TestNewHTTPServersAppliesPrivateAndPublicTimeouts(t *testing.T) {
-	privateHandler := http.NewServeMux()
-	publicHandler := http.NewServeMux()
+func TestNewHTTPServersAppliesMainAndAdminTimeouts(t *testing.T) {
+	mainHandler := http.NewServeMux()
+	adminHandler := http.NewServeMux()
 	cfg := config.Config{
-		PrivateBindAddrs: []string{"127.0.0.1:8080"},
-		PublicBindAddrs:  []string{"127.0.0.1:8081"},
-		PrivateTimeouts: config.HTTPTimeouts{
+		MainBindAddrs:  []string{"127.0.0.1:8080"},
+		AdminBindAddrs: []string{"127.0.0.1:8081"},
+		MainTimeouts: config.HTTPTimeouts{
 			ReadHeaderTimeout: 11 * time.Second,
 			ReadTimeout:       0,
 			WriteTimeout:      0,
 			IdleTimeout:       121 * time.Second,
 		},
-		PublicTimeouts: config.HTTPTimeouts{
+		AdminTimeouts: config.HTTPTimeouts{
 			ReadHeaderTimeout: 12 * time.Second,
 			ReadTimeout:       31 * time.Second,
 			WriteTimeout:      301 * time.Second,
@@ -59,10 +59,10 @@ func TestNewHTTPServersAppliesPrivateAndPublicTimeouts(t *testing.T) {
 		},
 	}
 
-	servers := newHTTPServers(cfg, privateHandler, publicHandler)
+	servers := newHTTPServers(cfg, mainHandler, adminHandler)
 
-	assertServerTimeouts(t, servers[0].server, cfg.PrivateTimeouts)
-	assertServerTimeouts(t, servers[1].server, cfg.PublicTimeouts)
+	assertServerTimeouts(t, servers[0].server, cfg.MainTimeouts)
+	assertServerTimeouts(t, servers[1].server, cfg.AdminTimeouts)
 }
 
 func TestStartupErrorLogDoesNotExposeFilesystemPath(t *testing.T) {

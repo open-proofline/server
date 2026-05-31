@@ -39,7 +39,6 @@ func TestMainAPIRateLimitGroupsRoutesWithSafeKeys(t *testing.T) {
 		limit  int
 	}{
 		{http.MethodPost, "/v1/auth/login", ":auth:", 11},
-		{http.MethodPost, "/v1/bootstrap/admin", ":bootstrap:", 12},
 		{http.MethodGet, "/v1/account", ":account:", 13},
 		{http.MethodGet, "/v1/incidents/inc_secret", ":incident_read:", 14},
 		{http.MethodPost, "/v1/incidents", ":incident_write:", 15},
@@ -48,13 +47,25 @@ func TestMainAPIRateLimitGroupsRoutesWithSafeKeys(t *testing.T) {
 		{http.MethodPost, "/v1/incidents/inc_secret/streams/str_secret/complete", ":stream:", 18},
 		{http.MethodPost, "/v1/incidents/inc_secret/incident-tokens", ":token:", 19},
 		{http.MethodGet, "/v1/incidents/inc_secret/download", ":download:", 20},
-		{http.MethodGet, "/v1/admin/accounts", ":admin:", 21},
 	}
 
 	headers := map[string]string{"Idempotency-Key": "raw-idempotency-key-secret"}
 	for _, route := range routes {
-		response, _ := requestWithAuthAndHeaders(t, app.privateHandler, route.method, route.target, "application/json", bytes.NewBufferString(`{}`), "raw-session-token-secret", headers)
+		response, _ := requestWithAuthAndHeaders(t, app.mainHandler, route.method, route.target, "application/json", bytes.NewBufferString(`{}`), "raw-session-token-secret", headers)
 		response.Body.Close()
+	}
+	for _, route := range []struct {
+		method string
+		target string
+		class  string
+		limit  int
+	}{
+		{http.MethodPost, "/v1/bootstrap/admin", ":bootstrap:", 12},
+		{http.MethodGet, "/v1/admin/accounts", ":admin:", 21},
+	} {
+		response, _ := requestWithAuthAndHeaders(t, app.adminHandler, route.method, route.target, "application/json", bytes.NewBufferString(`{}`), "raw-session-token-secret", headers)
+		response.Body.Close()
+		routes = append(routes, route)
 	}
 
 	if len(limiter.calls) != len(routes) {
@@ -101,7 +112,7 @@ func TestMainAPIRateLimitExhaustionUsesSafeNoStoreResponse(t *testing.T) {
 	if response.StatusCode != http.StatusTooManyRequests {
 		t.Fatalf("limited login status = %d, want 429: %s", response.StatusCode, body)
 	}
-	assertPrivateJSONSecurityHeaders(t, response)
+	assertMainJSONSecurityHeaders(t, response)
 	assertErrorCode(t, body, "rate_limited")
 	if response.Header.Get("Retry-After") != "60" {
 		t.Fatalf("Retry-After = %q, want 60", response.Header.Get("Retry-After"))
@@ -132,7 +143,7 @@ func TestMainAPIRateLimitBackendFailureUsesSafeResponse(t *testing.T) {
 	if response.StatusCode != http.StatusServiceUnavailable {
 		t.Fatalf("backend failure status = %d, want 503: %s", response.StatusCode, body)
 	}
-	assertPrivateJSONSecurityHeaders(t, response)
+	assertMainJSONSecurityHeaders(t, response)
 	assertErrorCode(t, body, "rate_limit_unavailable")
 	for _, disallowed := range []string{"inc_secret", "raw-session-token-secret", "raw-idempotency-key-secret", "10.0.0.5", "secret"} {
 		if bytes.Contains(body, []byte(disallowed)) {

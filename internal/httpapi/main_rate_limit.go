@@ -26,6 +26,22 @@ const (
 )
 
 func (a *API) mainRateLimitMiddleware(next http.Handler) http.Handler {
+	return a.mainRateLimitMiddlewareWithClassFilter(next, nil)
+}
+
+func (a *API) mainAPIRouteRateLimitMiddleware(next http.Handler) http.Handler {
+	return a.mainRateLimitMiddlewareWithClassFilter(next, func(class mainRateLimitClass) bool {
+		return class != mainRateLimitAdmin && class != mainRateLimitBootstrap
+	})
+}
+
+func (a *API) adminAPIRouteRateLimitMiddleware(next http.Handler) http.Handler {
+	return a.mainRateLimitMiddlewareWithClassFilter(next, func(class mainRateLimitClass) bool {
+		return class == mainRateLimitAdmin || class == mainRateLimitBootstrap
+	})
+}
+
+func (a *API) mainRateLimitMiddlewareWithClassFilter(next http.Handler, allowClass func(mainRateLimitClass) bool) http.Handler {
 	cfg := a.mainRateLimit
 	limiter := a.mainRateLimiter
 	if !cfg.Enabled || limiter == nil {
@@ -35,6 +51,10 @@ func (a *API) mainRateLimitMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		class, ok := classifyMainAPIRateLimit(r)
 		if !ok {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if allowClass != nil && !allowClass(class) {
 			next.ServeHTTP(w, r)
 			return
 		}

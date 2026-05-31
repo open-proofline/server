@@ -97,19 +97,31 @@ type API struct {
 	logger                  *slog.Logger
 }
 
-// New builds the private HTTP handler. Prefer NewPrivate or NewPublic at call
-// sites that need to make the routing boundary explicit.
+// New builds the main API and incident viewer HTTP handler. Prefer NewMain or
+// NewAdmin at call sites that need to make the routing boundary explicit.
 func New(repo MetadataRepository, store storage.BlobStore, opts Options) http.Handler {
-	return NewPrivate(repo, store, opts)
+	return NewMain(repo, store, opts)
 }
 
-// NewPrivate builds the HTTP handler tree for the private write/admin API.
+// NewMain builds the HTTP handler tree for the main API and read-only incident
+// viewer listener.
+func NewMain(repo MetadataRepository, store storage.BlobStore, opts Options) http.Handler {
+	return newAPI(repo, store, opts).mainRoutes()
+}
+
+// NewAdmin builds the HTTP handler tree for the private admin listener.
+func NewAdmin(repo MetadataRepository, store storage.BlobStore, opts Options) http.Handler {
+	return newAPI(repo, store, opts).adminRoutes()
+}
+
+// NewPrivate builds the private admin listener handler tree. It is kept as a
+// compatibility name for older internal callers.
 func NewPrivate(repo MetadataRepository, store storage.BlobStore, opts Options) http.Handler {
-	return newAPI(repo, store, opts).privateRoutes()
+	return NewAdmin(repo, store, opts)
 }
 
-// NewPublic builds the HTTP handler tree for the public read-only incident
-// viewer.
+// NewPublic builds the read-only incident viewer handler tree. The current
+// server process mounts these routes on the main listener through NewMain.
 func NewPublic(repo MetadataRepository, store storage.BlobStore, opts Options) http.Handler {
 	return newAPI(repo, store, opts).publicRoutes()
 }

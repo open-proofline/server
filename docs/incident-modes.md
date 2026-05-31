@@ -187,13 +187,13 @@ conservative:
 1. Keep existing incidents readable as generic legacy incidents with no incident-mode value.
 2. Do not backfill old incidents as emergencies, interaction records, safety checks, or evidence notes without an account-owner-controlled classification flow.
 3. Keep the initial server fields nullable and optional in SQLite, PostgreSQL,
-   and private API responses.
+   and main `/v1` API responses.
 4. Keep old clients working against generic incident creation until an explicit API version or compatibility plan replaces it.
 5. Keep current public viewer and bundle behavior tolerant of missing mode,
    capture-profile, escalation, and sharing fields.
 6. Do not infer key access, trusted-contact grants, public links, or retention windows from a legacy generic incident.
 
-The current private `POST /v1/incidents` route accepts the initial optional mode
+The current authenticated `POST /v1/incidents` route accepts the initial optional mode
 metadata fields documented in [API](api.md). Future fields or mode-driven
 behavior still require an explicit protocol/API compatibility decision.
 
@@ -255,7 +255,7 @@ Implemented today:
 
 - generic incidents
 - optional nullable incident-mode, capture-profile, escalation-policy, and
-  sharing-state metadata on private incident create/read routes
+  sharing-state metadata on main incident create/read routes
 - media streams
 - encrypted chunk upload and immutable storage
 - checkins

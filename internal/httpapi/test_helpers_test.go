@@ -30,6 +30,8 @@ import (
 )
 
 type testApp struct {
+	mainHandler    http.Handler
+	adminHandler   http.Handler
 	privateHandler http.Handler
 	publicHandler  http.Handler
 	dataDir        string
@@ -132,9 +134,13 @@ func newTestAppWithOptionsAndTestAccount(t *testing.T, options httpapi.Options, 
 		}
 	}
 
+	mainHandler := httpapi.NewMain(metadataRepo, blobStore, options)
+	adminHandler := httpapi.NewAdmin(metadataRepo, blobStore, options)
 	return &testApp{
-		privateHandler: httpapi.NewPrivate(metadataRepo, blobStore, options),
-		publicHandler:  httpapi.NewPublic(metadataRepo, blobStore, options),
+		mainHandler:    mainHandler,
+		adminHandler:   adminHandler,
+		privateHandler: mainHandler,
+		publicHandler:  mainHandler,
 		dataDir:        dataDir,
 		db:             conn,
 		authToken:      authToken,
@@ -191,7 +197,7 @@ func createIncidentToken(t *testing.T, app *testApp, incidentID string, label st
 	if response.StatusCode != http.StatusCreated {
 		t.Fatalf("expected create incident token status 201, got %d: %s", response.StatusCode, body)
 	}
-	assertPrivateJSONSecurityHeaders(t, response)
+	assertMainJSONSecurityHeaders(t, response)
 
 	var result incidentTokenResponse
 	if err := json.Unmarshal(body, &result); err != nil {
@@ -511,7 +517,7 @@ func assertPublicBrowserSecurityHeaders(t *testing.T, response *http.Response) {
 	assertNoStrictTransportSecurity(t, response)
 }
 
-func assertPrivateJSONSecurityHeaders(t *testing.T, response *http.Response) {
+func assertMainJSONSecurityHeaders(t *testing.T, response *http.Response) {
 	t.Helper()
 
 	if response.Header.Get("Content-Type") != "application/json" {

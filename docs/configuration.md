@@ -6,8 +6,8 @@ Configuration is read from environment variables when the Proofline API starts.
 
 | Variable | Default | Notes |
 |---|---|---|
-| `SAFE_PRIVATE_BIND_ADDRS` | `127.0.0.1:8080` | Comma-separated private listener addresses for `/v1` and `/admin`. |
-| `SAFE_PUBLIC_BIND_ADDRS` | `127.0.0.1:8081` | Comma-separated public incident viewer listener addresses. |
+| `SAFE_MAIN_BIND_ADDRS` | `127.0.0.1:8080` | Comma-separated main listener addresses for authenticated non-admin `/v1` routes and the read-only incident viewer. |
+| `SAFE_ADMIN_BIND_ADDRS` | `127.0.0.1:8081` | Comma-separated private-admin listener addresses for `/admin`, `/v1/admin/...`, first-admin bootstrap, and private health/readiness routes. |
 | `SAFE_DATA_DIR` | `./data` | Local directory for SQLite, temp uploads, and encrypted blobs unless `SAFE_DB_PATH` points elsewhere. |
 | `SAFE_DB_PATH` | `./data/safety.db` | SQLite database path. The default file name still uses `safety.db` until a separate data-layout migration is performed. |
 | `SAFE_METADATA_BACKEND` | `sqlite` | Metadata backend selector. Supported values are `sqlite` and `postgresql`. |
@@ -62,23 +62,21 @@ Configuration is read from environment variables when the Proofline API starts.
 | `SAFE_PUBLIC_VIEWER_RATE_LIMIT_DATA` | `300` | Public viewer JSON polling requests allowed per window per hashed socket peer. Set to `0` to disable this route-class limit. |
 | `SAFE_PUBLIC_VIEWER_RATE_LIMIT_DOWNLOAD` | `12` | Public viewer encrypted ZIP download starts allowed per window per hashed socket peer. Set to `0` to disable this route-class limit. |
 | `SAFE_PUBLIC_VIEWER_RATE_LIMIT_STATIC` | `600` | Public viewer static asset requests allowed per window per hashed socket peer. Set to `0` to disable this route-class limit. |
-| `SAFE_PRIVATE_READ_HEADER_TIMEOUT` | `10s` | Private API HTTP read-header timeout. |
-| `SAFE_PRIVATE_READ_TIMEOUT` | `0s` | Private API HTTP read timeout. `0` disables it for large or slow uploads. |
-| `SAFE_PRIVATE_WRITE_TIMEOUT` | `0s` | Private API HTTP write timeout. `0` disables it for large or slow downloads. |
-| `SAFE_PRIVATE_IDLE_TIMEOUT` | `120s` | Private API HTTP idle connection timeout. |
-| `SAFE_PUBLIC_READ_HEADER_TIMEOUT` | `10s` | Public incident viewer HTTP read-header timeout. |
-| `SAFE_PUBLIC_READ_TIMEOUT` | `30s` | Public incident viewer HTTP read timeout. |
-| `SAFE_PUBLIC_WRITE_TIMEOUT` | `300s` | Public incident viewer HTTP write timeout for pages and ZIP downloads. |
-| `SAFE_PUBLIC_IDLE_TIMEOUT` | `120s` | Public incident viewer HTTP idle connection timeout. |
+| `SAFE_MAIN_READ_HEADER_TIMEOUT` | `10s` | Main API/viewer HTTP read-header timeout. |
+| `SAFE_MAIN_READ_TIMEOUT` | `0s` | Main API/viewer HTTP read timeout. `0` disables it for large or slow uploads. |
+| `SAFE_MAIN_WRITE_TIMEOUT` | `0s` | Main API/viewer HTTP write timeout. `0` disables it for large uploads, authenticated downloads, and viewer ZIP downloads. |
+| `SAFE_MAIN_IDLE_TIMEOUT` | `120s` | Main API/viewer HTTP idle connection timeout. |
+| `SAFE_ADMIN_READ_HEADER_TIMEOUT` | `10s` | Private-admin HTTP read-header timeout. |
+| `SAFE_ADMIN_READ_TIMEOUT` | `30s` | Private-admin HTTP read timeout. |
+| `SAFE_ADMIN_WRITE_TIMEOUT` | `300s` | Private-admin HTTP write timeout. |
+| `SAFE_ADMIN_IDLE_TIMEOUT` | `120s` | Private-admin HTTP idle connection timeout. |
 
-The older singular variables `SAFE_PRIVATE_BIND_ADDR` and `SAFE_PUBLIC_BIND_ADDR` are still supported when the matching plural variable is unset. Plural variables take precedence.
-
-These names describe the current topology: `SAFE_PRIVATE_BIND_ADDRS` serves
-`/v1` and `/admin`, while `SAFE_PUBLIC_BIND_ADDRS` serves the read-only
-incident viewer. The future target split for a public-ready main API plus
-viewer on `8080` and a private admin-dashboard listener on `8081` is
-planning-only in [public-api-listener-split.md](public-api-listener-split.md).
-It is not implemented yet.
+The older singular variables `SAFE_MAIN_BIND_ADDR` and `SAFE_ADMIN_BIND_ADDR`
+are supported when the matching plural variable is unset. Plural variables
+take precedence. `SAFE_PRIVATE_BIND_ADDRS` and `SAFE_PRIVATE_BIND_ADDR` remain
+accepted as legacy aliases for the main listener only. `SAFE_PUBLIC_BIND_ADDRS`
+and `SAFE_PUBLIC_BIND_ADDR` now fail startup so a previously public viewer bind
+cannot silently become the private-admin listener.
 
 ## Backend Selection Scaffold
 
@@ -217,7 +215,8 @@ safety data.
 
 ## Bind Address Lists
 
-`SAFE_PRIVATE_BIND_ADDRS` and `SAFE_PUBLIC_BIND_ADDRS` are comma-separated `host:port` lists.
+`SAFE_MAIN_BIND_ADDRS` and `SAFE_ADMIN_BIND_ADDRS` are comma-separated
+`host:port` lists.
 
 Empty entries are rejected. These values fail startup:
 
@@ -229,8 +228,8 @@ Empty entries are rejected. These values fail startup:
 Example:
 
 ```bash
-SAFE_PRIVATE_BIND_ADDRS=127.0.0.1:8080,10.66.0.1:8080 \
-SAFE_PUBLIC_BIND_ADDRS=127.0.0.1:8081 \
+SAFE_MAIN_BIND_ADDRS=127.0.0.1:8080,10.66.0.1:8080 \
+SAFE_ADMIN_BIND_ADDRS=127.0.0.1:8081 \
 go run ./cmd/api
 ```
 
@@ -255,7 +254,7 @@ Set `SAFE_DEFAULT_INCIDENT_TOKEN_TTL=0` only when you deliberately want omitted 
 
 ## Local Account Sessions
 
-The private `/v1` API requires local account sessions. Sessions created by
+The main `/v1` API requires local account sessions. Sessions created by
 `POST /v1/auth/login` expire after `SAFE_SESSION_TTL`, which defaults to `12h`.
 The private `/admin` browser flow uses the same session store and TTL, with the
 raw session token held in an HttpOnly SameSite cookie scoped to `/admin`. The
@@ -360,7 +359,11 @@ deployment details.
 
 Timeout values use Go duration strings such as `10s`, `30s`, or `5m`. `0` and `0s` disable a timeout.
 
-Private read and write timeouts default to disabled so slow chunk uploads and private downloads are not accidentally cut off. Public viewer requests use more defensive defaults because public routes are read-only and do not accept upload bodies. Large public ZIP downloads may require increasing `SAFE_PUBLIC_WRITE_TIMEOUT`.
+Main read and write timeouts default to disabled so slow chunk uploads, private
+downloads, and viewer ZIP downloads are not accidentally cut off. Private-admin
+requests use finite defaults because they do not accept large evidence upload
+bodies. `SAFE_PRIVATE_*` timeout variables remain accepted as legacy aliases
+for `SAFE_MAIN_*` when the matching main timeout variable is unset.
 
 ## Data Directory Layout
 

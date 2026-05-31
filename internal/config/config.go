@@ -5,8 +5,8 @@ import (
 )
 
 const (
-	defaultPrivateBindAddr                    = "127.0.0.1:8080"
-	defaultPublicBindAddr                     = "127.0.0.1:8081"
+	defaultMainBindAddr                       = "127.0.0.1:8080"
+	defaultAdminBindAddr                      = "127.0.0.1:8081"
 	defaultDataDir                            = "./data"
 	defaultDBPath                             = "./data/safety.db"
 	defaultMaxUploadBytes                     = int64(250 * 1024 * 1024)
@@ -38,21 +38,21 @@ const (
 	// so configured upload limits cannot overflow request-size arithmetic.
 	maxConfiguredUploadBytes = int64(1<<63 - 1 - 1024*1024)
 
-	defaultPrivateReadHeaderTimeout = 10 * time.Second
-	defaultPrivateReadTimeout       = 0
-	defaultPrivateWriteTimeout      = 0
-	defaultPrivateIdleTimeout       = 120 * time.Second
+	defaultMainReadHeaderTimeout = 10 * time.Second
+	defaultMainReadTimeout       = 0
+	defaultMainWriteTimeout      = 0
+	defaultMainIdleTimeout       = 120 * time.Second
 
-	defaultPublicReadHeaderTimeout = 10 * time.Second
-	defaultPublicReadTimeout       = 30 * time.Second
-	defaultPublicWriteTimeout      = 300 * time.Second
-	defaultPublicIdleTimeout       = 120 * time.Second
+	defaultAdminReadHeaderTimeout = 10 * time.Second
+	defaultAdminReadTimeout       = 30 * time.Second
+	defaultAdminWriteTimeout      = 300 * time.Second
+	defaultAdminIdleTimeout       = 120 * time.Second
 )
 
 // Config contains the runtime settings needed by the API server.
 type Config struct {
-	PrivateBindAddrs        []string
-	PublicBindAddrs         []string
+	MainBindAddrs           []string
+	AdminBindAddrs          []string
 	Backends                BackendSelection
 	Postgres                PostgresConfig
 	S3Blob                  S3BlobConfig
@@ -71,8 +71,8 @@ type Config struct {
 	TempUploadCleanupDryRun bool
 	MainAPIRateLimit        MainAPIRateLimitConfig
 	PublicViewerRateLimit   PublicViewerRateLimitConfig
-	PrivateTimeouts         HTTPTimeouts
-	PublicTimeouts          HTTPTimeouts
+	MainTimeouts            HTTPTimeouts
+	AdminTimeouts           HTTPTimeouts
 }
 
 // BackendSelection records the configured storage and coordination backends.
@@ -154,11 +154,11 @@ type HTTPTimeouts struct {
 // Load reads configuration from environment variables and applies defaults for
 // unset values.
 func Load() (Config, error) {
-	privateBindAddrs, err := bindAddrsFromEnv("SAFE_PRIVATE_BIND_ADDRS", "SAFE_PRIVATE_BIND_ADDR", defaultPrivateBindAddr)
+	mainBindAddrs, err := mainBindAddrsFromEnv()
 	if err != nil {
 		return Config{}, err
 	}
-	publicBindAddrs, err := bindAddrsFromEnv("SAFE_PUBLIC_BIND_ADDRS", "SAFE_PUBLIC_BIND_ADDR", defaultPublicBindAddr)
+	adminBindAddrs, err := adminBindAddrsFromEnv()
 	if err != nil {
 		return Config{}, err
 	}
@@ -226,18 +226,18 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 
-	privateTimeouts, err := privateTimeoutsFromEnv()
+	mainTimeouts, err := mainTimeoutsFromEnv()
 	if err != nil {
 		return Config{}, err
 	}
-	publicTimeouts, err := publicTimeoutsFromEnv()
+	adminTimeouts, err := adminTimeoutsFromEnv()
 	if err != nil {
 		return Config{}, err
 	}
 
 	return Config{
-		PrivateBindAddrs:        privateBindAddrs,
-		PublicBindAddrs:         publicBindAddrs,
+		MainBindAddrs:           mainBindAddrs,
+		AdminBindAddrs:          adminBindAddrs,
 		Backends:                backends,
 		Postgres:                postgres,
 		S3Blob:                  s3Blob,
@@ -256,7 +256,7 @@ func Load() (Config, error) {
 		TempUploadCleanupDryRun: tempUploadCleanupDryRun,
 		MainAPIRateLimit:        mainAPIRateLimit,
 		PublicViewerRateLimit:   publicViewerRateLimit,
-		PrivateTimeouts:         privateTimeouts,
-		PublicTimeouts:          publicTimeouts,
+		MainTimeouts:            mainTimeouts,
+		AdminTimeouts:           adminTimeouts,
 	}, nil
 }
