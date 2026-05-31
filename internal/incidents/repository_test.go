@@ -11,6 +11,7 @@ import (
 
 	"github.com/open-proofline/server/internal/db"
 	"github.com/open-proofline/server/internal/incidents"
+	"github.com/open-proofline/server/internal/incidents/contracttest"
 )
 
 func TestCreateIncidentStoresModeFields(t *testing.T) {
@@ -38,6 +39,13 @@ func TestCreateIncidentStoresModeFields(t *testing.T) {
 		got.SharingState != incidents.SharingStatePrivate {
 		t.Fatalf("incident mode fields were not preserved: %+v", got)
 	}
+}
+
+func TestSQLiteUploadOperationRaceAndBackendParity(t *testing.T) {
+	contracttest.RunUploadOperationRaceAndParity(t, func(t *testing.T, ctx context.Context) contracttest.Repository {
+		t.Helper()
+		return newRepository(t, ctx)
+	})
 }
 
 func TestCreateChunkRejectsClosedIncident(t *testing.T) {
