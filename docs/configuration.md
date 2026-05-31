@@ -39,6 +39,8 @@ Configuration is read from environment variables when the Proofline API starts.
 | `SAFE_AUTH_BOOTSTRAP_SECRET` | unset | One-time bootstrap secret required to create the first admin account when no admin exists. Remove after bootstrap. |
 | `SAFE_DELETION_WORKER_INTERVAL` | `1m` | Background deletion maintenance interval. Set to `0` to disable the automatic scheduler while keeping deletion decisions durable for a later run. |
 | `SAFE_CLOSED_INCIDENT_RETENTION` | `0` | Retention window for closed incidents. `0` disables automatic retention deletion; positive Go durations delete closed incidents older than the window. |
+| `SAFE_TEMP_UPLOAD_CLEANUP_AGE` | `0` | Minimum age for startup cleanup of orphaned local temp upload files. `0` disables cleanup. |
+| `SAFE_TEMP_UPLOAD_CLEANUP_DRY_RUN` | `false` | When temp cleanup is enabled, log safe counts without deleting eligible temp files. |
 | `SAFE_PUBLIC_VIEWER_RATE_LIMIT_ENABLED` | `true` | Enables app-level rate limiting for public incident viewer route classes. Set to `false` to disable the app-level limiter. |
 | `SAFE_PUBLIC_VIEWER_RATE_LIMIT_WINDOW` | `1m` | Fixed-window duration for app-level public viewer limits. |
 | `SAFE_PUBLIC_VIEWER_RATE_LIMIT_PAGE` | `60` | Public viewer page lookup requests allowed per window per hashed socket peer. Set to `0` to disable this route-class limit. |
@@ -140,7 +142,7 @@ network path. Before enabling a provider for evidence storage, run a small
 no-overwrite smoke test that confirms conditional writes reject an existing
 object instead of replacing it.
 
-This implementation does not create S3 staging objects. Failed uploads and hash mismatches clean up local temp files through the normal upload path. If the process crashes, abandoned local temp files under `SAFE_DATA_DIR/tmp` may remain and should be cleaned only by a conservative operator policy that never deletes committed objects. Object-store lifecycle cleanup for staging prefixes is not needed unless a future resumable or multipart S3 staging design adds such prefixes.
+This implementation does not create S3 staging objects. Failed uploads and hash mismatches clean up local temp files through the normal upload path. If the process crashes, abandoned local temp files under `SAFE_DATA_DIR/tmp` may remain and should be cleaned only by a conservative operator policy that never deletes committed objects. `SAFE_TEMP_UPLOAD_CLEANUP_AGE` applies to this local staging directory for both local and S3-compatible blob backends. Object-store lifecycle cleanup for staging prefixes is not needed unless a future resumable or multipart S3 staging design adds such prefixes.
 
 `SAFE_S3_ACCESS_KEY_ID` and `SAFE_S3_SECRET_ACCESS_KEY` are required when the S3 backend is selected. `SAFE_S3_SESSION_TOKEN` is optional. Credentials, endpoints, bucket names, object keys, and private deployment details should not be written to public issue drafts, logs, or support tickets.
 
@@ -270,8 +272,38 @@ go run ./cmd/api
 
 Open incidents are not selected by automatic retention. Deleting an open
 incident requires an explicit private deletion request with `allow_open: true`.
-Mode-specific retention windows, token metadata pruning, tombstone expiry,
-orphan temp cleanup, and backup expiry are not configured by these variables.
+Mode-specific retention windows, token metadata pruning, tombstone expiry, and
+backup expiry are not configured by these variables.
+
+## Orphan Temp Upload Cleanup
+
+Temp upload cleanup is disabled by default. To clean up abandoned local upload
+staging files after a crash, set a positive age threshold and restart the
+server:
+
+```bash
+SAFE_TEMP_UPLOAD_CLEANUP_AGE=24h \
+go run ./cmd/api
+```
+
+Only regular files whose names match the server's `upload-*` temp-upload
+pattern under `SAFE_DATA_DIR/tmp` are eligible. Active files newer than the
+configured age are skipped. Directories, symlinks, unrelated temp files,
+committed chunk blobs, stored object keys, SQLite or PostgreSQL metadata, and
+evidence bundle contents are never cleanup targets.
+
+To preview safe counts without deleting files:
+
+```bash
+SAFE_TEMP_UPLOAD_CLEANUP_AGE=24h \
+SAFE_TEMP_UPLOAD_CLEANUP_DRY_RUN=true \
+go run ./cmd/api
+```
+
+Cleanup logs only counts such as scanned, eligible, removed, skipped, and error
+totals. Logs must not include temp paths, committed stored paths, object keys,
+request bodies, uploaded bytes, raw tokens, plaintext, raw keys, or private
+deployment details.
 
 ## HTTP Timeouts
 

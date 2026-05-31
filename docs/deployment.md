@@ -71,6 +71,14 @@ pause deletion processing. Closed-incident retention is disabled by default;
 set `SAFE_CLOSED_INCIDENT_RETENTION` to a positive duration only after the
 deployment has reviewed backup expiry and restore implications.
 
+Orphan temp upload cleanup is disabled by default. Set
+`SAFE_TEMP_UPLOAD_CLEANUP_AGE` to a positive duration only when an operator
+wants startup cleanup of old local `upload-*` staging files under
+`SAFE_DATA_DIR/tmp`. Use `SAFE_TEMP_UPLOAD_CLEANUP_DRY_RUN=true` first when
+reviewing a deployment. Cleanup logs safe counts only and must never target
+committed chunks, stored object keys, bundle contents, SQLite/PostgreSQL
+metadata, or client-provided paths.
+
 The same private listener serves the admin web interface at:
 
 ```text
@@ -212,7 +220,7 @@ go run ./cmd/api
 
 The S3 backend requires `SAFE_S3_ACCESS_KEY_ID` and `SAFE_S3_SECRET_ACCESS_KEY`. `SAFE_S3_SESSION_TOKEN` is optional. Treat static credentials, bucket names, private endpoints, and deployment-specific prefixes as private deployment details.
 
-S3-compatible storage stores opaque encrypted chunk bytes only. It does not add backend decryption, key escrow, public `/v1` exposure, public account workflows, cloud deployment automation, or production readiness. Uploads still stage local temp files under `SAFE_DATA_DIR/tmp` before a final conditional object write, so the deployment must preserve enough local temp space for in-flight uploads and must include conservative cleanup for abandoned temp files after crashes.
+S3-compatible storage stores opaque encrypted chunk bytes only. It does not add backend decryption, key escrow, public `/v1` exposure, public account workflows, cloud deployment automation, or production readiness. Uploads still stage local temp files under `SAFE_DATA_DIR/tmp` before a final conditional object write, so the deployment must preserve enough local temp space for in-flight uploads and should configure conservative startup cleanup for abandoned temp files after crashes.
 
 Use HTTPS for S3-compatible endpoints unless the endpoint is reachable only on a
 local or private test network. Before storing real evidence, verify the selected

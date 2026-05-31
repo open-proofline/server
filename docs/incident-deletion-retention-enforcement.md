@@ -26,7 +26,8 @@ The current backend preserves accepted evidence by default:
 - encrypted ZIP bundles are generated on demand and are not persisted by the
   server
 - temporary upload files are normally removed after upload success or failure,
-  but crash-orphaned temp files need future cleanup
+  and explicit startup cleanup can remove old crash-orphaned `upload-*` staging
+  files from the local temp directory
 
 The backend now has private deletion APIs and a background deletion worker:
 
@@ -374,8 +375,7 @@ Private/admin or CLI tasks:
 
 Retention tasks:
 
-- add explicit retention settings for token metadata, tombstones, and orphaned
-  temporary upload files
+- add explicit retention settings for token metadata and tombstones
 - defer incident-mode-specific retention until mode-driven retention behavior and
   policy are explicitly designed
 

@@ -58,6 +58,9 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	if err := runTempUploadCleanup(ctx, logger, blobStore, cfg); err != nil {
+		return err
+	}
 
 	apiOptions := httpapi.Options{
 		MaxUploadBytes:          cfg.MaxUploadBytes,
@@ -195,4 +198,31 @@ func newBlobStore(cfg config.Config) (storage.BlobStore, error) {
 	default:
 		return nil, fmt.Errorf("unsupported blob backend %q", cfg.Backends.Blob)
 	}
+}
+
+func runTempUploadCleanup(ctx context.Context, logger *slog.Logger, store storage.BlobStore, cfg config.Config) error {
+	if cfg.TempUploadCleanupAge <= 0 {
+		return nil
+	}
+	cleaner, ok := store.(storage.TempCleaner)
+	if !ok {
+		return nil
+	}
+	summary, err := cleaner.CleanupTemp(ctx, storage.TempCleanupOptions{
+		MinAge: cfg.TempUploadCleanupAge,
+		DryRun: cfg.TempUploadCleanupDryRun,
+	})
+	if err != nil {
+		return fmt.Errorf("temp upload cleanup: %w", err)
+	}
+	logger.Info("temp upload cleanup completed",
+		"dry_run", cfg.TempUploadCleanupDryRun,
+		"scanned", summary.Scanned,
+		"eligible", summary.Eligible,
+		"removed", summary.Removed,
+		"skipped_active", summary.SkippedActive,
+		"skipped_other", summary.SkippedOther,
+		"errors", summary.Errors,
+	)
+	return nil
 }
