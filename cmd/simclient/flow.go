@@ -96,7 +96,7 @@ func verifyFirstChunkIdempotentReplay(ctx context.Context, out io.Writer, sim cl
 	return nil
 }
 
-func downloadAndVerifyBundle(ctx context.Context, out io.Writer, sim client, cfg config, token, incidentID, streamID string, key envelope.Key) error {
+func downloadAndVerifyBundle(ctx context.Context, out io.Writer, sim client, cfg config, token, incidentID, streamID string, key envelope.Key, contactWrapped bool) error {
 	fmt.Fprintln(out, "Testing incident stream bundle download...")
 	bundleBytes, err := sim.downloadStreamBundle(ctx, token, streamID)
 	if err != nil {
@@ -108,7 +108,11 @@ func downloadAndVerifyBundle(ctx context.Context, out io.Writer, sim client, cfg
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(out, "Verified decrypt of %d encrypted chunks.\n", verified)
+		if contactWrapped {
+			fmt.Fprintf(out, "Verified contact-wrapped decrypt of %d encrypted chunks.\n", verified)
+		} else {
+			fmt.Fprintf(out, "Verified decrypt of %d encrypted chunks.\n", verified)
+		}
 	} else {
 		fmt.Fprintln(out, "Bundle download succeeded.")
 	}

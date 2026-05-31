@@ -44,6 +44,14 @@ func runDesktopRecorder(ctx context.Context, out io.Writer, cfg config) error {
 		}
 		return err
 	}
+	bundleVerificationKey := key
+	contactWrappedVerification := false
+	if wrappedKey, ok, err := prepareContactWrappedKey(out, cfg, manifest.IncidentID, manifest.StreamID, key); err != nil {
+		return err
+	} else if ok {
+		bundleVerificationKey = wrappedKey
+		contactWrappedVerification = true
+	}
 	if cfg.desktopStageOnly {
 		fmt.Fprintln(out, "Upload skipped.")
 		return nil
@@ -72,7 +80,7 @@ func runDesktopRecorder(ctx context.Context, out io.Writer, cfg config) error {
 		}
 		bundleCfg := cfg
 		bundleCfg.mediaType = manifest.MediaType
-		if err := downloadAndVerifyBundle(ctx, out, sim, bundleCfg, token, manifest.IncidentID, manifest.StreamID, key); err != nil {
+		if err := downloadAndVerifyBundle(ctx, out, sim, bundleCfg, token, manifest.IncidentID, manifest.StreamID, bundleVerificationKey, contactWrappedVerification); err != nil {
 			return err
 		}
 	}

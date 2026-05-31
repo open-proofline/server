@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -13,6 +14,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -382,6 +384,25 @@ func TestParseConfigEncryptionDefaults(t *testing.T) {
 	}
 }
 
+func TestParseConfigWrappedKeyOutputDefaultsContactKeyFile(t *testing.T) {
+	cfg, err := parseConfig(withAuthArgs(
+		"--wrapped-key-output", filepath.Join("stage", "proofline-sim-wrapped-keys.json"),
+	))
+	if err != nil {
+		t.Fatalf("parseConfig returned error: %v", err)
+	}
+	if cfg.wrappedKeyOutput != filepath.Join("stage", "proofline-sim-wrapped-keys.json") {
+		t.Fatalf("wrappedKeyOutput = %q", cfg.wrappedKeyOutput)
+	}
+	wantContactKey := filepath.Join("stage", defaultContactKeyFileName)
+	if cfg.contactKeyFile != wantContactKey {
+		t.Fatalf("contactKeyFile = %q, want %q", cfg.contactKeyFile, wantContactKey)
+	}
+	if cfg.wrappedKeyContactID != defaultWrappedKeyContactID {
+		t.Fatalf("wrappedKeyContactID = %q", cfg.wrappedKeyContactID)
+	}
+}
+
 func TestParseConfigAllowsEncryptionToBeDisabled(t *testing.T) {
 	cfg, err := parseConfig(withAuthArgs("--encrypt=false"))
 	if err != nil {
@@ -489,6 +510,18 @@ func TestParseConfigRejectsInvalidValues(t *testing.T) {
 		{
 			name: "verify bundle is offline",
 			args: withAuthArgs("--verify-bundle", "bundle.zip", "--key-file", "key.json", "--download-bundle"),
+		},
+		{
+			name: "wrapped key output requires encrypted upload",
+			args: withAuthArgs("--wrapped-key-output", "proofline-sim-wrapped-keys.json", "--encrypt=false"),
+		},
+		{
+			name: "contact key file requires artifact",
+			args: withAuthArgs("--contact-key-file", "proofline-sim-contact.key.json"),
+		},
+		{
+			name: "invalid wrapped key contact id",
+			args: withAuthArgs("--wrapped-key-output", "proofline-sim-wrapped-keys.json", "--wrapped-key-contact-id", "../contact"),
 		},
 	}
 
@@ -671,6 +704,155 @@ func TestLoadOrCreateSimulatorKeyCreatesAndLoadsFile(t *testing.T) {
 	}
 	if loaded.KeyID != created.KeyID || !bytes.Equal(loaded.Key, created.Key) {
 		t.Fatal("loaded key did not match created key")
+	}
+}
+
+func TestPrepareContactWrappedKeyWritesArtifactWithoutSecrets(t *testing.T) {
+	dir := t.TempDir()
+	mediaKey, err := envelope.GenerateKey()
+	if err != nil {
+		t.Fatalf("GenerateKey returned error: %v", err)
+	}
+	cfg := config{
+		encrypt:             true,
+		wrappedKeyOutput:    filepath.Join(dir, "proofline-sim-wrapped-keys.json"),
+		contactKeyFile:      filepath.Join(dir, "proofline-sim-contact.key.json"),
+		wrappedKeyContactID: "contact_dev_alex",
+	}
+
+	var out bytes.Buffer
+	unwrapped, ok, err := prepareContactWrappedKey(&out, cfg, "inc_wrapped", "str_wrapped", mediaKey)
+	if err != nil {
+		t.Fatalf("prepareContactWrappedKey returned error: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected wrapped-key preparation to run")
+	}
+	if unwrapped.KeyID != mediaKey.KeyID || !bytes.Equal(unwrapped.Key, mediaKey.Key) {
+		t.Fatal("unwrapped contact key did not match simulator media key")
+	}
+	if !strings.Contains(out.String(), "Verified contact unwrap for wrapped-key artifact.") {
+		t.Fatalf("output did not mention contact unwrap verification: %q", out.String())
+	}
+
+	artifactBody, err := os.ReadFile(cfg.wrappedKeyOutput)
+	if err != nil {
+		t.Fatalf("read wrapped-key artifact: %v", err)
+	}
+	contactBody, err := os.ReadFile(cfg.contactKeyFile)
+	if err != nil {
+		t.Fatalf("read contact key file: %v", err)
+	}
+	var contact contactKeyFile
+	if err := json.Unmarshal(contactBody, &contact); err != nil {
+		t.Fatalf("decode contact key file: %v", err)
+	}
+	rawKeyB64 := base64.RawURLEncoding.EncodeToString(mediaKey.Key)
+	for _, disallowed := range []string{
+		rawKeyB64,
+		contact.Identity,
+		"AGE-SECRET-KEY",
+		`"key_b64"`,
+		dir,
+		"tok_secret",
+		"http://",
+		"https://",
+	} {
+		if bytes.Contains(artifactBody, []byte(disallowed)) {
+			t.Fatalf("wrapped-key artifact exposed %q: %s", disallowed, artifactBody)
+		}
+	}
+	if !bytes.Contains(artifactBody, []byte(wrappingAlgorithmAgeX25519)) {
+		t.Fatalf("wrapped-key artifact did not record algorithm: %s", artifactBody)
+	}
+	if runtime.GOOS != "windows" {
+		stat, err := os.Stat(cfg.contactKeyFile)
+		if err != nil {
+			t.Fatalf("stat contact key file: %v", err)
+		}
+		if stat.Mode().Perm() != 0o600 {
+			t.Fatalf("contact key file mode = %v, want 0600", stat.Mode().Perm())
+		}
+	}
+}
+
+func TestDecodeWrappedKeyArtifactRejectsMalformedMetadata(t *testing.T) {
+	base := wrappedKeyArtifact{
+		Version:    wrappedKeyArtifactVersion,
+		Scope:      wrappedKeyArtifactScope,
+		IncidentID: "inc_wrapped",
+		StreamID:   "str_wrapped",
+		MediaKeyID: "kid_wrapped",
+		CreatedAt:  time.Now().UTC(),
+		WrappedKeys: []wrappedKeyRecord{
+			{
+				WrappedKeyID:      "wkey_test",
+				RecipientType:     wrappedKeyRecipientType,
+				ContactID:         defaultWrappedKeyContactID,
+				ContactKeyID:      "ckid_test",
+				WrappingAlgorithm: wrappingAlgorithmAgeX25519,
+				WrappedKeyB64:     base64.RawURLEncoding.EncodeToString([]byte("wrapped")),
+			},
+		},
+	}
+	tests := []struct {
+		name   string
+		mutate func(*wrappedKeyArtifact)
+	}{
+		{
+			name: "unsupported algorithm",
+			mutate: func(artifact *wrappedKeyArtifact) {
+				artifact.WrappedKeys[0].WrappingAlgorithm = "custom-ecdh"
+			},
+		},
+		{
+			name: "malformed ciphertext",
+			mutate: func(artifact *wrappedKeyArtifact) {
+				artifact.WrappedKeys[0].WrappedKeyB64 = "not base64"
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			artifact := base
+			artifact.WrappedKeys = append([]wrappedKeyRecord(nil), base.WrappedKeys...)
+			tt.mutate(&artifact)
+			body, err := json.Marshal(artifact)
+			if err != nil {
+				t.Fatalf("marshal artifact: %v", err)
+			}
+			if _, err := decodeWrappedKeyArtifact(body); err == nil {
+				t.Fatal("expected malformed wrapped-key artifact to be rejected")
+			}
+		})
+	}
+}
+
+func TestValidateWrappedKeyArtifactForStreamRejectsContactIDMismatch(t *testing.T) {
+	artifact := wrappedKeyArtifact{
+		Version:    wrappedKeyArtifactVersion,
+		Scope:      wrappedKeyArtifactScope,
+		IncidentID: "inc_wrapped",
+		StreamID:   "str_wrapped",
+		MediaKeyID: "kid_wrapped",
+		CreatedAt:  time.Now().UTC(),
+		WrappedKeys: []wrappedKeyRecord{
+			{
+				WrappedKeyID:      "wkey_test",
+				RecipientType:     wrappedKeyRecipientType,
+				ContactID:         "contact_dev_alex",
+				ContactKeyID:      "ckid_test",
+				WrappingAlgorithm: wrappingAlgorithmAgeX25519,
+				WrappedKeyB64:     base64.RawURLEncoding.EncodeToString([]byte("wrapped")),
+			},
+		},
+	}
+
+	if err := validateWrappedKeyArtifactForStream(artifact, "inc_wrapped", "str_wrapped", "kid_wrapped", "contact_dev_alex", "ckid_test"); err != nil {
+		t.Fatalf("expected matching contact artifact to validate: %v", err)
+	}
+	if err := validateWrappedKeyArtifactForStream(artifact, "inc_wrapped", "str_wrapped", "kid_wrapped", "contact_dev_blair", "ckid_test"); err == nil {
+		t.Fatal("expected contact_id mismatch to be rejected")
 	}
 }
 
@@ -1000,12 +1182,15 @@ func TestRunDesktopRecorderResumeVerifiesBundleWithManifestMediaType(t *testing.
 		desktopResume:       true,
 		desktopMaxAttempts:  defaultDesktopMaxAttempts,
 		networkTimeout:      clientRequestTimeout,
+		wrappedKeyOutput:    filepath.Join(stage.dir, "proofline-sim-wrapped-keys.json"),
+		contactKeyFile:      filepath.Join(stage.dir, "proofline-sim-contact.key.json"),
+		wrappedKeyContactID: defaultWrappedKeyContactID,
 	}
 	var out bytes.Buffer
 	if err := runDesktopRecorder(context.Background(), &out, cfg); err != nil {
 		t.Fatalf("runDesktopRecorder returned error: %v", err)
 	}
-	if !strings.Contains(out.String(), "Verified decrypt of 1 encrypted chunks.") {
+	if !strings.Contains(out.String(), "Verified contact-wrapped decrypt of 1 encrypted chunks.") {
 		t.Fatalf("output did not verify bundle: %q", out.String())
 	}
 }

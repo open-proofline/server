@@ -2,10 +2,12 @@ package httpapi_test
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/open-proofline/server/internal/envelope"
@@ -406,5 +408,23 @@ func TestEncryptedEnvelopeChunkRoundTripsThroughOpaqueBackendBundle(t *testing.T
 	}
 	if manifest.Encryption.Expected != "client-side" || manifest.Encryption.Scheme != envelope.SchemeV1 || manifest.Encryption.ServerDecrypts {
 		t.Fatalf("unexpected encryption hint: %+v", manifest.Encryption)
+	}
+
+	rawKeyB64 := base64.RawURLEncoding.EncodeToString(key.Key)
+	for name, entry := range entries {
+		if strings.Contains(name, "wrapped") || strings.Contains(name, "key") {
+			t.Fatalf("bundle included key-related entry %q", name)
+		}
+		for _, disallowed := range []string{
+			rawKeyB64,
+			"key_b64",
+			"wrapped_keys",
+			"wrapped_key_b64",
+			"AGE-SECRET-KEY",
+		} {
+			if bytes.Contains(entry, []byte(disallowed)) {
+				t.Fatalf("bundle entry %s exposed %q", name, disallowed)
+			}
+		}
 	}
 }

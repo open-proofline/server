@@ -192,7 +192,8 @@ sends checkins, completes the stream, downloads the encrypted bundle, and
 verifies local decryption. See [docs/simulator.md](docs/simulator.md) for
 encrypted bundle output, offline bundle verification, the durable
 desktop-recorder mode, local file input, ffmpeg segment capture, and
-poor-network retry controls.
+poor-network retry controls, and simulator-only contact-wrapped key metadata
+artifacts.
 
 ## Docker
 

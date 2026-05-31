@@ -239,6 +239,41 @@ For desktop-recorder bundles, `--verify-bundle` may use `--stage-dir` instead of
 verification checks the bundle manifest, encrypted chunk hashes where present,
 and local decryption with the simulator key. It does not export plaintext.
 
+## Contact-Wrapped Key Metadata
+
+The simulator can write a local contact-wrapped media-key artifact for
+development testing:
+
+```bash
+PROOFLINE_SIM_USERNAME=admin \
+PROOFLINE_SIM_PASSWORD='replace-with-a-long-local-password' \
+go run ./cmd/simclient \
+  --chunks 5 \
+  --interval 1s \
+  --download-bundle \
+  --wrapped-key-output /tmp/proofline-sim-wrapped-keys.json
+```
+
+When `--wrapped-key-output` is set, the simulator creates or loads a local
+development trusted-contact key file. If `--contact-key-file` is omitted, the
+default file is `proofline-sim-contact.key.json` next to the wrapped-key
+artifact. The contact private key file is local simulator state and is written
+with restrictive permissions where practical.
+
+The wrapped-key artifact is a companion development file. It records the
+incident ID, stream ID, simulator media key ID, contact ID, contact key ID,
+wrapping algorithm, and wrapped-key ciphertext. It does not include raw media
+keys, contact private keys, unwrapped secrets, plaintext, viewer tokens,
+incident tokens, filesystem paths, object keys, or secret-bearing URLs.
+
+The wrapping profile is `age-v1-x25519` through the maintained
+`filippo.io/age` library. The simulator reads the written artifact and unwraps
+the media key through the local development contact key before bundle decrypt
+verification. This remains simulator-only: it does not add production key
+custody, backend decryption, browser decryption, key escrow, trusted-contact
+accounts, server-side wrapped-key storage, API routes, database schema, or
+bundle manifest key records.
+
 ## Encryption
 
 Encryption is enabled by default:
@@ -342,6 +377,9 @@ attempts and durable metadata for accepted chunks.
 | `--verify-bundle` | Verify an existing encrypted stream bundle ZIP without uploading. |
 | `--encrypt` | Encrypt simulated chunk bytes before upload. Defaults to `true`. |
 | `--key-file` | Optional local simulator key file. |
+| `--wrapped-key-output` | Write a simulator-only contact-wrapped key metadata artifact. |
+| `--contact-key-file` | Optional local simulator trusted-contact private key file for wrapped-key metadata. |
+| `--wrapped-key-contact-id` | Local simulator trusted-contact ID for wrapped-key metadata. |
 | `--verify-bundle-decryption` | Locally decrypt downloaded bundles when encryption is enabled. |
 | `--simulate-failure-every` | Intentionally fail every Nth chunk hash before retrying. |
 | `--close` | Close the incident when complete. |
