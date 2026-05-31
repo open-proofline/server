@@ -61,3 +61,67 @@ compose/smoke-test.sh sqlite-local
 
 Set `KEEP_COMPOSE=1` to leave containers and volumes running after the smoke
 test for manual inspection.
+
+## Optional S3 Deletion Smoke
+
+The default Go test suite does not require MinIO or any object-store service.
+To verify incident deletion against a real S3-compatible object-store path, run
+the opt-in HTTP API smoke test with a disposable local MinIO bucket.
+
+One local setup shape is:
+
+```bash
+docker network create proofline-s3-smoke
+
+docker run --rm -d \
+  --name proofline-s3-smoke-minio \
+  --network proofline-s3-smoke \
+  -p 127.0.0.1:19000:9000 \
+  -e MINIO_ROOT_USER=proofline \
+  -e MINIO_ROOT_PASSWORD=proofline-minio-password \
+  quay.io/minio/minio:latest server /data
+
+docker run --rm \
+  --entrypoint /bin/sh \
+  --network proofline-s3-smoke \
+  -e MINIO_ROOT_USER=proofline \
+  -e MINIO_ROOT_PASSWORD=proofline-minio-password \
+  -e MINIO_BUCKET=proofline-evidence \
+  quay.io/minio/mc:latest -c '
+    until mc alias set proofline http://proofline-s3-smoke-minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"; do
+      sleep 1
+    done
+    mc mb --ignore-existing "proofline/$MINIO_BUCKET"
+  '
+```
+
+Then run the opt-in test from the repository root:
+
+```bash
+SAFE_S3_DELETION_SMOKE=1 \
+SAFE_S3_ENDPOINT=http://127.0.0.1:19000 \
+SAFE_S3_REGION=us-east-1 \
+SAFE_S3_BUCKET=proofline-evidence \
+SAFE_S3_PREFIX=smoke/httpapi-deletion \
+SAFE_S3_ACCESS_KEY_ID=proofline \
+SAFE_S3_SECRET_ACCESS_KEY=proofline-minio-password \
+SAFE_S3_FORCE_PATH_STYLE=true \
+go test ./internal/httpapi -run TestS3DeletionSmokeRemovesObjectsAndHidesViewer -count=1
+```
+
+Clean up the disposable local service afterwards:
+
+```bash
+docker rm -f proofline-s3-smoke-minio
+docker network rm proofline-s3-smoke
+```
+
+The smoke test uploads encrypted test chunks through the private API handler,
+checks the objects through server-controlled stored paths, requests private
+incident deletion, runs one deletion-worker pass, confirms the objects are gone
+or already absent from the object store, and verifies public viewer routes keep
+returning the generic fail-closed token error. Do not use production
+credentials, non-disposable buckets, private endpoints, raw tokens, uploaded
+bytes, plaintext, raw keys, object keys, stored paths, or private deployment
+details in public issue comments, logs, screenshots, or support material from
+this smoke run.

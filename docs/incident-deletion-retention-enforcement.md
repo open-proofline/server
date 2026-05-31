@@ -381,7 +381,8 @@ Retention tasks:
 
 Test tasks:
 
-- expand S3-compatible deletion smoke coverage with real object-store tests
+- keep optional S3-compatible deletion smoke coverage current as deletion,
+  retention, and blob-store behavior changes
 - test failed stream retention and deletion with the parent incident
 - test token metadata pruning without incident deletion
 - test backup and restore documentation examples where practical
