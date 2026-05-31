@@ -20,8 +20,12 @@ import (
 )
 
 func main() {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	if err := run(logger); err != nil {
+	logOutput := os.Stdout
+	if len(os.Args) > 1 && os.Args[1] == "operator" {
+		logOutput = os.Stderr
+	}
+	logger := slog.New(slog.NewJSONHandler(logOutput, nil))
+	if err := runCommand(os.Args[1:], os.Stdout, logger); err != nil {
 		logStartupError(logger, err)
 		os.Exit(1)
 	}

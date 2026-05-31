@@ -3,10 +3,11 @@
 This document defines the operational retention, backup, restore, and deletion
 policy for the current Proofline backend shape. The backend implements
 private incident deletion requests, a durable deletion queue, and an automatic
-background worker for deletion and optional closed-incident retention. It does
-not add cloud backups, key escrow, backend decryption, mode-specific retention,
-token metadata pruning, tombstone expiry, orphan temp-file cleanup, or
-object-bucket lifecycle policy enforcement.
+background worker for deletion and optional closed-incident retention, plus
+read-only local operator status and retention preview commands. It does not add
+cloud backups, key escrow, backend decryption, mode-specific retention, token
+metadata pruning, tombstone expiry, or object-bucket lifecycle policy
+enforcement.
 
 Incident deletion and retention enforcement details are documented in
 [incident-deletion-retention-enforcement.md](incident-deletion-retention-enforcement.md).
@@ -158,6 +159,10 @@ Deletion behavior:
 - account-scoped deletion is available at `POST /v1/incidents/{incident_id}/deletion` for the incident owner
 - admin-global deletion is available at `POST /v1/admin/incidents/{incident_id}/deletion`
 - deletion status is available through the matching private `GET` routes
+- local read-only operator status is available through
+  `proofline-server operator deletion-status`
+- local read-only closed-incident retention preview is available through
+  `proofline-server operator retention-preview --closed-incident-retention <duration>`
 - encrypted blob files or objects are removed by server-controlled stored paths only
 - client-provided filesystem paths, object keys, and object-store URLs are never accepted for deletion
 - repeated deletion requests return the existing deletion status instead of creating competing work
@@ -174,7 +179,6 @@ Current deletion policy still distinguishes:
   safety checks, and evidence notes after incident-mode, capture-profile,
   escalation-policy, and sharing-state fields exist
 - pruning expired or revoked token metadata after an audit window
-- cleaning orphaned temporary upload files under `SAFE_DATA_DIR/tmp` after crashes
 - identifying orphaned blobs or rows after interrupted manual operations
 - deleting downloaded bundles or plaintext exports if such derived files are ever implemented
 
@@ -222,8 +226,7 @@ Likely future work includes:
 
 - retention policy fields or settings for mode-driven incident, capture-profile,
   escalation-policy, and sharing-state behavior
-- a local operator CLI and dry-run previews for deletion or retention candidates
-- orphan temp-file cleanup with a conservative age threshold
+- a local operator CLI to request deletion decisions
 - optional pruning for expired or revoked token metadata
 - tombstone retention and pruning policy
 - backup and restore runbooks with deployment-specific commands

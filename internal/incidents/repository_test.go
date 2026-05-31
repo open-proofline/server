@@ -218,6 +218,95 @@ func TestQueueRetentionIncidentDeletionsSelectsClosedIncidentsOnly(t *testing.T)
 	}
 }
 
+func TestListRetentionDeletionCandidatesPreviewsClosedActiveOnly(t *testing.T) {
+	ctx := context.Background()
+	repo := newRepository(t, ctx)
+	openIncident, err := repo.CreateIncident(ctx, "open", "")
+	if err != nil {
+		t.Fatalf("create open incident: %v", err)
+	}
+	closedIncident, err := repo.CreateIncident(ctx, "closed", "")
+	if err != nil {
+		t.Fatalf("create closed incident: %v", err)
+	}
+	deletingIncident, err := repo.CreateIncident(ctx, "deleting", "")
+	if err != nil {
+		t.Fatalf("create deleting incident: %v", err)
+	}
+	if _, err := repo.CloseIncident(ctx, closedIncident.ID); err != nil {
+		t.Fatalf("close candidate incident: %v", err)
+	}
+	if _, err := repo.CloseIncident(ctx, deletingIncident.ID); err != nil {
+		t.Fatalf("close deleting incident: %v", err)
+	}
+	if _, err := repo.RequestIncidentDeletion(ctx, incidents.IncidentDeletionRequest{
+		IncidentID: deletingIncident.ID,
+		Source:     incidents.IncidentDeletionSourceAdminRequest,
+	}); err != nil {
+		t.Fatalf("request deletion: %v", err)
+	}
+
+	candidates, err := repo.ListRetentionDeletionCandidates(ctx, time.Now().UTC().Add(time.Minute), 10)
+	if err != nil {
+		t.Fatalf("list retention candidates: %v", err)
+	}
+	if len(candidates) != 1 || candidates[0].IncidentID != closedIncident.ID {
+		t.Fatalf("retention candidates = %+v, want only %s", candidates, closedIncident.ID)
+	}
+	for _, candidate := range candidates {
+		if candidate.IncidentID == openIncident.ID || candidate.IncidentID == deletingIncident.ID {
+			t.Fatalf("candidate included ineligible incident: %+v", candidate)
+		}
+	}
+}
+
+func TestIncidentDeletionJobStatusSummarizesSafeRetryCategories(t *testing.T) {
+	ctx := context.Background()
+	repo := newRepository(t, ctx)
+	incident, err := repo.CreateIncident(ctx, "phone", "")
+	if err != nil {
+		t.Fatalf("create incident: %v", err)
+	}
+	if _, err := repo.CreateChunk(ctx, testChunkParams(incident.ID, "", incidents.MediaTypeAudio, 1)); err != nil {
+		t.Fatalf("create chunk: %v", err)
+	}
+	status, err := repo.RequestIncidentDeletion(ctx, incidents.IncidentDeletionRequest{
+		IncidentID: incident.ID,
+		Source:     incidents.IncidentDeletionSourceAdminRequest,
+		AllowOpen:  true,
+	})
+	if err != nil {
+		t.Fatalf("request deletion: %v", err)
+	}
+	items, err := repo.ListIncidentDeletionItems(ctx, status.DecisionID)
+	if err != nil {
+		t.Fatalf("list deletion items: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("deletion items = %+v, want one", items)
+	}
+	if err := repo.MarkIncidentDeletionItemFailed(ctx, items[0].ID, "unsafe_stored_path"); err != nil {
+		t.Fatalf("mark item failed: %v", err)
+	}
+	if _, err := repo.FailIncidentDeletion(ctx, status.DecisionID, "blob_delete_failed"); err != nil {
+		t.Fatalf("fail deletion: %v", err)
+	}
+
+	report, err := repo.GetIncidentDeletionJobStatus(ctx, 10, time.Now().UTC().Add(time.Minute))
+	if err != nil {
+		t.Fatalf("get deletion job status: %v", err)
+	}
+	assertDecisionStateCount(t, report.DecisionStateCounts, incidents.IncidentDeletionStateFailed, 1)
+	assertDecisionErrorCount(t, report.DecisionErrorCounts, incidents.IncidentDeletionStateFailed, "blob_delete_failed", 1)
+	assertItemStateCount(t, report.ItemStateCounts, incidents.IncidentDeletionItemStateFailed, "unsafe_stored_path", 1)
+	if len(report.RunnableJobs) != 1 ||
+		report.RunnableJobs[0].DecisionID != status.DecisionID ||
+		report.RunnableJobs[0].IncidentID != incident.ID ||
+		report.RunnableJobs[0].ErrorCode != "blob_delete_failed" {
+		t.Fatalf("unexpected runnable jobs: %+v", report.RunnableJobs)
+	}
+}
+
 func TestCreateChunkRejectsCompletedStream(t *testing.T) {
 	ctx := context.Background()
 	repo := newRepository(t, ctx)
@@ -446,4 +535,43 @@ func testUploadOperationParams(incidentID, streamID string) incidents.UploadOper
 		SHA256Hex:          chunk.SHA256Hex,
 		FingerprintHash:    strings.Repeat("a", 64),
 	}
+}
+
+func assertDecisionStateCount(t *testing.T, counts []incidents.IncidentDeletionStateCount, state string, want int) {
+	t.Helper()
+	for _, count := range counts {
+		if count.State == state {
+			if count.Count != want {
+				t.Fatalf("decision state count for %q = %d, want %d", state, count.Count, want)
+			}
+			return
+		}
+	}
+	t.Fatalf("decision state count for %q missing in %+v", state, counts)
+}
+
+func assertDecisionErrorCount(t *testing.T, counts []incidents.IncidentDeletionErrorCount, state, errorCode string, want int) {
+	t.Helper()
+	for _, count := range counts {
+		if count.State == state && count.ErrorCode == errorCode {
+			if count.Count != want {
+				t.Fatalf("decision error count for %q/%q = %d, want %d", state, errorCode, count.Count, want)
+			}
+			return
+		}
+	}
+	t.Fatalf("decision error count for %q/%q missing in %+v", state, errorCode, counts)
+}
+
+func assertItemStateCount(t *testing.T, counts []incidents.IncidentDeletionItemStateCount, state, errorCode string, want int) {
+	t.Helper()
+	for _, count := range counts {
+		if count.State == state && count.ErrorCode == errorCode {
+			if count.Count != want {
+				t.Fatalf("item state count for %q/%q = %d, want %d", state, errorCode, count.Count, want)
+			}
+			return
+		}
+	}
+	t.Fatalf("item state count for %q/%q missing in %+v", state, errorCode, counts)
 }

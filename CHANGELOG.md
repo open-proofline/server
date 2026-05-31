@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added local read-only operator commands to preview closed-incident retention
+  candidates and inspect deletion job status with safe counts and retry
+  categories.
 - Added explicit-age orphan temp upload cleanup for local `upload-*` staging
   files, with dry-run support and safe count-only startup logs.
 - Added opt-in S3-compatible object-store deletion smoke coverage for incident

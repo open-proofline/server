@@ -356,6 +356,70 @@ func TestPostgresRepositoryPreservesCoreSemantics(t *testing.T) {
 	}
 }
 
+func TestPostgresDeletionOperatorStatusAndPreview(t *testing.T) {
+	ctx := context.Background()
+	conn := openPostgresTestDB(t, ctx)
+	if err := Migrate(ctx, conn); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	repo := NewRepository(conn)
+
+	closedIncident, err := repo.CreateIncident(ctx, "closed", "")
+	if err != nil {
+		t.Fatalf("create closed incident: %v", err)
+	}
+	failedIncident, err := repo.CreateIncident(ctx, "failed", "")
+	if err != nil {
+		t.Fatalf("create failed incident: %v", err)
+	}
+	if _, err := repo.CloseIncident(ctx, closedIncident.ID); err != nil {
+		t.Fatalf("close candidate incident: %v", err)
+	}
+	if _, err := repo.CreateChunk(ctx, testChunkParams(failedIncident.ID, "", incidents.MediaTypeAudio, 1)); err != nil {
+		t.Fatalf("create chunk: %v", err)
+	}
+	status, err := repo.RequestIncidentDeletion(ctx, incidents.IncidentDeletionRequest{
+		IncidentID: failedIncident.ID,
+		Source:     incidents.IncidentDeletionSourceAdminRequest,
+		AllowOpen:  true,
+	})
+	if err != nil {
+		t.Fatalf("request deletion: %v", err)
+	}
+	items, err := repo.ListIncidentDeletionItems(ctx, status.DecisionID)
+	if err != nil {
+		t.Fatalf("list deletion items: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("deletion items = %+v, want one", items)
+	}
+	if err := repo.MarkIncidentDeletionItemFailed(ctx, items[0].ID, "unsafe_stored_path"); err != nil {
+		t.Fatalf("mark item failed: %v", err)
+	}
+	if _, err := repo.FailIncidentDeletion(ctx, status.DecisionID, "blob_delete_failed"); err != nil {
+		t.Fatalf("fail deletion: %v", err)
+	}
+
+	candidates, err := repo.ListRetentionDeletionCandidates(ctx, time.Now().UTC().Add(time.Minute), 10)
+	if err != nil {
+		t.Fatalf("list retention candidates: %v", err)
+	}
+	if len(candidates) != 1 || candidates[0].IncidentID != closedIncident.ID {
+		t.Fatalf("retention candidates = %+v, want only %s", candidates, closedIncident.ID)
+	}
+
+	report, err := repo.GetIncidentDeletionJobStatus(ctx, 10, time.Now().UTC().Add(time.Minute))
+	if err != nil {
+		t.Fatalf("get deletion job status: %v", err)
+	}
+	assertPostgresDecisionStateCount(t, report.DecisionStateCounts, incidents.IncidentDeletionStateFailed, 1)
+	assertPostgresDecisionErrorCount(t, report.DecisionErrorCounts, incidents.IncidentDeletionStateFailed, "blob_delete_failed", 1)
+	assertPostgresItemStateCount(t, report.ItemStateCounts, incidents.IncidentDeletionItemStateFailed, "unsafe_stored_path", 1)
+	if len(report.RunnableJobs) != 1 || report.RunnableJobs[0].DecisionID != status.DecisionID {
+		t.Fatalf("unexpected runnable jobs: %+v", report.RunnableJobs)
+	}
+}
+
 func TestPostgresUploadOperationRaceAndBackendParity(t *testing.T) {
 	contracttest.RunUploadOperationRaceAndParity(t, func(t *testing.T, ctx context.Context) contracttest.Repository {
 		t.Helper()
@@ -764,4 +828,43 @@ func testUploadOperationParams(incidentID, streamID string) incidents.UploadOper
 		SHA256Hex:          chunk.SHA256Hex,
 		FingerprintHash:    strings.Repeat("a", 64),
 	}
+}
+
+func assertPostgresDecisionStateCount(t *testing.T, counts []incidents.IncidentDeletionStateCount, state string, want int) {
+	t.Helper()
+	for _, count := range counts {
+		if count.State == state {
+			if count.Count != want {
+				t.Fatalf("decision state count for %q = %d, want %d", state, count.Count, want)
+			}
+			return
+		}
+	}
+	t.Fatalf("decision state count for %q missing in %+v", state, counts)
+}
+
+func assertPostgresDecisionErrorCount(t *testing.T, counts []incidents.IncidentDeletionErrorCount, state, errorCode string, want int) {
+	t.Helper()
+	for _, count := range counts {
+		if count.State == state && count.ErrorCode == errorCode {
+			if count.Count != want {
+				t.Fatalf("decision error count for %q/%q = %d, want %d", state, errorCode, count.Count, want)
+			}
+			return
+		}
+	}
+	t.Fatalf("decision error count for %q/%q missing in %+v", state, errorCode, counts)
+}
+
+func assertPostgresItemStateCount(t *testing.T, counts []incidents.IncidentDeletionItemStateCount, state, errorCode string, want int) {
+	t.Helper()
+	for _, count := range counts {
+		if count.State == state && count.ErrorCode == errorCode {
+			if count.Count != want {
+				t.Fatalf("item state count for %q/%q = %d, want %d", state, errorCode, count.Count, want)
+			}
+			return
+		}
+	}
+	t.Fatalf("item state count for %q/%q missing in %+v", state, errorCode, counts)
 }
