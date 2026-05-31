@@ -57,6 +57,7 @@
 - Future product scope includes emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes.
 - The current backend implements local username/password accounts, private `/v1` account/session authentication, admin account management routes, and owner/admin incident authorization.
 - The current backend implements optional incident mode, capture profile, escalation policy, and sharing state metadata fields on private incident create/read routes, but these fields do not grant access, send notifications, change retention, change key custody, expose trusted-contact workflows, or change public viewer and bundle behavior.
+- The current backend implements private owner-scoped and admin-global incident deletion routes, deletion tombstones, retryable blob deletion, and optional closed-incident retention through a background worker.
 - The current backend does not yet implement mode-driven access, trusted-contact accounts, dead-man switch notifications, public account workflows, or public `/v1` product authentication.
 - Planned production-cluster scope may add cluster-safe idempotent upload semantics and operation-level use of coordination. These additions must not remove SQLite, optional PostgreSQL metadata, local filesystem support, the optional S3-compatible blob backend, or the optional Valkey/Redis-compatible coordination backend.
 - Future encryption direction should be a hybrid key custody model.

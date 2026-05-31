@@ -131,6 +131,10 @@ func (a *API) createCheckin(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "incident_not_found", "incident was not found")
 		return
 	}
+	if errors.Is(err, incidents.ErrIncidentDeleting) {
+		writeIncidentDeleting(w)
+		return
+	}
 	if err != nil {
 		a.internalError(w, "create checkin", err)
 		return
@@ -146,6 +150,10 @@ func (a *API) closeIncident(w http.ResponseWriter, r *http.Request) {
 	incident, err := a.repo.CloseIncident(r.Context(), r.PathValue("incident_id"))
 	if errors.Is(err, incidents.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "incident_not_found", "incident was not found")
+		return
+	}
+	if errors.Is(err, incidents.ErrIncidentDeleting) {
+		writeIncidentDeleting(w)
 		return
 	}
 	if err != nil {

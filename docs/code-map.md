@@ -4,8 +4,9 @@ Proofline Server currently contains the Go backend for a private encrypted
 incident-capture system. This backend receives already-encrypted recording
 chunks, groups them into media streams, records metadata in SQLite by default
 or optional PostgreSQL, supports optional Valkey/Redis-compatible short-lived
-coordination, and serves a scoped read-only incident viewer with encrypted
-evidence bundle downloads.
+coordination, serves private incident deletion and optional closed-incident
+retention workflows, and serves a scoped read-only incident viewer with
+encrypted evidence bundle downloads.
 
 This repository is the server/backend component only. In the planned `open-proofline` organisation layout it corresponds to `open-proofline/server`. Future web-client, iOS-client, Android-client, and protocol implementation should live in separate repositories.
 
@@ -21,16 +22,17 @@ with role and grant boundaries in [v1-access-control.md](v1-access-control.md).
 - `go.mod`: defines the root Go module `github.com/open-proofline/server`.
 - `.github/workflows/ci.yml`: runs Go tests with a coverage signal on pull requests and pushes, runs `govulncheck`, builds the `proofline-server-linux-amd64` binary artifact, gates release binary attestation and trusted GHCR publishing on the vulnerability scan, uploads the binary as a GitHub Release asset on `v*` tag pushes, builds the Docker image, and publishes attested images to GitHub Container Registry from a trusted job limited to `main`, `develop`, and `v*` tag pushes.
 - `.dockerignore`: excludes local runtime, review, and build artifacts from the root Docker build context used by `Dockerfile`.
-- `cmd/api`: starts one private API HTTP server per private bind address and one public incident viewer HTTP server per public bind address, loads config, enforces the local account bootstrap gate, checks the selected coordination backend, opens the selected metadata backend, creates storage, wires shared handlers including private health/readiness checks, and handles graceful shutdown.
+- `cmd/api`: starts one private API HTTP server per private bind address and one public incident viewer HTTP server per public bind address, loads config, enforces the local account bootstrap gate, checks the selected coordination backend, opens the selected metadata backend, creates storage, wires shared handlers including private health/readiness checks, starts the deletion worker, and handles graceful shutdown.
 - `cmd/simclient`: simulates future client flows by logging in, creating an incident, creating a media stream, encrypting and uploading complete chunks, completing or failing streams, sending periodic checkins, and optionally testing hash-failure retry, bundle download, local decrypt verification, durable desktop-recorder staging, local file input, ffmpeg segment capture, restart/resume behavior, and poor-network retry controls. Token-bearing viewer URLs are omitted from simulator output.
-- `internal/config`: reads environment variables such as backend selectors, backend-specific settings, private/public bind address lists, legacy singular bind addresses, data directory, database path, max upload size, HTTP server timeouts, local account bootstrap secret, and session TTL.
+- `internal/config`: reads environment variables such as backend selectors, backend-specific settings, private/public bind address lists, legacy singular bind addresses, data directory, database path, max upload size, HTTP server timeouts, local account bootstrap secret, session TTL, deletion worker interval, and closed-incident retention window.
 - `internal/coordination`: defines the small optional coordination boundary, the default no-coordination backend, and the Valkey/Redis-compatible startup check backend.
 - `internal/db`: opens SQLite, enables foreign keys and WAL mode, applies embedded SQLite migrations, records `schema_migrations`, and runs named compatibility migrations.
 - `internal/envelope`: implements the simulator/test AES-256-GCM client-side chunk envelope, associated data builder, and local simulator key file helpers.
 - `internal/auth`: normalizes local account usernames, validates passwords, hashes passwords with bcrypt, and hashes opaque session tokens before storage.
-- `internal/httpapi`: owns separate private/public muxes, JSON responses, request logging, recovery, private account/session authentication, request validation, upload handling, stream state handlers, ZIP bundle streaming, the private admin web surface, the incident viewer, and the narrow metadata repository boundary consumed by handlers.
-- `internal/incidents`: defines incident/stream/chunk/checkin/account/session models and provides the SQLite metadata repository implementation.
-- `internal/postgresdb`: opens optional PostgreSQL metadata connections, applies PostgreSQL migrations, and implements the metadata repository behavior with PostgreSQL transaction and constraint semantics.
+- `internal/httpapi`: owns separate private/public muxes, JSON responses, request logging, recovery, private account/session authentication, request validation, upload handling, stream state handlers, incident deletion handlers, ZIP bundle streaming, the private admin web surface, the incident viewer, and the narrow metadata repository boundary consumed by handlers.
+- `internal/incidents`: defines incident/stream/chunk/checkin/account/session/deletion models and provides the SQLite metadata repository implementation, including deletion decisions, tombstones, retry item state, and write guards for deleting incidents.
+- `internal/postgresdb`: opens optional PostgreSQL metadata connections, applies PostgreSQL migrations, and implements the metadata repository behavior with PostgreSQL transaction, row-locking, deletion, and constraint semantics.
+- `internal/retention`: runs the background deletion and optional closed-incident retention worker. It claims retryable deletion decisions, removes encrypted blobs through the storage boundary using stored paths snapshotted from metadata, records safe retry state, prunes sensitive child metadata after blob deletion, and logs only non-sensitive counts or error categories.
 - `internal/storage`: defines the blob-store boundary used by HTTP handlers and provides local filesystem and optional S3-compatible implementations, including temp uploads, hashing while streaming, server-controlled stored paths, and immutable final commits.
 - `migrations`: embeds the SQLite schema.
 - `migrations/postgres`: embeds the PostgreSQL schema.
@@ -103,6 +105,39 @@ Metadata is written after the file is safely committed, through the configured m
 New clients can create a media stream with `POST /v1/incidents/{incident_id}/streams` and include the returned `stream_id` during chunk upload. Streamed chunk indexes start at `1`, and streamed chunk identity is `incident_id + stream_id + chunk_index`. Existing chunks without `stream_id` remain valid and readable as legacy chunk metadata, including older index `0` chunks; legacy unstreamed identity remains `incident_id + media_type + chunk_index`. Legacy unstreamed chunks are not included in completed-stream evidence bundles.
 
 Stream completion is handled by `internal/httpapi.completeMediaStream`. Before a stream moves from `open` to `complete`, the handler verifies that chunks `1..expected_chunk_count` exist contiguously for that stream and that each stored blob can be opened from the configured blob store. `internal/incidents.Repository.CompleteMediaStream` then revalidates the chunk rows in the completion transaction before committing the state change. Failed streams preserve uploaded chunks but are not offered as normal downloads.
+
+## Deletion And Retention Flow
+
+Private owner-scoped deletion requests are handled by
+`POST /v1/incidents/{incident_id}/deletion`. Admin-global deletion requests are
+handled by `POST /v1/admin/incidents/{incident_id}/deletion`. Both route groups
+are mounted only on the private API server. Public incident viewer routes do
+not expose deletion controls or deletion status.
+
+The configured metadata repository creates or returns one durable deletion
+decision for the incident. In the same transaction, it snapshots
+server-controlled chunk `stored_path` values into deletion item rows and marks
+the incident deletion state as `deletion_pending`. Repeated requests return the
+existing decision instead of creating competing work. Open incidents are
+rejected unless the private request explicitly sets `allow_open: true`;
+automatic closed-incident retention never selects open incidents.
+
+While an incident is `deletion_pending`, `deleting`, `deletion_failed`, or
+`deleted`, normal write paths fail closed in the repository. Public viewer token
+lookups also fail closed with the same public error shape used for invalid,
+expired, or revoked tokens, so public routes do not reveal deletion state.
+
+`internal/retention.Worker` queues closed-incident retention decisions only
+when `SAFE_CLOSED_INCIDENT_RETENTION` is positive. It processes pending, failed,
+or stale `deleting` decisions in batches, deletes encrypted blobs through
+`storage.BlobStore.Remove` using only metadata-derived stored paths, treats a
+missing blob as idempotent success for an existing deletion item, and records
+safe retry error classes for failed blob deletions.
+
+After every deletion item is complete or confirmed absent, the repository
+prunes sensitive child metadata such as upload operations, incident tokens,
+checkins, chunks, and streams, then leaves a minimal incident tombstone and
+marks the deletion decision `deleted`.
 
 ## Admin Web Flow
 

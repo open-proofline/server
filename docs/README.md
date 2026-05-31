@@ -26,7 +26,7 @@ This directory contains the detailed documentation for Proofline Server, the Go 
 | [API](api.md) | Current private `/v1` API routes including health/readiness checks, private `/admin` web routes, request examples, response examples, and bundle formats. |
 | [Deployment](deployment.md) | Local, Docker, SQLite WAL operations, reverse proxy, TLS, and public exposure notes. |
 | [Retention, backup, and deletion](retention-backup-deletion.md) | Operational policy for evidence lifecycle, backups, restores, and deletion limits. |
-| [Incident deletion and retention enforcement design](incident-deletion-retention-enforcement.md) | Future design for private/admin deletion decisions, retention jobs, tombstones, blob deletion retry, and safe audit boundaries. |
+| [Incident deletion and retention enforcement](incident-deletion-retention-enforcement.md) | Current private/admin deletion decisions, retention worker behavior, tombstones, blob deletion retry, and remaining lifecycle boundaries. |
 | [Security model](security-model.md) | Current controls, browser headers, logging posture, and security assumptions. |
 | [Threat model](threat-model.md) | Assets, trust boundaries, controls, limitations, and next security steps. |
 | [Simulator](simulator.md) | Simulator commands, durable desktop-recorder staging, poor-network controls, and test flows. |
@@ -107,11 +107,12 @@ The future iOS incident-capture prototype is planned in [ios-local-recorder-prot
 Evidence bundles are encrypted chunk bundles with JSON manifests. They are not decrypted, playable, or merged media exports.
 
 Retention, backup, and deletion policy is documented in
-[retention-backup-deletion.md](retention-backup-deletion.md), with the future
-incident deletion and retention enforcement design in
+[retention-backup-deletion.md](retention-backup-deletion.md), with incident
+deletion and retention enforcement details in
 [incident-deletion-retention-enforcement.md](incident-deletion-retention-enforcement.md).
-The backend does not yet implement automatic expiration or incident deletion
-APIs.
+The backend implements private incident deletion APIs and an automatic
+background deletion worker; closed-incident retention is disabled unless
+configured with `SAFE_CLOSED_INCIDENT_RETENTION`.
 
 Cluster-style backup, restore, and failure handling for optional PostgreSQL,
 S3-compatible blob storage, and Valkey/Redis-compatible coordination is

@@ -64,6 +64,13 @@ deployment details.
 Keep these routes on the private listener; they do not make `/v1` safe for
 public exposure.
 
+The deletion worker starts automatically by default and processes durable
+incident deletion decisions every minute. Set
+`SAFE_DELETION_WORKER_INTERVAL=0` only when an operator intentionally wants to
+pause deletion processing. Closed-incident retention is disabled by default;
+set `SAFE_CLOSED_INCIDENT_RETENTION` to a positive duration only after the
+deployment has reviewed backup expiry and restore implications.
+
 The same private listener serves the admin web interface at:
 
 ```text
@@ -126,6 +133,8 @@ Container defaults:
 | `SAFE_DATA_DIR` | `/data` |
 | `SAFE_DB_PATH` | `/data/safety.db` |
 | `SAFE_MAX_UPLOAD_BYTES` | `250MB` |
+| `SAFE_DELETION_WORKER_INTERVAL` | `1m` |
+| `SAFE_CLOSED_INCIDENT_RETENTION` | `0` |
 
 Inside containers, bind to container addresses such as `0.0.0.0`, then restrict host exposure with Docker port publishing, firewall rules, WireGuard, or a reverse proxy.
 
@@ -340,6 +349,9 @@ Before exposing the public incident viewer:
 - [ ] Retention, backup, restore, and deletion expectations are documented for
       this deployment and reviewed against
       [retention-backup-deletion.md](retention-backup-deletion.md).
+- [ ] `SAFE_CLOSED_INCIDENT_RETENTION` is unset or set to a reviewed duration;
+      backup expiry and restore reconciliation are documented before enabling
+      automatic closed-incident deletion.
 - [ ] Cluster backup, restore, and failure handling has been reviewed against
       [cluster-backup-restore-runbook.md](cluster-backup-restore-runbook.md)
       when optional PostgreSQL, S3-compatible storage, or Valkey/Redis

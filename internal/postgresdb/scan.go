@@ -32,6 +32,7 @@ func scanIncident(s scanner) (incidents.Incident, error) {
 		&captureProfile,
 		&escalationPolicy,
 		&sharingState,
+		&incident.DeletionState,
 	); err != nil {
 		return incidents.Incident{}, err
 	}
@@ -57,6 +58,9 @@ func scanIncident(s scanner) (incidents.Incident, error) {
 	}
 	if sharingState.Valid {
 		incident.SharingState = sharingState.String
+	}
+	if incident.DeletionState == "" {
+		incident.DeletionState = incidents.IncidentDeletionStateActive
 	}
 	return incident, nil
 }

@@ -14,6 +14,7 @@ const (
 	actionCreatePublicLink     = "create_public_link"
 	actionRevokePublicLink     = "revoke_public_link"
 	actionReadCiphertextBundle = "read_ciphertext_bundle"
+	actionDeleteIncident       = "delete_incident"
 
 	dataClassIncidentMetadata = "incident_metadata"
 	dataClassCiphertext       = "ciphertext_evidence"
@@ -30,6 +31,7 @@ var currentIncidentAuthorizationScopes = map[incidentAuthorizationScope]struct{}
 	{action: actionWriteIncident, dataClass: dataClassIncidentMetadata}:   {},
 	{action: actionWriteIncident, dataClass: dataClassCiphertext}:         {},
 	{action: actionReadCiphertextBundle, dataClass: dataClassCiphertext}:  {},
+	{action: actionDeleteIncident, dataClass: dataClassIncidentMetadata}:  {},
 	{action: actionCreatePublicLink, dataClass: dataClassPublicLinkGrant}: {},
 	{action: actionRevokePublicLink, dataClass: dataClassPublicLinkGrant}: {},
 }
@@ -53,6 +55,12 @@ func (a *API) authorizeIncident(w http.ResponseWriter, r *http.Request, incident
 		a.internalError(w, "get incident", err)
 		return incidents.Incident{}, false
 	}
+	if incident.DeletionState != incidents.IncidentDeletionStateActive &&
+		action != actionReadIncident &&
+		action != actionDeleteIncident {
+		writeIncidentDeleting(w)
+		return incidents.Incident{}, false
+	}
 	if principal.Account.Role == auth.RoleAdmin {
 		return incident, true
 	}
@@ -61,6 +69,10 @@ func (a *API) authorizeIncident(w http.ResponseWriter, r *http.Request, incident
 	}
 	writeError(w, http.StatusForbidden, "forbidden", "account is not authorized for this incident")
 	return incidents.Incident{}, false
+}
+
+func writeIncidentDeleting(w http.ResponseWriter) {
+	writeError(w, http.StatusConflict, "incident_deleting", "incident deletion is in progress")
 }
 
 func incidentAuthorizationScopeAllowed(action, dataClass string) bool {

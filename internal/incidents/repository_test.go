@@ -65,6 +65,151 @@ func TestCreateChunkRejectsClosedIncident(t *testing.T) {
 	}
 }
 
+func TestRequestIncidentDeletionSnapshotsItemsAndBlocksWrites(t *testing.T) {
+	ctx := context.Background()
+	repo := newRepository(t, ctx)
+	incident, err := repo.CreateIncidentForAccount(ctx, "", incidents.CreateIncidentParams{
+		ClientLabel: "phone",
+		Notes:       "delete me",
+	})
+	if err != nil {
+		t.Fatalf("create incident: %v", err)
+	}
+	stream, err := repo.CreateMediaStream(ctx, incident.ID, incidents.MediaTypeAudio, "audio")
+	if err != nil {
+		t.Fatalf("create media stream: %v", err)
+	}
+	if _, err := repo.CreateChunk(ctx, testChunkParams(incident.ID, stream.ID, incidents.MediaTypeAudio, 1)); err != nil {
+		t.Fatalf("create stream chunk: %v", err)
+	}
+	if _, err := repo.CreateChunk(ctx, testChunkParams(incident.ID, "", incidents.MediaTypeMetadata, 1)); err != nil {
+		t.Fatalf("create metadata chunk: %v", err)
+	}
+
+	status, err := repo.RequestIncidentDeletion(ctx, incidents.IncidentDeletionRequest{
+		IncidentID:     incident.ID,
+		Source:         incidents.IncidentDeletionSourceAccountRequest,
+		ReasonCode:     "account_delete",
+		ActorAccountID: "acct_owner",
+		AllowOpen:      true,
+	})
+	if err != nil {
+		t.Fatalf("request deletion: %v", err)
+	}
+	if status.State != incidents.IncidentDeletionStatePending || status.ItemCount != 2 {
+		t.Fatalf("unexpected deletion status: %+v", status)
+	}
+
+	got, err := repo.GetIncident(ctx, incident.ID)
+	if err != nil {
+		t.Fatalf("get incident: %v", err)
+	}
+	if got.DeletionState != incidents.IncidentDeletionStatePending {
+		t.Fatalf("deletion state = %q, want pending", got.DeletionState)
+	}
+	items, err := repo.ListIncidentDeletionItems(ctx, status.DecisionID)
+	if err != nil {
+		t.Fatalf("list deletion items: %v", err)
+	}
+	if len(items) != 2 {
+		t.Fatalf("deletion item count = %d, want 2", len(items))
+	}
+	for _, item := range items {
+		if item.StoredPath == "" || item.State != incidents.IncidentDeletionItemStatePending {
+			t.Fatalf("unexpected deletion item: %+v", item)
+		}
+	}
+
+	repeated, err := repo.RequestIncidentDeletion(ctx, incidents.IncidentDeletionRequest{
+		IncidentID:     incident.ID,
+		Source:         incidents.IncidentDeletionSourceAccountRequest,
+		ActorAccountID: "acct_owner",
+		AllowOpen:      true,
+	})
+	if err != nil {
+		t.Fatalf("repeat deletion request: %v", err)
+	}
+	if repeated.DecisionID != status.DecisionID || repeated.ItemCount != status.ItemCount {
+		t.Fatalf("repeat request returned %+v, want existing %+v", repeated, status)
+	}
+
+	if _, err := repo.CreateChunk(ctx, testChunkParams(incident.ID, "", incidents.MediaTypeAudio, 2)); !errors.Is(err, incidents.ErrIncidentDeleting) {
+		t.Fatalf("create chunk during deletion error = %v, want ErrIncidentDeleting", err)
+	}
+	if _, err := repo.CreateCheckin(ctx, incident.ID, incidents.CreateCheckinParams{}); !errors.Is(err, incidents.ErrIncidentDeleting) {
+		t.Fatalf("create checkin during deletion error = %v, want ErrIncidentDeleting", err)
+	}
+	if _, err := repo.CreateMediaStream(ctx, incident.ID, incidents.MediaTypeAudio, "late audio"); !errors.Is(err, incidents.ErrIncidentDeleting) {
+		t.Fatalf("create stream during deletion error = %v, want ErrIncidentDeleting", err)
+	}
+	if _, err := repo.CompleteMediaStream(ctx, incident.ID, stream.ID, 1); !errors.Is(err, incidents.ErrIncidentDeleting) {
+		t.Fatalf("complete stream during deletion error = %v, want ErrIncidentDeleting", err)
+	}
+	if _, err := repo.FailMediaStream(ctx, incident.ID, stream.ID, "late failure"); !errors.Is(err, incidents.ErrIncidentDeleting) {
+		t.Fatalf("fail stream during deletion error = %v, want ErrIncidentDeleting", err)
+	}
+	if _, err := repo.CloseIncident(ctx, incident.ID); !errors.Is(err, incidents.ErrIncidentDeleting) {
+		t.Fatalf("close incident during deletion error = %v, want ErrIncidentDeleting", err)
+	}
+	if _, err := repo.ReserveUploadOperation(ctx, testUploadOperationParams(incident.ID, stream.ID)); !errors.Is(err, incidents.ErrIncidentDeleting) {
+		t.Fatalf("reserve upload operation during deletion error = %v, want ErrIncidentDeleting", err)
+	}
+	if _, _, err := repo.CreateIncidentToken(ctx, incident.ID, "trusted contact", nil); !errors.Is(err, incidents.ErrNotFound) {
+		t.Fatalf("create token during deletion error = %v, want ErrNotFound", err)
+	}
+}
+
+func TestRequestIncidentDeletionRejectsOpenIncidentWithoutAllowOpen(t *testing.T) {
+	ctx := context.Background()
+	repo := newRepository(t, ctx)
+	incident, err := repo.CreateIncident(ctx, "phone", "")
+	if err != nil {
+		t.Fatalf("create incident: %v", err)
+	}
+
+	_, err = repo.RequestIncidentDeletion(ctx, incidents.IncidentDeletionRequest{
+		IncidentID: incident.ID,
+		Source:     incidents.IncidentDeletionSourceAccountRequest,
+	})
+	if !errors.Is(err, incidents.ErrInvalidState) {
+		t.Fatalf("open deletion error = %v, want ErrInvalidState", err)
+	}
+}
+
+func TestQueueRetentionIncidentDeletionsSelectsClosedIncidentsOnly(t *testing.T) {
+	ctx := context.Background()
+	repo := newRepository(t, ctx)
+	openIncident, err := repo.CreateIncident(ctx, "open", "")
+	if err != nil {
+		t.Fatalf("create open incident: %v", err)
+	}
+	closedIncident, err := repo.CreateIncident(ctx, "closed", "")
+	if err != nil {
+		t.Fatalf("create closed incident: %v", err)
+	}
+	if _, err := repo.CloseIncident(ctx, closedIncident.ID); err != nil {
+		t.Fatalf("close incident: %v", err)
+	}
+
+	queued, err := repo.QueueRetentionIncidentDeletions(ctx, time.Now().UTC().Add(time.Minute), 10)
+	if err != nil {
+		t.Fatalf("queue retention deletions: %v", err)
+	}
+	if queued != 1 {
+		t.Fatalf("queued retention deletions = %d, want 1", queued)
+	}
+	status, err := repo.GetIncidentDeletionStatus(ctx, closedIncident.ID)
+	if err != nil {
+		t.Fatalf("get closed incident deletion: %v", err)
+	}
+	if status.Source != incidents.IncidentDeletionSourceRetentionPolicy || status.ReasonCode != "closed_incident_retention" {
+		t.Fatalf("unexpected retention deletion status: %+v", status)
+	}
+	if _, err := repo.GetIncidentDeletionStatus(ctx, openIncident.ID); !errors.Is(err, incidents.ErrNotFound) {
+		t.Fatalf("open incident deletion status error = %v, want ErrNotFound", err)
+	}
+}
+
 func TestCreateChunkRejectsCompletedStream(t *testing.T) {
 	ctx := context.Background()
 	repo := newRepository(t, ctx)

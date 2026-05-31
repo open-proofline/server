@@ -74,7 +74,7 @@ PostgreSQL stores:
 - viewer-token metadata
 - local account and session metadata
 - upload operation and idempotency state for complete chunk uploads
-- future retention/deletion state, after that design exists
+- incident deletion decisions and retry state
 - future trusted-contact, device, and broader access-control metadata, after
   that design exists
 

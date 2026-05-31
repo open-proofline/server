@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Added private incident deletion and closed-incident retention enforcement,
+  including SQLite/PostgreSQL deletion decision metadata, owner-scoped and
+  admin-global deletion routes, a retryable background deletion worker, public
+  viewer fail-closed behavior for deleting/deleted incidents, safe maintenance
+  error logging, and updated retention/security/API documentation.
 - Added a durable desktop-recorder simulator mode to `cmd/simclient`, with
   encrypted local staging, restart/resume upload recovery, generated and local
   pre-recorded file sources, optional ffmpeg video segment capture,

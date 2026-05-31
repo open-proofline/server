@@ -33,6 +33,10 @@ func (a *API) createMediaStream(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "incident_not_found", "incident was not found")
 		return
 	}
+	if errors.Is(err, incidents.ErrIncidentDeleting) {
+		writeIncidentDeleting(w)
+		return
+	}
 	if err != nil {
 		a.internalError(w, "create media stream", err)
 		return
@@ -101,6 +105,10 @@ func (a *API) completeMediaStream(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, "stream_not_open", "media stream is not open")
 		return
 	}
+	if errors.Is(err, incidents.ErrIncidentDeleting) {
+		writeIncidentDeleting(w)
+		return
+	}
 	if errors.Is(err, incidents.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "stream_not_found", "media stream was not found")
 		return
@@ -133,6 +141,10 @@ func (a *API) failMediaStream(w http.ResponseWriter, r *http.Request) {
 	updated, err := a.repo.FailMediaStream(r.Context(), incidentID, stream.ID, strings.TrimSpace(request.FailureReason))
 	if errors.Is(err, incidents.ErrInvalidState) {
 		writeError(w, http.StatusConflict, "stream_not_open", "media stream is not open")
+		return
+	}
+	if errors.Is(err, incidents.ErrIncidentDeleting) {
+		writeIncidentDeleting(w)
 		return
 	}
 	if errors.Is(err, incidents.ErrNotFound) {

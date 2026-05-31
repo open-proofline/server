@@ -15,6 +15,7 @@ import (
 	"github.com/open-proofline/server/internal/httpapi"
 	"github.com/open-proofline/server/internal/incidents"
 	"github.com/open-proofline/server/internal/postgresdb"
+	"github.com/open-proofline/server/internal/retention"
 	"github.com/open-proofline/server/internal/storage"
 )
 
@@ -68,6 +69,12 @@ func run(logger *slog.Logger) error {
 	}
 	privateHandler := httpapi.NewPrivate(repo, blobStore, apiOptions)
 	publicHandler := httpapi.NewPublic(repo, blobStore, apiOptions)
+	deletionWorker := retention.NewWorker(repo, blobStore, retention.Options{
+		Interval:                cfg.DeletionWorkerInterval,
+		ClosedIncidentRetention: cfg.ClosedIncidentRetention,
+		Logger:                  logger,
+	})
+	deletionWorker.Start(ctx)
 	servers := newHTTPServers(cfg, privateHandler, publicHandler)
 
 	errCh := make(chan error, len(servers))

@@ -34,6 +34,8 @@ func TestPostgresMigrateCreatesSchemaAndRejectsChecksumMismatch(t *testing.T) {
 	assertPostgresTable(t, ctx, conn, "accounts")
 	assertPostgresTable(t, ctx, conn, "auth_sessions")
 	assertPostgresTable(t, ctx, conn, "upload_operations")
+	assertPostgresTable(t, ctx, conn, "incident_deletion_decisions")
+	assertPostgresTable(t, ctx, conn, "incident_deletion_items")
 
 	if err := Migrate(ctx, conn); err != nil {
 		t.Fatalf("second Migrate: %v", err)
@@ -309,6 +311,47 @@ func TestPostgresRepositoryPreservesCoreSemantics(t *testing.T) {
 	}
 	if _, err := repo.CreateChunk(ctx, testChunkParams(incident.ID, "", incidents.MediaTypeAudio, 2)); !errors.Is(err, incidents.ErrIncidentClosed) {
 		t.Fatalf("create chunk on closed incident error = %v, want ErrIncidentClosed", err)
+	}
+	deletionStatus, err := repo.RequestIncidentDeletion(ctx, incidents.IncidentDeletionRequest{
+		IncidentID: incident.ID,
+		Source:     incidents.IncidentDeletionSourceAdminRequest,
+	})
+	if err != nil {
+		t.Fatalf("request deletion: %v", err)
+	}
+	if deletionStatus.State != incidents.IncidentDeletionStatePending || deletionStatus.ItemCount != 3 {
+		t.Fatalf("unexpected postgres deletion status: %+v", deletionStatus)
+	}
+	items, err := repo.ListIncidentDeletionItems(ctx, deletionStatus.DecisionID)
+	if err != nil {
+		t.Fatalf("list deletion items: %v", err)
+	}
+	if len(items) != 3 {
+		t.Fatalf("postgres deletion item count = %d, want 3", len(items))
+	}
+	if _, err := repo.CreateChunk(ctx, testChunkParams(incident.ID, "", incidents.MediaTypeAudio, 2)); !errors.Is(err, incidents.ErrIncidentDeleting) {
+		t.Fatalf("create chunk during deletion error = %v, want ErrIncidentDeleting", err)
+	}
+	if _, err := repo.CreateCheckin(ctx, incident.ID, incidents.CreateCheckinParams{}); !errors.Is(err, incidents.ErrIncidentDeleting) {
+		t.Fatalf("create checkin during deletion error = %v, want ErrIncidentDeleting", err)
+	}
+	if _, err := repo.CreateMediaStream(ctx, incident.ID, incidents.MediaTypeAudio, "late audio"); !errors.Is(err, incidents.ErrIncidentDeleting) {
+		t.Fatalf("create stream during deletion error = %v, want ErrIncidentDeleting", err)
+	}
+	if _, err := repo.FailMediaStream(ctx, incident.ID, secondStream.ID, "late failure"); !errors.Is(err, incidents.ErrIncidentDeleting) {
+		t.Fatalf("fail stream during deletion error = %v, want ErrIncidentDeleting", err)
+	}
+	if _, err := repo.CloseIncident(ctx, incident.ID); !errors.Is(err, incidents.ErrIncidentDeleting) {
+		t.Fatalf("close incident during deletion error = %v, want ErrIncidentDeleting", err)
+	}
+	deletedOperationParams := testUploadOperationParams(incident.ID, secondStream.ID)
+	deletedOperationParams.IdempotencyKeyHash = strings.Repeat("d", 64)
+	deletedOperationParams.FingerprintHash = strings.Repeat("e", 64)
+	if _, err := repo.ReserveUploadOperation(ctx, deletedOperationParams); !errors.Is(err, incidents.ErrIncidentDeleting) {
+		t.Fatalf("reserve upload operation during deletion error = %v, want ErrIncidentDeleting", err)
+	}
+	if _, _, err := repo.CreateIncidentToken(ctx, incident.ID, "trusted contact", nil); !errors.Is(err, incidents.ErrNotFound) {
+		t.Fatalf("create token during deletion error = %v, want ErrNotFound", err)
 	}
 }
 

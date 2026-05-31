@@ -34,23 +34,33 @@ func (r *Repository) CreateIncidentToken(ctx context.Context, incidentID, label 
 		ExpiresAt:  utcTimePtr(expiresAt),
 	}
 
-	_, err = r.db.ExecContext(ctx, `
+	result, err := r.db.ExecContext(ctx, `
 		INSERT INTO incident_tokens (
 			id, incident_id, token_hash, label, created_at, expires_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6)`,
+		SELECT $1, id, $2, $3, $4, $5
+		FROM incidents
+		WHERE id = $6 AND deletion_state = $7`,
 		token.ID,
-		token.IncidentID,
 		token.TokenHash,
 		nullableString(token.Label),
 		token.CreatedAt,
 		nullableTime(token.ExpiresAt),
+		token.IncidentID,
+		incidents.IncidentDeletionStateActive,
 	)
 	if err != nil {
 		if isIntegrityConstraint(err) {
 			return incidents.IncidentToken{}, "", incidents.ErrNotFound
 		}
 		return incidents.IncidentToken{}, "", fmt.Errorf("insert postgres incident token: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return incidents.IncidentToken{}, "", fmt.Errorf("insert postgres incident token rows affected: %w", err)
+	}
+	if rowsAffected == 0 {
+		return incidents.IncidentToken{}, "", incidents.ErrNotFound
 	}
 
 	return token, rawToken, nil
@@ -61,10 +71,14 @@ func (r *Repository) CreateIncidentToken(ctx context.Context, incidentID, label 
 func (r *Repository) LookupIncidentToken(ctx context.Context, rawToken string) (incidents.IncidentToken, error) {
 	tokenHash := hashIncidentToken(rawToken)
 	row := r.db.QueryRowContext(ctx, `
-		SELECT id, incident_id, token_hash, label, created_at, expires_at, revoked_at
-		FROM incident_tokens
-		WHERE token_hash = $1`,
+			SELECT incident_tokens.id, incident_tokens.incident_id, incident_tokens.token_hash,
+				incident_tokens.label, incident_tokens.created_at, incident_tokens.expires_at,
+				incident_tokens.revoked_at
+			FROM incident_tokens
+			JOIN incidents ON incidents.id = incident_tokens.incident_id
+			WHERE incident_tokens.token_hash = $1 AND incidents.deletion_state = $2`,
 		tokenHash,
+		incidents.IncidentDeletionStateActive,
 	)
 
 	token, err := scanIncidentToken(row)

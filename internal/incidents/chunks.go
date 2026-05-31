@@ -141,17 +141,21 @@ func (r *Repository) CreateChunk(ctx context.Context, params CreateChunkParams) 
 
 func validateChunkInsertState(ctx context.Context, tx *sql.Tx, params CreateChunkParams) error {
 	var incidentStatus string
+	var deletionState string
 	err := tx.QueryRowContext(ctx, `
-		SELECT status
+		SELECT status, deletion_state
 		FROM incidents
 		WHERE id = ?`,
 		params.IncidentID,
-	).Scan(&incidentStatus)
+	).Scan(&incidentStatus, &deletionState)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ErrNotFound
 	}
 	if err != nil {
 		return fmt.Errorf("read incident status: %w", err)
+	}
+	if deletionState != IncidentDeletionStateActive {
+		return ErrIncidentDeleting
 	}
 	if incidentStatus != StatusOpen {
 		return ErrIncidentClosed
