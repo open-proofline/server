@@ -766,5 +766,5 @@ PostgreSQL implementation status and remaining work:
 8. Separately design any SQLite-to-PostgreSQL migration tool or runbook.
 
 Each step should be small and reviewable. Do not bundle PostgreSQL support with
-S3-compatible blob storage, operation-level Valkey/Redis-compatible
-coordination behavior, public account workflows, or key custody work.
+S3-compatible blob storage, unrelated Valkey/Redis-compatible coordination
+behavior, public account workflows, or key custody work.

@@ -22,10 +22,10 @@ with role and grant boundaries in [v1-access-control.md](v1-access-control.md).
 - `go.mod`: defines the root Go module `github.com/open-proofline/server`.
 - `.github/workflows/ci.yml`: runs Go tests with a coverage signal on pull requests and pushes, runs `govulncheck`, builds the `proofline-server-linux-amd64` binary artifact, gates release binary attestation and trusted GHCR publishing on the vulnerability scan, uploads the binary as a GitHub Release asset on `v*` tag pushes, builds the Docker image, and publishes attested images to GitHub Container Registry from a trusted job limited to `main`, `develop`, and `v*` tag pushes.
 - `.dockerignore`: excludes local runtime, review, and build artifacts from the root Docker build context used by `Dockerfile`.
-- `cmd/api`: starts one main API/viewer HTTP server per main bind address and one private-admin dashboard HTTP server per admin bind address, loads config, enforces the local account bootstrap gate, checks the selected coordination backend, opens the selected metadata backend, creates storage, wires shared handlers including main API, admin JSON API, public viewer rate limiting, and the private `/admin` dashboard, starts the deletion worker, and handles graceful shutdown.
+- `cmd/api`: starts one main API/viewer HTTP server per main bind address and one private-admin dashboard HTTP server per admin bind address, loads config, enforces the local account bootstrap gate, checks the selected coordination backend, opens the selected metadata backend, creates storage, wires shared handlers including main API, admin JSON API, public viewer rate limiting, upload coordination, and the private `/admin` dashboard, starts the deletion worker, and handles graceful shutdown.
 - `cmd/simclient`: simulates future client flows by logging in, creating an incident, creating a media stream, encrypting and uploading complete chunks, completing or failing streams, sending periodic checkins, and optionally testing hash-failure retry, bundle download, local decrypt verification, durable desktop-recorder staging, local file input, ffmpeg segment capture, restart/resume behavior, and poor-network retry controls. Token-bearing viewer URLs are omitted from simulator output.
-- `internal/config`: reads environment variables such as backend selectors, backend-specific settings, main and private-admin bind address lists, legacy singular bind addresses, data directory, database path, max upload size, main API and public viewer rate limits, HTTP server timeouts, local account bootstrap secret, session TTL, deletion worker interval, closed-incident retention window, token metadata retention window, and tombstone retention window.
-- `internal/coordination`: defines the small optional coordination boundary, the default no-coordination backend, and the Valkey/Redis-compatible startup check plus main API and public viewer rate-limit counter backend.
+- `internal/config`: reads environment variables such as backend selectors, backend-specific settings, main and private-admin bind address lists, legacy singular bind addresses, data directory, database path, max upload size, upload coordination lease TTL, main API and public viewer rate limits, HTTP server timeouts, local account bootstrap secret, session TTL, deletion worker interval, closed-incident retention window, token metadata retention window, and tombstone retention window.
+- `internal/coordination`: defines the small optional coordination boundary, the default no-coordination backend, and the Valkey/Redis-compatible startup check, main API/public viewer rate-limit counter backend, and short-lived complete-upload lease backend.
 - `internal/db`: opens SQLite, enables foreign keys and WAL mode, applies embedded SQLite migrations, records `schema_migrations`, and runs named compatibility migrations.
 - `internal/envelope`: implements the simulator/test AES-256-GCM client-side chunk envelope, associated data builder, and local simulator key file helpers.
 - `internal/auth`: normalizes local account usernames, validates passwords, hashes passwords with bcrypt, and hashes opaque session tokens before storage.
@@ -68,11 +68,15 @@ Upload handling first checks that the incident exists and is open. The file is t
 
 Hash verification happens in `internal/httpapi.uploadChunk` by comparing the computed temp-file hash with the client-provided `sha256_hex`.
 
-When `Idempotency-Key` is supplied, `internal/httpapi` hashes the raw key,
-builds a canonical complete-upload fingerprint from normalized chunk identity,
-timestamps, normalized `original_filename`, ciphertext byte size, and
-`sha256_hex`, then reserves or replays durable upload-operation state through
-the metadata repository. Equivalent retries return `200 OK` with
+When configured Valkey/Redis-compatible coordination is available,
+`internal/httpapi` acquires a short-lived complete-upload lease keyed by a
+server-controlled hash of chunk identity. A busy lease returns
+`409 upload_in_progress` with `Retry-After`; lease failures return a safe
+retryable error. When `Idempotency-Key` is supplied, `internal/httpapi` hashes
+the raw key, builds a canonical complete-upload fingerprint from normalized
+chunk identity, timestamps, normalized `original_filename`, ciphertext byte
+size, and `sha256_hex`, then reserves or replays durable upload-operation state
+through the metadata repository. Equivalent retries return `200 OK` with
 `Idempotency-Replayed: true`; uploads without the header keep the existing
 duplicate behavior.
 

@@ -416,6 +416,30 @@ bytes, stored paths, object keys, raw keys, tokens, raw idempotency keys, or
 private deployment details. Replays still upload the complete encrypted chunk;
 this is not a resumable upload or partial-commit protocol.
 
+When `SAFE_COORDINATION_BACKEND=valkey` or `redis` is configured, complete
+chunk uploads also acquire a short-lived server-controlled coordination lease
+for the normalized chunk identity after the server has read and validated the
+multipart upload. If another API node is already processing that chunk
+identity, the route returns a retryable response:
+
+```json
+{
+  "error": {
+    "code": "upload_in_progress",
+    "message": "upload for this chunk identity is already in progress"
+  }
+}
+```
+
+The response status is `409 Conflict` and includes `Retry-After` based on the
+configured `SAFE_UPLOAD_COORDINATION_LEASE_TTL`. If configured coordination is
+unavailable during upload, the route returns `503 upload_coordination_unavailable`
+with a safe `Retry-After` hint. Valkey lease keys are hashes of server-normalized
+chunk identity; they do not contain raw tokens, raw idempotency keys, request
+bodies, uploaded bytes, stored paths, object keys, plaintext, or raw keys.
+These leases are in-progress hints only. Metadata uniqueness constraints,
+upload-operation rows, and blob no-overwrite behavior remain final truth.
+
 The repository rechecks incident and stream state when chunk metadata is inserted. If an upload races with incident close or stream completion, the final metadata insert is rejected and the committed blob path is removed.
 
 For clients using the v1 encryption envelope, `sha256_hex` is the SHA-256 of the complete uploaded envelope bytes, not the plaintext.
@@ -436,12 +460,12 @@ contain personal or contextual information even after path stripping. Do not use
 `original_filename` for identity, authorization, storage lookup, decryption,
 legal-record guarantees, or download path construction.
 
-The current API does not implement resumable uploads, upload leases, or
-client-side queue summary endpoints. Clients should retry complete encrypted
-chunks, use `Idempotency-Key` for ambiguous complete-upload outcomes, and use
-the duplicate chunk reconciliation route when they need to compare a duplicate
-accepted chunk with a local expected fingerprint. The resumable-upload planning
-decision is documented in
+The current API does not implement resumable uploads, partial-upload lease
+sessions, or client-side queue summary endpoints. Clients should retry
+complete encrypted chunks, use `Idempotency-Key` for ambiguous complete-upload
+outcomes, and use the duplicate chunk reconciliation route when they need to
+compare a duplicate accepted chunk with a local expected fingerprint. The
+resumable-upload planning decision is documented in
 [resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md).
 
 ### `POST /v1/incidents/{incident_id}/chunks/reconcile`

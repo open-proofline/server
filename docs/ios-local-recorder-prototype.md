@@ -236,9 +236,9 @@ Do not implement these as part of the prototype plan. Track them as future backe
   complete-chunk retry behavior before revalidating resumable uploads for
   native iOS work, as documented in
   [resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md)
-- no endpoint for client-side local queue summaries or upload leases; upload
-  leases are future coordination work, not account authentication or public
-  `/v1` access control
+- no endpoint for client-side local queue summaries or partial-upload lease
+  sessions; resumable upload leases are future coordination work, not account
+  authentication or public `/v1` access control
 - no API for registering or storing contact-wrapped media keys
 - no production key custody, recovery, or trusted-contact decryption API
 - no server-side retention or incident deletion API

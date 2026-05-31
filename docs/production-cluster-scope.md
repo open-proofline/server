@@ -120,15 +120,13 @@ S3-compatible encrypted blobs is documented in the
 
 Valkey or another Redis-compatible service is implemented as optional
 production coordination, not durable storage. The current backend opens and
-checks the configured service at startup; future upload-operation work may use
-it for short-lived leases, in-progress hints, and retry coordination.
-When configured, the current public viewer app-level rate limiter also uses
-Valkey for short-lived route-class counters.
+checks the configured service at startup, uses it for short-lived route-class
+rate-limit counters, and can use it for short-lived complete-upload leases,
+in-progress hints, and retry coordination.
 
 It may be used for:
 
-- upload leases
-- idempotency result caching
+- complete-upload in-progress leases
 - short-lived in-progress state
 - retry coordination
 - public viewer route-class rate-limit counters
@@ -143,20 +141,19 @@ It must not be used as the final source of truth for:
 - retention or deletion decisions
 
 If configured Valkey is unavailable at startup, the system fails closed.
-Future operation-level coordination failures should fail closed or return
-retryable errors for affected operations. PostgreSQL constraints and
-object-storage no-overwrite behavior must still protect committed state from
-duplicates.
+Upload coordination failures fail closed for the affected operation with a
+retryable private API error. PostgreSQL constraints and object-storage
+no-overwrite behavior must still protect committed state from duplicates.
 
 ## Upload Operation Semantics
 
 Future cluster upload handling should move toward explicit upload operations.
 The detailed planning design is
 [Cluster-safe upload operation semantics](cluster-safe-upload-semantics.md).
-Resumable upload and upload lease behavior is planned separately in
+Resumable upload and partial-upload lease behavior is planned separately in
 [Resumable upload and upload lease protocol](resumable-upload-lease-protocol.md);
 that design keeps the local desktop recorder simulator on complete encrypted
-chunk retries while deferring resumable uploads and leases.
+chunk retries while deferring resumable uploads and partial-upload sessions.
 
 A safe cluster upload flow should be designed around these steps:
 
@@ -202,7 +199,8 @@ Preferred implementation sequence:
 5. Add explicit idempotency and upload-operation semantics for complete chunk
    upload retries. Implemented for SQLite and optional PostgreSQL metadata.
 6. Add optional Valkey/Redis-compatible coordination. Implemented for explicit
-   configuration and startup checks; upload-operation use remains future work.
+   configuration, startup checks, route-class counters, and short-lived
+   complete-upload coordination.
 7. Update deployment, backup, restore, security, and threat-model docs before
    recommending any production cluster deployment. Initial cluster backup,
    restore, and failure guidance is documented in

@@ -50,7 +50,7 @@ flowchart LR
     AdminWeb -->|"local accounts"| DB
     MainAPI --> Store["Blob storage"]
     Store --> Files[(Encrypted chunk files)]
-    MainAPI --> Coord["Optional coordination<br/>startup-checked Valkey/Redis"]
+    MainAPI --> Coord["Optional coordination<br/>Valkey/Redis counters + upload leases"]
     MainAPI --> Token["Viewer token creation"]
     Contact["Trusted contact"] --> Viewer["Public incident viewer<br/>/i/{token}"]
     Viewer --> Repo
@@ -109,7 +109,7 @@ flowchart TB
         MainListener --> V1["/v1 API<br/>product + admin JSON routes"]
         V1 --> Auth["Local account sessions"]
         Auth --> Storage["SQLite or PostgreSQL + local or S3 encrypted blobs"]
-        MainListener --> Coordination["Optional Valkey/Redis coordination"]
+        MainListener --> Coordination["Optional Valkey/Redis coordination<br/>rate counters + upload hints"]
     end
 
     subgraph PublicEdge["Viewer-only public edge"]

@@ -33,6 +33,7 @@ Configuration is read from environment variables when the Proofline API starts.
 | `SAFE_VALKEY_DIAL_TIMEOUT` | `5s` | Valkey dial timeout. |
 | `SAFE_VALKEY_READ_TIMEOUT` | `5s` | Valkey read timeout. |
 | `SAFE_VALKEY_WRITE_TIMEOUT` | `5s` | Valkey write timeout. |
+| `SAFE_UPLOAD_COORDINATION_LEASE_TTL` | `2m` | Short TTL for Valkey-backed complete-upload in-progress leases and retry hints. Must be positive. |
 | `SAFE_MAX_UPLOAD_BYTES` | `250MB` | Maximum encrypted file bytes per upload. |
 | `SAFE_DEFAULT_INCIDENT_TOKEN_TTL` | `24h` | Default lifetime for viewer tokens created without `expires_at`. Set to `0` to disable the default for omitted `expires_at` values. |
 | `SAFE_SESSION_TTL` | `12h` | Lifetime for local account sessions created by `/v1/auth/login`. |
@@ -125,11 +126,14 @@ Valkey/Redis-compatible coordination is implemented as an optional, explicit
 backend. The current server validates the configured service at startup.
 Main API and public viewer app-level rate-limit counters use the configured
 Valkey service when `SAFE_COORDINATION_BACKEND=valkey` or `redis`; otherwise
-they use local in-memory process counters. Current upload routes still use
-complete encrypted
-chunk uploads and do not yet implement upload leases, resumable uploads, or
-Valkey-backed cluster coordination. Complete-upload idempotency keys are stored
-in the selected metadata backend, not Valkey.
+they use local in-memory process counters. Upload routes still use complete
+encrypted chunk uploads. When Valkey is configured, the upload handler also
+uses short-lived complete-upload leases to reduce duplicate final commit and
+metadata work and return safe `upload_in_progress` retry hints. The lease is
+acquired after the encrypted request body is staged and verified; it is not a
+resumable-transfer or bandwidth-saving lease. Complete-upload idempotency keys
+and final upload-operation state are stored in the selected metadata backend,
+not Valkey. Resumable uploads and partial-upload sessions remain out of scope.
 
 `SAFE_DB_PATH` and `SAFE_DATA_DIR` keep their current behavior for the supported `sqlite` and `local` backends. When `SAFE_METADATA_BACKEND=postgresql`, `SAFE_DB_PATH` is not used for metadata. When `SAFE_BLOB_BACKEND=s3`, `SAFE_DATA_DIR/tmp` is still used for local temporary upload staging before final object writes.
 
@@ -199,19 +203,18 @@ encrypted bytes remain in the selected blob backend. If a configured Valkey
 backend cannot be checked at startup, the server fails closed instead of
 silently running with a misleading cluster configuration.
 
-The current implementation stores only short-lived main API and public viewer
-rate-limit counters in Valkey when coordination is configured. Those keys are
-server-controlled route-class keys using a hash of the socket peer identity;
-they do not include raw `/i/{token}` paths, legacy `/e/{token}` paths, `/v1`
-incident paths, raw viewer tokens, raw session tokens, Authorization headers,
-raw idempotency keys, request bodies, uploaded bytes, plaintext, raw keys,
-stored paths, object keys, or private deployment details. The current
-implementation does not store upload leases or idempotency results in Valkey.
-Future
-upload-operation work must keep Valkey keys server-controlled and must not
-include raw viewer tokens, incident tokens, request bodies, uploaded bytes,
-plaintext, raw keys, private deployment details, raw idempotency keys, or user
-safety data.
+The current implementation stores only short-lived main API/public viewer
+rate-limit counters and complete-upload lease keys in Valkey when coordination
+is configured. Rate-limit keys are server-controlled route-class keys using a
+hash of the socket peer identity. Upload lease keys use a server-controlled
+hash of normalized chunk identity and expire after
+`SAFE_UPLOAD_COORDINATION_LEASE_TTL`. Those keys do not include raw
+`/i/{token}` paths, legacy `/e/{token}` paths, `/v1` incident paths, raw viewer
+tokens, raw incident tokens, raw session tokens, Authorization headers, raw
+idempotency keys, request bodies, uploaded bytes, plaintext, raw keys, stored
+paths, staging paths, object keys, user safety data, or private deployment
+details. Valkey does not store idempotency results or committed evidence
+truth.
 
 ## Bind Address Lists
 
