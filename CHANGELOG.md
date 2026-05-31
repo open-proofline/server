@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added opt-in S3-compatible object-store deletion smoke coverage for incident
+  deletion, including public viewer fail-closed checks after blob removal.
 - Added simulator ambiguous upload retry coverage so desktop-recorder retries
   treat `Idempotency-Replayed: true` responses as successful uploads after
   response loss and keep conflict output token/path safe.
