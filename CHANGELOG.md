@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added a GitHub Actions job that runs the optional PostgreSQL metadata
+  integration tests against a disposable PostgreSQL service.
 - Added private-only liveness and readiness checks for coarse metadata, blob,
   and coordination backend status without exposing backend diagnostics on the
   public incident viewer.
