@@ -8,7 +8,7 @@
 [![Security Policy](https://img.shields.io/badge/security-policy-blue.svg)](SECURITY.md)
 [![GHCR](https://img.shields.io/static/v1?label=GHCR&message=ghcr.io%2Fopen-proofline%2Fserver&color=blue&logo=github)](https://github.com/orgs/open-proofline/packages/container/package/server)
 
-Proofline Server is the experimental Go server backend for private encrypted incident capture. It receives already-encrypted recording chunks through authenticated private `/v1` routes, stores metadata in SQLite by default or optional PostgreSQL, keeps encrypted blobs on local disk by default or in optional S3-compatible object storage, performs a startup check against optional Valkey/Redis-compatible coordination when explicitly configured, and exposes a token-scoped read-only viewer for incident review.
+Proofline Server is the experimental Go server backend for private encrypted incident capture. It receives already-encrypted recording chunks through authenticated private `/v1` routes, stores metadata in SQLite by default or optional PostgreSQL, keeps encrypted blobs on local disk by default or in optional S3-compatible object storage, exposes private coarse liveness/readiness checks, performs a startup check against optional Valkey/Redis-compatible coordination when explicitly configured, and exposes a token-scoped read-only viewer for incident review.
 
 > Repository role: this repository is the server/backend component only. In the multi-repo layout it is `open-proofline/server`, not the full Proofline product suite.
 >
@@ -64,6 +64,8 @@ The current backend still stores generic incidents. First-class incident modes, 
 ## What Works Today
 
 - Private authenticated `/v1` write/admin API listener group
+- Private unauthenticated `/v1/health/live` and `/v1/health/ready` operator
+  checks with coarse backend status only
 - Public read-only incident viewer listener group
 - Local username/password accounts for regular users and admins
 - Opaque server-side sessions with expiry and revocation
@@ -102,7 +104,7 @@ The current backend still stores generic incidents. First-class incident modes, 
 
 ## Architecture
 
-Proofline Server runs separate private and public HTTP listener groups from the same Go binary. Private `/v1` routes handle authenticated writes and admin-style API operations. The same private listener also serves the admin-only HTML surface under `/admin`. Public viewer routes are token-gated and read-only.
+Proofline Server runs separate private and public HTTP listener groups from the same Go binary. Private `/v1` routes handle authenticated writes and admin-style API operations, with unauthenticated private-only health/readiness exceptions for local operator checks. The same private listener also serves the admin-only HTML surface under `/admin`. Public viewer routes are token-gated and read-only.
 
 ```mermaid
 flowchart LR

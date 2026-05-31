@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added private-only liveness and readiness checks for coarse metadata, blob,
+  and coordination backend status without exposing backend diagnostics on the
+  public incident viewer.
 - Added a private admin-only HTML surface under `/admin`, using Go
   templates, unauthenticated token-neutral CSS, browser login/bootstrap forms,
   HttpOnly admin-session cookies, a local account list, admin password-change

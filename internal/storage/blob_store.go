@@ -17,6 +17,7 @@ import (
 //   - Remove is for rollback of a just-committed blob when metadata insertion
 //     fails; it must not accept client-provided paths.
 type BlobStore interface {
+	Check(ctx context.Context) error
 	SaveTemp(ctx context.Context, reader io.Reader, maxBytes int64) (*TempUpload, error)
 	CommitTemp(ctx context.Context, upload *TempUpload, incidentID, streamID, mediaType string, chunkIndex int) (string, error)
 	Open(ctx context.Context, storedPath string) (io.ReadCloser, error)

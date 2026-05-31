@@ -1,6 +1,6 @@
 # API
 
-This is the current backend-only HTTP surface for Proofline. The API binary starts private API listeners and public incident viewer listeners on one or more configured bind addresses. The `/v1` routes are private and require local account authentication. The incident viewer routes are token-gated and read-only. Planned web, iOS, and Android clients are not part of this repository yet.
+This is the current backend-only HTTP surface for Proofline. The API binary starts private API listeners and public incident viewer listeners on one or more configured bind addresses. The `/v1` routes are private and require local account authentication except for the bootstrap, login, and private health/readiness routes described below. The incident viewer routes are token-gated and read-only. Planned web, iOS, and Android clients are not part of this repository yet.
 
 Media bundle downloads are encrypted chunk bundles. The backend does not decrypt, merge, or produce playable media. The simulator's current encrypted uploads use the envelope documented in [encryption.md](encryption.md), but the API treats uploaded bytes as opaque ciphertext.
 
@@ -27,6 +27,66 @@ Errors use:
 ```
 
 Non-upload JSON bodies are limited to 64 KiB. Upload file bytes are limited by `SAFE_MAX_UPLOAD_BYTES`; multipart metadata has a small fixed overhead allowance. `SAFE_MAX_UPLOAD_BYTES` accepts a positive byte count or binary unit suffixes `B`, `K`/`KB`, `M`/`MB`, and `G`/`GB`. Fractional unit values are allowed when they resolve to at least one byte. Non-positive, sub-byte, invalid, and oversized values are rejected during startup.
+
+## Private Health And Readiness
+
+The private API listener exposes unauthenticated operator checks under `/v1`
+so Docker, local scripts, and private reverse proxies can test process and
+backend readiness without storing a session token. These routes must stay on
+the private listener and must not be forwarded from the public incident viewer
+origin.
+
+### `GET /v1/health/live`
+
+Reports that the HTTP process is serving requests. It does not check backend
+dependencies.
+
+Response `200`:
+
+```json
+{
+  "status": "ok"
+}
+```
+
+### `GET /v1/health/ready`
+
+Checks the selected metadata, blob, and coordination backends at a coarse
+operator level. SQLite and PostgreSQL metadata are checked through the metadata
+database handle, local blob storage checks local staging/storage writability,
+S3-compatible blob storage checks local staging plus bucket reachability, and
+`none`, Valkey, or Redis-compatible coordination uses the configured
+coordination check.
+
+Response `200` when all selected checks pass:
+
+```json
+{
+  "status": "ok",
+  "checks": [
+    {"name": "metadata", "backend": "sqlite", "status": "ok"},
+    {"name": "blob", "backend": "local", "status": "ok"},
+    {"name": "coordination", "backend": "none", "status": "ok"}
+  ]
+}
+```
+
+Response `503` when one or more checks fail:
+
+```json
+{
+  "status": "unavailable",
+  "checks": [
+    {"name": "metadata", "backend": "postgresql", "status": "unavailable"},
+    {"name": "blob", "backend": "s3", "status": "ok"},
+    {"name": "coordination", "backend": "valkey", "status": "ok"}
+  ]
+}
+```
+
+The response deliberately omits DSNs, credentials, bucket names, object keys,
+stored paths, local filesystem paths, private hostnames, request bodies,
+uploaded bytes, tokens, plaintext, raw keys, and underlying error strings.
 
 ## Authentication And Accounts
 

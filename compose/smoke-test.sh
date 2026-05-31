@@ -5,8 +5,8 @@ usage() {
   cat <<'USAGE'
 Usage: compose/smoke-test.sh [full|sqlite-local|postgresql-local|sqlite-s3] [-- <simclient args>]
 
-Runs a Docker Compose smoke stack, waits for the public listener, then runs the
-Go simulator against the containerized server.
+Runs a Docker Compose smoke stack, waits for private backend readiness, then
+runs the Go simulator against the containerized server.
 
 Environment:
   PROOFLINE_PRIVATE_PORT  Host port for the private API. Default: 18080
@@ -64,7 +64,7 @@ else
 fi
 
 if ! command -v curl >/dev/null 2>&1; then
-  echo "curl is required to wait for the containerized public listener" >&2
+  echo "curl is required to wait for the containerized private readiness endpoint" >&2
   exit 1
 fi
 
@@ -87,8 +87,8 @@ cleanup() {
 }
 trap cleanup EXIT
 
-wait_for_public_listener() {
-  local url="http://127.0.0.1:${PROOFLINE_PUBLIC_PORT}/static/styles.css"
+wait_for_private_readiness() {
+  local url="http://127.0.0.1:${PROOFLINE_PRIVATE_PORT}/v1/health/ready"
   for _ in $(seq 1 60); do
     if curl --fail --silent --output /dev/null "$url"; then
       return 0
@@ -148,10 +148,10 @@ if ! "${compose[@]}" -p "$project" -f "$compose_file" up --build -d; then
   exit 1
 fi
 
-if ! wait_for_public_listener; then
+if ! wait_for_private_readiness; then
   "${compose[@]}" -p "$project" -f "$compose_file" ps
   "${compose[@]}" -p "$project" -f "$compose_file" logs --no-color
-  echo "server did not become ready on public port ${PROOFLINE_PUBLIC_PORT}" >&2
+  echo "server did not become ready on private port ${PROOFLINE_PRIVATE_PORT}" >&2
   exit 1
 fi
 

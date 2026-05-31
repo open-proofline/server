@@ -13,6 +13,8 @@ import (
 // support must preserve token hashing, duplicate guards, state checks, and
 // stream completion validation.
 type MetadataRepository interface {
+	Check(ctx context.Context) error
+
 	CreateIncidentForAccount(ctx context.Context, accountID, clientLabel, notes string) (incidents.Incident, error)
 	GetIncident(ctx context.Context, id string) (incidents.Incident, error)
 	GetIncidentDetail(ctx context.Context, id string) (incidents.IncidentDetail, error)

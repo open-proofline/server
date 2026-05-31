@@ -46,6 +46,23 @@ bootstrap route is disabled after an admin account exists. Treat the bootstrap
 secret, account passwords, raw session tokens, and Authorization headers as
 secrets.
 
+The private listener also exposes unauthenticated liveness and readiness
+checks for local operators:
+
+```bash
+curl -fsS http://127.0.0.1:8080/v1/health/live
+curl -fsS http://127.0.0.1:8080/v1/health/ready
+```
+
+`/v1/health/live` checks only that the process is serving requests.
+`/v1/health/ready` checks the selected metadata, blob, and coordination
+backends and returns only coarse backend type and `ok` or `unavailable`
+statuses. It does not expose DSNs, credentials, bucket names, object keys,
+stored paths, local filesystem paths, private hostnames, tokens, request
+bodies, uploaded bytes, plaintext, raw keys, or private deployment details.
+Keep these routes on the private listener; they do not make `/v1` safe for
+public exposure.
+
 The same private listener serves the admin web interface at:
 
 ```text
@@ -85,6 +102,17 @@ docker run --rm \
 
 Create the first admin account through `POST /v1/bootstrap/admin`, then restart
 without `SAFE_AUTH_BOOTSTRAP_SECRET`.
+
+From the host, Docker deployments can use the private readiness route through
+the loopback-published private port:
+
+```bash
+curl -fsS http://127.0.0.1:8080/v1/health/ready
+```
+
+Do not publish or proxy the private health routes on the public incident viewer
+origin. They are intended for local Docker checks, private reverse-proxy
+upstream checks, and operator troubleshooting inside the private boundary.
 
 In this shape both listeners are reachable only through the host loopback interface. It is useful for local testing, SSH port forwarding, or a same-host reverse proxy. It does not expose the private `/v1` API or the incident viewer directly to the network.
 

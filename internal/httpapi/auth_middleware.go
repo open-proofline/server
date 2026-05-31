@@ -50,6 +50,12 @@ func isPrivateAuthBypass(r *http.Request) bool {
 	if r.URL.Path == "/admin" || strings.HasPrefix(r.URL.Path, "/admin/") {
 		return true
 	}
+	if r.Method == http.MethodGet {
+		switch r.URL.Path {
+		case "/v1/health/live", "/v1/health/ready":
+			return true
+		}
+	}
 	if r.Method != http.MethodPost {
 		return false
 	}

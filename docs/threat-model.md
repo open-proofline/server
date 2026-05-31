@@ -17,6 +17,8 @@ Planned future incident modes include emergency incidents, non-emergency interac
 - Optional Valkey/Redis-compatible coordination is startup-checked when
   explicitly configured, but it is short-lived coordination state only and is
   not durable evidence storage
+- Private health/readiness responses expose only coarse backend type and
+  `ok`/`unavailable` status for metadata, blob, and coordination checks
 - Future cluster-safe upload operation semantics are planned but not
   implemented; idempotency, retry-success, conflict, and cleanup expectations
   are documented in
@@ -53,10 +55,12 @@ Planned future incident modes include emergency incidents, non-emergency interac
 
 - The private API server binds separately from the public incident viewer server. By default it listens on `127.0.0.1:8080`, and it can listen on multiple addresses through `SAFE_PRIVATE_BIND_ADDRS`.
 - The public incident viewer server binds separately from the private API server. By default it listens on `127.0.0.1:8081`, and it can listen on multiple addresses through `SAFE_PUBLIC_BIND_ADDRS`.
-- `/v1` routes are authenticated private/admin routes. They can create
-  incidents, create streams, upload chunks, complete/fail streams, close
-  incidents, create viewer tokens, revoke tokens, manage local accounts, and
-  read encrypted bytes. They are mounted only on the private API server.
+- `/v1` routes are authenticated private/admin routes except for the
+  unauthenticated private-only `/v1/health/live` and `/v1/health/ready`
+  operator checks. Authenticated routes can create incidents, create streams,
+  upload chunks, complete/fail streams, close incidents, create viewer tokens,
+  revoke tokens, manage local accounts, and read encrypted bytes. They are
+  mounted only on the private API server.
 - `/admin`, `/admin/login`, `/admin/bootstrap`, `/admin/logout`,
   `/admin/password`, and `/admin/accounts/{account_id}/password` are private
   admin web routes. They use the same server-side session store as `/v1`
@@ -77,6 +81,11 @@ Planned future incident modes include emergency incidents, non-emergency interac
 - SQLite and optional PostgreSQL metadata enforce media type, chunk index, byte size, SHA-256 shape, foreign keys, and unique chunk identity.
 - Optional Valkey/Redis-compatible coordination fails closed at startup when
   explicitly configured but unavailable.
+- Private `/v1/health/live` and `/v1/health/ready` routes are mounted only on
+  the private API server. Readiness responses are coarse and do not include
+  DSNs, credentials, bucket names, object keys, stored paths, local filesystem
+  paths, private hostnames, tokens, request bodies, uploaded bytes, plaintext,
+  raw keys, private deployment details, or underlying error strings.
 - Media streams must be open before new chunks can be attached. The repository rechecks incident and stream state when chunk metadata is inserted.
 - Stream completion verifies contiguous chunks plus readable stored files, and the repository revalidates chunk rows before committing the stream to `complete`.
 - Local account passwords are stored as bcrypt hashes. Private `/v1` requests

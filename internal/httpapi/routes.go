@@ -4,6 +4,7 @@ import "net/http"
 
 func (a *API) privateRoutes() http.Handler {
 	mux := http.NewServeMux()
+	a.registerPrivateHealthRoutes(mux)
 	a.registerPrivateAuthRoutes(mux)
 	a.registerPrivateAdminWebRoutes(mux)
 	a.registerPrivateIncidentRoutes(mux)
@@ -12,6 +13,11 @@ func (a *API) privateRoutes() http.Handler {
 	mux.HandleFunc("/", a.notFound)
 
 	return a.loggingMiddleware(a.recoveryMiddleware(a.privateSecurityMiddleware(a.privateAuthMiddleware(mux))))
+}
+
+func (a *API) registerPrivateHealthRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("GET /v1/health/live", a.healthLive)
+	mux.HandleFunc("GET /v1/health/ready", a.healthReady)
 }
 
 func (a *API) registerPrivateAuthRoutes(mux *http.ServeMux) {

@@ -199,13 +199,46 @@ func TestS3StoreUsesCallerContext(t *testing.T) {
 	}
 }
 
+func TestS3StoreCheck(t *testing.T) {
+	client := newFakeS3Client()
+	store, err := newS3Store(client, S3Options{
+		Bucket:  "proofline-evidence",
+		TempDir: t.TempDir(),
+	})
+	if err != nil {
+		t.Fatalf("new s3 store: %v", err)
+	}
+
+	if err := store.Check(context.Background()); err != nil {
+		t.Fatalf("check s3 store: %v", err)
+	}
+	if client.headBuckets != 1 {
+		t.Fatalf("head bucket calls = %d, want 1", client.headBuckets)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := store.Check(ctx); !errors.Is(err, context.Canceled) {
+		t.Fatalf("canceled check error = %v, want context.Canceled", err)
+	}
+}
+
 type fakeS3Client struct {
 	objects            map[string][]byte
 	lastPutIfNoneMatch string
+	headBuckets        int
 }
 
 func newFakeS3Client() *fakeS3Client {
 	return &fakeS3Client{objects: make(map[string][]byte)}
+}
+
+func (c *fakeS3Client) HeadBucket(ctx context.Context, _ *s3.HeadBucketInput, _ ...func(*s3.Options)) (*s3.HeadBucketOutput, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	c.headBuckets++
+	return &s3.HeadBucketOutput{}, nil
 }
 
 func (c *fakeS3Client) PutObject(ctx context.Context, input *s3.PutObjectInput, _ ...func(*s3.Options)) (*s3.PutObjectOutput, error) {
