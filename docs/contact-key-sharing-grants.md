@@ -1,12 +1,13 @@
 # Contact Key Sharing, Grants, And Wrapped-Key Metadata
 
 This document designs the contact key-sharing model for Proofline. The current
-backend implements only the first metadata step: account owners can register
-trusted-contact public-key metadata and create or revoke incident/stream-scoped
-sharing grants through authenticated private `/v1` routes. It does not add
-wrapped-key records, bundle fields, trusted-contact accounts, browser
-decryption, backend decryption, server escrow, public account workflows,
-notifications, client code, or production key custody behavior.
+backend implements the server metadata steps for this model: account owners can
+register trusted-contact public-key metadata, create or revoke
+incident/stream-scoped sharing grants, and store or revoke grant-bound
+wrapped-key records through authenticated private `/v1` routes. It does not add
+bundle wrapped-key fields, trusted-contact accounts, browser decryption,
+backend decryption, server escrow, public account workflows, notifications,
+client code, or production key custody behavior.
 
 The design connects the long-term key custody direction in
 [key-custody.md](key-custody.md), the role and grant boundaries in
@@ -192,25 +193,27 @@ and document compatibility with future mobile or trusted-contact clients.
 
 Wrapped-key delivery should be policy-driven and explicit.
 
-Preferred direction:
+Current implementation:
 
-- authenticated owner or trusted-contact API responses should deliver only the
-  wrapped-key records that the current actor is authorized to receive
-- bundle manifests may include wrapped-key metadata only when the bundle is
-  generated for an authorization context that includes wrapped-key delivery
-- public-link viewer bundles should keep their current ciphertext-only behavior
-  unless a separate issue designs a decryption-bearing public link
-- audit should record safe delivery outcomes without logging wrapped-key
-  ciphertext, raw tokens, raw keys, request bodies, uploaded bytes, plaintext,
-  object keys, or private deployment details
+- authenticated owner API responses deliver only active records for the
+  authenticated account's owned incident
+- records are omitted when the sharing grant is revoked or expired, the contact
+  public key is no longer active, or the wrapped-key record is revoked or
+  rotated
+- bundle manifests remain key-free
+- public-link viewer bundles keep their current ciphertext-only behavior
+- request logging must not log wrapped-key ciphertext, raw tokens, raw keys,
+  request bodies, uploaded bytes, plaintext, object keys, or private deployment
+  details
 
 Including wrapped keys in evidence bundle manifests can make offline transfer
 and legal export easier, but it also makes the bundle more access-enabling.
 Keeping wrapped keys behind authenticated API responses gives the server a
-clearer revocation point for future requests, but it is less useful for offline
-handoff. A future implementation may support both, provided each response is
-scoped to an authorized grant and tests prove unauthorized grants cannot see
-wrapped-key records.
+clearer revocation point for future requests, but it is less useful for
+offline handoff. The current backend chooses authenticated API delivery and
+keeps bundle manifests unchanged. A future implementation may support both,
+provided each response is scoped to an authorized grant and tests prove
+unauthorized grants cannot see wrapped-key records.
 
 ## Server Metadata Versus Encrypted Client Metadata
 
@@ -287,23 +290,25 @@ details, or user safety narratives.
 
 ## Implementation Sequence
 
-Implementation should be split into narrow issues:
+Implementation should stay split into narrow issues:
 
-1. Add metadata schema and repository coverage for contact public keys and
+1. Implemented: add metadata schema and repository coverage for contact public keys and
    sharing grants behind the existing reviewed `/v1` boundary.
-2. Add authenticated owner routes for contact key registration, verification,
+2. Implemented: add authenticated owner routes for contact key registration, verification,
    replacement, revocation, and grant management behind the existing reviewed
    `/v1` boundary.
-3. Add wrapped-key metadata schema and repository behavior without exposing raw
-   media keys or contact private keys.
-4. Add trusted-contact authentication and grant-scoped read routes only after
-   the public product API exposure model is explicitly reviewed.
-5. Add wrapped-key delivery through authenticated API responses, and optionally
-   grant-scoped bundle manifests, with tests proving unauthorized actors do
-   not receive wrapped-key records.
-6. Update simulator/client tooling to generate production-shaped wrapped-key
+3. Implemented: add wrapped-key metadata schema and repository behavior without
+   exposing raw media keys or contact private keys.
+4. Implemented: add owner-authenticated wrapped-key delivery through private
+   API responses, with bundle manifests remaining key-free and tests proving
+   unauthorized actors do not receive wrapped-key records.
+5. Future: add trusted-contact authentication and grant-scoped read routes only
+   after the public product API exposure model is explicitly reviewed.
+6. Future: optionally add grant-scoped bundle manifests only after a separate
+   design and tests prove unauthorized actors do not receive wrapped-key records.
+7. Update simulator/client tooling to generate production-shaped wrapped-key
    records using a reviewed wrapping profile.
-7. Update deployment, security, threat-model, API, and retention docs before
+8. Update deployment, security, threat-model, API, and retention docs before
    any public-authenticated contact route is exposed.
 
 Each implementation issue must include tests for:

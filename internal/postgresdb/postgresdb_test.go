@@ -39,6 +39,7 @@ func TestPostgresMigrateCreatesSchemaAndRejectsChecksumMismatch(t *testing.T) {
 	assertPostgresTable(t, ctx, conn, "incident_deletion_items")
 	assertPostgresTable(t, ctx, conn, "contact_public_keys")
 	assertPostgresTable(t, ctx, conn, "sharing_grants")
+	assertPostgresTable(t, ctx, conn, "wrapped_key_records")
 
 	if err := Migrate(ctx, conn); err != nil {
 		t.Fatalf("second Migrate: %v", err)
@@ -552,6 +553,32 @@ func TestPostgresContactPublicKeysAndSharingGrants(t *testing.T) {
 	}
 	if grant.ContactPublicKeyID != contactKey.ID || grant.ContactPublicKeyVersion != 1 {
 		t.Fatalf("unexpected grant key binding: %+v", grant)
+	}
+	record, err := repo.CreateWrappedKeyRecord(ctx, incidents.CreateWrappedKeyRecordParams{
+		OwnerAccountID:           owner.ID,
+		IncidentID:               incident.ID,
+		GrantID:                  grant.ID,
+		MediaKeyID:               "media-key-postgres",
+		WrappingAlgorithm:        "age-v1-x25519",
+		WrappingAlgorithmVersion: "1",
+		WrappedKeyCiphertext:     "wrapped-ciphertext",
+		PublicWrappingMetadata:   []byte(`{"profile":"age-v1-x25519"}`),
+	})
+	if err != nil {
+		t.Fatalf("create wrapped key record: %v", err)
+	}
+	records, err := repo.ListWrappedKeyRecords(ctx, owner.ID, incident.ID)
+	if err != nil {
+		t.Fatalf("list wrapped key records: %v", err)
+	}
+	if len(records) != 1 || records[0].ID != record.ID {
+		t.Fatalf("unexpected wrapped key records: %+v", records)
+	}
+	if _, err := repo.RevokeSharingGrant(ctx, owner.ID, grant.ID, owner.ID); err != nil {
+		t.Fatalf("revoke sharing grant: %v", err)
+	}
+	if _, err := repo.GetWrappedKeyRecord(ctx, owner.ID, record.ID); !errors.Is(err, incidents.ErrNotFound) {
+		t.Fatalf("revoked grant get wrapped key error = %v, want ErrNotFound", err)
 	}
 }
 

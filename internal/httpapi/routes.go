@@ -11,6 +11,7 @@ func (a *API) mainRoutes() http.Handler {
 	a.registerMainStreamRoutes(mux)
 	a.registerMainIncidentTokenRoutes(mux)
 	a.registerMainSharingGrantRoutes(mux)
+	a.registerMainWrappedKeyRoutes(mux)
 	a.registerPublicIncidentViewerRoutes(mux)
 	mux.HandleFunc("/", a.notFound)
 
@@ -66,6 +67,8 @@ func (a *API) registerMainIncidentRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /v1/incidents/{incident_id}/deletion", a.withPrivateAuth(a.requestIncidentDeletion))
 	mux.HandleFunc("POST /v1/incidents/{incident_id}/sharing-grants", a.withPrivateAuth(a.createSharingGrant))
 	mux.HandleFunc("GET /v1/incidents/{incident_id}/sharing-grants", a.withPrivateAuth(a.listSharingGrants))
+	mux.HandleFunc("POST /v1/incidents/{incident_id}/wrapped-keys", a.withPrivateAuth(a.createWrappedKeyRecord))
+	mux.HandleFunc("GET /v1/incidents/{incident_id}/wrapped-keys", a.withPrivateAuth(a.listWrappedKeyRecords))
 	mux.HandleFunc("POST /v1/incidents/{incident_id}/chunks/reconcile", a.withPrivateAuth(a.reconcileChunk))
 	mux.HandleFunc("POST /v1/incidents/{incident_id}/chunks", a.withPrivateAuth(a.uploadChunk))
 	mux.HandleFunc("GET /v1/incidents/{incident_id}/chunks", a.withPrivateAuth(a.listChunks))
@@ -92,6 +95,11 @@ func (a *API) registerMainIncidentTokenRoutes(mux *http.ServeMux) {
 func (a *API) registerMainSharingGrantRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /v1/sharing-grants/{grant_id}", a.withPrivateAuth(a.getSharingGrant))
 	mux.HandleFunc("POST /v1/sharing-grants/{grant_id}/revoke", a.withPrivateAuth(a.revokeSharingGrant))
+}
+
+func (a *API) registerMainWrappedKeyRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("GET /v1/wrapped-keys/{wrapped_key_id}", a.withPrivateAuth(a.getWrappedKeyRecord))
+	mux.HandleFunc("POST /v1/wrapped-keys/{wrapped_key_id}/revoke", a.withPrivateAuth(a.revokeWrappedKeyRecord))
 }
 
 func (a *API) publicRoutes() http.Handler {

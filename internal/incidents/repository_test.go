@@ -147,6 +147,177 @@ func TestContactPublicKeysAndSharingGrants(t *testing.T) {
 	}
 }
 
+func TestWrappedKeyRecords(t *testing.T) {
+	ctx := context.Background()
+	repo := newRepository(t, ctx)
+	owner, err := repo.CreateAccount(ctx, auth.CreateAccountParams{
+		Username:     "wrapped-owner",
+		PasswordHash: "hash",
+		Role:         auth.RoleUser,
+	})
+	if err != nil {
+		t.Fatalf("create owner account: %v", err)
+	}
+	incident, err := repo.CreateIncidentForAccount(ctx, owner.ID, incidents.CreateIncidentParams{})
+	if err != nil {
+		t.Fatalf("create owner incident: %v", err)
+	}
+	stream, err := repo.CreateMediaStream(ctx, incident.ID, incidents.MediaTypeAudio, "audio")
+	if err != nil {
+		t.Fatalf("create media stream: %v", err)
+	}
+	contactKey, err := repo.CreateContactPublicKey(ctx, incidents.CreateContactPublicKeyParams{
+		OwnerAccountID:       owner.ID,
+		DisplayLabel:         "contact",
+		WrappingAlgorithm:    "age-v1-x25519",
+		PublicKey:            "age1wrapped",
+		PublicKeyFingerprint: "fingerprint-wrapped",
+		KeyState:             incidents.ContactKeyStateActive,
+	})
+	if err != nil {
+		t.Fatalf("create contact key: %v", err)
+	}
+	grant, err := repo.CreateSharingGrant(ctx, incidents.CreateSharingGrantParams{
+		OwnerAccountID: owner.ID,
+		IncidentID:     incident.ID,
+		StreamID:       stream.ID,
+		RecipientType:  incidents.SharingGrantRecipientTrustedContact,
+		ContactID:      contactKey.ContactID,
+		DataClass:      incidents.SharingGrantDataClassMetadataCiphertext,
+	})
+	if err != nil {
+		t.Fatalf("create sharing grant: %v", err)
+	}
+	record, err := repo.CreateWrappedKeyRecord(ctx, incidents.CreateWrappedKeyRecordParams{
+		OwnerAccountID:           owner.ID,
+		IncidentID:               incident.ID,
+		StreamID:                 stream.ID,
+		GrantID:                  grant.ID,
+		MediaKeyID:               "media-key-1",
+		WrappingAlgorithm:        "age-v1-x25519",
+		WrappingAlgorithmVersion: "1",
+		WrappedKeyCiphertext:     "wrapped-ciphertext",
+		PublicWrappingMetadata:   []byte(`{"profile":"age-v1-x25519"}`),
+	})
+	if err != nil {
+		t.Fatalf("create wrapped key: %v", err)
+	}
+	if record.ContactPublicKeyID != contactKey.ID || record.ContactPublicKeyVersion != contactKey.Version {
+		t.Fatalf("wrapped key contact binding = %+v, want key %q version %d", record, contactKey.ID, contactKey.Version)
+	}
+	if _, err := repo.CreateWrappedKeyRecord(ctx, incidents.CreateWrappedKeyRecordParams{
+		OwnerAccountID:           owner.ID,
+		IncidentID:               incident.ID,
+		StreamID:                 stream.ID,
+		GrantID:                  grant.ID,
+		MediaKeyID:               "media-key-1",
+		WrappingAlgorithm:        "age-v1-x25519",
+		WrappingAlgorithmVersion: "1",
+		WrappedKeyCiphertext:     "wrapped-ciphertext",
+		PublicWrappingMetadata:   []byte(`{"profile":"age-v1-x25519"}`),
+	}); !errors.Is(err, incidents.ErrDuplicate) {
+		t.Fatalf("duplicate wrapped key error = %v, want ErrDuplicate", err)
+	}
+
+	records, err := repo.ListWrappedKeyRecords(ctx, owner.ID, incident.ID)
+	if err != nil {
+		t.Fatalf("list wrapped keys: %v", err)
+	}
+	if len(records) != 1 || records[0].ID != record.ID || string(records[0].PublicWrappingMetadata) == "" {
+		t.Fatalf("unexpected wrapped key list: %+v", records)
+	}
+	if _, err := repo.GetWrappedKeyRecord(ctx, owner.ID, record.ID); err != nil {
+		t.Fatalf("get wrapped key: %v", err)
+	}
+
+	if _, err := repo.RevokeSharingGrant(ctx, owner.ID, grant.ID, owner.ID); err != nil {
+		t.Fatalf("revoke sharing grant: %v", err)
+	}
+	if _, err := repo.GetWrappedKeyRecord(ctx, owner.ID, record.ID); !errors.Is(err, incidents.ErrNotFound) {
+		t.Fatalf("revoked grant get wrapped key error = %v, want ErrNotFound", err)
+	}
+	records, err = repo.ListWrappedKeyRecords(ctx, owner.ID, incident.ID)
+	if err != nil {
+		t.Fatalf("list wrapped keys after grant revoke: %v", err)
+	}
+	if len(records) != 0 {
+		t.Fatalf("revoked grant still delivered wrapped keys: %+v", records)
+	}
+}
+
+func TestIncidentDeletionPrunesSharingAndWrappedKeyMetadata(t *testing.T) {
+	ctx := context.Background()
+	repo := newRepository(t, ctx)
+	owner, err := repo.CreateAccount(ctx, auth.CreateAccountParams{
+		Username:     "delete-wrapped-owner",
+		PasswordHash: "hash",
+		Role:         auth.RoleUser,
+	})
+	if err != nil {
+		t.Fatalf("create owner account: %v", err)
+	}
+	incident, err := repo.CreateIncidentForAccount(ctx, owner.ID, incidents.CreateIncidentParams{})
+	if err != nil {
+		t.Fatalf("create owner incident: %v", err)
+	}
+	contactKey, err := repo.CreateContactPublicKey(ctx, incidents.CreateContactPublicKeyParams{
+		OwnerAccountID:       owner.ID,
+		DisplayLabel:         "contact",
+		WrappingAlgorithm:    "age-v1-x25519",
+		PublicKey:            "age1delete",
+		PublicKeyFingerprint: "fingerprint-delete",
+		KeyState:             incidents.ContactKeyStateActive,
+	})
+	if err != nil {
+		t.Fatalf("create contact key: %v", err)
+	}
+	grant, err := repo.CreateSharingGrant(ctx, incidents.CreateSharingGrantParams{
+		OwnerAccountID: owner.ID,
+		IncidentID:     incident.ID,
+		RecipientType:  incidents.SharingGrantRecipientTrustedContact,
+		ContactID:      contactKey.ContactID,
+		DataClass:      incidents.SharingGrantDataClassMetadataCiphertext,
+	})
+	if err != nil {
+		t.Fatalf("create sharing grant: %v", err)
+	}
+	record, err := repo.CreateWrappedKeyRecord(ctx, incidents.CreateWrappedKeyRecordParams{
+		OwnerAccountID:           owner.ID,
+		IncidentID:               incident.ID,
+		GrantID:                  grant.ID,
+		MediaKeyID:               "media-key-delete",
+		WrappingAlgorithm:        "age-v1-x25519",
+		WrappingAlgorithmVersion: "1",
+		WrappedKeyCiphertext:     "wrapped-ciphertext",
+		PublicWrappingMetadata:   []byte(`{"profile":"age-v1-x25519"}`),
+	})
+	if err != nil {
+		t.Fatalf("create wrapped key: %v", err)
+	}
+
+	status, err := repo.RequestIncidentDeletion(ctx, incidents.IncidentDeletionRequest{
+		IncidentID:     incident.ID,
+		Source:         incidents.IncidentDeletionSourceAccountRequest,
+		ActorAccountID: owner.ID,
+		AllowOpen:      true,
+	})
+	if err != nil {
+		t.Fatalf("request incident deletion: %v", err)
+	}
+	if _, err := repo.CompleteIncidentDeletion(ctx, status.DecisionID); err != nil {
+		t.Fatalf("complete incident deletion: %v", err)
+	}
+	if grants, err := repo.ListSharingGrants(ctx, owner.ID, incident.ID); err != nil || len(grants) != 0 {
+		t.Fatalf("sharing grants after deletion = %+v, err %v", grants, err)
+	}
+	if _, err := repo.GetWrappedKeyRecord(ctx, owner.ID, record.ID); !errors.Is(err, incidents.ErrNotFound) {
+		t.Fatalf("wrapped key after deletion error = %v, want ErrNotFound", err)
+	}
+	if _, err := repo.GetContactPublicKey(ctx, owner.ID, contactKey.ID); err != nil {
+		t.Fatalf("contact key should remain after incident deletion: %v", err)
+	}
+}
+
 func TestSQLiteUploadOperationRaceAndBackendParity(t *testing.T) {
 	contracttest.RunUploadOperationRaceAndParity(t, func(t *testing.T, ctx context.Context) contracttest.Repository {
 		t.Helper()

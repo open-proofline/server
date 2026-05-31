@@ -16,6 +16,9 @@ const (
 	actionReadSharingGrant     = "read_sharing_grant"
 	actionCreateSharingGrant   = "create_sharing_grant"
 	actionRevokeSharingGrant   = "revoke_sharing_grant"
+	actionReadWrappedKey       = "read_wrapped_key"
+	actionCreateWrappedKey     = "create_wrapped_key"
+	actionRevokeWrappedKey     = "revoke_wrapped_key"
 	actionReadCiphertextBundle = "read_ciphertext_bundle"
 	actionDeleteIncident       = "delete_incident"
 
@@ -23,6 +26,7 @@ const (
 	dataClassCiphertext       = "ciphertext_evidence"
 	dataClassPublicLinkGrant  = "public_link_grant"
 	dataClassSharingGrant     = "sharing_grant"
+	dataClassWrappedKey       = "wrapped_key"
 )
 
 type incidentAuthorizationScope struct {
@@ -41,6 +45,9 @@ var currentIncidentAuthorizationScopes = map[incidentAuthorizationScope]struct{}
 	{action: actionReadSharingGrant, dataClass: dataClassSharingGrant}:    {},
 	{action: actionCreateSharingGrant, dataClass: dataClassSharingGrant}:  {},
 	{action: actionRevokeSharingGrant, dataClass: dataClassSharingGrant}:  {},
+	{action: actionReadWrappedKey, dataClass: dataClassWrappedKey}:        {},
+	{action: actionCreateWrappedKey, dataClass: dataClassWrappedKey}:      {},
+	{action: actionRevokeWrappedKey, dataClass: dataClassWrappedKey}:      {},
 }
 
 func (a *API) authorizeIncident(w http.ResponseWriter, r *http.Request, incidentID, action, dataClass string) (incidents.Incident, bool) {
