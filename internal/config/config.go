@@ -52,6 +52,8 @@ type Config struct {
 	AuthBootstrapSecret     string
 	DeletionWorkerInterval  time.Duration
 	ClosedIncidentRetention time.Duration
+	TokenMetadataRetention  time.Duration
+	TombstoneRetention      time.Duration
 	TempUploadCleanupAge    time.Duration
 	TempUploadCleanupDryRun bool
 	PublicViewerRateLimit   PublicViewerRateLimitConfig
@@ -166,6 +168,14 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	tokenMetadataRetention, err := durationFromEnv("SAFE_TOKEN_METADATA_RETENTION", 0)
+	if err != nil {
+		return Config{}, err
+	}
+	tombstoneRetention, err := durationFromEnv("SAFE_DELETION_TOMBSTONE_RETENTION", 0)
+	if err != nil {
+		return Config{}, err
+	}
 	tempUploadCleanupAge, err := durationFromEnv("SAFE_TEMP_UPLOAD_CLEANUP_AGE", defaultTempUploadCleanupAge)
 	if err != nil {
 		return Config{}, err
@@ -204,6 +214,8 @@ func Load() (Config, error) {
 		AuthBootstrapSecret:     secretFromEnv("SAFE_AUTH_BOOTSTRAP_SECRET"),
 		DeletionWorkerInterval:  deletionWorkerInterval,
 		ClosedIncidentRetention: closedIncidentRetention,
+		TokenMetadataRetention:  tokenMetadataRetention,
+		TombstoneRetention:      tombstoneRetention,
 		TempUploadCleanupAge:    tempUploadCleanupAge,
 		TempUploadCleanupDryRun: tempUploadCleanupDryRun,
 		PublicViewerRateLimit:   publicViewerRateLimit,

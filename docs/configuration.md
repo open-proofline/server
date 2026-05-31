@@ -39,6 +39,8 @@ Configuration is read from environment variables when the Proofline API starts.
 | `SAFE_AUTH_BOOTSTRAP_SECRET` | unset | One-time bootstrap secret required to create the first admin account when no admin exists. Remove after bootstrap. |
 | `SAFE_DELETION_WORKER_INTERVAL` | `1m` | Background deletion maintenance interval. Set to `0` to disable the automatic scheduler while keeping deletion decisions durable for a later run. |
 | `SAFE_CLOSED_INCIDENT_RETENTION` | `0` | Retention window for closed incidents. `0` disables automatic retention deletion; positive Go durations delete closed incidents older than the window. |
+| `SAFE_TOKEN_METADATA_RETENTION` | `0` | Audit window for pruning expired or revoked viewer-token metadata. `0` disables token metadata pruning. |
+| `SAFE_DELETION_TOMBSTONE_RETENTION` | `0` | Retention window for minimal deleted-incident tombstones after deletion completion. `0` disables tombstone pruning. |
 | `SAFE_TEMP_UPLOAD_CLEANUP_AGE` | `0` | Minimum age for startup cleanup of orphaned local temp upload files. `0` disables cleanup. |
 | `SAFE_TEMP_UPLOAD_CLEANUP_DRY_RUN` | `false` | When temp cleanup is enabled, log safe counts without deleting eligible temp files. |
 | `SAFE_PUBLIC_VIEWER_RATE_LIMIT_ENABLED` | `true` | Enables app-level rate limiting for public incident viewer route classes. Set to `false` to disable the app-level limiter. |
@@ -272,8 +274,34 @@ go run ./cmd/api
 
 Open incidents are not selected by automatic retention. Deleting an open
 incident requires an explicit private deletion request with `allow_open: true`.
-Mode-specific retention windows, token metadata pruning, tombstone expiry, and
-backup expiry are not configured by these variables.
+Mode-specific retention windows and backup expiry are not configured by these
+variables.
+
+Expired or revoked viewer-token metadata pruning is disabled by default. Set a
+positive audit window only after reviewing whether token labels and token-hash
+metadata must remain available for operational review:
+
+```bash
+SAFE_TOKEN_METADATA_RETENTION=168h \
+go run ./cmd/api
+```
+
+Token metadata pruning removes only incident-token rows whose `expires_at` or
+`revoked_at` timestamp is older than the configured window. It does not delete
+incidents, streams, chunks, checkins, blobs, backups, or raw tokens. Raw viewer
+tokens are not stored.
+
+Deleted-incident tombstone pruning is also disabled by default:
+
+```bash
+SAFE_DELETION_TOMBSTONE_RETENTION=2160h \
+go run ./cmd/api
+```
+
+Tombstone pruning removes only completed minimal tombstones after deletion retry
+state is no longer needed and no sensitive child metadata remains. Backup
+expiry, restore reconciliation, object-store versions, filesystem snapshots,
+and downloaded bundles remain deployment responsibilities.
 
 ## Orphan Temp Upload Cleanup
 

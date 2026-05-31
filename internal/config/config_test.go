@@ -57,6 +57,12 @@ func TestLoadDefaultDeletionRetentionConfig(t *testing.T) {
 	if cfg.ClosedIncidentRetention != 0 {
 		t.Fatalf("closed incident retention = %s, want disabled", cfg.ClosedIncidentRetention)
 	}
+	if cfg.TokenMetadataRetention != 0 {
+		t.Fatalf("token metadata retention = %s, want disabled", cfg.TokenMetadataRetention)
+	}
+	if cfg.TombstoneRetention != 0 {
+		t.Fatalf("tombstone retention = %s, want disabled", cfg.TombstoneRetention)
+	}
 	if cfg.TempUploadCleanupAge != 0 {
 		t.Fatalf("temp upload cleanup age = %s, want disabled", cfg.TempUploadCleanupAge)
 	}
@@ -492,8 +498,10 @@ func TestLoadSessionTTLFromEnv(t *testing.T) {
 
 func TestLoadDeletionRetentionConfigFromEnv(t *testing.T) {
 	cfg := loadConfigForTest(t, map[string]string{
-		"SAFE_DELETION_WORKER_INTERVAL":  "30s",
-		"SAFE_CLOSED_INCIDENT_RETENTION": "720h",
+		"SAFE_DELETION_WORKER_INTERVAL":     "30s",
+		"SAFE_CLOSED_INCIDENT_RETENTION":    "720h",
+		"SAFE_TOKEN_METADATA_RETENTION":     "168h",
+		"SAFE_DELETION_TOMBSTONE_RETENTION": "2160h",
 	})
 
 	if cfg.DeletionWorkerInterval != 30*time.Second {
@@ -502,12 +510,20 @@ func TestLoadDeletionRetentionConfigFromEnv(t *testing.T) {
 	if cfg.ClosedIncidentRetention != 720*time.Hour {
 		t.Fatalf("closed incident retention = %s, want 720h", cfg.ClosedIncidentRetention)
 	}
+	if cfg.TokenMetadataRetention != 168*time.Hour {
+		t.Fatalf("token metadata retention = %s, want 168h", cfg.TokenMetadataRetention)
+	}
+	if cfg.TombstoneRetention != 2160*time.Hour {
+		t.Fatalf("tombstone retention = %s, want 2160h", cfg.TombstoneRetention)
+	}
 }
 
 func TestLoadCanDisableDeletionWorkerAndRetention(t *testing.T) {
 	cfg := loadConfigForTest(t, map[string]string{
-		"SAFE_DELETION_WORKER_INTERVAL":  "0",
-		"SAFE_CLOSED_INCIDENT_RETENTION": "0",
+		"SAFE_DELETION_WORKER_INTERVAL":     "0",
+		"SAFE_CLOSED_INCIDENT_RETENTION":    "0",
+		"SAFE_TOKEN_METADATA_RETENTION":     "0",
+		"SAFE_DELETION_TOMBSTONE_RETENTION": "0",
 	})
 
 	if cfg.DeletionWorkerInterval != 0 {
@@ -515,6 +531,12 @@ func TestLoadCanDisableDeletionWorkerAndRetention(t *testing.T) {
 	}
 	if cfg.ClosedIncidentRetention != 0 {
 		t.Fatalf("closed incident retention = %s, want disabled", cfg.ClosedIncidentRetention)
+	}
+	if cfg.TokenMetadataRetention != 0 {
+		t.Fatalf("token metadata retention = %s, want disabled", cfg.TokenMetadataRetention)
+	}
+	if cfg.TombstoneRetention != 0 {
+		t.Fatalf("tombstone retention = %s, want disabled", cfg.TombstoneRetention)
 	}
 }
 
@@ -634,6 +656,12 @@ func TestLoadRejectsInvalidDeletionRetentionConfig(t *testing.T) {
 		"empty retention": {
 			"SAFE_CLOSED_INCIDENT_RETENTION": "",
 		},
+		"invalid token metadata retention": {
+			"SAFE_TOKEN_METADATA_RETENTION": "later",
+		},
+		"negative tombstone retention": {
+			"SAFE_DELETION_TOMBSTONE_RETENTION": "-1h",
+		},
 	}
 
 	for name, env := range tests {
@@ -643,7 +671,9 @@ func TestLoadRejectsInvalidDeletionRetentionConfig(t *testing.T) {
 				t.Fatal("expected deletion retention config error")
 			}
 			if !strings.Contains(err.Error(), "SAFE_DELETION_WORKER_INTERVAL") &&
-				!strings.Contains(err.Error(), "SAFE_CLOSED_INCIDENT_RETENTION") {
+				!strings.Contains(err.Error(), "SAFE_CLOSED_INCIDENT_RETENTION") &&
+				!strings.Contains(err.Error(), "SAFE_TOKEN_METADATA_RETENTION") &&
+				!strings.Contains(err.Error(), "SAFE_DELETION_TOMBSTONE_RETENTION") {
 				t.Fatalf("expected deletion env var parse context, got %v", err)
 			}
 		})
@@ -866,6 +896,8 @@ func loadConfigForTestErr(t *testing.T, env map[string]string) (Config, error) {
 		"SAFE_AUTH_BOOTSTRAP_SECRET",
 		"SAFE_DELETION_WORKER_INTERVAL",
 		"SAFE_CLOSED_INCIDENT_RETENTION",
+		"SAFE_TOKEN_METADATA_RETENTION",
+		"SAFE_DELETION_TOMBSTONE_RETENTION",
 		"SAFE_TEMP_UPLOAD_CLEANUP_AGE",
 		"SAFE_TEMP_UPLOAD_CLEANUP_DRY_RUN",
 		"SAFE_PUBLIC_VIEWER_RATE_LIMIT_ENABLED",

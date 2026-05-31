@@ -307,6 +307,134 @@ func TestIncidentDeletionJobStatusSummarizesSafeRetryCategories(t *testing.T) {
 	}
 }
 
+func TestPruneIncidentTokenMetadataRemovesOnlyExpiredOrRevokedTokens(t *testing.T) {
+	ctx := context.Background()
+	repo := newRepository(t, ctx)
+	incident, err := repo.CreateIncident(ctx, "phone", "")
+	if err != nil {
+		t.Fatalf("create incident: %v", err)
+	}
+	if _, err := repo.CreateChunk(ctx, testChunkParams(incident.ID, "", incidents.MediaTypeAudio, 1)); err != nil {
+		t.Fatalf("create chunk: %v", err)
+	}
+	now := time.Now().UTC()
+	expiredAt := now.Add(-2 * time.Hour)
+	futureExpiresAt := now.Add(2 * time.Hour)
+	expiredToken, _, err := repo.CreateIncidentToken(ctx, incident.ID, "expired token label", &expiredAt)
+	if err != nil {
+		t.Fatalf("create expired token: %v", err)
+	}
+	futureToken, _, err := repo.CreateIncidentToken(ctx, incident.ID, "future token label", &futureExpiresAt)
+	if err != nil {
+		t.Fatalf("create future token: %v", err)
+	}
+	revokedToken, _, err := repo.CreateIncidentToken(ctx, incident.ID, "revoked token label", nil)
+	if err != nil {
+		t.Fatalf("create revoked token: %v", err)
+	}
+	if err := repo.RevokeIncidentToken(ctx, revokedToken.ID); err != nil {
+		t.Fatalf("revoke token: %v", err)
+	}
+
+	pruned, err := repo.PruneIncidentTokenMetadata(ctx, now.Add(-time.Hour), 25)
+	if err != nil {
+		t.Fatalf("prune expired token metadata: %v", err)
+	}
+	if pruned != 1 {
+		t.Fatalf("expired token metadata pruned = %d, want 1", pruned)
+	}
+	if _, err := repo.GetIncidentToken(ctx, expiredToken.ID); !errors.Is(err, incidents.ErrNotFound) {
+		t.Fatalf("expired token lookup error = %v, want ErrNotFound", err)
+	}
+	if _, err := repo.GetIncidentToken(ctx, futureToken.ID); err != nil {
+		t.Fatalf("future token was pruned: %v", err)
+	}
+	if _, err := repo.GetIncidentToken(ctx, revokedToken.ID); err != nil {
+		t.Fatalf("recent revoked token was pruned: %v", err)
+	}
+
+	pruned, err = repo.PruneIncidentTokenMetadata(ctx, time.Now().UTC().Add(time.Minute), 25)
+	if err != nil {
+		t.Fatalf("prune revoked token metadata: %v", err)
+	}
+	if pruned != 1 {
+		t.Fatalf("revoked token metadata pruned = %d, want 1", pruned)
+	}
+	if _, err := repo.GetIncidentToken(ctx, revokedToken.ID); !errors.Is(err, incidents.ErrNotFound) {
+		t.Fatalf("revoked token lookup error = %v, want ErrNotFound", err)
+	}
+	if _, err := repo.GetIncident(ctx, incident.ID); err != nil {
+		t.Fatalf("incident was pruned by token metadata pruning: %v", err)
+	}
+	chunks, err := repo.ListChunks(ctx, incident.ID)
+	if err != nil {
+		t.Fatalf("list chunks after token pruning: %v", err)
+	}
+	if len(chunks) != 1 {
+		t.Fatalf("chunks after token pruning = %+v, want original chunk", chunks)
+	}
+}
+
+func TestPruneIncidentDeletionTombstonesRemovesOnlyCompletedTombstones(t *testing.T) {
+	ctx := context.Background()
+	repo := newRepository(t, ctx)
+	activeIncident, err := repo.CreateIncident(ctx, "active", "")
+	if err != nil {
+		t.Fatalf("create active incident: %v", err)
+	}
+	deletedIncident, err := repo.CreateIncident(ctx, "deleted", "sensitive note")
+	if err != nil {
+		t.Fatalf("create deleted incident: %v", err)
+	}
+	if _, err := repo.CreateChunk(ctx, testChunkParams(deletedIncident.ID, "", incidents.MediaTypeAudio, 1)); err != nil {
+		t.Fatalf("create chunk: %v", err)
+	}
+	status, err := repo.RequestIncidentDeletion(ctx, incidents.IncidentDeletionRequest{
+		IncidentID: deletedIncident.ID,
+		Source:     incidents.IncidentDeletionSourceAdminRequest,
+		AllowOpen:  true,
+	})
+	if err != nil {
+		t.Fatalf("request deletion: %v", err)
+	}
+	items, err := repo.ListIncidentDeletionItems(ctx, status.DecisionID)
+	if err != nil {
+		t.Fatalf("list deletion items: %v", err)
+	}
+	for _, item := range items {
+		if err := repo.MarkIncidentDeletionItemDeleted(ctx, item.ID); err != nil {
+			t.Fatalf("mark deletion item deleted: %v", err)
+		}
+	}
+	if _, err := repo.CompleteIncidentDeletion(ctx, status.DecisionID); err != nil {
+		t.Fatalf("complete deletion: %v", err)
+	}
+
+	pruned, err := repo.PruneIncidentDeletionTombstones(ctx, time.Now().UTC().Add(-time.Hour), 25)
+	if err != nil {
+		t.Fatalf("prune recent tombstone: %v", err)
+	}
+	if pruned != 0 {
+		t.Fatalf("recent tombstones pruned = %d, want 0", pruned)
+	}
+	pruned, err = repo.PruneIncidentDeletionTombstones(ctx, time.Now().UTC().Add(time.Minute), 25)
+	if err != nil {
+		t.Fatalf("prune tombstone: %v", err)
+	}
+	if pruned != 1 {
+		t.Fatalf("tombstones pruned = %d, want 1", pruned)
+	}
+	if _, err := repo.GetIncident(ctx, deletedIncident.ID); !errors.Is(err, incidents.ErrNotFound) {
+		t.Fatalf("deleted tombstone lookup error = %v, want ErrNotFound", err)
+	}
+	if _, err := repo.GetIncidentDeletionStatus(ctx, deletedIncident.ID); !errors.Is(err, incidents.ErrNotFound) {
+		t.Fatalf("deleted tombstone status error = %v, want ErrNotFound", err)
+	}
+	if _, err := repo.GetIncident(ctx, activeIncident.ID); err != nil {
+		t.Fatalf("active incident was pruned: %v", err)
+	}
+}
+
 func TestCreateChunkRejectsCompletedStream(t *testing.T) {
 	ctx := context.Background()
 	repo := newRepository(t, ctx)

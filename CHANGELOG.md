@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added disabled-by-default retention pruning for expired/revoked viewer-token
+  metadata and completed deletion tombstones, with SQLite/PostgreSQL parity and
+  count-only maintenance summaries.
 - Added local read-only operator commands to preview closed-incident retention
   candidates and inspect deletion job status with safe counts and retry
   categories.

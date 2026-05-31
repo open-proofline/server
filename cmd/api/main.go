@@ -81,6 +81,8 @@ func run(logger *slog.Logger) error {
 	deletionWorker := retention.NewWorker(repo, blobStore, retention.Options{
 		Interval:                cfg.DeletionWorkerInterval,
 		ClosedIncidentRetention: cfg.ClosedIncidentRetention,
+		TokenMetadataRetention:  cfg.TokenMetadataRetention,
+		TombstoneRetention:      cfg.TombstoneRetention,
 		Logger:                  logger,
 	})
 	deletionWorker.Start(ctx)

@@ -216,7 +216,10 @@ and retention enforcement details are documented in
 The current backend preserves accepted evidence by default, exposes private
 owner-scoped and admin-global deletion APIs, and starts a deletion worker by
 default. Automatic closed-incident retention is disabled unless
-`SAFE_CLOSED_INCIDENT_RETENTION` is configured.
+`SAFE_CLOSED_INCIDENT_RETENTION` is configured. Expired/revoked viewer-token
+metadata pruning and completed tombstone pruning are disabled unless
+`SAFE_TOKEN_METADATA_RETENTION` or `SAFE_DELETION_TOMBSTONE_RETENTION` is
+configured.
 
 SQLite WAL file expectations, same-host storage constraints, checkpoint
 pressure symptoms, and local file-size checks are documented in
@@ -256,8 +259,8 @@ Normal file or object removal is not treated as guaranteed secure erasure. Deplo
   metadata summaries and completed encrypted bundle downloads; the future
   boundary is documented in
   [live-partial-stream-access-boundary.md](live-partial-stream-access-boundary.md)
-- No mode-specific retention, token metadata pruning, tombstone expiry, backup
-  lifecycle enforcement, or built-in disk encryption; the operational policy is
+- No mode-specific retention, backup lifecycle enforcement, or built-in disk
+  encryption; the operational policy is
   documented in [retention-backup-deletion.md](retention-backup-deletion.md),
   with enforcement details in
   [incident-deletion-retention-enforcement.md](incident-deletion-retention-enforcement.md)
