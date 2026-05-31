@@ -18,6 +18,7 @@
 
 # Local simulator encryption keys
 *.key.json
+simulator-key.json
 
 # Local simulator wrapped-key metadata artifacts
 proofline-sim-wrapped-keys.json
