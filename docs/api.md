@@ -294,6 +294,12 @@ Chunk routes are mounted only on the private API server.
 
 Uploads one already-encrypted chunk as `multipart/form-data`.
 
+Optional header:
+
+- `Idempotency-Key`: stable key for this intended complete chunk upload. The
+  value must be 1-255 visible ASCII characters. The server treats it as
+  token-like: raw values are not logged, returned in errors, or stored raw.
+
 Fields:
 
 - `file`: encrypted chunk bytes
@@ -330,7 +336,28 @@ New clients should create a media stream and upload chunks with `stream_id`. `st
 
 Streamed chunk identity is `(incident_id, stream_id, chunk_index)`, so each stream can use normal stream-local chunk numbering. Legacy unstreamed chunk identity remains `(incident_id, media_type, chunk_index)` for chunks without `stream_id`.
 
-Duplicate streamed `(incident_id, stream_id, chunk_index)` uploads and duplicate legacy `(incident_id, media_type, chunk_index)` uploads return `409 duplicate_chunk`. Hash mismatches return `400 hash_mismatch` and do not commit a final file.
+Duplicate streamed `(incident_id, stream_id, chunk_index)` uploads and duplicate legacy `(incident_id, media_type, chunk_index)` uploads without an idempotency key return `409 duplicate_chunk`. Hash mismatches return `400 hash_mismatch` and do not commit a final file.
+
+When `Idempotency-Key` is supplied, the server hashes the key and stores durable
+upload-operation state in the configured metadata backend. The key is bound to
+the `upload_chunk` operation and a request fingerprint covering normalized
+chunk identity, `media_type`, `started_at`, `ended_at`, normalized
+`original_filename`, ciphertext byte size, and ciphertext `sha256_hex`.
+
+The first successful idempotent upload returns the normal `201` chunk response.
+An equivalent retry with the same key and same complete encrypted chunk upload
+can return `200 OK` with the same chunk metadata shape and:
+
+```http
+Idempotency-Replayed: true
+```
+
+Reusing the same `Idempotency-Key` with a different chunk identity, metadata
+fingerprint, byte size, or ciphertext hash returns `409 idempotency_conflict`.
+The conflict response is intentionally small and does not include uploaded
+bytes, stored paths, object keys, raw keys, tokens, raw idempotency keys, or
+private deployment details. Replays still upload the complete encrypted chunk;
+this is not a resumable upload or partial-commit protocol.
 
 The repository rechecks incident and stream state when chunk metadata is inserted. If an upload races with incident close or stream completion, the final metadata insert is rejected and the committed blob path is removed.
 
@@ -353,22 +380,23 @@ contain personal or contextual information even after path stripping. Do not use
 legal-record guarantees, or download path construction.
 
 The current API does not implement resumable uploads, upload leases, or
-client-side queue summary endpoints. Future clients should retry complete
-encrypted chunks unless a later explicit resumable-upload protocol is
-implemented. The planning decision is documented in
+client-side queue summary endpoints. Clients should retry complete encrypted
+chunks and use `Idempotency-Key` for ambiguous complete-upload outcomes unless
+a later explicit resumable-upload protocol is implemented. The resumable-upload
+planning decision is documented in
 [resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md).
 
 ### Planned Duplicate Chunk Reconciliation
 
 This section is a design contract for future implementation. The current server
 does not yet expose the reconciliation route described here; duplicate uploads
-still return `409 duplicate_chunk`.
+without idempotency-key replay still return `409 duplicate_chunk`.
 
 The planned API shape is a separate private query workflow, not a public route
 and not an enriched `409 duplicate_chunk` upload response. A separate route lets
 clients compare expected metadata without re-uploading ciphertext, keeps
-duplicate upload errors small, and can coexist with future idempotency-key
-retry success.
+duplicate upload errors small, and can coexist with the current
+idempotency-key retry-success path.
 
 Planned route:
 

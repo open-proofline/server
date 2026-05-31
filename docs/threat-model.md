@@ -19,9 +19,10 @@ Planned future incident modes include emergency incidents, non-emergency interac
   not durable evidence storage
 - Private health/readiness responses expose only coarse backend type and
   `ok`/`unavailable` status for metadata, blob, and coordination checks
-- Future cluster-safe upload operation semantics are planned but not
-  implemented; idempotency, retry-success, conflict, and cleanup expectations
-  are documented in
+- Complete chunk upload idempotency is implemented with hashed
+  `Idempotency-Key` metadata, equivalent retry success, and conflict detection;
+  remaining cluster-safe upload semantics and cleanup expectations are
+  documented in
   [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md)
 - Future resumable upload and upload lease behavior is planned but not
   implemented; a local desktop recorder simulator client should use complete
@@ -79,6 +80,10 @@ Planned future incident modes include emergency incidents, non-emergency interac
 - The simulator encrypts fake chunk plaintext by default using the documented v1 AES-256-GCM envelope.
 - Encryption keys remain client-side; they are not uploaded, stored in SQLite, or added to evidence bundles.
 - SQLite and optional PostgreSQL metadata enforce media type, chunk index, byte size, SHA-256 shape, foreign keys, and unique chunk identity.
+- Upload-operation metadata stores hashed idempotency keys, normalized chunk
+  identity fields, immutable request fingerprint fields, fingerprint hashes,
+  and final chunk references for complete-upload replay. Raw idempotency keys
+  are not stored.
 - Optional Valkey/Redis-compatible coordination fails closed at startup when
   explicitly configured but unavailable.
 - Private `/v1/health/live` and `/v1/health/ready` routes are mounted only on
@@ -117,7 +122,7 @@ Planned future incident modes include emergency incidents, non-emergency interac
 - ZIP bundle entry names are server-controlled and generated from metadata; clients do not provide stored paths for download.
 - Public viewer responses use a strict same-origin `Content-Security-Policy` with `frame-ancestors 'none'`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, and a restrictive camera/microphone/geolocation `Permissions-Policy`.
 - Token-protected pages, JSON, errors, private responses, private chunk reads, and bundle downloads use `Cache-Control: no-store`.
-- Request logging records method, redacted route pattern, status, byte count, and duration. It does not log request bodies, uploaded bytes, Authorization headers, raw session tokens, raw viewer tokens, raw incident tokens, plaintext, or raw keys.
+- Request logging records method, redacted route pattern, status, byte count, and duration. It does not log request bodies, uploaded bytes, Authorization headers, raw session tokens, raw viewer tokens, raw incident tokens, raw idempotency keys, plaintext, or raw keys.
 - Templates use Go `html/template` escaping.
 - Storage rejects absolute paths, `..`, slash-containing path segments, and backslash traversal. S3 object keys are derived from server-controlled stored paths and an optional safe prefix.
 
@@ -158,10 +163,10 @@ The current backend does not implement incident-mode-specific controls yet, so f
 - Optional Valkey/Redis-compatible coordination does not change the private
   `/v1` boundary, does not hold durable evidence state, and does not make the
   current upload flow cluster-safe on its own.
-- No implemented cluster-safe upload operation or idempotency API. Future
-  semantics are planned in
-  [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md), but
-  current duplicate uploads still use the existing `409 duplicate_chunk`
+- No implemented resumable, partial, or leased cluster-safe upload protocol
+  beyond the complete-upload `Idempotency-Key` path documented in
+  [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md). Uploads
+  without idempotency keys still use the existing `409 duplicate_chunk`
   behavior.
 - No implemented resumable upload or upload lease protocol. Current clients
   should retry complete encrypted chunk uploads; the future design is planned

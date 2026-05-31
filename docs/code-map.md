@@ -62,6 +62,14 @@ Upload handling first checks that the incident exists and is open. The file is t
 
 Hash verification happens in `internal/httpapi.uploadChunk` by comparing the computed temp-file hash with the client-provided `sha256_hex`.
 
+When `Idempotency-Key` is supplied, `internal/httpapi` hashes the raw key,
+builds a canonical complete-upload fingerprint from normalized chunk identity,
+timestamps, normalized `original_filename`, ciphertext byte size, and
+`sha256_hex`, then reserves or replays durable upload-operation state through
+the metadata repository. Equivalent retries return `200 OK` with
+`Idempotency-Replayed: true`; uploads without the header keep the existing
+duplicate behavior.
+
 After verification, `internal/storage.BlobStore.CommitTemp` commits the encrypted bytes under the server-controlled stored path:
 
 ```text

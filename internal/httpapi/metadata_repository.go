@@ -23,9 +23,12 @@ type MetadataRepository interface {
 	CreateCheckin(ctx context.Context, incidentID string, params incidents.CreateCheckinParams) (incidents.Checkin, error)
 
 	ChunkExists(ctx context.Context, incidentID, streamID, mediaType string, chunkIndex int) (bool, error)
+	GetChunkByIdentity(ctx context.Context, incidentID, streamID, mediaType string, chunkIndex int) (incidents.Chunk, error)
 	CreateChunk(ctx context.Context, params incidents.CreateChunkParams) (incidents.Chunk, error)
 	ListChunks(ctx context.Context, incidentID string) ([]incidents.Chunk, error)
 	GetChunkByKey(ctx context.Context, incidentID, mediaType string, chunkIndex int) (incidents.Chunk, error)
+	ReserveUploadOperation(ctx context.Context, params incidents.UploadOperationParams) (incidents.UploadOperation, error)
+	CompleteUploadOperation(ctx context.Context, params incidents.UploadOperationParams, chunk incidents.Chunk) (incidents.UploadOperation, error)
 
 	CreateMediaStream(ctx context.Context, incidentID, mediaType, label string) (incidents.MediaStream, error)
 	ListMediaStreams(ctx context.Context, incidentID string) ([]incidents.MediaStream, error)

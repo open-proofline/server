@@ -1,13 +1,14 @@
 # Cluster-Safe Upload Operation Semantics
 
-This document designs future cluster-safe upload operation semantics for
-Proofline Server.
+This document tracks cluster-safe upload operation semantics for Proofline
+Server.
 
-It is a planning document only. It does not implement idempotency, upload
-leases, resumable uploads, operation-level use of Valkey/Redis-compatible
-coordination, changes to the current local account/session model, public `/v1`
-exposure, browser decryption, backend decryption, key custody, or playable
-media export.
+The current backend implements a narrow `Idempotency-Key` path for complete
+chunk uploads. Remaining cluster semantics, including upload leases, resumable
+uploads, operation-level use of Valkey/Redis-compatible coordination, changes
+to the current local account/session model, public `/v1` exposure, browser
+decryption, backend decryption, key custody, and playable media export are
+still not implemented.
 
 ## Current Behavior
 
@@ -17,13 +18,16 @@ client-provided ciphertext hash, commits the file to an immutable
 server-controlled path, and inserts chunk metadata into the configured metadata
 backend.
 
-Accepted chunks are immutable. Duplicate chunk identities currently return
-`409 duplicate_chunk`, and the storage layer refuses to overwrite an existing
-committed blob.
+Accepted chunks are immutable. Duplicate chunk identities without an
+idempotency key return `409 duplicate_chunk`, and the storage layer refuses to
+overwrite an existing committed blob. When `Idempotency-Key` is supplied for
+`POST /v1/incidents/{incident_id}/chunks`, equivalent complete-upload retries
+can return `200 OK` with `Idempotency-Replayed: true`.
 
-That local-first behavior remains supported. Cluster-safe upload semantics are
-future additive work for optional PostgreSQL metadata and S3-compatible object
-storage backends.
+That local-first behavior remains supported. The implemented idempotency state
+is durable metadata in SQLite or optional PostgreSQL. Further cluster-safe
+semantics are additive work for optional PostgreSQL metadata and
+S3-compatible object storage backends.
 
 ## Goals
 
@@ -38,13 +42,10 @@ storage backends.
 
 ## Non-Goals
 
-- No implementation in this design task.
 - No resumable upload protocol or partial committed chunks.
 - No duplicate-chunk reconciliation API implementation. The client-facing
   reconciliation design is documented in [api.md](api.md).
-- No changes to optional PostgreSQL metadata, no changes to the optional
-  S3-compatible storage backend, and no operation-level Valkey coordination
-  behavior.
+- No operation-level Valkey coordination behavior.
 - No public `/v1` exposure, public account workflows, or changes to the current
   local account/session model.
 - No client repository, protocol repository, or mobile implementation.
@@ -106,10 +107,9 @@ produce retry-safe responses, but it must not replace durable chunk uniqueness.
 
 ## Upload Operation Identity
 
-Future clients should send a stable idempotency key for each intended chunk
-upload. The preferred API shape is an `Idempotency-Key` header on
-`POST /v1/incidents/{incident_id}/chunks`, though a future protocol design may
-choose an equivalent multipart field if that is easier for mobile clients.
+Clients can send a stable idempotency key for each intended complete chunk
+upload using an `Idempotency-Key` header on
+`POST /v1/incidents/{incident_id}/chunks`.
 
 The server should bind the idempotency key to:
 
@@ -126,10 +126,10 @@ avoid recording raw `Idempotency-Key` values or using them as labels,
 attributes, object keys, or log fields.
 
 Clients without an idempotency key remain supported through the existing chunk
-identity constraints. Without an idempotency key, the server can still return
-equivalent success when the committed chunk already matches the request, but it
-cannot safely identify or resume an in-progress operation before the final
-chunk row exists.
+identity constraints and still receive `409 duplicate_chunk` for duplicate
+identities. Equivalent retry success is only part of the idempotency-key path.
+The current implementation still requires a complete encrypted chunk retry; it
+does not resume an in-progress partial transfer.
 
 ## Request Fingerprint
 
@@ -153,28 +153,31 @@ original filename is a conflict, even if the chunk identity is the same.
 
 ## Durable Idempotency State
 
-Durable upload operation state belongs in the metadata backend. For the planned
-cluster backend, PostgreSQL should be the source of truth for idempotency and
-upload operation records.
+Durable upload operation state belongs in the metadata backend. SQLite and
+optional PostgreSQL store upload-operation records for the implemented
+complete-upload idempotency path. For future cluster deployments, PostgreSQL
+remains the expected source of truth for idempotency and upload operation
+records.
 
 Valkey/Redis-compatible coordination may hold leases, in-progress hints, or
 cached results, but it must not be the durable source of truth for committed
 chunk metadata, committed chunk bytes, or completed idempotency decisions.
 
-A future logical `upload_operations` table should track at least:
+The implemented `upload_operations` table tracks:
 
 - operation ID generated by the server
-- hashed idempotency key, when supplied
+- hashed idempotency key
 - operation type, currently `upload_chunk`
 - normalized chunk identity fields
-- request fingerprint fields or a stable fingerprint hash
-- state, such as `reserved`, `staging`, `blob_committed`,
-  `metadata_committed`, `failed_retryable`, or `failed_conflict`
+- request fingerprint fields and a stable fingerprint hash
+- state, currently `reserved` or `metadata_committed`
 - final chunk ID when metadata has been committed or confirmed
 - final stored path or object key when known
-- object-storage version, ETag, or equivalent ownership proof when available
-- expiry or cleanup eligibility timestamp for abandoned staging state
 - timestamps for creation and last update
+
+Future cluster work may add staging, blob-committed, failed, ownership-proof,
+expiry, and cleanup fields when operation-level staging or leases are
+implemented.
 
 Completed chunk metadata remains the durable evidence index. Idempotency rows
 may support a retry window or operational audit trail, but expiring an
@@ -182,12 +185,15 @@ idempotency row must not remove committed chunk rows or committed blobs.
 
 ## Commit Flow
 
-A future cluster-safe upload should use this ordering.
+The current complete-upload idempotency path uses the metadata backend for
+reservation, replay lookup, conflict detection, and completion. A future
+cluster-safe upload with operation-specific object staging should use this
+expanded ordering.
 
 1. Validate route parameters and multipart metadata enough to determine the
    normalized chunk identity and request fingerprint inputs.
-2. Reserve or find the upload operation in PostgreSQL when an idempotency key
-   is supplied.
+2. Reserve or find the upload operation in the metadata backend when an
+   idempotency key is supplied.
 3. If the same idempotency key already completed with the same fingerprint,
    return equivalent success using the committed chunk metadata.
 4. If the same idempotency key exists with a different chunk identity or
@@ -201,8 +207,8 @@ A future cluster-safe upload should use this ordering.
    media type.
 8. Commit the staged object to the final server-controlled immutable object key
    using conditional no-overwrite behavior.
-9. Insert chunk metadata in PostgreSQL, or confirm the existing chunk row when
-   a race already inserted an equivalent row.
+9. Insert chunk metadata in the metadata backend, or confirm the existing chunk
+   row when a race already inserted an equivalent row.
 10. Mark the upload operation `metadata_committed` with the final chunk ID.
 11. Remove operation-specific staging state.
 12. Return success only after final encrypted bytes exist outside staging and
@@ -223,7 +229,7 @@ Equivalent success is allowed when all of the following are true:
 - the committed blob exists and matches the stored byte size and `sha256_hex`
   when the backend can verify this cheaply or as part of the operation
 
-The recommended future HTTP behavior is:
+The implemented HTTP behavior is:
 
 - `201 Created` when this request created the chunk row
 - `200 OK` when a retry or racing request confirms an already committed
@@ -305,10 +311,10 @@ Issue `#85`, "Design Duplicate Chunk Reconciliation API", chooses a separate
 private query workflow for already committed duplicate chunk identities. The
 planned route compares a client's expected ciphertext hash and immutable
 metadata with an accepted chunk row without re-uploading ciphertext, overwriting
-evidence, or exposing bytes, stored paths, raw tokens, plaintext, or keys. This
-cluster-safe upload design can still add idempotency-key equivalent success on
-the upload route later; duplicate reconciliation remains the fallback for
-clients that only know the final chunk identity and expected fingerprint.
+evidence, or exposing bytes, stored paths, raw tokens, plaintext, or keys. The
+implemented upload route now covers idempotency-key equivalent success for
+complete retries; duplicate reconciliation remains the fallback for clients
+that only know the final chunk identity and expected fingerprint.
 
 Issue `#86`, "Plan Resumable Upload And Upload Lease Protocol", should decide
 whether incomplete transfers need explicit leases, resumable multipart upload,
@@ -329,10 +335,6 @@ API documentation:
 
 - implement and document the duplicate-chunk reconciliation route designed in
   [api.md](api.md)
-- document the idempotency key location and allowed format
-- document equivalent success status codes and replay headers
-- document idempotency conflict and in-progress responses
-- document that raw idempotency keys are not logged or returned
 - document reverse-proxy, tracing, metrics, and error-reporting redaction for
   raw idempotency keys
 - document the relationship between duplicate reconciliation and idempotent
@@ -340,34 +342,23 @@ API documentation:
 
 Backend tests:
 
-- repository contract tests for streamed and legacy uniqueness
-- repository tests for idempotency reservation, replay, conflict, expiry, and
-  operation-state transitions
-- HTTP tests for equivalent retry success with the same idempotency key
-- HTTP tests for idempotency-key reuse with different metadata
 - HTTP tests for same chunk identity with different ciphertext
 - HTTP tests for duplicate reconciliation matches and conflicts without
   returning uploaded bytes, stored paths, or conflicting stored values
-- blob-store tests for conditional no-overwrite final commits
-- cleanup tests proving staging cleanup does not delete committed evidence
+- cleanup tests proving future staging cleanup does not delete committed
+  evidence
 - race tests for upload versus incident close and stream completion
 
 Simulator changes:
 
-- generate one idempotency key per intended chunk upload
 - retry an upload after simulated ambiguous response loss
-- verify equivalent success for the same ciphertext and metadata
 - verify conflict behavior for same chunk identity with different ciphertext
 - keep the existing hash-mismatch and bundle verification flows
 
 Backend-specific work:
 
-- add PostgreSQL upload-operation tables and migrations
-- extend the metadata repository boundary for operation reservation,
-  completion, replay lookup, and conflict detection
 - extend the blob-store boundary for operation-specific staging and conditional
   final object commit
-- add S3-compatible object-storage implementation with no-overwrite final keys
 - decide how Valkey/Redis-compatible coordination should be used for leases or
   reducing duplicate in-progress work
 - update deployment, backup, restore, security, threat-model, retention, and

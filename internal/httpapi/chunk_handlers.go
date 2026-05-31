@@ -27,6 +27,10 @@ func (a *API) uploadChunk(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, "incident_closed", "incident is closed")
 		return
 	}
+	idempotencyKeyHash, hasIdempotencyKey, ok := readIdempotencyKeyHash(w, r)
+	if !ok {
+		return
+	}
 
 	upload, ok := a.readChunkUpload(w, r)
 	if !ok {
@@ -42,18 +46,56 @@ func (a *API) uploadChunk(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var idempotencyParams incidents.UploadOperationParams
+	if hasIdempotencyKey {
+		idempotencyParams = uploadOperationParams(idempotencyKeyHash, incidentID, upload)
+		operation, err := a.repo.ReserveUploadOperation(r.Context(), idempotencyParams)
+		if errors.Is(err, incidents.ErrIdempotencyConflict) {
+			idempotencyConflictError(w)
+			return
+		}
+		if err != nil {
+			a.internalError(w, "reserve upload operation", err)
+			return
+		}
+		if operation.State == incidents.UploadOperationStateMetadataCommitted {
+			replayed, found, ok := a.replayEquivalentChunkIfPresent(w, r, incidentID, upload, idempotencyParams)
+			if !ok || replayed {
+				return
+			}
+			if found {
+				idempotencyConflictError(w)
+				return
+			}
+			a.internalError(w, "replay upload operation", incidents.ErrNotFound)
+			return
+		}
+	}
+
 	exists, err := a.repo.ChunkExists(r.Context(), incidentID, upload.streamID, upload.mediaType, upload.chunkIndex)
 	if err != nil {
 		a.internalError(w, "check duplicate chunk", err)
 		return
 	}
 	if exists {
+		if hasIdempotencyKey {
+			replayed, _, ok := a.replayEquivalentChunkIfPresent(w, r, incidentID, upload, idempotencyParams)
+			if !ok || replayed {
+				return
+			}
+		}
 		writeError(w, http.StatusConflict, "duplicate_chunk", "chunk_index already exists for this chunk identity")
 		return
 	}
 
 	storedPath, err := a.store.CommitTemp(r.Context(), upload.temp, incidentID, upload.streamID, upload.mediaType, upload.chunkIndex)
 	if errors.Is(err, storage.ErrAlreadyExists) {
+		if hasIdempotencyKey {
+			replayed, _, ok := a.replayEquivalentChunkIfPresent(w, r, incidentID, upload, idempotencyParams)
+			if !ok || replayed {
+				return
+			}
+		}
 		writeError(w, http.StatusConflict, "duplicate_chunk", "stored chunk already exists for this chunk identity")
 		return
 	}
@@ -76,6 +118,12 @@ func (a *API) uploadChunk(w http.ResponseWriter, r *http.Request) {
 	})
 	if errors.Is(err, incidents.ErrDuplicate) {
 		a.removeCommittedBlobAfterMetadataFailure(storedPath)
+		if hasIdempotencyKey {
+			replayed, _, ok := a.replayEquivalentChunkIfPresent(w, r, incidentID, upload, idempotencyParams)
+			if !ok || replayed {
+				return
+			}
+		}
 		writeError(w, http.StatusConflict, "duplicate_chunk", "chunk_index already exists for this chunk identity")
 		return
 	}
@@ -104,6 +152,15 @@ func (a *API) uploadChunk(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if hasIdempotencyKey {
+		if _, err := a.repo.CompleteUploadOperation(r.Context(), idempotencyParams, chunk); errors.Is(err, incidents.ErrIdempotencyConflict) {
+			idempotencyConflictError(w)
+			return
+		} else if err != nil {
+			a.internalError(w, "complete upload operation", err)
+			return
+		}
+	}
 	writeJSON(w, http.StatusCreated, chunk)
 }
 
@@ -194,6 +251,38 @@ func (a *API) validateChunkStream(w http.ResponseWriter, r *http.Request, incide
 		return false
 	}
 	return true
+}
+
+func (a *API) replayEquivalentChunkIfPresent(w http.ResponseWriter, r *http.Request, incidentID string, upload chunkUpload, params incidents.UploadOperationParams) (bool, bool, bool) {
+	chunk, err := a.repo.GetChunkByIdentity(r.Context(), incidentID, upload.streamID, upload.mediaType, upload.chunkIndex)
+	if errors.Is(err, incidents.ErrNotFound) {
+		return false, false, true
+	}
+	if err != nil {
+		a.internalError(w, "get idempotent chunk", err)
+		return false, false, false
+	}
+	if !uploadMatchesChunk(incidentID, upload, chunk) {
+		return false, true, true
+	}
+
+	file, err := a.store.Open(r.Context(), chunk.StoredPath)
+	if err != nil {
+		a.internalError(w, "open idempotent chunk", err)
+		return false, true, false
+	}
+	_ = file.Close()
+
+	if _, err := a.repo.CompleteUploadOperation(r.Context(), params, chunk); errors.Is(err, incidents.ErrIdempotencyConflict) {
+		idempotencyConflictError(w)
+		return false, true, false
+	} else if err != nil {
+		a.internalError(w, "complete replayed upload operation", err)
+		return false, true, false
+	}
+
+	replayChunkResponse(w, chunk)
+	return true, true, true
 }
 
 func (a *API) removeCommittedBlobAfterMetadataFailure(storedPath string) {

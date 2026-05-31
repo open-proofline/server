@@ -42,6 +42,7 @@ Reports are in scope when they affect the current backend, documentation, or dep
 - public incident viewer read-only access
 - viewer/incident token leakage
 - raw token logging
+- raw idempotency-key logging or storage
 - request body logging
 - uploaded file byte logging
 - Authorization header logging
@@ -73,4 +74,4 @@ The following are generally out of scope unless they demonstrate a concrete vuln
 
 ## Public Disclosure Guidance
 
-Please allow time for private triage and remediation before public disclosure. Do not publish raw viewer tokens, incident tokens, request bodies, uploaded bytes, private deployment details, proof-of-concept material, or user safety data.
+Please allow time for private triage and remediation before public disclosure. Do not publish raw viewer tokens, incident tokens, idempotency keys, request bodies, uploaded bytes, private deployment details, proof-of-concept material, or user safety data.

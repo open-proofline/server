@@ -14,15 +14,16 @@ import (
 )
 
 type chunkUpload struct {
-	incidentID string
-	streamID   string
-	chunkIndex int
-	mediaType  string
-	startedAt  time.Time
-	endedAt    time.Time
-	filename   string
-	body       []byte
-	sha256Hex  string
+	incidentID     string
+	streamID       string
+	chunkIndex     int
+	mediaType      string
+	startedAt      time.Time
+	endedAt        time.Time
+	filename       string
+	body           []byte
+	sha256Hex      string
+	idempotencyKey string
 }
 
 func newChunkUpload(incidentID, streamID string, chunkIndex int, mediaType string, size int64, startedAt time.Time) (chunkUpload, error) {
@@ -60,16 +61,24 @@ func buildChunkUpload(incidentID, streamID string, chunkIndex int, mediaType str
 	sum := sha256.Sum256(body)
 	chunkStartedAt := startedAt.Add(time.Duration(chunkIndex-1) * chunkDuration)
 	return chunkUpload{
-		incidentID: incidentID,
-		streamID:   streamID,
-		chunkIndex: chunkIndex,
-		mediaType:  mediaType,
-		startedAt:  chunkStartedAt,
-		endedAt:    chunkStartedAt.Add(chunkDuration),
-		filename:   fmt.Sprintf("%s_%06d.enc", mediaType, chunkIndex),
-		body:       body,
-		sha256Hex:  hex.EncodeToString(sum[:]),
+		incidentID:     incidentID,
+		streamID:       streamID,
+		chunkIndex:     chunkIndex,
+		mediaType:      mediaType,
+		startedAt:      chunkStartedAt,
+		endedAt:        chunkStartedAt.Add(chunkDuration),
+		filename:       fmt.Sprintf("%s_%06d.enc", mediaType, chunkIndex),
+		body:           body,
+		sha256Hex:      hex.EncodeToString(sum[:]),
+		idempotencyKey: simulatorIdempotencyKey(incidentID, streamID, mediaType, chunkIndex),
 	}
+}
+
+func simulatorIdempotencyKey(incidentID, streamID, mediaType string, chunkIndex int) string {
+	if streamID == "" {
+		streamID = "legacy"
+	}
+	return fmt.Sprintf("simclient-%s-%s-%s-%06d", incidentID, streamID, mediaType, chunkIndex)
 }
 
 func loadOrCreateSimulatorKey(path string) (envelope.Key, error) {

@@ -73,10 +73,10 @@ PostgreSQL stores:
 - checkins
 - viewer-token metadata
 - local account and session metadata
+- upload operation and idempotency state for complete chunk uploads
 - future retention/deletion state, after that design exists
 - future trusted-contact, device, and broader access-control metadata, after
   that design exists
-- upload operation and idempotency state when cluster uploads are implemented
 
 PostgreSQL support includes:
 
@@ -194,7 +194,8 @@ Preferred implementation sequence:
 2. Introduce metadata and blob-store interfaces around the current SQLite and filesystem implementations. Implemented.
 3. Add S3-compatible blob storage as an optional backend. Implemented for committed encrypted chunks.
 4. Add PostgreSQL metadata support as an optional backend. Implemented.
-5. Add explicit idempotency and upload-operation semantics for cluster-safe retries.
+5. Add explicit idempotency and upload-operation semantics for complete chunk
+   upload retries. Implemented for SQLite and optional PostgreSQL metadata.
 6. Add optional Valkey/Redis-compatible coordination. Implemented for explicit
    configuration and startup checks; upload-operation use remains future work.
 7. Update deployment, backup, restore, security, and threat-model docs before

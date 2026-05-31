@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added `Idempotency-Key` support for complete encrypted chunk uploads, with
+  hashed key storage in SQLite or PostgreSQL metadata, equivalent retry success,
+  conflict handling for key reuse with different upload inputs, simulator
+  replay coverage, and updated API/security documentation.
 - Added a GitHub Actions job that runs the optional PostgreSQL metadata
   integration tests against a disposable PostgreSQL service.
 - Added private-only liveness and readiness checks for coarse metadata, blob,

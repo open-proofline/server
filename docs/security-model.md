@@ -81,6 +81,11 @@ Viewer URLs contain bearer tokens and should be treated as secrets. Reverse prox
 - The simulator can wrap chunks in the documented v1 AES-256-GCM client-side encryption envelope before upload.
 - The backend validates and stores ciphertext bytes only; it does not store encryption keys or decrypt chunk contents.
 - SQLite and optional PostgreSQL metadata enforce media type, chunk index, byte size, SHA-256 shape, foreign keys, and unique chunk identity.
+- Complete chunk uploads can include an `Idempotency-Key` header. The backend
+  stores only a SHA-256 hash of the key in durable metadata, binds it to the
+  normalized chunk identity and immutable request fingerprint, and can return
+  `200 OK` with `Idempotency-Replayed: true` for equivalent retries without
+  overwriting chunks or evidence metadata.
 - Chunk metadata inserts recheck incident and stream state in the repository so uploads racing with close or completion are rejected.
 - Media stream completion verifies contiguous chunks and readable stored files, then rechecks chunk rows transactionally before committing completion.
 - Local account authorization binds private incident access to the
@@ -111,12 +116,12 @@ Private readiness checks can report only coarse metadata, blob, and coordination
 backend status. They are operator checks, not public diagnostics, metrics,
 support dashboards, or evidence-inspection routes.
 
-Future cluster-safe upload operation semantics are planned separately in
-[cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md), but no
-idempotency-key or upload-operation API is implemented yet.
-Resumable uploads and upload leases are also planning-only; the current API
-still accepts complete encrypted chunks and retries should resend the complete
-chunk. See
+Cluster-safe upload operation semantics are documented in
+[cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md). The
+implemented path is limited to complete-upload idempotency keys; resumable
+uploads and upload leases are still planning-only. The current API still
+accepts complete encrypted chunks and retries should resend the complete chunk.
+See
 [resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md).
 
 ## Bundle Controls
@@ -154,7 +159,7 @@ admin/operator, escrow, key, or plaintext access.
 
 ## Logging And Headers
 
-Request logging records method, redacted route pattern, status, byte count, and duration. It does not log request bodies, uploaded bytes, Authorization headers, raw session tokens, raw viewer tokens, raw incident tokens, plaintext, or raw keys.
+Request logging records method, redacted route pattern, status, byte count, and duration. It does not log request bodies, uploaded bytes, Authorization headers, raw session tokens, raw viewer tokens, raw incident tokens, raw idempotency keys, plaintext, or raw keys.
 
 The Go app sets these headers on public incident viewer pages, JSON responses, static assets, ZIP downloads, and private admin web responses:
 
@@ -205,8 +210,8 @@ Normal file or object removal is not treated as guaranteed secure erasure. Deplo
 - Cluster backup, restore, and failure runbooks are operational guidance only;
   they do not add access control, retention enforcement, observability, abuse
   controls, or production readiness
-- No implemented cluster-safe upload operation or idempotency API; the future
-  semantics are only planned in
+- No resumable, partial, or leased cluster-safe upload protocol beyond the
+  implemented complete-upload `Idempotency-Key` path documented in
   [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md)
 - No implemented resumable upload or upload lease protocol; the future design
   is planned in

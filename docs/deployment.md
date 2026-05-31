@@ -43,8 +43,8 @@ curl -sS -X POST http://127.0.0.1:8080/v1/bootstrap/admin \
 
 After bootstrap, remove `SAFE_AUTH_BOOTSTRAP_SECRET` and restart. The
 bootstrap route is disabled after an admin account exists. Treat the bootstrap
-secret, account passwords, raw session tokens, and Authorization headers as
-secrets.
+secret, account passwords, raw session tokens, raw idempotency keys, and
+Authorization headers as secrets.
 
 The private listener also exposes unauthenticated liveness and readiness
 checks for local operators:
@@ -59,7 +59,8 @@ curl -fsS http://127.0.0.1:8080/v1/health/ready
 backends and returns only coarse backend type and `ok` or `unavailable`
 statuses. It does not expose DSNs, credentials, bucket names, object keys,
 stored paths, local filesystem paths, private hostnames, tokens, request
-bodies, uploaded bytes, plaintext, raw keys, or private deployment details.
+bodies, uploaded bytes, raw idempotency keys, plaintext, raw keys, or private
+deployment details.
 Keep these routes on the private listener; they do not make `/v1` safe for
 public exposure.
 
@@ -179,8 +180,9 @@ df -h "$(dirname "$db")"
 
 Treat deployment paths, hostnames, screenshots, logs, and backup locations as
 private operational details. Do not paste raw viewer tokens, request bodies,
-uploaded bytes, plaintext, raw keys, credentials, private deployment details,
-or real user safety data into public issues or support channels. If code-level
+uploaded bytes, raw idempotency keys, plaintext, raw keys, credentials, private
+deployment details, or real user safety data into public issues or support
+channels. If code-level
 SQLite observability or automated checkpoint tuning is needed later, handle it
 as a separate scoped implementation task with tests.
 
@@ -234,10 +236,12 @@ automatically migrate existing SQLite metadata into PostgreSQL at startup. A
 SQLite-to-PostgreSQL migration should be a separate quiesced operation with
 metadata and encrypted blobs backed up and verified together.
 
-PostgreSQL does not add public `/v1` exposure, public account workflows,
-cluster-safe idempotency, cloud deployment automation, backend decryption, key
-escrow, or production readiness. Keep private `/v1` listeners behind localhost,
-LAN, WireGuard, firewall rules, or a strict private proxy.
+PostgreSQL does not add public `/v1` exposure, public account workflows, cloud
+deployment automation, backend decryption, key escrow, or production readiness.
+It can store the implemented complete-upload idempotency state, but resumable
+uploads, upload leases, and broader production-cluster readiness remain
+separate work. Keep private `/v1` listeners behind localhost, LAN, WireGuard,
+firewall rules, or a strict private proxy.
 
 ## Optional Valkey / Redis-Compatible Coordination
 
@@ -261,9 +265,10 @@ with a misleading cluster configuration.
 Valkey coordination is not durable evidence storage and is not a backup source
 of truth. Incident metadata, viewer-token metadata, committed encrypted chunks,
 retention decisions, and deletion decisions remain in the metadata and blob
-backends. Current upload routes do not yet use coordination for upload leases,
+backends. Current upload routes do not use coordination for upload leases,
 idempotency result caching, resumable uploads, or application-level rate
-limiting.
+limiting. Complete-upload idempotency keys are durable metadata records, not
+Valkey records.
 
 Treat Valkey passwords, private hostnames, network topology, and future
 coordination keys as private deployment details. Do not expose them in public
@@ -329,7 +334,7 @@ Before exposing the public incident viewer:
 - [ ] Reverse-proxy logs, metrics, dashboards, and rate-limit keys avoid raw
       `/i/{token}` paths, legacy `/e/{token}` paths, query strings attached to
       viewer URLs, request bodies, uploaded bytes, Authorization headers,
-      plaintext, raw keys, and future token-like values.
+      raw idempotency keys, plaintext, raw keys, and future token-like values.
 - [ ] Viewer-token sharing, default expiry, explicit no-expiry tokens, and
       revocation workflows have been reviewed for this deployment.
 - [ ] Retention, backup, restore, and deletion expectations are documented for
@@ -344,8 +349,8 @@ Before exposing the public incident viewer:
       publicly.
 - [ ] Monitoring and timeout settings cover public viewer errors, storage or
       database failures, and long encrypted ZIP downloads without logging raw
-      tokens, request bodies, uploaded bytes, plaintext, raw keys, or private
-      deployment details.
+      tokens, request bodies, uploaded bytes, raw idempotency keys, plaintext,
+      raw keys, or private deployment details.
 
 The Go app still has no built-in app-level rate limiter. Apply rate limits at the deployment edge for now, and tune them for the expected recording, polling, and download patterns.
 
@@ -361,9 +366,8 @@ migration tracking, transaction boundaries, configuration shape, integration
 test setup, and restore expectations are documented in
 [PostgreSQL metadata migration path](postgresql-metadata-migration.md).
 PostgreSQL and Valkey support must not be treated as production-cluster
-readiness until idempotency, operation-level coordination behavior,
-backup/restore drills, access-control, and operational hardening are also
-addressed.
+readiness until operation-level coordination behavior, backup/restore drills,
+access-control, and operational hardening are also addressed.
 
 The Go app does not set `Strict-Transport-Security` by default because local development uses plain HTTP. Enable HSTS at the HTTPS reverse proxy only after TLS is working for the production hostname.
 
@@ -639,6 +643,7 @@ Avoid logging:
 - request bodies
 - uploaded bytes
 - `Authorization` headers
+- raw `Idempotency-Key` values
 - rate-limit keys or metric labels containing raw viewer tokens
 - plaintext, raw keys, or future token-like values
 

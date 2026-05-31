@@ -351,9 +351,10 @@ For future object storage, cleanup may mean deleting a staging object or a
 server-controlled final object only when the operation identity proves this
 request created it.
 
-PostgreSQL does not by itself make the current upload flow cluster-safe.
-Cluster-safe upload operation and idempotency semantics are planned separately
-in [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md) before
+PostgreSQL stores the implemented complete-upload idempotency records, but it
+does not by itself make the upload flow production-cluster safe. Remaining
+cluster-safe upload operation semantics are tracked in
+[cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md) before
 multi-node production deployment.
 
 ### Session And Token Creation, Lookup, And Revocation
@@ -593,7 +594,7 @@ PostgreSQL implementation status and remaining work:
    default.
 6. Restore documentation for PostgreSQL plus encrypted blobs exists as
    operational guidance and should be strengthened by deployment-specific drills.
-7. Implement the explicit upload-operation/idempotency behavior designed in
+7. Complete the remaining upload-operation behavior documented in
    [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md) before
    multi-node cluster safety is recommended.
 8. Separately design any SQLite-to-PostgreSQL migration tool or runbook.

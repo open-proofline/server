@@ -12,7 +12,7 @@ This directory contains the detailed documentation for Proofline Server, the Go 
 | [Production cluster scope](production-cluster-scope.md) | Additive path for optional PostgreSQL metadata, optional S3-compatible object storage, and optional Valkey/Redis-compatible coordination. |
 | [Cluster backup, restore, and failure runbook](cluster-backup-restore-runbook.md) | Operational guidance for optional PostgreSQL metadata, S3-compatible encrypted blobs, configuration, coordination, restore validation, and cluster failure modes. |
 | [PostgreSQL metadata migration path](postgresql-metadata-migration.md) | PostgreSQL metadata backend schema parity, migrations, transaction boundaries, tests, migration limits, and restore expectations. |
-| [Cluster-safe upload operation semantics](cluster-safe-upload-semantics.md) | Planning design for future upload operation identity, idempotency state, commit ordering, retry success, conflict handling, and cleanup across metadata and blob backends. |
+| [Cluster-safe upload operation semantics](cluster-safe-upload-semantics.md) | Complete-upload idempotency-key behavior plus remaining cluster-safe upload operation design for commit ordering, retry success, conflict handling, and cleanup across metadata and blob backends. |
 | [Resumable upload and upload lease protocol](resumable-upload-lease-protocol.md) | Planning decision to defer resumable uploads and upload leases for a local desktop recorder simulator client while preserving complete encrypted chunk retry semantics, poor-network simulation, and future account-flow shape. |
 | [Incident capture modes](incident-modes.md) | Planned emergency, interaction-record, safety-check, and evidence-note modes, plus future capture-profile, escalation-policy, sharing-state, and migration boundaries. |
 | [/v1 access control](v1-access-control.md) | Current local account/session boundary plus future role, grant, public product API, private admin API listener, audit, and migration boundaries for account-owner, trusted-contact, public-link, admin/operator, and optional escrow access. |
@@ -72,17 +72,18 @@ see [postgresql-metadata-migration.md](postgresql-metadata-migration.md). It
 does not change the current SQLite default or perform automatic
 SQLite-to-PostgreSQL data migration.
 
-The future cluster-safe upload operation path is a planning design only; see
+The complete-upload idempotency-key path is implemented for private chunk
+uploads; see
 [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md). It does
-not implement idempotency keys, upload operations, resumable uploads, or
-operation-level use of Valkey/Redis-compatible coordination.
+not implement resumable uploads, upload leases, or operation-level use of
+Valkey/Redis-compatible coordination.
 The resumable upload and upload lease path is also planning-only; see
 [resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md). It
 defers resumable uploads and leases for a local desktop recorder simulator
-	client and keeps the current complete encrypted chunk upload contract. The
-	future desktop simulator should include adjustable poor-network simulation and
-	use the current local account/session flow unless a later client protocol
-	replaces it.
+client and keeps the current complete encrypted chunk upload contract. The
+future desktop simulator should include adjustable poor-network simulation and
+use the current local account/session flow unless a later client protocol
+replaces it.
 
 The long-term Proofline product direction is broader than emergency-only recording. Future clients should support emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes while keeping capture, escalation, sharing, and legal/export actions separate. The planned incident-mode schema, capture-profile, escalation-policy, sharing-state, and migration boundaries are documented in [incident-modes.md](incident-modes.md). Current local account/session behavior and future account-owner, trusted-contact, public-link, admin/operator, and optional escrow access boundaries are documented in [v1-access-control.md](v1-access-control.md).
 

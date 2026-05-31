@@ -160,6 +160,9 @@ func TestClientUploadChunkUsesPrivateAPIBaseAndStreamID(t *testing.T) {
 		if r.Header.Get("Authorization") != "Bearer session-token" {
 			t.Fatalf("upload omitted session Authorization header")
 		}
+		if r.Header.Get("Idempotency-Key") == "" {
+			t.Fatalf("upload omitted Idempotency-Key header")
+		}
 		if err := r.ParseMultipartForm(1024 * 1024); err != nil {
 			t.Fatalf("ParseMultipartForm returned error: %v", err)
 		}
@@ -195,6 +198,34 @@ func TestClientUploadChunkUsesPrivateAPIBaseAndStreamID(t *testing.T) {
 	}
 	if err := sim.uploadChunk(context.Background(), upload); err != nil {
 		t.Fatalf("uploadChunk returned error: %v", err)
+	}
+}
+
+func TestClientExpectIdempotentReplayRequiresReplayHeader(t *testing.T) {
+	body := []byte("encrypted bytes")
+	upload := buildChunkUpload("inc_1", "str_1", 1, "audio", time.Date(2026, 5, 22, 10, 0, 0, 0, time.UTC), body)
+	seenRequests := 0
+	httpClient := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		seenRequests++
+		if r.Header.Get("Idempotency-Key") != upload.idempotencyKey {
+			t.Fatalf("Idempotency-Key = %q, want simulator chunk key", r.Header.Get("Idempotency-Key"))
+		}
+		response := testResponse(http.StatusOK, "application/json", `{"id":"chunk_1"}`)
+		response.Header.Set("Idempotency-Replayed", "true")
+		return response, nil
+	})}
+	sim := client{
+		httpClient:   httpClient,
+		apiBase:      "http://api.example",
+		viewerBase:   "http://viewer.example",
+		sessionToken: "session-token",
+	}
+
+	if err := sim.expectIdempotentReplay(context.Background(), upload); err != nil {
+		t.Fatalf("expectIdempotentReplay returned error: %v", err)
+	}
+	if seenRequests != 1 {
+		t.Fatalf("seen requests = %d, want 1", seenRequests)
 	}
 }
 
@@ -449,6 +480,9 @@ func TestNewChunkUploadIncludesStreamAndHashMetadata(t *testing.T) {
 	}
 	if upload.filename != "audio_000002.enc" {
 		t.Fatalf("filename = %q", upload.filename)
+	}
+	if upload.idempotencyKey == "" {
+		t.Fatal("expected idempotency key")
 	}
 	if len(upload.body) != 16 {
 		t.Fatalf("body length = %d", len(upload.body))

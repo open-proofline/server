@@ -336,6 +336,18 @@ func uploadChunk(t *testing.T, app *testApp, incidentID string, index int, media
 func uploadChunkWithStream(t *testing.T, app *testApp, incidentID string, streamID string, index int, mediaType string, payload []byte, hash string) (*http.Response, []byte) {
 	t.Helper()
 
+	return uploadChunkWithOptions(t, app, incidentID, streamID, index, mediaType, payload, hash, "chunk.enc", "")
+}
+
+func uploadChunkWithIdempotencyKey(t *testing.T, app *testApp, incidentID string, streamID string, index int, mediaType string, payload []byte, hash string, originalFilename string, idempotencyKey string) (*http.Response, []byte) {
+	t.Helper()
+
+	return uploadChunkWithOptions(t, app, incidentID, streamID, index, mediaType, payload, hash, originalFilename, idempotencyKey)
+}
+
+func uploadChunkWithOptions(t *testing.T, app *testApp, incidentID string, streamID string, index int, mediaType string, payload []byte, hash string, originalFilename string, idempotencyKey string) (*http.Response, []byte) {
+	t.Helper()
+
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
 	if streamID != "" {
@@ -347,7 +359,7 @@ func uploadChunkWithStream(t *testing.T, app *testApp, incidentID string, stream
 	must(t, writer.WriteField("started_at", startedAt.Format(time.RFC3339Nano)))
 	must(t, writer.WriteField("ended_at", startedAt.Add(time.Second).Format(time.RFC3339Nano)))
 	must(t, writer.WriteField("sha256_hex", hash))
-	must(t, writer.WriteField("original_filename", "chunk.enc"))
+	must(t, writer.WriteField("original_filename", originalFilename))
 	fileWriter, err := writer.CreateFormFile("file", "upload.enc")
 	if err != nil {
 		t.Fatalf("create form file: %v", err)
@@ -357,13 +369,23 @@ func uploadChunkWithStream(t *testing.T, app *testApp, incidentID string, stream
 	}
 	must(t, writer.Close())
 
-	return post(t, app, "/v1/incidents/"+incidentID+"/chunks", writer.FormDataContentType(), &body)
+	headers := map[string]string{}
+	if idempotencyKey != "" {
+		headers["Idempotency-Key"] = idempotencyKey
+	}
+	return postWithHeaders(t, app, "/v1/incidents/"+incidentID+"/chunks", writer.FormDataContentType(), &body, headers)
 }
 
 func post(t *testing.T, app *testApp, target string, contentType string, body io.Reader) (*http.Response, []byte) {
 	t.Helper()
 
 	return requestWithAuth(t, app.privateHandler, http.MethodPost, target, contentType, body, app.authToken)
+}
+
+func postWithHeaders(t *testing.T, app *testApp, target string, contentType string, body io.Reader, headers map[string]string) (*http.Response, []byte) {
+	t.Helper()
+
+	return requestWithAuthAndHeaders(t, app.privateHandler, http.MethodPost, target, contentType, body, app.authToken, headers)
 }
 
 func postUnauthenticated(t *testing.T, app *testApp, target string, contentType string, body io.Reader) (*http.Response, []byte) {
@@ -405,12 +427,21 @@ func request(t *testing.T, handler http.Handler, method string, target string, c
 func requestWithAuth(t *testing.T, handler http.Handler, method string, target string, contentType string, body io.Reader, token string) (*http.Response, []byte) {
 	t.Helper()
 
+	return requestWithAuthAndHeaders(t, handler, method, target, contentType, body, token, nil)
+}
+
+func requestWithAuthAndHeaders(t *testing.T, handler http.Handler, method string, target string, contentType string, body io.Reader, token string, headers map[string]string) (*http.Response, []byte) {
+	t.Helper()
+
 	request := httptest.NewRequest(method, target, body)
 	if contentType != "" {
 		request.Header.Set("Content-Type", contentType)
 	}
 	if token != "" {
 		request.Header.Set("Authorization", "Bearer "+token)
+	}
+	for name, value := range headers {
+		request.Header.Set(name, value)
 	}
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, request)

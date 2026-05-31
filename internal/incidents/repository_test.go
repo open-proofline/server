@@ -130,6 +130,61 @@ func TestGetChunkByKeyReturnsLegacyUnstreamedChunk(t *testing.T) {
 	}
 }
 
+func TestUploadOperationReservationCompletionAndConflict(t *testing.T) {
+	ctx := context.Background()
+	repo := newRepository(t, ctx)
+	incident, err := repo.CreateIncident(ctx, "phone", "")
+	if err != nil {
+		t.Fatalf("create incident: %v", err)
+	}
+	stream, err := repo.CreateMediaStream(ctx, incident.ID, incidents.MediaTypeAudio, "audio")
+	if err != nil {
+		t.Fatalf("create media stream: %v", err)
+	}
+	params := testUploadOperationParams(incident.ID, stream.ID)
+
+	reserved, err := repo.ReserveUploadOperation(ctx, params)
+	if err != nil {
+		t.Fatalf("reserve upload operation: %v", err)
+	}
+	if reserved.State != incidents.UploadOperationStateReserved {
+		t.Fatalf("state = %q, want reserved", reserved.State)
+	}
+	same, err := repo.ReserveUploadOperation(ctx, params)
+	if err != nil {
+		t.Fatalf("reserve same upload operation: %v", err)
+	}
+	if same.ID != reserved.ID {
+		t.Fatalf("same idempotency key created a new operation: first=%q second=%q", reserved.ID, same.ID)
+	}
+
+	conflicting := params
+	conflicting.OriginalFilename = "other.enc"
+	conflicting.FingerprintHash = strings.Repeat("c", 64)
+	if _, err := repo.ReserveUploadOperation(ctx, conflicting); !errors.Is(err, incidents.ErrIdempotencyConflict) {
+		t.Fatalf("conflicting reservation error = %v, want ErrIdempotencyConflict", err)
+	}
+
+	chunk, err := repo.CreateChunk(ctx, testChunkParams(incident.ID, stream.ID, incidents.MediaTypeAudio, 1))
+	if err != nil {
+		t.Fatalf("create chunk: %v", err)
+	}
+	completed, err := repo.CompleteUploadOperation(ctx, params, chunk)
+	if err != nil {
+		t.Fatalf("complete upload operation: %v", err)
+	}
+	if completed.State != incidents.UploadOperationStateMetadataCommitted || completed.ChunkID != chunk.ID {
+		t.Fatalf("unexpected completed operation: %+v", completed)
+	}
+	replayed, err := repo.ReserveUploadOperation(ctx, params)
+	if err != nil {
+		t.Fatalf("reserve completed operation: %v", err)
+	}
+	if replayed.State != incidents.UploadOperationStateMetadataCommitted || replayed.ChunkID != chunk.ID {
+		t.Fatalf("expected completed operation replay, got %+v", replayed)
+	}
+}
+
 func TestCompleteMediaStreamRejectsUnexpectedChunkRows(t *testing.T) {
 	ctx := context.Background()
 	repo := newRepository(t, ctx)
@@ -192,5 +247,23 @@ func testChunkParams(incidentID, streamID, mediaType string, chunkIndex int) inc
 		StoredPath:       storedPath,
 		ByteSize:         4,
 		SHA256Hex:        strings.Repeat("a", 64),
+	}
+}
+
+func testUploadOperationParams(incidentID, streamID string) incidents.UploadOperationParams {
+	chunk := testChunkParams(incidentID, streamID, incidents.MediaTypeAudio, 1)
+	return incidents.UploadOperationParams{
+		Operation:          incidents.UploadOperationUploadChunk,
+		IdempotencyKeyHash: strings.Repeat("b", 64),
+		IncidentID:         incidentID,
+		StreamID:           streamID,
+		ChunkIndex:         chunk.ChunkIndex,
+		MediaType:          chunk.MediaType,
+		StartedAt:          chunk.StartedAt,
+		EndedAt:            chunk.EndedAt,
+		OriginalFilename:   chunk.OriginalFilename,
+		ByteSize:           chunk.ByteSize,
+		SHA256Hex:          chunk.SHA256Hex,
+		FingerprintHash:    strings.Repeat("a", 64),
 	}
 }

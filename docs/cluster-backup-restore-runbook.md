@@ -27,7 +27,7 @@ together. Coordination state is intentionally not evidence storage.
 
 | System | Role | Backup source of truth |
 |---|---|---|
-| PostgreSQL metadata | Incidents, streams, chunk metadata, checkins, viewer-token hashes, migrations, and future durable upload-operation state after that feature exists. | Yes, when `SAFE_METADATA_BACKEND=postgresql`. |
+| PostgreSQL metadata | Incidents, streams, chunk metadata, checkins, viewer-token hashes, migrations, and durable upload-operation state for complete chunk upload idempotency. | Yes, when `SAFE_METADATA_BACKEND=postgresql`. |
 | S3-compatible encrypted blob storage | Committed encrypted chunk bytes addressed by server-controlled final object keys. | Yes, when `SAFE_BLOB_BACKEND=s3`. |
 | Deployment configuration | Backend selectors, bind addresses, data paths, upload limits, token TTL defaults, S3 settings, PostgreSQL settings, Valkey settings, reverse-proxy routing, and secret references. | Yes, but keep secret values in a private secret-management backup, not in public docs or tickets. |
 | Local `SAFE_DATA_DIR/tmp` | Temporary upload staging before final commit. Current S3 support uses local temp files and does not create S3 staging objects. | No, except for forensic review during a private incident response. |

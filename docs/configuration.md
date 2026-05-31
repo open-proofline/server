@@ -94,8 +94,9 @@ go run ./cmd/api
 Valkey/Redis-compatible coordination is implemented as an optional, explicit
 backend. The current server validates the configured service at startup, but
 current upload routes still use complete encrypted chunk uploads and do not yet
-implement upload leases, idempotency keys, resumable uploads, application-level
-rate limiting, or cluster-safe retry semantics.
+implement upload leases, resumable uploads, application-level rate limiting, or
+Valkey-backed cluster coordination. Complete-upload idempotency keys are stored
+in the selected metadata backend, not Valkey.
 
 `SAFE_DB_PATH` and `SAFE_DATA_DIR` keep their current behavior for the supported `sqlite` and `local` backends. When `SAFE_METADATA_BACKEND=postgresql`, `SAFE_DB_PATH` is not used for metadata. When `SAFE_BLOB_BACKEND=s3`, `SAFE_DATA_DIR/tmp` is still used for local temporary upload staging before final object writes.
 
@@ -166,7 +167,7 @@ backend cannot be checked at startup, the server fails closed instead of
 silently running with a misleading cluster configuration.
 
 The current implementation does not store upload leases or idempotency results
-in Valkey yet. Future upload-operation work must keep Valkey keys
+in Valkey. Future upload-operation work must keep Valkey keys
 server-controlled and must not include raw viewer tokens, incident tokens,
 request bodies, uploaded bytes, plaintext, raw keys, private deployment
 details, raw idempotency keys, or user safety data.
@@ -221,9 +222,10 @@ For a new metadata database, startup fails until an admin account exists unless
 `SAFE_AUTH_BOOTSTRAP_SECRET` is set. Use that secret only long enough to call
 `POST /v1/bootstrap/admin` or create the first admin through `/admin`, then
 remove it from the environment and restart.
-Treat the bootstrap secret, account passwords, session tokens, and
-Authorization headers as secrets. They must not appear in public issues,
-logs, dashboards, screenshots, support tickets, or shell history.
+Treat the bootstrap secret, account passwords, session tokens, raw
+idempotency keys, and Authorization headers as secrets. They must not appear in
+public issues, logs, dashboards, screenshots, support tickets, or shell
+history.
 
 ## HTTP Timeouts
 

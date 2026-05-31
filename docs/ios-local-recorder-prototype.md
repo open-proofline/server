@@ -222,8 +222,8 @@ Do not implement these as part of the prototype plan. Track them as future backe
 - no first-class incident-mode, capture-profile, escalation-policy, or
   sharing-state field
 - no account-owner, trusted-contact, or web-client access model
-- no implemented idempotency-key or equivalent retry-success API for ambiguous
-  chunk upload outcomes; future semantics are planned in
+- no resumable or partial-upload API; complete-upload idempotency-key retry
+  success is documented in
   [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md)
 - no implemented client API for reconciling a duplicate chunk by expected
   ciphertext hash; the planned private query workflow is documented in
