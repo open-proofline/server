@@ -2,7 +2,9 @@
 
 The simulator CLI lives at `cmd/simclient`. It exercises the current Proofline ingest flow that a future recording client is expected to use. It logs in to the private `/v1` API with a local account session, then encrypts fake chunk plaintext with the v1 client-side envelope before upload by default. Each intended chunk upload includes a stable `Idempotency-Key`, and the simulator verifies one equivalent replay without printing the raw key.
 
-The simulator covers generic incidents only. It does not implement planned incident modes such as emergency incidents, interaction records, safety checks, or evidence notes.
+The simulator covers generic incidents only. It does not set optional
+incident-mode metadata for emergency incidents, interaction records, safety
+checks, or evidence notes.
 
 ## Future Desktop Recorder Simulator
 

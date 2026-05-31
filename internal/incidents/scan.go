@@ -13,7 +13,23 @@ func scanIncident(s scanner) (Incident, error) {
 	var ownerAccountID sql.NullString
 	var clientLabel sql.NullString
 	var notes sql.NullString
-	if err := s.Scan(&incident.ID, &ownerAccountID, &createdAt, &updatedAt, &incident.Status, &clientLabel, &notes); err != nil {
+	var incidentMode sql.NullString
+	var captureProfile sql.NullString
+	var escalationPolicy sql.NullString
+	var sharingState sql.NullString
+	if err := s.Scan(
+		&incident.ID,
+		&ownerAccountID,
+		&createdAt,
+		&updatedAt,
+		&incident.Status,
+		&clientLabel,
+		&notes,
+		&incidentMode,
+		&captureProfile,
+		&escalationPolicy,
+		&sharingState,
+	); err != nil {
 		return Incident{}, err
 	}
 	parsedCreatedAt, err := parseDBTime(createdAt)
@@ -34,6 +50,18 @@ func scanIncident(s scanner) (Incident, error) {
 	}
 	if notes.Valid {
 		incident.Notes = notes.String
+	}
+	if incidentMode.Valid {
+		incident.IncidentMode = incidentMode.String
+	}
+	if captureProfile.Valid {
+		incident.CaptureProfile = captureProfile.String
+	}
+	if escalationPolicy.Valid {
+		incident.EscalationPolicy = escalationPolicy.String
+	}
+	if sharingState.Valid {
+		incident.SharingState = sharingState.String
 	}
 	return incident, nil
 }

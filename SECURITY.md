@@ -2,7 +2,12 @@
 
 Proofline is a private encrypted incident-capture backend. It is not production-ready public infrastructure. The private `/v1` API uses local account sessions, and the private `/admin` web surface uses admin cookie sessions, but neither is a public product API and both must stay behind localhost, WireGuard, a firewall, or an equivalent private boundary.
 
-The current implementation supports generic incident capture and token-scoped read-only incident review. Planned future modes include emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes. Those modes do not change the current vulnerability-reporting process until they are implemented.
+The current implementation supports generic incident capture, optional
+incident-mode metadata fields, and token-scoped read-only incident review.
+Mode metadata does not grant access, send notifications, change retention,
+change key custody, expose trusted-contact workflows, or change public viewer
+and bundle behavior. It does not change the current vulnerability-reporting
+process.
 
 ## Supported Versions
 
@@ -64,7 +69,7 @@ Reports are in scope when they affect the current backend, documentation, or dep
 
 The following are generally out of scope unless they demonstrate a concrete vulnerability in this repository:
 
-- missing features already documented as absent, such as public account workflows, OAuth, JWT, SMS, push notifications, trusted-contact accounts, Android/iOS clients, a web client, first-class incident modes, escalation policies, or a public admin dashboard
+- missing features already documented as absent, such as public account workflows, OAuth, JWT, SMS, push notifications, trusted-contact accounts, Android/iOS clients, a web client, mode-driven escalation behavior, or a public admin dashboard
 - lack of production hardening already documented as a known limitation, without a new exploit path
 - reports requiring public exposure of the private `/v1` API contrary to documented deployment guidance
 - denial-of-service reports based only on unrealistic local access or unbounded physical access

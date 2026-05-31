@@ -9,7 +9,12 @@ evidence bundle downloads.
 
 This repository is the server/backend component only. In the planned `open-proofline` organisation layout it corresponds to `open-proofline/server`. Future web-client, iOS-client, Android-client, and protocol implementation should live in separate repositories.
 
-The current backend stores generic incidents only. Planned future clients may classify incidents as emergency incidents, non-emergency interaction records, timed safety checks, or evidence notes after the protocol, schema, access-control, migration, and client designs exist. Future incident-mode, capture-profile, escalation-policy, and sharing-state boundaries are documented in [incident-modes.md](incident-modes.md), with role and grant boundaries in [v1-access-control.md](v1-access-control.md).
+The current backend stores generic incidents by default and can store optional
+incident-mode, capture-profile, escalation-policy, and sharing-state metadata on
+private incident create/read routes. Those fields do not drive access,
+notification, retention, sharing, viewer, or key-custody behavior. Mode-driven
+behavior boundaries are documented in [incident-modes.md](incident-modes.md),
+with role and grant boundaries in [v1-access-control.md](v1-access-control.md).
 
 ## Package Layout
 
@@ -172,7 +177,7 @@ Before public exposure, review and add:
   [cluster-backup-restore-runbook.md](cluster-backup-restore-runbook.md)
 - operational monitoring for failed uploads and storage/DB errors
 - a production review of viewer-token sharing, expiry defaults, and revocation operations
-- first-class incident-mode, capture-profile, escalation-policy, sharing-state,
+- mode-driven access, escalation, retention, sharing, viewer, key-custody,
   trusted-contact, public product API, and broader admin/operator authorization
   design before implementing public account workflows or a separately bound
   private admin API
@@ -180,9 +185,9 @@ Before public exposure, review and add:
 ## Out Of Scope Today
 
 The repository does not currently include the web client, iOS app, Android app,
-protocol repository, local recording, first-class incident modes, capture
-profiles, escalation policies, sharing state, trusted-contact accounts, dead-man
-switch notifications, production client key storage, key sharing,
-browser/client-side decryption, server-assisted break-glass key access, playable
-media export, push notifications, SMS, Messenger integration, OAuth, JWT, public
-account workflows, or a public admin dashboard.
+protocol repository, local recording, mode-driven access, escalation, retention,
+sharing, viewer behavior, trusted-contact accounts, dead-man switch
+notifications, production client key storage, key sharing, browser/client-side
+decryption, server-assisted break-glass key access, playable media export, push
+notifications, SMS, Messenger integration, OAuth, JWT, public account workflows,
+or a public admin dashboard.

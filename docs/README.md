@@ -88,7 +88,18 @@ future desktop simulator should include adjustable poor-network simulation and
 use the current local account/session flow unless a later client protocol
 replaces it.
 
-The long-term Proofline product direction is broader than emergency-only recording. Future clients should support emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes while keeping capture, escalation, sharing, and legal/export actions separate. The planned incident-mode schema, capture-profile, escalation-policy, sharing-state, and migration boundaries are documented in [incident-modes.md](incident-modes.md). Current local account/session behavior and future account-owner, trusted-contact, public-link, admin/operator, and optional escrow access boundaries are documented in [v1-access-control.md](v1-access-control.md).
+The long-term Proofline product direction is broader than emergency-only
+recording. Future clients should support emergency incidents, non-emergency
+interaction records, timed safety checks, and evidence notes while keeping
+capture, escalation, sharing, and legal/export actions separate. The current
+private incident create/read routes support optional incident-mode,
+capture-profile, escalation-policy, and sharing-state metadata, but those fields
+do not drive access, notification, retention, sharing, viewer, or key-custody
+behavior. Mode-driven behavior and migration boundaries are documented in
+[incident-modes.md](incident-modes.md). Current local account/session behavior
+and future account-owner, trusted-contact, public-link, admin/operator, and
+optional escrow access boundaries are documented in
+[v1-access-control.md](v1-access-control.md).
 
 The future iOS incident-capture prototype is planned in [ios-local-recorder-prototype.md](ios-local-recorder-prototype.md). Future production key custody is documented in [key-custody.md](key-custody.md), with a simulator-only contact-wrapped key metadata prototype in [contact-wrapped-key-metadata-simulator.md](contact-wrapped-key-metadata-simulator.md), browser decryption and break-glass follow-up designs in [browser-decryption.md](browser-decryption.md) and [break-glass-key-access.md](break-glass-key-access.md), and live or partial stream access boundaries in [live-partial-stream-access-boundary.md](live-partial-stream-access-boundary.md). None of those future designs make the current private `/v1` API or `/admin` surface safe for broad public exposure.
 

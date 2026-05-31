@@ -368,8 +368,8 @@ Retention tasks:
   tombstones, and orphaned temporary upload files
 - add a manual or scheduled retention runner only after dry-run behavior and
   operator review are documented
-- defer incident-mode-specific retention until first-class incident-mode,
-  capture-profile, escalation-policy, and sharing-state fields exist
+- defer incident-mode-specific retention until mode-driven retention behavior and
+  policy are explicitly designed
 
 Test tasks:
 

@@ -4,7 +4,14 @@ This is the current backend-only HTTP surface for Proofline. The API binary star
 
 Media bundle downloads are encrypted chunk bundles. The backend does not decrypt, merge, or produce playable media. The simulator's current encrypted uploads use the envelope documented in [encryption.md](encryption.md), but the API treats uploaded bytes as opaque ciphertext.
 
-The current API stores generic incidents owned by local accounts. Planned incident modes such as emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes are documented in [incident-modes.md](incident-modes.md), along with future capture-profile, escalation-policy, sharing-state, and migration boundaries. First-class incident-mode, escalation-policy, trusted-contact, and public product APIs do not exist yet.
+The current API stores incidents owned by local accounts. Incidents are generic
+by default and may include optional `incident_mode`, `capture_profile`,
+`escalation_policy`, and `sharing_state` metadata on the private create/read
+routes. Those fields are metadata only: they do not grant access, send
+notifications, change retention, change key custody, expose trusted-contact
+workflows, or change public viewer and bundle behavior. Planned mode-driven
+behavior is documented in [incident-modes.md](incident-modes.md). Trusted-contact
+and public product APIs do not exist yet.
 
 Default bind addresses:
 
@@ -239,23 +246,44 @@ Incident routes are mounted only on the private API server and require a valid s
 
 ### `POST /v1/incidents`
 
-Creates an open generic incident. Future clients may classify incidents as emergency incidents, interaction records, safety checks, or evidence notes only after the protocol, access-control, migration, and viewer-wording design is implemented. The current request does not accept an incident mode, capture profile, escalation policy, or sharing state.
+Creates an open incident. When mode fields are omitted, the incident remains a
+generic legacy incident. The request may include optional mode metadata, but
+these fields do not grant access, create public links, send notifications,
+change retention, change key custody, expose trusted-contact workflows, or change
+public viewer and bundle behavior.
 
 Request:
 
 ```json
 {
   "client_label": "iphone",
-  "notes": "test incident"
+  "notes": "test incident",
+  "incident_mode": "interaction_record",
+  "capture_profile": "audio_location",
+  "escalation_policy": "none",
+  "sharing_state": "private"
 }
 ```
+
+Optional mode values:
+
+| Field | Accepted values |
+|---|---|
+| `incident_mode` | `emergency`, `interaction_record`, `safety_check`, `evidence_note` |
+| `capture_profile` | `audio_video_location`, `audio_location`, `location_checkin`, `note_or_attachment`, `custom` |
+| `escalation_policy` | `none`, `trusted_contacts_on_start`, `trusted_contacts_on_missed_checkin`, `urgent_trusted_contact_alert` |
+| `sharing_state` | `private`, `trusted_contact_access`, `public_link_created`, `legal_export_created`, `revoked_or_expired` |
 
 Response `201`:
 
 ```json
 {
   "incident_id": "inc_...",
-  "status": "open"
+  "status": "open",
+  "incident_mode": "interaction_record",
+  "capture_profile": "audio_location",
+  "escalation_policy": "none",
+  "sharing_state": "private"
 }
 ```
 
@@ -272,7 +300,11 @@ Response `200`:
     "created_at": "2026-05-21T10:00:00Z",
     "updated_at": "2026-05-21T10:00:00Z",
     "status": "open",
-    "client_label": "iphone"
+    "client_label": "iphone",
+    "incident_mode": "interaction_record",
+    "capture_profile": "audio_location",
+    "escalation_policy": "none",
+    "sharing_state": "private"
   },
   "streams": [],
   "chunks": [],
@@ -284,7 +316,10 @@ Response `200`:
 
 Marks an incident closed. Later chunk uploads return `409 incident_closed`.
 
-Response `200` is the updated incident object.
+Response `200` is the updated private incident object. If the incident has
+optional mode metadata, the same fields shown in the `GET` incident object can
+be present. Closing an incident does not change sharing, retention, viewer,
+notification, or key-custody behavior.
 
 ## Chunks
 

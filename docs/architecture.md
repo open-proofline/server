@@ -9,7 +9,21 @@ Valkey/Redis-compatible short-lived coordination when explicitly configured.
 
 This repository is the server/backend component only. In the planned multi-repo layout it corresponds to `open-proofline/server`. Web, iOS, Android, and shared protocol work are expected to live in separate future repositories.
 
-The long-term product direction is broader than emergency-only recording. Future clients may support emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes. The current backend still stores generic incidents and now has local username/password accounts with opaque server-side sessions for the private `/v1` API, private-only unauthenticated health/readiness checks, plus a private admin web surface under `/admin`. First-class incident modes, capture profiles, escalation policies, sharing state, trusted-contact accounts, notification delivery, and mobile/web clients are not implemented yet. Planned mode, escalation, migration, and viewer-wording boundaries are documented in [incident-modes.md](incident-modes.md), and current local session behavior plus future public product API, separately bound private admin API, role, and grant boundaries are documented in [v1-access-control.md](v1-access-control.md).
+The long-term product direction is broader than emergency-only recording. Future
+clients may support emergency incidents, non-emergency interaction records,
+timed safety checks, and evidence notes. The current backend stores generic
+incidents by default, can store optional incident-mode, capture-profile,
+escalation-policy, and sharing-state metadata on private incident create/read
+routes, and has local username/password accounts with opaque server-side
+sessions for the private `/v1` API, private-only unauthenticated
+health/readiness checks, plus a private admin web surface under `/admin`.
+Mode-driven access, escalation, retention, sharing, key custody,
+trusted-contact accounts, notification delivery, and mobile/web clients are not
+implemented yet. Planned mode behavior, escalation, migration, and
+viewer-wording boundaries are documented in [incident-modes.md](incident-modes.md),
+and current local session behavior plus future public product API, separately
+bound private admin API, role, and grant boundaries are documented in
+[v1-access-control.md](v1-access-control.md).
 
 The repository does not contain an iOS app, Android app, web client, protocol package, recording implementation, production client key storage, key sharing, browser/client-side decryption, server-assisted break-glass key access, notification system, trusted-contact account model, future public product API, future separately bound private admin API, OAuth/JWT identity integration, or playable media export. The Go simulator can produce the documented v1 client-side encryption envelope for development and test flows. Future key custody and emergency access design is documented in [key-custody.md](key-custody.md), [browser-decryption.md](browser-decryption.md), and [break-glass-key-access.md](break-glass-key-access.md).
 
@@ -113,7 +127,7 @@ sequenceDiagram
     Client->>Private: POST /v1/auth/login
     Private->>DB: Validate account and create hashed session record
     Client->>Private: POST /v1/incidents
-    Private->>DB: Create generic incident metadata for account
+    Private->>DB: Create incident metadata for account
     Client->>Private: POST /v1/incidents/{id}/incident-tokens
     Private->>DB: Store token hash only
     Client->>Private: POST /v1/incidents/{id}/streams
@@ -128,7 +142,11 @@ sequenceDiagram
     Public->>Blob: Stream completed encrypted bundle
 ```
 
-Future clients may classify the same generic backend incident as an emergency incident, interaction record, safety check, or evidence note in client/protocol metadata after that design exists. The current API does not yet store a first-class incident mode, capture profile, escalation policy, or sharing state.
+Future clients may classify incidents as emergency incidents, interaction
+records, safety checks, or evidence notes through the current optional private
+API metadata fields. Those fields are not behavior flags and do not change
+access, notification, retention, sharing, key custody, viewer, or bundle
+behavior.
 
 ## Private/Public Server Boundary
 
