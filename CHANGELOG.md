@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.9.0 - 2026-06-01
+
 - Added configurable app-level rate limiting for public incident viewer page,
   JSON polling, encrypted ZIP download, and static asset route classes, using
   safe route-class keys with local in-memory counters by default and
@@ -21,6 +23,9 @@
   local development contact keys and the maintained `filippo.io/age` wrapping
   library, while keeping backend manifests, routes, storage, and decryption
   behavior unchanged.
+- Ignored the desktop-recorder simulator's default stage key filename so local
+  simulator keys are not accidentally staged when a stage directory lives under
+  the repository.
 - Added optional incident-mode, capture-profile, escalation-policy, and
   sharing-state metadata fields to private incident creation and read responses,
   while preserving generic legacy incidents and leaving access, notifications,
