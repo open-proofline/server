@@ -23,7 +23,7 @@ This directory contains the detailed documentation for Proofline Server, the Go 
 | [Browser-side decryption](browser-decryption.md) | Future incident viewer decryption options, risks, and phased direction. |
 | [Live partial stream access boundary](live-partial-stream-access-boundary.md) | Future live or partial stream access roles, stream-state exposure, partial manifests, caching, and key-custody dependencies. |
 | [Break-glass key access](break-glass-key-access.md) | Future optional server-assisted emergency key access and dead-man-switch design. |
-| [API](api.md) | Current private `/v1` API routes, private `/admin` web routes, request examples, response examples, and bundle formats. |
+| [API](api.md) | Current private `/v1` API routes including health/readiness checks, private `/admin` web routes, request examples, response examples, and bundle formats. |
 | [Deployment](deployment.md) | Local, Docker, SQLite WAL operations, reverse proxy, TLS, and public exposure notes. |
 | [Retention, backup, and deletion](retention-backup-deletion.md) | Operational policy for evidence lifecycle, backups, restores, and deletion limits. |
 | [Incident deletion and retention enforcement design](incident-deletion-retention-enforcement.md) | Future design for private/admin deletion decisions, retention jobs, tombstones, blob deletion retry, and safe audit boundaries. |
@@ -57,7 +57,7 @@ Those repositories do not exist in this repository and should not be implemented
 
 ## Current Backend Scope
 
-Proofline Server receives already-encrypted chunks, stores metadata in SQLite by default or optional PostgreSQL, stores encrypted blobs on local disk by default or in optional S3-compatible object storage, performs a startup check against optional Valkey/Redis-compatible coordination when explicitly configured, groups chunks into media streams, serves a private admin web surface under `/admin`, and exposes a token-scoped read-only incident viewer. The Go simulator can produce the documented v1 client-side encryption envelope for development and test flows.
+Proofline Server receives already-encrypted chunks, stores metadata in SQLite by default or optional PostgreSQL, stores encrypted blobs on local disk by default or in optional S3-compatible object storage, exposes private coarse liveness/readiness checks, performs a startup check against optional Valkey/Redis-compatible coordination when explicitly configured, groups chunks into media streams, serves a private admin web surface under `/admin`, and exposes a token-scoped read-only incident viewer. The Go simulator can produce the documented v1 client-side encryption envelope for development and test flows.
 
 The planned production-cluster scope is additive: SQLite and local filesystem
 storage remain supported, optional PostgreSQL metadata can store incident

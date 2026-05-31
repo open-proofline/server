@@ -9,8 +9,9 @@ decryption are not implemented.
 
 ## Summary
 
-The current `/v1` API is private and requires a local account session for every
-route except first-admin bootstrap and login. It remains intended only for
+The current `/v1` API is private and requires a local account session for
+write/admin routes. First-admin bootstrap, login, and private health/readiness
+routes are the narrow unauthenticated exceptions. It remains intended only for
 localhost, LAN, WireGuard, firewall, or strict private reverse-proxy access.
 Local sessions reduce accidental unauthenticated access; they do not make `/v1`
 a public product API.
@@ -66,7 +67,7 @@ Today the backend has two listener groups:
 
 | Listener group | Current routes | Exposure |
 |---|---|---|
-| Private API | `/v1/...` with local account/session auth, except bootstrap and login; private `/admin` web surface with login/bootstrap/logout forms, account list, password forms, and admin session cookie | Localhost, LAN, WireGuard, firewall, or strict private reverse proxy only. |
+| Private API | `/v1/...` with local account/session auth, except bootstrap, login, and private health/readiness routes; private `/admin` web surface with login/bootstrap/logout forms, account list, password forms, and admin session cookie | Localhost, LAN, WireGuard, firewall, or strict private reverse proxy only. |
 | Public incident viewer | `/i/{token}` plus legacy `/e/{token}` aliases and `/static/...` | Public HTTPS/reverse proxy may expose this read-only viewer. |
 
 All current `/v1` write/admin routes remain private. The implemented local auth
@@ -326,7 +327,8 @@ uploaded bytes, and private deployment details.
 The migration from the current private deployment model should be incremental:
 
 1. Keep all current `/v1` routes private and authenticated with local sessions
-   unless the route is explicitly bootstrap or login.
+   unless the route is explicitly bootstrap, login, `/v1/health/live`, or
+   `/v1/health/ready`.
 2. Define device, trusted-contact, public-link, operator, and optional
    escrow data model requirements in a protocol/client design task.
 3. Introduce separate future route groups for public product API, private admin

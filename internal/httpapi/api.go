@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"time"
@@ -25,8 +26,17 @@ type Options struct {
 	DefaultIncidentTokenTTL *time.Duration
 	SessionTTL              time.Duration
 	BootstrapSecret         string
+	ReadinessChecks         []ReadinessCheck
 	PasswordCost            int
 	Logger                  *slog.Logger
+}
+
+// ReadinessCheck describes one coarse backend readiness check exposed by the
+// private health endpoint.
+type ReadinessCheck struct {
+	Name    string
+	Backend string
+	Check   func(context.Context) error
 }
 
 // API holds the dependencies and limits used by the HTTP handlers.
@@ -37,6 +47,7 @@ type API struct {
 	defaultIncidentTokenTTL time.Duration
 	sessionTTL              time.Duration
 	bootstrapSecret         string
+	readinessChecks         []ReadinessCheck
 	passwordCost            int
 	logger                  *slog.Logger
 }
@@ -85,6 +96,7 @@ func newAPI(repo MetadataRepository, store storage.BlobStore, opts Options) *API
 	if logger == nil {
 		logger = slog.Default()
 	}
+	readinessChecks := append([]ReadinessCheck(nil), opts.ReadinessChecks...)
 
 	return &API{
 		repo:                    repo,
@@ -93,6 +105,7 @@ func newAPI(repo MetadataRepository, store storage.BlobStore, opts Options) *API
 		defaultIncidentTokenTTL: incidentTokenTTL,
 		sessionTTL:              sessionTTL,
 		bootstrapSecret:         opts.BootstrapSecret,
+		readinessChecks:         readinessChecks,
 		passwordCost:            passwordCost,
 		logger:                  logger,
 	}

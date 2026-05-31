@@ -112,6 +112,23 @@ func TestLocalStoreRejectsUnsafeStoredPaths(t *testing.T) {
 	}
 }
 
+func TestLocalStoreCheck(t *testing.T) {
+	store, err := New(t.TempDir())
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+
+	if err := store.Check(context.Background()); err != nil {
+		t.Fatalf("check store: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := store.Check(ctx); !errors.Is(err, context.Canceled) {
+		t.Fatalf("canceled check error = %v, want context.Canceled", err)
+	}
+}
+
 func sha256Hex(value string) string {
 	sum := sha256.Sum256([]byte(value))
 	return hex.EncodeToString(sum[:])

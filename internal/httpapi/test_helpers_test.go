@@ -124,6 +124,13 @@ func newTestAppWithOptionsAndTestAccount(t *testing.T, options httpapi.Options, 
 		}
 	}
 	var metadataRepo httpapi.MetadataRepository = repo
+	if options.ReadinessChecks == nil {
+		options.ReadinessChecks = []httpapi.ReadinessCheck{
+			{Name: "metadata", Backend: "sqlite", Check: repo.Check},
+			{Name: "blob", Backend: "local", Check: blobStore.Check},
+			{Name: "coordination", Backend: "none", Check: func(context.Context) error { return nil }},
+		}
+	}
 
 	return &testApp{
 		privateHandler: httpapi.NewPrivate(metadataRepo, blobStore, options),

@@ -32,6 +32,11 @@ func NewRepository(db *sql.DB) *Repository {
 	return &Repository{db: db}
 }
 
+// Check verifies that the SQLite metadata handle is reachable.
+func (r *Repository) Check(ctx context.Context) error {
+	return r.db.PingContext(ctx)
+}
+
 // CreateIncident inserts a new open legacy incident without an owner account.
 func (r *Repository) CreateIncident(ctx context.Context, clientLabel, notes string) (Incident, error) {
 	return r.CreateIncidentForAccount(ctx, "", clientLabel, notes)

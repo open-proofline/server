@@ -4,12 +4,12 @@ Proofline Server is currently a single Go backend binary with separate private
 and public HTTP listener groups. It stores incident metadata in SQLite by
 default or optional PostgreSQL, encrypted uploaded chunks on local disk by
 default with optional S3-compatible object storage for committed encrypted
-chunks, and optional Valkey/Redis-compatible short-lived coordination when
-explicitly configured.
+chunks, private coarse liveness/readiness checks, and optional
+Valkey/Redis-compatible short-lived coordination when explicitly configured.
 
 This repository is the server/backend component only. In the planned multi-repo layout it corresponds to `open-proofline/server`. Web, iOS, Android, and shared protocol work are expected to live in separate future repositories.
 
-The long-term product direction is broader than emergency-only recording. Future clients may support emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes. The current backend still stores generic incidents and now has local username/password accounts with opaque server-side sessions for the private `/v1` API plus a private admin web surface under `/admin`. First-class incident modes, capture profiles, escalation policies, sharing state, trusted-contact accounts, notification delivery, and mobile/web clients are not implemented yet. Planned mode, escalation, migration, and viewer-wording boundaries are documented in [incident-modes.md](incident-modes.md), and current local session behavior plus future public product API, separately bound private admin API, role, and grant boundaries are documented in [v1-access-control.md](v1-access-control.md).
+The long-term product direction is broader than emergency-only recording. Future clients may support emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes. The current backend still stores generic incidents and now has local username/password accounts with opaque server-side sessions for the private `/v1` API, private-only unauthenticated health/readiness checks, plus a private admin web surface under `/admin`. First-class incident modes, capture profiles, escalation policies, sharing state, trusted-contact accounts, notification delivery, and mobile/web clients are not implemented yet. Planned mode, escalation, migration, and viewer-wording boundaries are documented in [incident-modes.md](incident-modes.md), and current local session behavior plus future public product API, separately bound private admin API, role, and grant boundaries are documented in [v1-access-control.md](v1-access-control.md).
 
 The repository does not contain an iOS app, Android app, web client, protocol package, recording implementation, production client key storage, key sharing, browser/client-side decryption, server-assisted break-glass key access, notification system, trusted-contact account model, future public product API, future separately bound private admin API, OAuth/JWT identity integration, or playable media export. The Go simulator can produce the documented v1 client-side encryption envelope for development and test flows. Future key custody and emergency access design is documented in [key-custody.md](key-custody.md), [browser-decryption.md](browser-decryption.md), and [break-glass-key-access.md](break-glass-key-access.md).
 
@@ -25,6 +25,7 @@ flowchart LR
     AdminWeb -->|"local accounts"| DB
     PrivateAPI --> Store["Blob storage"]
     Store --> Files[(Encrypted chunk files)]
+    OperatorCheck["Private operator check"] -->|"GET /v1/health/ready"| PrivateAPI
     PrivateAPI --> Coord["Optional coordination<br/>startup-checked Valkey/Redis"]
     PrivateAPI --> Token["Viewer token creation"]
     Contact["Trusted contact"] --> Viewer["Public incident viewer<br/>/i/{token}"]
@@ -82,6 +83,7 @@ flowchart TB
         Simulator["Simulator CLI"] --> PrivateListener["Private API listener<br/>SAFE_PRIVATE_BIND_ADDRS"]
         WireGuard --> PrivateListener
         PrivateListener --> V1["/v1 API"]
+        PrivateListener --> Health["/v1/health/live<br/>/v1/health/ready"]
         PrivateListener --> AdminWeb["/admin web"]
         V1 --> Auth["Local account sessions"]
         AdminWeb --> Auth

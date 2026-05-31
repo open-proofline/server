@@ -22,7 +22,7 @@ The API binary starts separate listener groups:
 
 | Listener group | Routes | Intended exposure |
 |---|---|---|
-| Private API | Authenticated `/v1/...` plus private `/admin` web routes | Localhost, LAN, WireGuard, firewall, or strict reverse proxy only. |
+| Private API | Authenticated `/v1/...`, unauthenticated private `/v1/health/live` and `/v1/health/ready`, plus private `/admin` web routes | Localhost, LAN, WireGuard, firewall, or strict reverse proxy only. |
 | Public incident viewer | `/i/{token}` and related read-only routes, plus pre-rename `/e/{token}` compatibility aliases | HTTPS/reverse proxy when exposed. |
 
 Private write/admin routes must not be mounted on public incident viewer listeners. Incident viewer routes are read-only.
@@ -41,6 +41,14 @@ The server fails closed on startup unless an admin account exists or
 bootstrap route is disabled once an admin account exists. Treat the bootstrap
 secret, account passwords, session tokens, and Authorization headers as
 secrets.
+
+`GET /v1/health/live` and `GET /v1/health/ready` are unauthenticated because
+they are intended for local Docker checks, private reverse-proxy upstream
+checks, and operator troubleshooting without storing a session token. They are
+mounted only on the private API mux. Their responses are coarse and must not
+expose DSNs, credentials, bucket names, object keys, stored paths, local
+filesystem paths, private hostnames, tokens, request bodies, uploaded bytes,
+plaintext, raw keys, private deployment details, or underlying error strings.
 
 The private `/admin` page, login form, bootstrap form, and account password
 workflows are mounted only on the private API mux, not on the public incident
@@ -98,6 +106,10 @@ short-lived coordination checks. It is not durable evidence storage, does not
 hold incident metadata, viewer-token metadata, committed encrypted bytes,
 retention decisions, plaintext, or keys, and does not change the private
 `/v1` boundary.
+
+Private readiness checks can report only coarse metadata, blob, and coordination
+backend status. They are operator checks, not public diagnostics, metrics,
+support dashboards, or evidence-inspection routes.
 
 Future cluster-safe upload operation semantics are planned separately in
 [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md), but no

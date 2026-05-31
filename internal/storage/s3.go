@@ -40,6 +40,7 @@ type S3Store struct {
 }
 
 type s3ObjectClient interface {
+	HeadBucket(context.Context, *s3.HeadBucketInput, ...func(*s3.Options)) (*s3.HeadBucketOutput, error)
 	PutObject(context.Context, *s3.PutObjectInput, ...func(*s3.Options)) (*s3.PutObjectOutput, error)
 	GetObject(context.Context, *s3.GetObjectInput, ...func(*s3.Options)) (*s3.GetObjectOutput, error)
 	DeleteObject(context.Context, *s3.DeleteObjectInput, ...func(*s3.Options)) (*s3.DeleteObjectOutput, error)
@@ -123,6 +124,23 @@ func newS3Store(client s3ObjectClient, opts S3Options) (*S3Store, error) {
 		prefix:  prefix,
 		tempDir: opts.TempDir,
 	}, nil
+}
+
+// Check verifies that local temp staging is writable and the configured bucket
+// is reachable.
+func (s *S3Store) Check(ctx context.Context) error {
+	if err := checkWritableDir(ctx, s.tempDir); err != nil {
+		return fmt.Errorf("check s3 temp storage: %w", err)
+	}
+	if _, err := s.client.HeadBucket(s3Context(ctx), &s3.HeadBucketInput{
+		Bucket: aws.String(s.bucket),
+	}); err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
+		return fmt.Errorf("check s3 bucket: %w", err)
+	}
+	return nil
 }
 
 // SaveTemp streams reader into a local temporary file, enforcing maxBytes and

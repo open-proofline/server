@@ -10,7 +10,9 @@ Proofline production-ready public infrastructure.
 The smoke script starts the server with a local bootstrap secret, creates a
 temporary admin account over the private loopback API, and runs the simulator
 with that account. The default bootstrap secret and password are placeholders
-for local throwaway smoke volumes only.
+for local throwaway smoke volumes only. The script waits for
+`GET /v1/health/ready` on the private loopback port before bootstrapping the
+test account.
 
 ## Variants
 

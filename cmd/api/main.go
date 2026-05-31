@@ -63,6 +63,7 @@ func run(logger *slog.Logger) error {
 		DefaultIncidentTokenTTL: &cfg.DefaultIncidentTokenTTL,
 		SessionTTL:              cfg.SessionTTL,
 		BootstrapSecret:         cfg.AuthBootstrapSecret,
+		ReadinessChecks:         backendReadinessChecks(cfg, repo, blobStore, coord),
 		Logger:                  logger,
 	}
 	privateHandler := httpapi.NewPrivate(repo, blobStore, apiOptions)
@@ -80,6 +81,26 @@ func run(logger *slog.Logger) error {
 	case err := <-errCh:
 		_ = shutdownServers(servers)
 		return err
+	}
+}
+
+func backendReadinessChecks(cfg config.Config, repo httpapi.MetadataRepository, store storage.BlobStore, coord coordination.Coordinator) []httpapi.ReadinessCheck {
+	return []httpapi.ReadinessCheck{
+		{
+			Name:    "metadata",
+			Backend: cfg.Backends.Metadata,
+			Check:   repo.Check,
+		},
+		{
+			Name:    "blob",
+			Backend: cfg.Backends.Blob,
+			Check:   store.Check,
+		},
+		{
+			Name:    "coordination",
+			Backend: cfg.Backends.Coordination,
+			Check:   coord.Check,
+		},
 	}
 }
 
