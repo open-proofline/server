@@ -208,7 +208,7 @@ func validateContactKeyFile(contact contactKeyFile) error {
 func loadOrCreateWrappedKeyArtifact(path string, contact contactKeyFile, incidentID, streamID string, mediaKey envelope.Key) (wrappedKeyArtifact, bool, error) {
 	artifact, err := loadWrappedKeyArtifact(path)
 	if err == nil {
-		if err := validateWrappedKeyArtifactForStream(artifact, incidentID, streamID, mediaKey.KeyID, contact.ContactKeyID); err != nil {
+		if err := validateWrappedKeyArtifactForStream(artifact, incidentID, streamID, mediaKey.KeyID, contact.ContactID, contact.ContactKeyID); err != nil {
 			return wrappedKeyArtifact{}, false, err
 		}
 		return artifact, false, nil
@@ -332,7 +332,7 @@ func wrapMediaKeyForRecipient(mediaKey envelope.Key, recipient age.Recipient) ([
 }
 
 func unwrapWrappedMediaKey(artifact wrappedKeyArtifact, contact contactKeyFile) (envelope.Key, error) {
-	if err := validateWrappedKeyArtifactForStream(artifact, artifact.IncidentID, artifact.StreamID, artifact.MediaKeyID, contact.ContactKeyID); err != nil {
+	if err := validateWrappedKeyArtifactForStream(artifact, artifact.IncidentID, artifact.StreamID, artifact.MediaKeyID, contact.ContactID, contact.ContactKeyID); err != nil {
 		return envelope.Key{}, err
 	}
 	identity, err := age.ParseX25519Identity(contact.Identity)
@@ -340,7 +340,7 @@ func unwrapWrappedMediaKey(artifact wrappedKeyArtifact, contact contactKeyFile) 
 		return envelope.Key{}, fmt.Errorf("decode contact identity: %w", err)
 	}
 	for _, record := range artifact.WrappedKeys {
-		if record.ContactKeyID != contact.ContactKeyID {
+		if record.ContactID != contact.ContactID || record.ContactKeyID != contact.ContactKeyID {
 			continue
 		}
 		wrapped, err := base64.RawURLEncoding.DecodeString(record.WrappedKeyB64)
@@ -369,7 +369,7 @@ func unwrapWrappedMediaKey(artifact wrappedKeyArtifact, contact contactKeyFile) 
 	return envelope.Key{}, fmt.Errorf("wrapped-key artifact has no record for contact key")
 }
 
-func validateWrappedKeyArtifactForStream(artifact wrappedKeyArtifact, incidentID, streamID, mediaKeyID, contactKeyID string) error {
+func validateWrappedKeyArtifactForStream(artifact wrappedKeyArtifact, incidentID, streamID, mediaKeyID, contactID, contactKeyID string) error {
 	if err := validateWrappedKeyArtifact(artifact); err != nil {
 		return err
 	}
@@ -377,11 +377,11 @@ func validateWrappedKeyArtifactForStream(artifact wrappedKeyArtifact, incidentID
 		return fmt.Errorf("wrapped-key artifact does not match stream")
 	}
 	for _, record := range artifact.WrappedKeys {
-		if record.ContactKeyID == contactKeyID {
+		if record.ContactID == contactID && record.ContactKeyID == contactKeyID {
 			return nil
 		}
 	}
-	return fmt.Errorf("wrapped-key artifact has no record for contact key")
+	return fmt.Errorf("wrapped-key artifact has no record for contact")
 }
 
 func validateWrappedKeyArtifact(artifact wrappedKeyArtifact) error {

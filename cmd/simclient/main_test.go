@@ -828,6 +828,34 @@ func TestDecodeWrappedKeyArtifactRejectsMalformedMetadata(t *testing.T) {
 	}
 }
 
+func TestValidateWrappedKeyArtifactForStreamRejectsContactIDMismatch(t *testing.T) {
+	artifact := wrappedKeyArtifact{
+		Version:    wrappedKeyArtifactVersion,
+		Scope:      wrappedKeyArtifactScope,
+		IncidentID: "inc_wrapped",
+		StreamID:   "str_wrapped",
+		MediaKeyID: "kid_wrapped",
+		CreatedAt:  time.Now().UTC(),
+		WrappedKeys: []wrappedKeyRecord{
+			{
+				WrappedKeyID:      "wkey_test",
+				RecipientType:     wrappedKeyRecipientType,
+				ContactID:         "contact_dev_alex",
+				ContactKeyID:      "ckid_test",
+				WrappingAlgorithm: wrappingAlgorithmAgeX25519,
+				WrappedKeyB64:     base64.RawURLEncoding.EncodeToString([]byte("wrapped")),
+			},
+		},
+	}
+
+	if err := validateWrappedKeyArtifactForStream(artifact, "inc_wrapped", "str_wrapped", "kid_wrapped", "contact_dev_alex", "ckid_test"); err != nil {
+		t.Fatalf("expected matching contact artifact to validate: %v", err)
+	}
+	if err := validateWrappedKeyArtifactForStream(artifact, "inc_wrapped", "str_wrapped", "kid_wrapped", "contact_dev_blair", "ckid_test"); err == nil {
+		t.Fatal("expected contact_id mismatch to be rejected")
+	}
+}
+
 func TestNewEncryptedChunkUploadCanDecryptEnvelope(t *testing.T) {
 	key, err := envelope.GenerateKey()
 	if err != nil {
