@@ -97,6 +97,9 @@ trusted-contact workflows, or change public viewer and bundle behavior. See
 - Media streams with `open`, `complete`, and `failed` states
 - Completed encrypted stream and incident ZIP evidence bundle downloads
 - Scoped viewer tokens with a default 24-hour expiry
+- App-level public viewer rate limiting by safe route class, with local
+  in-memory counters by default and optional Valkey/Redis-compatible counters
+  when coordination is explicitly configured
 - Validated backend-selection config defaults for SQLite metadata, optional PostgreSQL metadata, local encrypted blobs, optional S3-compatible encrypted blobs, no coordination by default, and optional Valkey/Redis-compatible coordination
 - Simulator CLI for encrypted upload, check-in, stream completion, bundle
   download/decrypt-verification, and durable desktop-recorder staging flows
@@ -117,7 +120,7 @@ trusted-contact workflows, or change public viewer and bundle behavior. See
 - No backend/browser decryption, key sharing, server escrow, break-glass key access, or playable media export
 - No push notifications, SMS, or Messenger integration
 - No OAuth, JWT, public account portal, or public admin dashboard
-- No built-in TLS, app-level rate limiting, mode-specific retention policy, backup lifecycle enforcement, or production deployment hardening
+- No built-in TLS, mode-specific retention policy, backup lifecycle enforcement, or production deployment hardening
 - No emergency-services integration; users or trusted contacts remain responsible for contacting emergency services
 
 ## Architecture

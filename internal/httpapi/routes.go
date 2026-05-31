@@ -77,7 +77,7 @@ func (a *API) publicRoutes() http.Handler {
 	a.registerPublicIncidentViewerRoutes(mux)
 	mux.HandleFunc("/", a.notFound)
 
-	return a.loggingMiddleware(a.recoveryMiddleware(a.publicSecurityMiddleware(mux)))
+	return a.loggingMiddleware(a.recoveryMiddleware(a.publicSecurityMiddleware(a.publicRateLimitMiddleware(mux))))
 }
 
 func (a *API) registerPublicIncidentViewerRoutes(mux *http.ServeMux) {

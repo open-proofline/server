@@ -39,6 +39,12 @@ Configuration is read from environment variables when the Proofline API starts.
 | `SAFE_AUTH_BOOTSTRAP_SECRET` | unset | One-time bootstrap secret required to create the first admin account when no admin exists. Remove after bootstrap. |
 | `SAFE_DELETION_WORKER_INTERVAL` | `1m` | Background deletion maintenance interval. Set to `0` to disable the automatic scheduler while keeping deletion decisions durable for a later run. |
 | `SAFE_CLOSED_INCIDENT_RETENTION` | `0` | Retention window for closed incidents. `0` disables automatic retention deletion; positive Go durations delete closed incidents older than the window. |
+| `SAFE_PUBLIC_VIEWER_RATE_LIMIT_ENABLED` | `true` | Enables app-level rate limiting for public incident viewer route classes. Set to `false` to disable the app-level limiter. |
+| `SAFE_PUBLIC_VIEWER_RATE_LIMIT_WINDOW` | `1m` | Fixed-window duration for app-level public viewer limits. |
+| `SAFE_PUBLIC_VIEWER_RATE_LIMIT_PAGE` | `60` | Public viewer page lookup requests allowed per window per hashed socket peer. Set to `0` to disable this route-class limit. |
+| `SAFE_PUBLIC_VIEWER_RATE_LIMIT_DATA` | `300` | Public viewer JSON polling requests allowed per window per hashed socket peer. Set to `0` to disable this route-class limit. |
+| `SAFE_PUBLIC_VIEWER_RATE_LIMIT_DOWNLOAD` | `12` | Public viewer encrypted ZIP download starts allowed per window per hashed socket peer. Set to `0` to disable this route-class limit. |
+| `SAFE_PUBLIC_VIEWER_RATE_LIMIT_STATIC` | `600` | Public viewer static asset requests allowed per window per hashed socket peer. Set to `0` to disable this route-class limit. |
 | `SAFE_PRIVATE_READ_HEADER_TIMEOUT` | `10s` | Private API HTTP read-header timeout. |
 | `SAFE_PRIVATE_READ_TIMEOUT` | `0s` | Private API HTTP read timeout. `0` disables it for large or slow uploads. |
 | `SAFE_PRIVATE_WRITE_TIMEOUT` | `0s` | Private API HTTP write timeout. `0` disables it for large or slow downloads. |
@@ -94,9 +100,11 @@ go run ./cmd/api
 ```
 
 Valkey/Redis-compatible coordination is implemented as an optional, explicit
-backend. The current server validates the configured service at startup, but
-current upload routes still use complete encrypted chunk uploads and do not yet
-implement upload leases, resumable uploads, application-level rate limiting, or
+backend. The current server validates the configured service at startup.
+Public viewer app-level rate-limit counters use the configured Valkey service
+when `SAFE_COORDINATION_BACKEND=valkey` or `redis`; otherwise they use local
+in-memory process counters. Current upload routes still use complete encrypted
+chunk uploads and do not yet implement upload leases, resumable uploads, or
 Valkey-backed cluster coordination. Complete-upload idempotency keys are stored
 in the selected metadata backend, not Valkey.
 
@@ -157,10 +165,10 @@ go run ./cmd/api
 deployments. `SAFE_VALKEY_ADDR` must be a `host:port`, not a URL, so passwords
 and database numbers stay in their dedicated settings.
 
-Treat Valkey passwords, private hostnames, private network details, and any
-future coordination keys as private deployment details. Do not put them in
-public issues, logs, dashboards, screenshots, support tickets, or metrics
-labels.
+Treat Valkey passwords, private hostnames, private network details,
+rate-limit counter keys, and any future coordination keys as private
+deployment details. Do not put them in public issues, logs, dashboards,
+screenshots, support tickets, or metrics labels.
 
 Coordination is not durable evidence storage. Incident metadata and
 viewer-token metadata remain in the selected metadata backend, and committed
@@ -168,11 +176,17 @@ encrypted bytes remain in the selected blob backend. If a configured Valkey
 backend cannot be checked at startup, the server fails closed instead of
 silently running with a misleading cluster configuration.
 
-The current implementation does not store upload leases or idempotency results
-in Valkey. Future upload-operation work must keep Valkey keys
-server-controlled and must not include raw viewer tokens, incident tokens,
-request bodies, uploaded bytes, plaintext, raw keys, private deployment
-details, raw idempotency keys, or user safety data.
+The current implementation stores only short-lived public viewer rate-limit
+counters in Valkey when coordination is configured. Those keys are
+server-controlled route-class keys using a hash of the socket peer identity;
+they do not include raw `/i/{token}` paths, legacy `/e/{token}` paths, raw
+viewer tokens, request bodies, Authorization headers, uploaded bytes,
+plaintext, raw keys, or private deployment details. The current implementation
+does not store upload leases or idempotency results in Valkey. Future
+upload-operation work must keep Valkey keys server-controlled and must not
+include raw viewer tokens, incident tokens, request bodies, uploaded bytes,
+plaintext, raw keys, private deployment details, raw idempotency keys, or user
+safety data.
 
 ## Bind Address Lists
 

@@ -27,8 +27,26 @@ type Options struct {
 	SessionTTL              time.Duration
 	BootstrapSecret         string
 	ReadinessChecks         []ReadinessCheck
+	PublicRateLimit         PublicRateLimitConfig
+	PublicRateLimiter       PublicRateLimiter
 	PasswordCost            int
 	Logger                  *slog.Logger
+}
+
+// PublicRateLimitConfig configures app-level limits for public incident viewer
+// route classes.
+type PublicRateLimitConfig struct {
+	Enabled       bool
+	Window        time.Duration
+	PageLimit     int
+	DataLimit     int
+	DownloadLimit int
+	StaticLimit   int
+}
+
+// PublicRateLimiter records one request against a safe limiter key.
+type PublicRateLimiter interface {
+	Allow(ctx context.Context, key string, limit int, window time.Duration) (bool, error)
 }
 
 // ReadinessCheck describes one coarse backend readiness check exposed by the
@@ -48,6 +66,8 @@ type API struct {
 	sessionTTL              time.Duration
 	bootstrapSecret         string
 	readinessChecks         []ReadinessCheck
+	publicRateLimit         PublicRateLimitConfig
+	publicRateLimiter       PublicRateLimiter
 	passwordCost            int
 	logger                  *slog.Logger
 }
@@ -97,6 +117,10 @@ func newAPI(repo MetadataRepository, store storage.BlobStore, opts Options) *API
 		logger = slog.Default()
 	}
 	readinessChecks := append([]ReadinessCheck(nil), opts.ReadinessChecks...)
+	publicRateLimiter := opts.PublicRateLimiter
+	if opts.PublicRateLimit.Enabled && publicRateLimiter == nil {
+		publicRateLimiter = NewMemoryPublicRateLimiter()
+	}
 
 	return &API{
 		repo:                    repo,
@@ -106,6 +130,8 @@ func newAPI(repo MetadataRepository, store storage.BlobStore, opts Options) *API
 		sessionTTL:              sessionTTL,
 		bootstrapSecret:         opts.BootstrapSecret,
 		readinessChecks:         readinessChecks,
+		publicRateLimit:         opts.PublicRateLimit,
+		publicRateLimiter:       publicRateLimiter,
 		passwordCost:            passwordCost,
 		logger:                  logger,
 	}
