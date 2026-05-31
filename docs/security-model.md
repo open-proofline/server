@@ -93,6 +93,12 @@ Viewer URLs contain bearer tokens and should be treated as secrets. Reverse prox
   normalized chunk identity and immutable request fingerprint, and can return
   `200 OK` with `Idempotency-Replayed: true` for equivalent retries without
   overwriting chunks or evidence metadata.
+- When Valkey/Redis-compatible coordination is configured, complete chunk
+  uploads use a short-lived server-controlled lease key derived from a hash of
+  normalized chunk identity. Busy leases return `409 upload_in_progress` with
+  `Retry-After`; coordination failures return a retryable safe error. Lease
+  keys and errors do not include raw tokens, raw idempotency keys, request
+  bodies, uploaded bytes, stored paths, object keys, plaintext, or raw keys.
 - Main API route-class rate limiting is enabled by default for authentication,
   bootstrap, account, incident, upload, reconciliation, stream, token,
   download, and admin API classes. Limiter keys use server-controlled class
@@ -130,7 +136,8 @@ Optional Valkey/Redis-compatible coordination can be configured for
 short-lived coordination checks. It is not durable evidence storage, does not
 hold incident metadata, viewer-token metadata, committed encrypted bytes,
 retention decisions, plaintext, or keys, and does not change the private
-`/v1` boundary.
+`/v1` boundary. Its upload leases are retry hints only; metadata constraints,
+upload-operation rows, and blob no-overwrite behavior remain authoritative.
 
 The current HTTP listener split does not expose readiness checks. Future
 operator readiness routes should report only coarse metadata, blob, and
@@ -139,9 +146,10 @@ metrics, support dashboards, or evidence-inspection routes.
 
 Cluster-safe upload operation semantics are documented in
 [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md). The
-implemented path is limited to complete-upload idempotency keys; resumable
-uploads and upload leases are still planning-only. The current API still
-accepts complete encrypted chunks and retries should resend the complete chunk.
+implemented path is limited to complete-upload idempotency keys plus optional
+short-lived Valkey in-progress leases; resumable uploads and partial-upload
+lease sessions are still planning-only. The current API still accepts complete
+encrypted chunks and retries should resend the complete chunk.
 See
 [resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md).
 
@@ -255,8 +263,8 @@ Normal file or object removal is not treated as guaranteed secure erasure. Deplo
 - No general-purpose abuse-throttling system beyond main API and public viewer
   route-class rate limiting
 - PostgreSQL metadata and Valkey/Redis-compatible coordination are optional
-  and experimental; they do not by themselves make the upload path cluster-safe
-  or make `/v1` safe for public exposure
+  and experimental; they do not by themselves complete all cluster-safe upload
+  semantics or make `/v1` safe for public exposure
 - Cluster backup, restore, and failure runbooks are operational guidance only;
   they do not add access control, retention enforcement, observability, abuse
   controls, or production readiness

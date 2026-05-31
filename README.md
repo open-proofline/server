@@ -8,7 +8,7 @@
 [![Security Policy](https://img.shields.io/badge/security-policy-blue.svg)](SECURITY.md)
 [![GHCR](https://img.shields.io/static/v1?label=GHCR&message=ghcr.io%2Fopen-proofline%2Fserver&color=blue&logo=github)](https://github.com/orgs/open-proofline/packages/container/package/server)
 
-Proofline Server is the experimental Go server backend for encrypted incident capture. It receives already-encrypted recording chunks through authenticated main `/v1` routes, stores metadata in SQLite by default or optional PostgreSQL, keeps encrypted blobs on local disk by default or in optional S3-compatible object storage, serves a private admin dashboard under `/admin`, performs a startup check against optional Valkey/Redis-compatible coordination when explicitly configured, and exposes a token-scoped read-only viewer for incident review.
+Proofline Server is the experimental Go server backend for encrypted incident capture. It receives already-encrypted recording chunks through authenticated main `/v1` routes, stores metadata in SQLite by default or optional PostgreSQL, keeps encrypted blobs on local disk by default or in optional S3-compatible object storage, serves a private admin dashboard under `/admin`, uses optional Valkey/Redis-compatible coordination for startup checks, route-class counters, and short-lived complete-upload leases when explicitly configured, and exposes a token-scoped read-only viewer for incident review.
 
 > Repository role: this repository is the server/backend component only. In the multi-repo layout it is `open-proofline/server`, not the full Proofline product suite.
 >
@@ -38,7 +38,7 @@ client-side and are not uploaded to the backend. Future production key custody
 is expected to use a hybrid trusted-contact model; see
 [docs/key-custody.md](docs/key-custody.md).
 
-Planned production-cluster work is additive. SQLite metadata and local filesystem blob storage remain supported. Optional PostgreSQL metadata, S3-compatible object storage, and Valkey/Redis-compatible coordination are available only when explicitly configured. Complete-upload idempotency is implemented through metadata-backed upload-operation state, while resumable uploads, leases, and operation-level coordination remain future work. See [docs/production-cluster-scope.md](docs/production-cluster-scope.md).
+Planned production-cluster work is additive. SQLite metadata and local filesystem blob storage remain supported. Optional PostgreSQL metadata, S3-compatible object storage, and Valkey/Redis-compatible coordination are available only when explicitly configured. Complete-upload idempotency is implemented through metadata-backed upload-operation state, and Valkey can hold short-lived complete-upload leases and retry hints when configured. Resumable or partial-upload protocols remain future work. See [docs/production-cluster-scope.md](docs/production-cluster-scope.md).
 
 ## Planned Open Proofline Repositories
 
@@ -89,6 +89,8 @@ trusted-contact workflows, or change public viewer and bundle behavior. See
 - Optional S3-compatible encrypted blob storage for committed chunks
 - Immutable chunk uploads with SHA-256 verification
 - `Idempotency-Key` support for equivalent complete chunk upload retries
+- Optional Valkey/Redis-compatible short-lived complete-upload leases and
+  `upload_in_progress` retry hints when coordination is explicitly configured
 - Authenticated duplicate chunk reconciliation for comparing accepted metadata with
   an expected chunk fingerprint
 - Optional incident-mode, capture-profile, escalation-policy, and sharing-state
@@ -118,7 +120,8 @@ trusted-contact workflows, or change public viewer and bundle behavior. See
 - No mode-driven access, notification, retention, sharing, trusted-contact,
   key-custody, or viewer behavior
 - No production client-side encryption implementation
-- No implemented resumable, partial, or leased cluster-safe upload protocol
+- No implemented resumable or partial upload protocol; current Valkey upload
+  leases are short-lived complete-upload hints, not durable evidence truth
 - No implemented live or partial stream chunk access before stream completion
 - No backend/browser decryption, key sharing, server escrow, break-glass key access, or playable media export
 - No push notifications, SMS, or Messenger integration
@@ -296,7 +299,6 @@ Please see [SECURITY.md](SECURITY.md) for supported versions and vulnerability r
 - Create future `open-proofline/web-client`, `open-proofline/ios-client`, `open-proofline/android-client`, and `open-proofline/protocol` repositories when their scopes are ready
 - Plan any future protocol or data-layout compatibility migrations separately from the completed repository/module/artifact rename
 - Continue hardening optional PostgreSQL metadata support while preserving SQLite local/default support
-- Wire optional Valkey/Redis-compatible coordination into future leases and retry handling without making it durable evidence storage
 - Complete the remaining cluster-safe upload operation semantics before multi-node production deployment
 - Keep cluster backup, restore, and failure runbooks current as optional PostgreSQL, S3-compatible storage, and coordination behavior evolve
 - WireGuard-only bind/firewall deployment guidance

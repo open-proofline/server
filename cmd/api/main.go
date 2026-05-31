@@ -67,15 +67,17 @@ func run(logger *slog.Logger) error {
 	}
 
 	apiOptions := httpapi.Options{
-		MaxUploadBytes:          cfg.MaxUploadBytes,
-		DefaultIncidentTokenTTL: &cfg.DefaultIncidentTokenTTL,
-		SessionTTL:              cfg.SessionTTL,
-		BootstrapSecret:         cfg.AuthBootstrapSecret,
-		MainRateLimit:           mainRateLimitConfig(cfg.MainAPIRateLimit),
-		MainRateLimiter:         newMainRateLimiter(cfg, coord),
-		PublicRateLimit:         publicRateLimitConfig(cfg.PublicViewerRateLimit),
-		PublicRateLimiter:       newPublicRateLimiter(cfg, coord),
-		Logger:                  logger,
+		MaxUploadBytes:             cfg.MaxUploadBytes,
+		DefaultIncidentTokenTTL:    &cfg.DefaultIncidentTokenTTL,
+		SessionTTL:                 cfg.SessionTTL,
+		BootstrapSecret:            cfg.AuthBootstrapSecret,
+		MainRateLimit:              mainRateLimitConfig(cfg.MainAPIRateLimit),
+		MainRateLimiter:            newMainRateLimiter(cfg, coord),
+		PublicRateLimit:            publicRateLimitConfig(cfg.PublicViewerRateLimit),
+		PublicRateLimiter:          newPublicRateLimiter(cfg, coord),
+		UploadCoordinator:          coord,
+		UploadCoordinationLeaseTTL: cfg.UploadCoordinationLeaseTTL,
+		Logger:                     logger,
 	}
 	mainHandler := httpapi.NewMain(repo, blobStore, apiOptions)
 	adminHandler := httpapi.NewAdmin(repo, blobStore, apiOptions)

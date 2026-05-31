@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/open-proofline/server/internal/coordination"
 	"github.com/open-proofline/server/internal/storage"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -22,16 +23,18 @@ const (
 
 // Options configures API construction.
 type Options struct {
-	MaxUploadBytes          int64
-	DefaultIncidentTokenTTL *time.Duration
-	SessionTTL              time.Duration
-	BootstrapSecret         string
-	MainRateLimit           MainRateLimitConfig
-	MainRateLimiter         RateLimiter
-	PublicRateLimit         PublicRateLimitConfig
-	PublicRateLimiter       RateLimiter
-	PasswordCost            int
-	Logger                  *slog.Logger
+	MaxUploadBytes             int64
+	DefaultIncidentTokenTTL    *time.Duration
+	SessionTTL                 time.Duration
+	BootstrapSecret            string
+	MainRateLimit              MainRateLimitConfig
+	MainRateLimiter            RateLimiter
+	PublicRateLimit            PublicRateLimitConfig
+	PublicRateLimiter          RateLimiter
+	UploadCoordinator          coordination.Coordinator
+	UploadCoordinationLeaseTTL time.Duration
+	PasswordCost               int
+	Logger                     *slog.Logger
 }
 
 // MainRateLimitConfig configures app-level limits for main API route classes.
@@ -73,18 +76,20 @@ type PublicRateLimiter = RateLimiter
 
 // API holds the dependencies and limits used by the HTTP handlers.
 type API struct {
-	repo                    MetadataRepository
-	store                   storage.BlobStore
-	maxUploadBytes          int64
-	defaultIncidentTokenTTL time.Duration
-	sessionTTL              time.Duration
-	bootstrapSecret         string
-	mainRateLimit           MainRateLimitConfig
-	mainRateLimiter         RateLimiter
-	publicRateLimit         PublicRateLimitConfig
-	publicRateLimiter       RateLimiter
-	passwordCost            int
-	logger                  *slog.Logger
+	repo                       MetadataRepository
+	store                      storage.BlobStore
+	maxUploadBytes             int64
+	defaultIncidentTokenTTL    time.Duration
+	sessionTTL                 time.Duration
+	bootstrapSecret            string
+	mainRateLimit              MainRateLimitConfig
+	mainRateLimiter            RateLimiter
+	publicRateLimit            PublicRateLimitConfig
+	publicRateLimiter          RateLimiter
+	uploadCoordinator          coordination.Coordinator
+	uploadCoordinationLeaseTTL time.Duration
+	passwordCost               int
+	logger                     *slog.Logger
 }
 
 // New builds the main API and incident viewer HTTP handler. Prefer NewMain or
@@ -154,17 +159,19 @@ func newAPI(repo MetadataRepository, store storage.BlobStore, opts Options) *API
 	}
 
 	return &API{
-		repo:                    repo,
-		store:                   store,
-		maxUploadBytes:          maxUploadBytes,
-		defaultIncidentTokenTTL: incidentTokenTTL,
-		sessionTTL:              sessionTTL,
-		bootstrapSecret:         opts.BootstrapSecret,
-		mainRateLimit:           opts.MainRateLimit,
-		mainRateLimiter:         mainRateLimiter,
-		publicRateLimit:         opts.PublicRateLimit,
-		publicRateLimiter:       publicRateLimiter,
-		passwordCost:            passwordCost,
-		logger:                  logger,
+		repo:                       repo,
+		store:                      store,
+		maxUploadBytes:             maxUploadBytes,
+		defaultIncidentTokenTTL:    incidentTokenTTL,
+		sessionTTL:                 sessionTTL,
+		bootstrapSecret:            opts.BootstrapSecret,
+		mainRateLimit:              opts.MainRateLimit,
+		mainRateLimiter:            mainRateLimiter,
+		publicRateLimit:            opts.PublicRateLimit,
+		publicRateLimiter:          publicRateLimiter,
+		uploadCoordinator:          opts.UploadCoordinator,
+		uploadCoordinationLeaseTTL: opts.UploadCoordinationLeaseTTL,
+		passwordCost:               passwordCost,
+		logger:                     logger,
 	}
 }

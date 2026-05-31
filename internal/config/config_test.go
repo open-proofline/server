@@ -85,6 +85,36 @@ func TestLoadTempUploadCleanupConfig(t *testing.T) {
 	}
 }
 
+func TestLoadUploadCoordinationLeaseTTL(t *testing.T) {
+	cfg := loadConfigForTest(t, nil)
+	if cfg.UploadCoordinationLeaseTTL != 2*time.Minute {
+		t.Fatalf("upload coordination lease ttl = %s, want 2m", cfg.UploadCoordinationLeaseTTL)
+	}
+
+	cfg = loadConfigForTest(t, map[string]string{
+		"SAFE_UPLOAD_COORDINATION_LEASE_TTL": "45s",
+	})
+	if cfg.UploadCoordinationLeaseTTL != 45*time.Second {
+		t.Fatalf("upload coordination lease ttl = %s, want 45s", cfg.UploadCoordinationLeaseTTL)
+	}
+}
+
+func TestLoadUploadCoordinationLeaseTTLRejectsNonPositive(t *testing.T) {
+	for _, value := range []string{"0", "-1s"} {
+		t.Run(value, func(t *testing.T) {
+			_, err := loadConfigForTestErr(t, map[string]string{
+				"SAFE_UPLOAD_COORDINATION_LEASE_TTL": value,
+			})
+			if err == nil {
+				t.Fatal("expected upload coordination ttl error")
+			}
+			if !strings.Contains(err.Error(), "SAFE_UPLOAD_COORDINATION_LEASE_TTL") {
+				t.Fatalf("expected SAFE_UPLOAD_COORDINATION_LEASE_TTL error, got %v", err)
+			}
+		})
+	}
+}
+
 func TestLoadDefaultPublicViewerRateLimitConfig(t *testing.T) {
 	cfg := loadConfigForTest(t, nil)
 
@@ -1053,6 +1083,7 @@ func loadConfigForTestErr(t *testing.T, env map[string]string) (Config, error) {
 		"SAFE_DELETION_TOMBSTONE_RETENTION",
 		"SAFE_TEMP_UPLOAD_CLEANUP_AGE",
 		"SAFE_TEMP_UPLOAD_CLEANUP_DRY_RUN",
+		"SAFE_UPLOAD_COORDINATION_LEASE_TTL",
 		"SAFE_MAIN_API_RATE_LIMIT_ENABLED",
 		"SAFE_MAIN_API_RATE_LIMIT_WINDOW",
 		"SAFE_MAIN_API_RATE_LIMIT_AUTH",

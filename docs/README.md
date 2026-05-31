@@ -13,7 +13,7 @@ This directory contains the detailed documentation for Proofline Server, the Go 
 | [Cluster backup, restore, and failure runbook](cluster-backup-restore-runbook.md) | Operational guidance for optional PostgreSQL metadata, S3-compatible encrypted blobs, configuration, coordination, restore validation, and cluster failure modes. |
 | [PostgreSQL metadata migration path](postgresql-metadata-migration.md) | PostgreSQL metadata backend schema parity, migrations, transaction boundaries, tests, explicit SQLite-to-PostgreSQL migration runbook, rollback limits, and restore expectations. |
 | [Cluster-safe upload operation semantics](cluster-safe-upload-semantics.md) | Complete-upload idempotency-key behavior plus remaining cluster-safe upload operation design for commit ordering, retry success, conflict handling, and cleanup across metadata and blob backends. |
-| [Resumable upload and upload lease protocol](resumable-upload-lease-protocol.md) | Planning decision to keep the desktop recorder simulator on complete encrypted chunk retry semantics while deferring resumable uploads and upload leases. |
+| [Resumable upload and upload lease protocol](resumable-upload-lease-protocol.md) | Planning decision to keep the desktop recorder simulator on complete encrypted chunk retry semantics while deferring resumable uploads and partial-upload lease sessions. |
 | [Incident capture modes](incident-modes.md) | Planned emergency, interaction-record, safety-check, and evidence-note modes, plus future capture-profile, escalation-policy, sharing-state, and migration boundaries. |
 | [Mode-aware retention policy](mode-aware-retention-policy.md) | Planning boundary for future retention policy based on incident mode, safety-check state, sharing/export state, grants, wrapped keys, tombstones, and backups. |
 | [/v1 access control](v1-access-control.md) | Current local account/session boundary plus future role, grant, public product API, private admin API listener, audit, and migration boundaries for account-owner, trusted-contact, public-link, admin/operator, and optional escrow access. |
@@ -60,7 +60,7 @@ Those repositories do not exist in this repository and should not be implemented
 
 ## Current Backend Scope
 
-Proofline Server receives already-encrypted chunks, stores metadata in SQLite by default or optional PostgreSQL, stores encrypted blobs on local disk by default or in optional S3-compatible object storage, performs a startup check against optional Valkey/Redis-compatible coordination when explicitly configured, groups chunks into media streams, serves a private admin web surface under `/admin`, applies app-level route-class rate limiting to main API routes, and exposes a token-scoped read-only incident viewer with app-level route-class rate limiting. The Go simulator can produce the documented v1 client-side encryption envelope for development and test flows.
+Proofline Server receives already-encrypted chunks, stores metadata in SQLite by default or optional PostgreSQL, stores encrypted blobs on local disk by default or in optional S3-compatible object storage, performs a startup check against optional Valkey/Redis-compatible coordination when explicitly configured, groups chunks into media streams, serves a private admin web surface under `/admin`, applies app-level route-class rate limiting to main API routes, can use Valkey for short-lived complete-upload leases, and exposes a token-scoped read-only incident viewer with app-level route-class rate limiting. The Go simulator can produce the documented v1 client-side encryption envelope for development and test flows.
 
 The planned production-cluster scope is additive: SQLite and local filesystem
 storage remain supported, optional PostgreSQL metadata can store incident
@@ -77,16 +77,17 @@ SQLite-to-PostgreSQL data migration.
 
 The complete-upload idempotency-key path is implemented for authenticated chunk
 uploads; see
-[cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md). It does
-not implement resumable uploads, upload leases, or operation-level use of
-Valkey/Redis-compatible coordination. The authenticated duplicate chunk
-reconciliation route is implemented for comparing an expected chunk fingerprint
-with already accepted metadata without re-uploading ciphertext; see
-[api.md](api.md).
-The resumable upload and upload lease path is also planning-only; see
+[cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md). When
+Valkey/Redis-compatible coordination is explicitly configured, complete-chunk
+uploads also use short-lived in-progress leases and retry hints. These leases
+are not durable evidence truth and do not implement resumable or partial-upload
+sessions. The authenticated duplicate chunk reconciliation route is
+implemented for comparing an expected chunk fingerprint with already accepted
+metadata without re-uploading ciphertext; see [api.md](api.md).
+The resumable upload and partial-upload lease path remains planning-only; see
 [resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md). It
-continues to defer resumable uploads and leases while the desktop recorder
-simulator measures the current complete encrypted chunk upload contract. The
+continues to defer resumable uploads while the desktop recorder simulator
+measures the current complete encrypted chunk upload contract. The
 desktop simulator in `cmd/simclient` includes durable encrypted staging,
 restart/resume drills, local file input, optional ffmpeg segment capture, and
 adjustable poor-network simulation while continuing to use the current local

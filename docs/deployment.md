@@ -276,7 +276,7 @@ metadata and encrypted blobs backed up and verified together.
 PostgreSQL does not add public `/v1` exposure, public account workflows, cloud
 deployment automation, backend decryption, key escrow, or production readiness.
 It can store the implemented complete-upload idempotency state, but resumable
-uploads, upload leases, and broader production-cluster readiness remain
+uploads, partial-upload lease sessions, and broader production-cluster readiness remain
 separate work. Keep main `/v1` listeners behind the reviewed deployment
 boundary, and keep private-admin listeners behind localhost, LAN, WireGuard,
 firewall rules, or a strict private proxy.
@@ -304,15 +304,17 @@ Valkey coordination is not durable evidence storage and is not a backup source
 of truth. Incident metadata, viewer-token metadata, committed encrypted chunks,
 retention decisions, and deletion decisions remain in the metadata and blob
 backends. When configured, the public viewer app-level rate limiter uses
-Valkey for short-lived route-class counters. Current upload routes do not use
-coordination for upload leases, idempotency result caching, or resumable
-uploads. Complete-upload idempotency keys are durable metadata records, not
-Valkey records.
+Valkey for short-lived route-class counters, and the upload handler uses
+Valkey for short-lived complete-upload leases and safe `upload_in_progress`
+retry hints. Valkey does not store idempotency results, committed chunk
+metadata, or committed encrypted bytes. Complete-upload idempotency keys are
+durable metadata records, not Valkey records, and resumable or partial-upload
+protocols remain out of scope.
 
 Treat Valkey passwords, private hostnames, network topology, rate-limit
-counters, and future coordination keys as private deployment details. Do not
-expose them in public issues, logs, dashboards, screenshots, support tickets,
-or metrics labels.
+counters, upload lease keys, and future coordination keys as private
+deployment details. Do not expose them in public issues, logs, dashboards,
+screenshots, support tickets, or metrics labels.
 Valkey does not add public `/v1` exposure, public account workflows, cloud
 deployment automation, backend decryption, key escrow, or production readiness.
 
@@ -430,7 +432,7 @@ migration tracking, transaction boundaries, configuration shape, integration
 test setup, and restore expectations are documented in
 [PostgreSQL metadata migration path](postgresql-metadata-migration.md).
 PostgreSQL and Valkey support must not be treated as production-cluster
-readiness until operation-level coordination behavior, backup/restore drills,
+readiness until the remaining cluster upload semantics, backup/restore drills,
 access-control, and operational hardening are also addressed.
 
 The Go app does not set `Strict-Transport-Security` by default because local development uses plain HTTP. Enable HSTS at the HTTPS reverse proxy only after TLS is working for the production hostname.

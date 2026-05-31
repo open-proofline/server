@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -15,6 +16,7 @@ const (
 	defaultDeletionInterval                   = time.Minute
 	defaultTempUploadCleanupAge               = 0
 	defaultTempUploadCleanupDryRun            = false
+	defaultUploadCoordinationLeaseTTL         = 2 * time.Minute
 	defaultMainAPIRateLimitEnabled            = true
 	defaultMainAPIRateLimitWindow             = time.Minute
 	defaultMainAPIRateLimitAuthLimit          = 30
@@ -51,28 +53,29 @@ const (
 
 // Config contains the runtime settings needed by the API server.
 type Config struct {
-	MainBindAddrs           []string
-	AdminBindAddrs          []string
-	Backends                BackendSelection
-	Postgres                PostgresConfig
-	S3Blob                  S3BlobConfig
-	Valkey                  ValkeyConfig
-	DataDir                 string
-	DBPath                  string
-	MaxUploadBytes          int64
-	DefaultIncidentTokenTTL time.Duration
-	SessionTTL              time.Duration
-	AuthBootstrapSecret     string
-	DeletionWorkerInterval  time.Duration
-	ClosedIncidentRetention time.Duration
-	TokenMetadataRetention  time.Duration
-	TombstoneRetention      time.Duration
-	TempUploadCleanupAge    time.Duration
-	TempUploadCleanupDryRun bool
-	MainAPIRateLimit        MainAPIRateLimitConfig
-	PublicViewerRateLimit   PublicViewerRateLimitConfig
-	MainTimeouts            HTTPTimeouts
-	AdminTimeouts           HTTPTimeouts
+	MainBindAddrs              []string
+	AdminBindAddrs             []string
+	Backends                   BackendSelection
+	Postgres                   PostgresConfig
+	S3Blob                     S3BlobConfig
+	Valkey                     ValkeyConfig
+	DataDir                    string
+	DBPath                     string
+	MaxUploadBytes             int64
+	DefaultIncidentTokenTTL    time.Duration
+	SessionTTL                 time.Duration
+	AuthBootstrapSecret        string
+	DeletionWorkerInterval     time.Duration
+	ClosedIncidentRetention    time.Duration
+	TokenMetadataRetention     time.Duration
+	TombstoneRetention         time.Duration
+	TempUploadCleanupAge       time.Duration
+	TempUploadCleanupDryRun    bool
+	UploadCoordinationLeaseTTL time.Duration
+	MainAPIRateLimit           MainAPIRateLimitConfig
+	PublicViewerRateLimit      PublicViewerRateLimitConfig
+	MainTimeouts               HTTPTimeouts
+	AdminTimeouts              HTTPTimeouts
 }
 
 // BackendSelection records the configured storage and coordination backends.
@@ -216,6 +219,13 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	uploadCoordinationLeaseTTL, err := durationFromEnv("SAFE_UPLOAD_COORDINATION_LEASE_TTL", defaultUploadCoordinationLeaseTTL)
+	if err != nil {
+		return Config{}, err
+	}
+	if uploadCoordinationLeaseTTL <= 0 {
+		return Config{}, fmt.Errorf("parse SAFE_UPLOAD_COORDINATION_LEASE_TTL: duration must be positive")
+	}
 
 	mainAPIRateLimit, err := mainAPIRateLimitConfigFromEnv()
 	if err != nil {
@@ -236,27 +246,28 @@ func Load() (Config, error) {
 	}
 
 	return Config{
-		MainBindAddrs:           mainBindAddrs,
-		AdminBindAddrs:          adminBindAddrs,
-		Backends:                backends,
-		Postgres:                postgres,
-		S3Blob:                  s3Blob,
-		Valkey:                  valkey,
-		DataDir:                 envOrDefault("SAFE_DATA_DIR", defaultDataDir),
-		DBPath:                  envOrDefault("SAFE_DB_PATH", defaultDBPath),
-		MaxUploadBytes:          maxUploadBytes,
-		DefaultIncidentTokenTTL: incidentTokenTTL,
-		SessionTTL:              sessionTTL,
-		AuthBootstrapSecret:     secretFromEnv("SAFE_AUTH_BOOTSTRAP_SECRET"),
-		DeletionWorkerInterval:  deletionWorkerInterval,
-		ClosedIncidentRetention: closedIncidentRetention,
-		TokenMetadataRetention:  tokenMetadataRetention,
-		TombstoneRetention:      tombstoneRetention,
-		TempUploadCleanupAge:    tempUploadCleanupAge,
-		TempUploadCleanupDryRun: tempUploadCleanupDryRun,
-		MainAPIRateLimit:        mainAPIRateLimit,
-		PublicViewerRateLimit:   publicViewerRateLimit,
-		MainTimeouts:            mainTimeouts,
-		AdminTimeouts:           adminTimeouts,
+		MainBindAddrs:              mainBindAddrs,
+		AdminBindAddrs:             adminBindAddrs,
+		Backends:                   backends,
+		Postgres:                   postgres,
+		S3Blob:                     s3Blob,
+		Valkey:                     valkey,
+		DataDir:                    envOrDefault("SAFE_DATA_DIR", defaultDataDir),
+		DBPath:                     envOrDefault("SAFE_DB_PATH", defaultDBPath),
+		MaxUploadBytes:             maxUploadBytes,
+		DefaultIncidentTokenTTL:    incidentTokenTTL,
+		SessionTTL:                 sessionTTL,
+		AuthBootstrapSecret:        secretFromEnv("SAFE_AUTH_BOOTSTRAP_SECRET"),
+		DeletionWorkerInterval:     deletionWorkerInterval,
+		ClosedIncidentRetention:    closedIncidentRetention,
+		TokenMetadataRetention:     tokenMetadataRetention,
+		TombstoneRetention:         tombstoneRetention,
+		TempUploadCleanupAge:       tempUploadCleanupAge,
+		TempUploadCleanupDryRun:    tempUploadCleanupDryRun,
+		UploadCoordinationLeaseTTL: uploadCoordinationLeaseTTL,
+		MainAPIRateLimit:           mainAPIRateLimit,
+		PublicViewerRateLimit:      publicViewerRateLimit,
+		MainTimeouts:               mainTimeouts,
+		AdminTimeouts:              adminTimeouts,
 	}, nil
 }

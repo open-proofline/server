@@ -31,8 +31,8 @@ The desktop simulator continues using account-aware local sessions without
 turning this repository into a production desktop app. Simulator credentials
 are local development credentials only. The simulator does not add OAuth, JWT,
 public `/v1` exposure, browser decryption, mobile client behavior, a public
-account portal, resumable uploads, upload leases, or server-visible queue
-summary routes.
+account portal, resumable uploads, partial-upload lease sessions, or
+server-visible queue summary routes.
 
 Supported desktop recorder sources:
 
@@ -52,9 +52,9 @@ and must keep raw media keys, contact private keys, plaintext, and decryption
 capabilities out of server storage, logs, and bundle manifests unless a later
 explicit production key-custody task changes the boundary.
 
-Do not add resumable uploads, upload leases, or server-visible queue summary
-routes just to support that simulator. The resumable-upload decision is planned
-separately in
+Do not add resumable uploads, partial-upload lease sessions, or server-visible
+queue summary routes just to support that simulator. The resumable-upload
+decision is planned separately in
 [resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md).
 
 ## Basic Flow

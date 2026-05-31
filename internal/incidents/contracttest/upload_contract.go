@@ -181,6 +181,8 @@ func RunUploadOperationRaceAndParity(t *testing.T, newRepository NewRepository) 
 		incident := mustCreateIncident(t, ctx, repo, "idempotency")
 		stream := mustCreateStream(t, ctx, repo, incident.ID)
 		params := testUploadOperationParams(incident.ID, stream.ID, 1, strings.Repeat("b", 64), strings.Repeat("a", 64))
+		params.StartedAt = params.StartedAt.Add(123456789 * time.Nanosecond)
+		params.EndedAt = params.EndedAt.Add(123456789 * time.Nanosecond)
 
 		reserved, err := repo.ReserveUploadOperation(ctx, params)
 		if err != nil {

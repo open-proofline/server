@@ -25,7 +25,8 @@ viewer tokens, and encrypted evidence bundles.
   expose trusted-contact workflows, or change public viewer and bundle behavior.
 - Optional Valkey/Redis-compatible coordination is startup-checked when
   explicitly configured, but it is short-lived coordination state only and is
-  not durable evidence storage
+  not durable evidence storage. It can hold route-class counters and
+  complete-upload lease hints, not committed evidence truth.
 - The current listener split does not expose `/v1` health/readiness routes on
   either listener
 - Complete chunk upload idempotency is implemented with hashed
@@ -33,7 +34,7 @@ viewer tokens, and encrypted evidence bundles.
   remaining cluster-safe upload semantics and cleanup expectations are
   documented in
   [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md)
-- Future resumable upload and upload lease behavior is planned but not
+- Future resumable upload and partial-upload lease behavior is planned but not
   implemented; the local desktop recorder simulator uses complete encrypted
   chunk retries as documented in
   [resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md)
@@ -110,6 +111,10 @@ viewer tokens, and encrypted evidence bundles.
   details, or conflicting stored values.
 - Optional Valkey/Redis-compatible coordination fails closed at startup when
   explicitly configured but unavailable.
+- Optional complete-upload coordination uses short-lived Valkey lease keys
+  derived from a server-controlled hash of normalized chunk identity. Busy
+  leases return `409 upload_in_progress` with a retry hint, while runtime
+  coordination failures return a retryable safe error.
 - Route-class rate limiting groups main API authentication, account, incident,
   upload, reconciliation, stream, token, and download requests, plus
   admin API requests, by safe class labels and a hash of the socket peer identity. Limiter
@@ -201,16 +206,18 @@ The current backend does not implement incident-mode-specific controls yet, so f
   described in [postgresql-metadata-migration.md](postgresql-metadata-migration.md).
   It also does not make the current upload flow cluster-safe on its own.
 - Optional Valkey/Redis-compatible coordination does not change the main
-  `/v1` boundary, does not hold durable evidence state, and does not make the
-  current upload flow cluster-safe on its own.
-- No implemented resumable, partial, or leased cluster-safe upload protocol
-  beyond the complete-upload `Idempotency-Key` path documented in
+  `/v1` boundary, does not hold durable evidence state, and does not complete
+  all cluster-safe upload semantics on its own.
+- No implemented resumable or partial-upload protocol beyond the
+  complete-upload `Idempotency-Key` path and optional Valkey in-progress
+  leases documented in
   [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md). Uploads
   without idempotency keys still use the existing `409 duplicate_chunk`
   behavior.
-- No implemented resumable upload or upload lease protocol. Current clients
-  should retry complete encrypted chunk uploads; the future design is planned
-  in [resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md).
+- No implemented resumable upload or partial-upload lease protocol. Current
+  clients should retry complete encrypted chunk uploads; the future design is
+  planned in
+  [resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md).
 - Retention, backup, restore, and deletion policy is documented in
   [retention-backup-deletion.md](retention-backup-deletion.md), with enforcement
   details in
