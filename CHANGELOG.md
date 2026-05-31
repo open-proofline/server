@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added configurable app-level rate limiting for public incident viewer page,
+  JSON polling, encrypted ZIP download, and static asset route classes, using
+  safe route-class keys with local in-memory counters by default and
+  Valkey/Redis-compatible counters when optional coordination is configured.
 - Added private incident deletion and closed-incident retention enforcement,
   including SQLite/PostgreSQL deletion decision metadata, owner-scoped and
   admin-global deletion routes, a retryable background deletion worker, public

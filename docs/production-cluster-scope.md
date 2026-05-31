@@ -121,6 +121,8 @@ Valkey or another Redis-compatible service is implemented as optional
 production coordination, not durable storage. The current backend opens and
 checks the configured service at startup; future upload-operation work may use
 it for short-lived leases, in-progress hints, and retry coordination.
+When configured, the current public viewer app-level rate limiter also uses
+Valkey for short-lived route-class counters.
 
 It may be used for:
 
@@ -128,7 +130,7 @@ It may be used for:
 - idempotency result caching
 - short-lived in-progress state
 - retry coordination
-- rate-limit counters, if application-level rate limiting is later implemented
+- public viewer route-class rate-limit counters
 - cleanup coordination for abandoned staging uploads
 
 It must not be used as the final source of truth for:

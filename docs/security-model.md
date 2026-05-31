@@ -196,7 +196,15 @@ HSTS is not enabled by default in the Go app because local development uses plai
 
 HTTP server timeouts are configurable separately for private and public listener groups. Private read/write timeouts default to disabled for large uploads/downloads; public viewer timeouts are finite by default and should be coordinated with reverse-proxy timeouts.
 
-The Go app does not include an app-level rate limiter. Deployment-edge rate limiting guidance is documented in [deployment.md](deployment.md), but those proxy controls do not replace private `/v1` access boundaries, local account authentication, or future public product API abuse controls.
+The Go app includes app-level public viewer rate limiting by route class for
+viewer page lookups, JSON polling, encrypted ZIP download starts, and static
+assets. Limiter keys use safe route-class labels and a hash of the socket peer
+identity; they do not include raw `/i/{token}` paths, legacy `/e/{token}`
+paths, raw tokens, request bodies, Authorization headers, uploaded bytes,
+plaintext, raw keys, or private deployment details. Deployment-edge rate
+limiting guidance is documented in [deployment.md](deployment.md), and those
+proxy controls still do not replace private `/v1` access boundaries, local
+account authentication, or future public product API abuse controls.
 
 ## Retention, Backups, And Deletion
 
@@ -226,7 +234,8 @@ Normal file or object removal is not treated as guaranteed secure erasure. Deplo
 - No implemented public product API exposure model for `/v1`; local account
   sessions are a private API control, not a complete public security model
 - No built-in TLS
-- No built-in app-level rate limiting or abuse throttling
+- No general-purpose abuse-throttling system beyond public viewer route-class
+  rate limiting
 - PostgreSQL metadata and Valkey/Redis-compatible coordination are optional
   and experimental; they do not by themselves make the upload path cluster-safe
   or make `/v1` safe for public exposure

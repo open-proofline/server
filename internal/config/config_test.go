@@ -59,6 +59,22 @@ func TestLoadDefaultDeletionRetentionConfig(t *testing.T) {
 	}
 }
 
+func TestLoadDefaultPublicViewerRateLimitConfig(t *testing.T) {
+	cfg := loadConfigForTest(t, nil)
+
+	want := PublicViewerRateLimitConfig{
+		Enabled:       true,
+		Window:        time.Minute,
+		PageLimit:     60,
+		DataLimit:     300,
+		DownloadLimit: 12,
+		StaticLimit:   600,
+	}
+	if cfg.PublicViewerRateLimit != want {
+		t.Fatalf("public viewer rate limit = %+v, want %+v", cfg.PublicViewerRateLimit, want)
+	}
+}
+
 func TestLoadAuthBootstrapSecret(t *testing.T) {
 	cfg := loadConfigForTest(t, map[string]string{
 		"SAFE_AUTH_BOOTSTRAP_SECRET": " bootstrap-secret ",
@@ -482,6 +498,67 @@ func TestLoadCanDisableDeletionWorkerAndRetention(t *testing.T) {
 	}
 }
 
+func TestLoadPublicViewerRateLimitConfigFromEnv(t *testing.T) {
+	cfg := loadConfigForTest(t, map[string]string{
+		"SAFE_PUBLIC_VIEWER_RATE_LIMIT_ENABLED":  "false",
+		"SAFE_PUBLIC_VIEWER_RATE_LIMIT_WINDOW":   "30s",
+		"SAFE_PUBLIC_VIEWER_RATE_LIMIT_PAGE":     "10",
+		"SAFE_PUBLIC_VIEWER_RATE_LIMIT_DATA":     "20",
+		"SAFE_PUBLIC_VIEWER_RATE_LIMIT_DOWNLOAD": "3",
+		"SAFE_PUBLIC_VIEWER_RATE_LIMIT_STATIC":   "100",
+	})
+
+	want := PublicViewerRateLimitConfig{
+		Enabled:       false,
+		Window:        30 * time.Second,
+		PageLimit:     10,
+		DataLimit:     20,
+		DownloadLimit: 3,
+		StaticLimit:   100,
+	}
+	if cfg.PublicViewerRateLimit != want {
+		t.Fatalf("public viewer rate limit = %+v, want %+v", cfg.PublicViewerRateLimit, want)
+	}
+}
+
+func TestLoadRejectsInvalidPublicViewerRateLimitConfig(t *testing.T) {
+	tests := map[string]map[string]string{
+		"invalid enabled": {
+			"SAFE_PUBLIC_VIEWER_RATE_LIMIT_ENABLED": "sometimes",
+		},
+		"empty window": {
+			"SAFE_PUBLIC_VIEWER_RATE_LIMIT_WINDOW": "",
+		},
+		"zero enabled window": {
+			"SAFE_PUBLIC_VIEWER_RATE_LIMIT_WINDOW": "0",
+		},
+		"invalid page": {
+			"SAFE_PUBLIC_VIEWER_RATE_LIMIT_PAGE": "many",
+		},
+		"negative data": {
+			"SAFE_PUBLIC_VIEWER_RATE_LIMIT_DATA": "-1",
+		},
+		"empty download": {
+			"SAFE_PUBLIC_VIEWER_RATE_LIMIT_DOWNLOAD": "",
+		},
+		"invalid static": {
+			"SAFE_PUBLIC_VIEWER_RATE_LIMIT_STATIC": "lots",
+		},
+	}
+
+	for name, env := range tests {
+		t.Run(name, func(t *testing.T) {
+			_, err := loadConfigForTestErr(t, env)
+			if err == nil {
+				t.Fatal("expected public viewer rate limit config error")
+			}
+			if !strings.Contains(err.Error(), "SAFE_PUBLIC_VIEWER_RATE_LIMIT_") {
+				t.Fatalf("expected SAFE_PUBLIC_VIEWER_RATE_LIMIT error, got %v", err)
+			}
+		})
+	}
+}
+
 func TestLoadRejectsInvalidIncidentTokenTTL(t *testing.T) {
 	tests := map[string]string{
 		"negative": "-1s",
@@ -769,6 +846,12 @@ func loadConfigForTestErr(t *testing.T, env map[string]string) (Config, error) {
 		"SAFE_AUTH_BOOTSTRAP_SECRET",
 		"SAFE_DELETION_WORKER_INTERVAL",
 		"SAFE_CLOSED_INCIDENT_RETENTION",
+		"SAFE_PUBLIC_VIEWER_RATE_LIMIT_ENABLED",
+		"SAFE_PUBLIC_VIEWER_RATE_LIMIT_WINDOW",
+		"SAFE_PUBLIC_VIEWER_RATE_LIMIT_PAGE",
+		"SAFE_PUBLIC_VIEWER_RATE_LIMIT_DATA",
+		"SAFE_PUBLIC_VIEWER_RATE_LIMIT_DOWNLOAD",
+		"SAFE_PUBLIC_VIEWER_RATE_LIMIT_STATIC",
 		"SAFE_PRIVATE_READ_HEADER_TIMEOUT",
 		"SAFE_PRIVATE_READ_TIMEOUT",
 		"SAFE_PRIVATE_WRITE_TIMEOUT",

@@ -65,6 +65,8 @@ func run(logger *slog.Logger) error {
 		SessionTTL:              cfg.SessionTTL,
 		BootstrapSecret:         cfg.AuthBootstrapSecret,
 		ReadinessChecks:         backendReadinessChecks(cfg, repo, blobStore, coord),
+		PublicRateLimit:         publicRateLimitConfig(cfg.PublicViewerRateLimit),
+		PublicRateLimiter:       newPublicRateLimiter(cfg, coord),
 		Logger:                  logger,
 	}
 	privateHandler := httpapi.NewPrivate(repo, blobStore, apiOptions)
@@ -89,6 +91,30 @@ func run(logger *slog.Logger) error {
 		_ = shutdownServers(servers)
 		return err
 	}
+}
+
+func publicRateLimitConfig(cfg config.PublicViewerRateLimitConfig) httpapi.PublicRateLimitConfig {
+	return httpapi.PublicRateLimitConfig{
+		Enabled:       cfg.Enabled,
+		Window:        cfg.Window,
+		PageLimit:     cfg.PageLimit,
+		DataLimit:     cfg.DataLimit,
+		DownloadLimit: cfg.DownloadLimit,
+		StaticLimit:   cfg.StaticLimit,
+	}
+}
+
+func newPublicRateLimiter(cfg config.Config, coord coordination.Coordinator) httpapi.PublicRateLimiter {
+	if !cfg.PublicViewerRateLimit.Enabled {
+		return nil
+	}
+	switch cfg.Backends.Coordination {
+	case config.CoordinationBackendValkey, config.CoordinationBackendRedis:
+		if limiter, ok := coord.(httpapi.PublicRateLimiter); ok {
+			return limiter
+		}
+	}
+	return httpapi.NewMemoryPublicRateLimiter()
 }
 
 func backendReadinessChecks(cfg config.Config, repo httpapi.MetadataRepository, store storage.BlobStore, coord coordination.Coordinator) []httpapi.ReadinessCheck {

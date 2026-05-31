@@ -127,6 +127,9 @@ viewer tokens, and encrypted evidence bundles.
   admin web session.
 - Viewer tokens use 256 bits from `crypto/rand`; only SHA-256 token hashes are stored. Tokens created without an explicit `expires_at` default to a 24-hour lifetime unless `SAFE_DEFAULT_INCIDENT_TOKEN_TTL` is configured differently.
 - Expired, revoked, and invalid viewer tokens return the same public error.
+- Public viewer app-level rate limiting groups page lookup, JSON polling,
+  encrypted ZIP download, and static asset requests by safe route class and a
+  hash of the socket peer identity.
 - Incident summaries do not expose `stored_path`. Viewer summaries and bundle
   manifests may expose user-supplied `original_filename` basenames when clients
   provided them. Viewer bundle downloads expose only encrypted chunk bytes and
@@ -174,7 +177,8 @@ The current backend does not implement incident-mode-specific controls yet, so f
 - No mode-driven access, escalation, retention, sharing, key-custody,
   safety-check timer, dead-man switch notification, or trusted-contact account
   behavior.
-- No built-in TLS, app-level rate limiting, abuse throttling, or IP allowlist.
+- No built-in TLS, IP allowlist, or general-purpose abuse-throttling system
+  beyond public viewer route-class rate limiting.
 - Optional PostgreSQL metadata does not change the private `/v1` boundary,
   token hashing, ciphertext-only storage, or backup/restore expectations
   described in [postgresql-metadata-migration.md](postgresql-metadata-migration.md).
@@ -214,7 +218,7 @@ The current backend does not implement incident-mode-specific controls yet, so f
 
 For local/private use, bind the private API server to localhost or a private network and restrict access with WireGuard, firewall rules, or a reverse proxy. If any part is exposed publicly today, expose only the incident viewer server. Future non-admin product routes may become public only after public product API hardening exists. Future admin/operator routes should use a separately bound private admin API listener, configured for VPN or another private boundary where appropriate, while still requiring admin authentication. Inside Docker containers, bind to container addresses such as `0.0.0.0:8080` and restrict host exposure with port publishing, firewall rules, WireGuard, or reverse proxy configuration.
 
-Use TLS at the edge for any network access. Apply deployment-edge rate limiting for public incident viewer routes and any private reverse-proxy boundary. Keep reverse-proxy logs, metrics, dashboards, and rate-limit keys from recording raw `/i/{token}` paths and pre-rename compatibility `/e/{token}` paths.
+Use TLS at the edge for any network access. Apply deployment-edge rate limiting for public incident viewer routes and any private reverse-proxy boundary; the app-level public viewer limiter is a backstop, not a replacement for reviewed edge controls. Keep reverse-proxy logs, metrics, dashboards, and rate-limit keys from recording raw `/i/{token}` paths and pre-rename compatibility `/e/{token}` paths.
 
 The Go app does not set `Strict-Transport-Security` by default because local development uses plain HTTP and MDN guidance expects HSTS only over HTTPS. Enable HSTS at the production HTTPS reverse proxy after the public hostname is consistently available over TLS.
 
@@ -229,7 +233,8 @@ The Go app does not set `Strict-Transport-Security` by default because local dev
 - Define the future public product API and separately bound private admin API,
   including account-owner, trusted-contact, web-client, and admin/operator
   authorization boundaries.
-- Tune deployment-edge rate limits for token guesses, uploads, downloads, and admin actions, and consider app-level rate limiting separately.
+- Tune deployment-edge and app-level rate limits for token guesses, uploads,
+  downloads, static assets, and admin actions.
 - Review viewer-token expiry tuning and revocation workflows.
 - Extend the implemented deletion workflow with deployment-specific backup
   expiry, restore reconciliation, token pruning, and any needed mode-specific

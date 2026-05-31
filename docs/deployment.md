@@ -274,14 +274,16 @@ with a misleading cluster configuration.
 Valkey coordination is not durable evidence storage and is not a backup source
 of truth. Incident metadata, viewer-token metadata, committed encrypted chunks,
 retention decisions, and deletion decisions remain in the metadata and blob
-backends. Current upload routes do not use coordination for upload leases,
-idempotency result caching, resumable uploads, or application-level rate
-limiting. Complete-upload idempotency keys are durable metadata records, not
+backends. When configured, the public viewer app-level rate limiter uses
+Valkey for short-lived route-class counters. Current upload routes do not use
+coordination for upload leases, idempotency result caching, or resumable
+uploads. Complete-upload idempotency keys are durable metadata records, not
 Valkey records.
 
-Treat Valkey passwords, private hostnames, network topology, and future
-coordination keys as private deployment details. Do not expose them in public
-issues, logs, dashboards, screenshots, support tickets, or metrics labels.
+Treat Valkey passwords, private hostnames, network topology, rate-limit
+counters, and future coordination keys as private deployment details. Do not
+expose them in public issues, logs, dashboards, screenshots, support tickets,
+or metrics labels.
 Valkey does not add public `/v1` exposure, public account workflows, cloud
 deployment automation, backend decryption, key escrow, or production readiness.
 
@@ -340,6 +342,8 @@ Before exposing the public incident viewer:
       the public hostname.
 - [ ] Edge rate limiting covers viewer page lookup, viewer JSON polling, ZIP
       download starts, and public static assets with route-appropriate limits.
+- [ ] App-level public viewer rate limits are reviewed for the deployment and
+      kept aligned with the edge route groups.
 - [ ] Reverse-proxy logs, metrics, dashboards, and rate-limit keys avoid raw
       `/i/{token}` paths, legacy `/e/{token}` paths, query strings attached to
       viewer URLs, request bodies, uploaded bytes, Authorization headers,
@@ -364,7 +368,9 @@ Before exposing the public incident viewer:
       tokens, request bodies, uploaded bytes, raw idempotency keys, plaintext,
       raw keys, or private deployment details.
 
-The Go app still has no built-in app-level rate limiter. Apply rate limits at the deployment edge for now, and tune them for the expected recording, polling, and download patterns.
+The Go app includes a small app-level public viewer rate limiter. Keep edge
+rate limiting in place as the first public boundary, and tune both layers for
+the expected viewing, polling, and download patterns.
 
 Future server-assisted break-glass, dead-man-switch key access, public account
 workflows, or trusted-contact workflows would add stronger operator and
@@ -487,6 +493,31 @@ Suggested route groups:
 Rate limiting does not make `/v1` safe to expose publicly. Keep the private API on localhost, LAN, WireGuard, firewall rules, or a private reverse-proxy entry point even when limits are configured.
 
 Exact limits are deployment-specific. Start with conservative values, watch legitimate simulator/client behavior, then adjust. Avoid sending raw `/i/{token}` paths or pre-rename compatibility `/e/{token}` paths to metrics, dashboards, or logs while measuring limiter behavior.
+
+The Go app also applies route-class-aware limits to the public incident viewer
+by default:
+
+| App route class | Default |
+|---|---|
+| Viewer page lookup | 60 requests per 1 minute |
+| Viewer JSON polling | 300 requests per 1 minute |
+| Viewer ZIP downloads | 12 request starts per 1 minute |
+| Public static assets | 600 requests per 1 minute |
+
+Configure these with `SAFE_PUBLIC_VIEWER_RATE_LIMIT_WINDOW`,
+`SAFE_PUBLIC_VIEWER_RATE_LIMIT_PAGE`,
+`SAFE_PUBLIC_VIEWER_RATE_LIMIT_DATA`,
+`SAFE_PUBLIC_VIEWER_RATE_LIMIT_DOWNLOAD`, and
+`SAFE_PUBLIC_VIEWER_RATE_LIMIT_STATIC`. Set an individual limit to `0` to
+disable that route-class limit, or set
+`SAFE_PUBLIC_VIEWER_RATE_LIMIT_ENABLED=false` to disable the app-level limiter.
+
+The app-level limiter groups requests by route class and a hash of the socket
+peer identity. It does not trust `X-Forwarded-For`; when the app sits behind a
+reverse proxy, the app may see only the proxy address. Keep deployment-edge
+rate limiting configured with the proxy's reviewed client-source policy.
+If the configured Valkey-backed limiter becomes unavailable at runtime, public
+viewer requests fail closed with a safe `503 rate_limit_unavailable` response.
 
 ### Traefik Rate-Limiting Example
 
