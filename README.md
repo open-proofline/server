@@ -232,6 +232,7 @@ Container defaults bind to `0.0.0.0` inside the container. Restrict host exposur
 - [Resumable upload and upload lease protocol](docs/resumable-upload-lease-protocol.md)
 - [Incident capture modes](docs/incident-modes.md)
 - [/v1 access control](docs/v1-access-control.md)
+- [Legacy unowned incident reassignment](docs/legacy-unowned-incident-reassignment.md)
 - [Encryption](docs/encryption.md)
 - [iOS local recorder prototype](docs/ios-local-recorder-prototype.md)
 - [Key custody and emergency access](docs/key-custody.md)

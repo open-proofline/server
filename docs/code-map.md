@@ -61,7 +61,9 @@ Incidents are created in `internal/httpapi.createIncident`, which calls
 `CreateIncidentForAccount` on the configured metadata repository and records the
 authenticated account as the owner. Admin accounts can operate across incidents;
 regular user accounts are limited to their own incidents. Legacy unowned
-incidents are admin-only.
+incidents are admin-only until a future private reassignment or quarantine
+workflow is implemented; see
+[legacy unowned incident reassignment](legacy-unowned-incident-reassignment.md).
 
 Chunks are uploaded through `POST /v1/incidents/{incident_id}/chunks`, handled by `internal/httpapi.uploadChunk`.
 

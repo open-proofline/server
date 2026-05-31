@@ -246,7 +246,7 @@ Local account authentication does not make `/v1` a public product API. Keep priv
 
 ## Incidents
 
-Incident routes are mounted only on the private API server and require a valid session. Incidents are owned by the account that creates them. Regular users can access only their own incidents; admins can access incidents across accounts. Legacy unowned incidents are admin-only until a future migration or reassignment workflow is implemented.
+Incident routes are mounted only on the private API server and require a valid session. Incidents are owned by the account that creates them. Regular users can access only their own incidents; admins can access incidents across accounts. Legacy unowned incidents are admin-only until a future private reassignment or quarantine workflow is implemented; see [legacy unowned incident reassignment](legacy-unowned-incident-reassignment.md).
 
 ### `POST /v1/incidents`
 

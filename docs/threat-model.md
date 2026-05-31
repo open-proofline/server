@@ -114,7 +114,9 @@ viewer tokens, and encrypted evidence bundles.
 - Private incident access is authorized by account owner and role. Regular
   users can access their own incidents. Admins can access incidents across
   accounts and use `/v1/admin/...` account routes. Legacy unowned incidents are
-  admin-only until a future migration or reassignment workflow exists.
+  admin-only until a future private reassignment or quarantine workflow exists;
+  see
+  [legacy unowned incident reassignment](legacy-unowned-incident-reassignment.md).
 - The private admin web surface uses `html/template`, stores browser admin
   sessions in an HttpOnly SameSite cookie scoped to `/admin`, serves embedded
   token-neutral CSS from the private admin prefix without authentication, and

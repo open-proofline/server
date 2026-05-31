@@ -16,6 +16,7 @@ This directory contains the detailed documentation for Proofline Server, the Go 
 | [Resumable upload and upload lease protocol](resumable-upload-lease-protocol.md) | Planning decision to keep the desktop recorder simulator on complete encrypted chunk retry semantics while deferring resumable uploads and upload leases. |
 | [Incident capture modes](incident-modes.md) | Planned emergency, interaction-record, safety-check, and evidence-note modes, plus future capture-profile, escalation-policy, sharing-state, and migration boundaries. |
 | [/v1 access control](v1-access-control.md) | Current local account/session boundary plus future role, grant, public product API, private admin API listener, audit, and migration boundaries for account-owner, trusted-contact, public-link, admin/operator, and optional escrow access. |
+| [Legacy unowned incident reassignment](legacy-unowned-incident-reassignment.md) | Planning boundary for future private reassignment or quarantine of incidents created before account ownership existed. |
 | [Encryption](encryption.md) | Client-side chunk envelope, simulator key file, and local bundle verification. |
 | [iOS local recorder prototype](ios-local-recorder-prototype.md) | Future native incident-capture scope, chunking, encrypted staging, retry, and API mapping. |
 | [Key custody and emergency access](key-custody.md) | Future production key custody, trusted-contact access, and break-glass design. |
@@ -101,6 +102,9 @@ behavior. Mode-driven behavior and migration boundaries are documented in
 and future account-owner, trusted-contact, public-link, admin/operator, and
 optional escrow access boundaries are documented in
 [v1-access-control.md](v1-access-control.md).
+Legacy unowned incidents remain admin-only until a future private reassignment
+or quarantine workflow is implemented; the planning boundary is documented in
+[legacy-unowned-incident-reassignment.md](legacy-unowned-incident-reassignment.md).
 
 The future iOS incident-capture prototype is planned in [ios-local-recorder-prototype.md](ios-local-recorder-prototype.md). Future production key custody is documented in [key-custody.md](key-custody.md), with a simulator-only contact-wrapped key metadata prototype in [contact-wrapped-key-metadata-simulator.md](contact-wrapped-key-metadata-simulator.md), browser decryption and break-glass follow-up designs in [browser-decryption.md](browser-decryption.md) and [break-glass-key-access.md](break-glass-key-access.md), and live or partial stream access boundaries in [live-partial-stream-access-boundary.md](live-partial-stream-access-boundary.md). None of those future designs make the current private `/v1` API or `/admin` surface safe for broad public exposure.
 
