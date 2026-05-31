@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Expanded the SQLite-to-PostgreSQL metadata migration guidance into an
+  explicit private operator runbook with copy order, validation, rollback
+  limits, and tooling boundaries.
 - Added disabled-by-default retention pruning for expired/revoked viewer-token
   metadata and completed deletion tombstones, with SQLite/PostgreSQL parity and
   count-only maintenance summaries.
