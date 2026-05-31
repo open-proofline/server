@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Added shared SQLite/PostgreSQL upload-operation race and metadata parity tests
+  for duplicate uploads, upload-versus-close/completion interleavings,
+  idempotency replay/conflict behavior, token revocation, and completed stream
+  bundle metadata reconstruction.
+
 ## v0.9.0 - 2026-06-01
 
 - Added configurable app-level rate limiting for public incident viewer page,

@@ -15,6 +15,7 @@ import (
 
 	"github.com/open-proofline/server/internal/auth"
 	"github.com/open-proofline/server/internal/incidents"
+	"github.com/open-proofline/server/internal/incidents/contracttest"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -353,6 +354,17 @@ func TestPostgresRepositoryPreservesCoreSemantics(t *testing.T) {
 	if _, _, err := repo.CreateIncidentToken(ctx, incident.ID, "trusted contact", nil); !errors.Is(err, incidents.ErrNotFound) {
 		t.Fatalf("create token during deletion error = %v, want ErrNotFound", err)
 	}
+}
+
+func TestPostgresUploadOperationRaceAndBackendParity(t *testing.T) {
+	contracttest.RunUploadOperationRaceAndParity(t, func(t *testing.T, ctx context.Context) contracttest.Repository {
+		t.Helper()
+		conn := openPostgresTestDB(t, ctx)
+		if err := Migrate(ctx, conn); err != nil {
+			t.Fatalf("Migrate: %v", err)
+		}
+		return NewRepository(conn)
+	})
 }
 
 func TestPostgresRepositoryHashesAndRevokesIncidentTokens(t *testing.T) {
