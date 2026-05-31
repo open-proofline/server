@@ -11,14 +11,16 @@ generic by default and may include optional incident-mode, capture-profile,
 escalation-policy, and sharing-state metadata. Those fields are not behavior
 flags and do not grant access, send notifications, change retention, change key
 custody, expose trusted-contact workflows, or change public viewer and bundle
-behavior. The backend does not yet implement trusted-contact accounts,
-dead-man switch notifications, mode-driven sharing, or public account-based
-product access.
+behavior. The backend implements account-owner contact public-key metadata and
+owner-scoped sharing-grant records for owned incidents, but it does not yet
+implement trusted-contact accounts, wrapped-key delivery, dead-man switch
+notifications, mode-driven sharing, or public account-based product access.
 
 The `/v1` access-control direction is documented in
 [v1-access-control.md](v1-access-control.md). The current implementation covers
-local account sessions, owner-scoped incident access, admin account routes, and
-route authentication. It does not make `/v1` safe to expose publicly as a
+local account sessions, owner-scoped incident access, owner-scoped contact
+public-key and sharing-grant metadata routes, admin account routes, and route
+authentication. It does not make `/v1` safe to expose publicly as a
 product API. Existing `/v1/admin/...` JSON routes are authenticated admin-only
 routes on the main handler and must not be routed from public entry points. The
 current topology separates the main API/viewer listener from a separately bound
@@ -121,6 +123,17 @@ Viewer URLs contain bearer tokens and should be treated as secrets. Reverse prox
   Legacy unowned incidents are admin-only until a future private reassignment
   or quarantine workflow exists; see
   [legacy unowned incident reassignment](legacy-unowned-incident-reassignment.md).
+- Contact public-key and sharing-grant routes are authenticated main `/v1`
+  routes. Contact public-key records are scoped to the authenticated account.
+  Sharing-grant creation, listing, lookup, and revocation require the
+  authenticated account to own the incident or grant; admins do not manage
+  another account's sharing grants through the product routes unless the admin
+  account also owns that incident. New grants require an active contact public
+  key owned by the same account and can be scoped to an incident or one stream.
+  These records store public-key and grant metadata only. They do not store or
+  return contact private keys, raw media keys, wrapped media keys, plaintext,
+  browser fragment secrets, request bodies, uploaded bytes, stored paths,
+  staging paths, object keys, or private deployment details.
 
 Optional S3-compatible storage preserves ciphertext-only behavior for committed
 encrypted chunks. It uses server-controlled object keys, does not expose object
@@ -167,7 +180,9 @@ Incident bundle generation fails closed if any completed stream cannot be recons
 Bundles contain encrypted chunk bytes and JSON manifests only. They are not decrypted, playable, or merged media exports.
 
 Bundle manifests may include a non-secret client-side encryption hint. They do not include keys.
-Future wrapped-key records are designed in
+Contact public-key and sharing-grant metadata is implemented in the private
+authenticated API, but wrapped-key records are still not implemented. Future
+wrapped-key records are designed in
 [contact-key-sharing-grants.md](contact-key-sharing-grants.md). They must stay
 separate from viewer tokens and ordinary ciphertext bundle access; public-link
 viewer bundles should remain ciphertext-only unless a later issue explicitly
@@ -279,10 +294,10 @@ Normal file or object removal is not treated as guaranteed secure erasure. Deplo
 - No implemented resumable upload or upload lease protocol; the future design
   is planned in
   [resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md)
-- No implemented mode-driven access, escalation, retention, sharing, key-custody,
-  trusted-contact account, dead-man switch notification, or public account portal
-  behavior
-- No implemented production client key storage, key sharing, browser decryption, server-assisted break-glass key access, or emergency-contact key access model; the future designs are documented in [key-custody.md](key-custody.md), [contact-key-sharing-grants.md](contact-key-sharing-grants.md), [browser-decryption.md](browser-decryption.md), and [break-glass-key-access.md](break-glass-key-access.md)
+- No implemented mode-driven access, escalation, retention, key-custody,
+  trusted-contact account, wrapped-key delivery, dead-man switch notification,
+  or public account portal behavior
+- No implemented production client key storage, browser decryption, server-assisted break-glass key access, or emergency-contact key access model; the future designs are documented in [key-custody.md](key-custody.md), [contact-key-sharing-grants.md](contact-key-sharing-grants.md), [browser-decryption.md](browser-decryption.md), and [break-glass-key-access.md](break-glass-key-access.md)
 - No implemented live or partial stream access beyond current read-only stream
   metadata summaries and completed encrypted bundle downloads; the future
   boundary is documented in

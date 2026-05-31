@@ -128,11 +128,12 @@ func newTestAppWithOptionsAndTestAccount(t *testing.T, options httpapi.Options, 
 	var metadataRepo httpapi.MetadataRepository = repo
 	mainHandler := httpapi.NewMain(metadataRepo, blobStore, options)
 	adminHandler := httpapi.NewAdmin(metadataRepo, blobStore, options)
+	publicHandler := httpapi.NewPublic(metadataRepo, blobStore, options)
 	return &testApp{
 		mainHandler:    mainHandler,
 		adminHandler:   adminHandler,
 		privateHandler: mainHandler,
-		publicHandler:  mainHandler,
+		publicHandler:  publicHandler,
 		dataDir:        dataDir,
 		db:             conn,
 		authToken:      authToken,

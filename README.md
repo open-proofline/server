@@ -74,6 +74,12 @@ grant access, send notifications, change retention, change key custody, expose
 trusted-contact workflows, or change public viewer and bundle behavior. See
 [docs/incident-modes.md](docs/incident-modes.md).
 
+Authenticated account owners can also register trusted-contact public-key
+metadata and create or revoke incident/stream-scoped sharing grants for their
+own incidents. These records are authorization and wrapping metadata only: they
+do not add trusted-contact accounts, wrapped media-key delivery, browser or
+backend decryption, public viewer changes, notifications, or key escrow.
+
 ## What Works Today
 
 - Main authenticated `/v1` API listener group, including admin-only JSON routes
@@ -95,6 +101,8 @@ trusted-contact workflows, or change public viewer and bundle behavior. See
   an expected chunk fingerprint
 - Optional incident-mode, capture-profile, escalation-policy, and sharing-state
   metadata on main incident create/read routes
+- Owner-scoped contact public-key metadata and sharing-grant records for owned
+  incidents or streams
 - Documented client-side chunk encryption envelope
 - Media streams with `open`, `complete`, and `failed` states
 - Completed encrypted stream and incident ZIP evidence bundle downloads
@@ -117,13 +125,14 @@ trusted-contact workflows, or change public viewer and bundle behavior. See
 - No web client or account portal
 - No protocol repository or shared conformance test suite
 - No production recording client implementation
-- No mode-driven access, notification, retention, sharing, trusted-contact,
+- No mode-driven access, notification, retention, trusted-contact account,
   key-custody, or viewer behavior
 - No production client-side encryption implementation
 - No implemented resumable or partial upload protocol; current Valkey upload
   leases are short-lived complete-upload hints, not durable evidence truth
 - No implemented live or partial stream chunk access before stream completion
-- No backend/browser decryption, key sharing, server escrow, break-glass key access, or playable media export
+- No wrapped-key delivery, backend/browser decryption, raw key handling, server
+  escrow, break-glass key access, or playable media export
 - No push notifications, SMS, or Messenger integration
 - No OAuth, JWT, public account portal, or public admin dashboard
 - No built-in TLS, mode-specific retention policy, backup lifecycle enforcement, or production deployment hardening
@@ -306,7 +315,8 @@ Please see [SECURITY.md](SECURITY.md) for supported versions and vulnerability r
 - Mode-driven access, escalation, retention, sharing, viewer, and key-custody
   behavior after protocol and security design
 - Server-side support for trusted-contact dead-man switch workflows after access-control design
-- Production key custody, trusted-contact access, and browser/client-side decryption
+- Production key custody, trusted-contact account access, wrapped-key delivery,
+  and browser/client-side decryption
 - Optional break-glass/dead-man-switch key access
 - Playable media export
 - Reverse-proxy/TLS hardening for incident viewer exposure

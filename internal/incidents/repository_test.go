@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/open-proofline/server/internal/auth"
 	"github.com/open-proofline/server/internal/db"
 	"github.com/open-proofline/server/internal/incidents"
 	"github.com/open-proofline/server/internal/incidents/contracttest"
@@ -38,6 +39,111 @@ func TestCreateIncidentStoresModeFields(t *testing.T) {
 		got.EscalationPolicy != incidents.EscalationPolicyTrustedContactsOnMissedCheckin ||
 		got.SharingState != incidents.SharingStatePrivate {
 		t.Fatalf("incident mode fields were not preserved: %+v", got)
+	}
+}
+
+func TestContactPublicKeysAndSharingGrants(t *testing.T) {
+	ctx := context.Background()
+	repo := newRepository(t, ctx)
+	owner, err := repo.CreateAccount(ctx, auth.CreateAccountParams{
+		Username:     "grant-owner",
+		PasswordHash: "hash",
+		Role:         auth.RoleUser,
+	})
+	if err != nil {
+		t.Fatalf("create owner account: %v", err)
+	}
+	other, err := repo.CreateAccount(ctx, auth.CreateAccountParams{
+		Username:     "grant-other",
+		PasswordHash: "hash",
+		Role:         auth.RoleUser,
+	})
+	if err != nil {
+		t.Fatalf("create other account: %v", err)
+	}
+	incident, err := repo.CreateIncidentForAccount(ctx, owner.ID, incidents.CreateIncidentParams{})
+	if err != nil {
+		t.Fatalf("create owner incident: %v", err)
+	}
+	stream, err := repo.CreateMediaStream(ctx, incident.ID, incidents.MediaTypeAudio, "audio")
+	if err != nil {
+		t.Fatalf("create media stream: %v", err)
+	}
+	firstKey, err := repo.CreateContactPublicKey(ctx, incidents.CreateContactPublicKeyParams{
+		OwnerAccountID:       owner.ID,
+		DisplayLabel:         "contact",
+		WrappingAlgorithm:    "age-v1-x25519",
+		PublicKey:            "age1first",
+		PublicKeyFingerprint: "fingerprint-1",
+		KeyState:             incidents.ContactKeyStateActive,
+	})
+	if err != nil {
+		t.Fatalf("create first contact key: %v", err)
+	}
+	secondKey, err := repo.CreateContactPublicKey(ctx, incidents.CreateContactPublicKeyParams{
+		OwnerAccountID:       owner.ID,
+		ContactID:            firstKey.ContactID,
+		DisplayLabel:         "contact replacement",
+		WrappingAlgorithm:    "age-v1-x25519",
+		PublicKey:            "age1second",
+		PublicKeyFingerprint: "fingerprint-2",
+		KeyState:             incidents.ContactKeyStateActive,
+	})
+	if err != nil {
+		t.Fatalf("create replacement contact key: %v", err)
+	}
+	if secondKey.Version != 2 || secondKey.ContactID != firstKey.ContactID {
+		t.Fatalf("replacement key = %+v, want same contact version 2", secondKey)
+	}
+
+	if _, err := repo.GetContactPublicKey(ctx, other.ID, firstKey.ID); !errors.Is(err, incidents.ErrNotFound) {
+		t.Fatalf("other account get contact key error = %v, want ErrNotFound", err)
+	}
+	grant, err := repo.CreateSharingGrant(ctx, incidents.CreateSharingGrantParams{
+		OwnerAccountID: owner.ID,
+		IncidentID:     incident.ID,
+		StreamID:       stream.ID,
+		RecipientType:  incidents.SharingGrantRecipientTrustedContact,
+		ContactID:      firstKey.ContactID,
+		DataClass:      incidents.SharingGrantDataClassMetadataCiphertext,
+	})
+	if err != nil {
+		t.Fatalf("create sharing grant: %v", err)
+	}
+	if grant.ContactPublicKeyID != secondKey.ID || grant.ContactPublicKeyVersion != 2 {
+		t.Fatalf("grant used key %q version %d, want %q version 2", grant.ContactPublicKeyID, grant.ContactPublicKeyVersion, secondKey.ID)
+	}
+	if _, err := repo.CreateSharingGrant(ctx, incidents.CreateSharingGrantParams{
+		OwnerAccountID: other.ID,
+		IncidentID:     incident.ID,
+		RecipientType:  incidents.SharingGrantRecipientTrustedContact,
+		ContactID:      firstKey.ContactID,
+		DataClass:      incidents.SharingGrantDataClassMetadataCiphertext,
+	}); !errors.Is(err, incidents.ErrNotFound) {
+		t.Fatalf("other account create grant error = %v, want ErrNotFound", err)
+	}
+
+	revokedGrant, err := repo.RevokeSharingGrant(ctx, owner.ID, grant.ID, owner.ID)
+	if err != nil {
+		t.Fatalf("revoke sharing grant: %v", err)
+	}
+	if revokedGrant.GrantState != incidents.SharingGrantStateRevoked || revokedGrant.RevokedAt == nil {
+		t.Fatalf("grant not revoked: %+v", revokedGrant)
+	}
+	revokedKey, err := repo.RevokeContactPublicKey(ctx, owner.ID, secondKey.ID)
+	if err != nil {
+		t.Fatalf("revoke contact public key: %v", err)
+	}
+	if revokedKey.KeyState != incidents.ContactKeyStateRevoked || revokedKey.RevokedAt == nil {
+		t.Fatalf("contact key not revoked: %+v", revokedKey)
+	}
+	active := incidents.ContactKeyStateActive
+	if _, err := repo.UpdateContactPublicKey(ctx, incidents.UpdateContactPublicKeyParams{
+		OwnerAccountID: owner.ID,
+		PublicKeyID:    secondKey.ID,
+		KeyState:       &active,
+	}); !errors.Is(err, incidents.ErrInvalidState) {
+		t.Fatalf("reactivate revoked key error = %v, want ErrInvalidState", err)
 	}
 }
 

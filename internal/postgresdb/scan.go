@@ -251,6 +251,73 @@ func scanIncidentToken(s scanner) (incidents.IncidentToken, error) {
 	return token, nil
 }
 
+func scanContactPublicKey(s scanner) (incidents.ContactPublicKey, error) {
+	var contactKey incidents.ContactPublicKey
+	var displayLabel sql.NullString
+	var revokedAt sql.NullTime
+	if err := s.Scan(
+		&contactKey.ID,
+		&contactKey.OwnerAccountID,
+		&contactKey.ContactID,
+		&contactKey.Version,
+		&displayLabel,
+		&contactKey.WrappingAlgorithm,
+		&contactKey.PublicKey,
+		&contactKey.PublicKeyFingerprint,
+		&contactKey.KeyState,
+		&contactKey.CreatedAt,
+		&contactKey.UpdatedAt,
+		&revokedAt,
+	); err != nil {
+		return incidents.ContactPublicKey{}, err
+	}
+	contactKey.CreatedAt = contactKey.CreatedAt.UTC()
+	contactKey.UpdatedAt = contactKey.UpdatedAt.UTC()
+	if displayLabel.Valid {
+		contactKey.DisplayLabel = displayLabel.String
+	}
+	contactKey.RevokedAt = nullableDBTime(revokedAt)
+	return contactKey, nil
+}
+
+func scanSharingGrant(s scanner) (incidents.SharingGrant, error) {
+	var grant incidents.SharingGrant
+	var streamID sql.NullString
+	var expiresAt sql.NullTime
+	var revokedAt sql.NullTime
+	var revokedByAccountID sql.NullString
+	if err := s.Scan(
+		&grant.ID,
+		&grant.OwnerAccountID,
+		&grant.IncidentID,
+		&streamID,
+		&grant.RecipientType,
+		&grant.ContactID,
+		&grant.ContactPublicKeyID,
+		&grant.ContactPublicKeyVersion,
+		&grant.DataClass,
+		&grant.GrantState,
+		&grant.CreatedAt,
+		&grant.UpdatedAt,
+		&expiresAt,
+		&revokedAt,
+		&revokedByAccountID,
+	); err != nil {
+		return incidents.SharingGrant{}, err
+	}
+	grant.CreatedAt = grant.CreatedAt.UTC()
+	grant.UpdatedAt = grant.UpdatedAt.UTC()
+	if streamID.Valid {
+		grant.StreamID = streamID.String
+	}
+	grant.ExpiresAt = nullableDBTime(expiresAt)
+	grant.RevokedAt = nullableDBTime(revokedAt)
+	if revokedByAccountID.Valid {
+		grant.RevokedByAccountID = revokedByAccountID.String
+	}
+	return grant, nil
+}
+
 func nullableDBTime(value sql.NullTime) *time.Time {
 	if !value.Valid {
 		return nil

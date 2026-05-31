@@ -1,7 +1,10 @@
 # Contact Key Sharing, Grants, And Wrapped-Key Metadata
 
-This document designs the future contact key-sharing model for Proofline. It is
-planning-only. It does not add database schema, routes, bundle fields, browser
+This document designs the contact key-sharing model for Proofline. The current
+backend implements only the first metadata step: account owners can register
+trusted-contact public-key metadata and create or revoke incident/stream-scoped
+sharing grants through authenticated private `/v1` routes. It does not add
+wrapped-key records, bundle fields, trusted-contact accounts, browser
 decryption, backend decryption, server escrow, public account workflows,
 notifications, client code, or production key custody behavior.
 
@@ -286,13 +289,13 @@ details, or user safety narratives.
 
 Implementation should be split into narrow issues:
 
-1. Add metadata schema for contact public keys, grants, and wrapped-key records
-   without route exposure.
-2. Add repository tests for contact key lifecycle, grant state transitions,
-   incident deletion behavior, backup/restore expectations, and denied access.
-3. Add authenticated owner routes for contact key registration, verification,
+1. Add metadata schema and repository coverage for contact public keys and
+   sharing grants behind the existing reviewed `/v1` boundary.
+2. Add authenticated owner routes for contact key registration, verification,
    replacement, revocation, and grant management behind the existing reviewed
    `/v1` boundary.
+3. Add wrapped-key metadata schema and repository behavior without exposing raw
+   media keys or contact private keys.
 4. Add trusted-contact authentication and grant-scoped read routes only after
    the public product API exposure model is explicitly reviewed.
 5. Add wrapped-key delivery through authenticated API responses, and optionally
@@ -318,9 +321,8 @@ Each implementation issue must include tests for:
 
 ## Out Of Scope
 
-- Implementing schema, routes, migrations, or UI.
+- UI, trusted-contact accounts, and public product authentication.
 - Creating web, iOS, Android, or protocol repository code.
-- Adding trusted-contact accounts or public product authentication.
 - Backend decryption, browser decryption, server escrow, break-glass access,
   raw server-held media keys, playable media export, push notifications, SMS,
   Messenger, or emergency-services integration.
