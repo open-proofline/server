@@ -324,6 +324,13 @@ server has not accepted the immutable fingerprint. The first successfully
 uploaded chunk is then resent with the same `Idempotency-Key` to verify
 equivalent retry success.
 
+For desktop-recorder retry flows, an upload that was accepted by the server but
+lost its response can be retried as the same complete encrypted staged chunk
+with the same `Idempotency-Key`. If the server returns `200 OK` with
+`Idempotency-Replayed: true`, the simulator treats the staged chunk as uploaded
+without printing the raw idempotency key, uploaded bytes, local staging path, or
+session token.
+
 The simulator does not yet call the duplicate chunk reconciliation route. Future
 ambiguous-network and process-restart drills can use
 `POST /v1/incidents/{incident_id}/chunks/reconcile` to compare a local expected
