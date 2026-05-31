@@ -74,6 +74,10 @@ The PostgreSQL tests create and drop isolated schemas inside the configured
 database. Use a disposable local database or a dedicated test database only.
 For a one-off Docker container example, see
 [PostgreSQL metadata migration path](postgresql-metadata-migration.md#testing-expectations).
+CI also runs these package tests in the `PostgreSQL metadata tests` job against
+a disposable PostgreSQL service using fixed CI-only credentials. That job is an
+additional integration signal; making it a required branch check is a separate
+maintainer ruleset decision.
 
 Local Docker Compose smoke stacks for release preparation live in
 [../compose/](../compose/). They exercise the simulator against disposable

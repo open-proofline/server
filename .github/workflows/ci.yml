@@ -50,6 +50,38 @@ jobs:
           path: coverage.out
           if-no-files-found: error
 
+  postgres-integration:
+    name: PostgreSQL metadata tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: proofline_test
+          POSTGRES_USER: proofline
+          POSTGRES_PASSWORD: proofline
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U proofline -d proofline_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Set up Go
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Run PostgreSQL metadata integration tests
+        env:
+          SAFE_POSTGRES_TEST_DSN: postgres://proofline:proofline@127.0.0.1:5432/proofline_test?sslmode=disable
+        run: go test ./internal/postgresdb -count=1
+
   govulncheck:
     name: Go vulnerability scan
     runs-on: ubuntu-latest
