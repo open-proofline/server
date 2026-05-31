@@ -15,6 +15,19 @@ const (
 	defaultDeletionInterval                   = time.Minute
 	defaultTempUploadCleanupAge               = 0
 	defaultTempUploadCleanupDryRun            = false
+	defaultMainAPIRateLimitEnabled            = true
+	defaultMainAPIRateLimitWindow             = time.Minute
+	defaultMainAPIRateLimitAuthLimit          = 30
+	defaultMainAPIRateLimitBootstrapLimit     = 5
+	defaultMainAPIRateLimitAccountLimit       = 120
+	defaultMainAPIRateLimitIncidentReadLimit  = 300
+	defaultMainAPIRateLimitIncidentWriteLimit = 120
+	defaultMainAPIRateLimitUploadLimit        = 120
+	defaultMainAPIRateLimitReconcileLimit     = 120
+	defaultMainAPIRateLimitStreamLimit        = 120
+	defaultMainAPIRateLimitTokenLimit         = 60
+	defaultMainAPIRateLimitDownloadLimit      = 30
+	defaultMainAPIRateLimitAdminLimit         = 60
 	defaultPublicViewerRateLimitEnabled       = true
 	defaultPublicViewerRateLimitWindow        = time.Minute
 	defaultPublicViewerRateLimitPageLimit     = 60
@@ -56,6 +69,7 @@ type Config struct {
 	TombstoneRetention      time.Duration
 	TempUploadCleanupAge    time.Duration
 	TempUploadCleanupDryRun bool
+	MainAPIRateLimit        MainAPIRateLimitConfig
 	PublicViewerRateLimit   PublicViewerRateLimitConfig
 	PrivateTimeouts         HTTPTimeouts
 	PublicTimeouts          HTTPTimeouts
@@ -98,6 +112,24 @@ type PostgresConfig struct {
 	MaxOpenConns    int
 	MaxIdleConns    int
 	ConnMaxLifetime time.Duration
+}
+
+// MainAPIRateLimitConfig contains app-level rate limits for main API route
+// classes that must be controlled before public exposure.
+type MainAPIRateLimitConfig struct {
+	Enabled            bool
+	Window             time.Duration
+	AuthLimit          int
+	BootstrapLimit     int
+	AccountLimit       int
+	IncidentReadLimit  int
+	IncidentWriteLimit int
+	UploadLimit        int
+	ReconcileLimit     int
+	StreamLimit        int
+	TokenLimit         int
+	DownloadLimit      int
+	AdminLimit         int
 }
 
 // PublicViewerRateLimitConfig contains app-level rate limits for public viewer
@@ -185,6 +217,10 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 
+	mainAPIRateLimit, err := mainAPIRateLimitConfigFromEnv()
+	if err != nil {
+		return Config{}, err
+	}
 	publicViewerRateLimit, err := publicViewerRateLimitConfigFromEnv()
 	if err != nil {
 		return Config{}, err
@@ -218,6 +254,7 @@ func Load() (Config, error) {
 		TombstoneRetention:      tombstoneRetention,
 		TempUploadCleanupAge:    tempUploadCleanupAge,
 		TempUploadCleanupDryRun: tempUploadCleanupDryRun,
+		MainAPIRateLimit:        mainAPIRateLimit,
 		PublicViewerRateLimit:   publicViewerRateLimit,
 		PrivateTimeouts:         privateTimeouts,
 		PublicTimeouts:          publicTimeouts,

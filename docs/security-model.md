@@ -95,6 +95,13 @@ Viewer URLs contain bearer tokens and should be treated as secrets. Reverse prox
   normalized chunk identity and immutable request fingerprint, and can return
   `200 OK` with `Idempotency-Replayed: true` for equivalent retries without
   overwriting chunks or evidence metadata.
+- Main API route-class rate limiting is enabled by default for authentication,
+  bootstrap, account, incident, upload, reconciliation, stream, token,
+  download, and admin API classes. Limiter keys use server-controlled class
+  labels and a hash of the socket peer identity. They do not include raw
+  session tokens, Authorization headers, raw idempotency keys, request bodies,
+  uploaded bytes, incident IDs, stored paths, object keys, plaintext, raw keys,
+  or private deployment details.
 - The private duplicate chunk reconciliation route compares a requested
   normalized chunk identity and expected immutable fingerprint against accepted
   chunk metadata without re-uploading ciphertext, reading stored bytes, or
@@ -243,8 +250,8 @@ Normal file or object removal is not treated as guaranteed secure erasure. Deplo
   sessions are a private API control, not a complete public security model
   and the future listener split is not implemented
 - No built-in TLS
-- No general-purpose abuse-throttling system beyond public viewer route-class
-  rate limiting
+- No general-purpose abuse-throttling system beyond main API and public viewer
+  route-class rate limiting
 - PostgreSQL metadata and Valkey/Redis-compatible coordination are optional
   and experimental; they do not by themselves make the upload path cluster-safe
   or make `/v1` safe for public exposure

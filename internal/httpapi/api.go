@@ -27,10 +27,29 @@ type Options struct {
 	SessionTTL              time.Duration
 	BootstrapSecret         string
 	ReadinessChecks         []ReadinessCheck
+	MainRateLimit           MainRateLimitConfig
+	MainRateLimiter         RateLimiter
 	PublicRateLimit         PublicRateLimitConfig
-	PublicRateLimiter       PublicRateLimiter
+	PublicRateLimiter       RateLimiter
 	PasswordCost            int
 	Logger                  *slog.Logger
+}
+
+// MainRateLimitConfig configures app-level limits for main API route classes.
+type MainRateLimitConfig struct {
+	Enabled            bool
+	Window             time.Duration
+	AuthLimit          int
+	BootstrapLimit     int
+	AccountLimit       int
+	IncidentReadLimit  int
+	IncidentWriteLimit int
+	UploadLimit        int
+	ReconcileLimit     int
+	StreamLimit        int
+	TokenLimit         int
+	DownloadLimit      int
+	AdminLimit         int
 }
 
 // PublicRateLimitConfig configures app-level limits for public incident viewer
@@ -44,10 +63,14 @@ type PublicRateLimitConfig struct {
 	StaticLimit   int
 }
 
-// PublicRateLimiter records one request against a safe limiter key.
-type PublicRateLimiter interface {
+// RateLimiter records one request against a safe limiter key.
+type RateLimiter interface {
 	Allow(ctx context.Context, key string, limit int, window time.Duration) (bool, error)
 }
+
+// PublicRateLimiter is kept as a compatibility name for the public viewer
+// limiter interface.
+type PublicRateLimiter = RateLimiter
 
 // ReadinessCheck describes one coarse backend readiness check exposed by the
 // private health endpoint.
@@ -66,8 +89,10 @@ type API struct {
 	sessionTTL              time.Duration
 	bootstrapSecret         string
 	readinessChecks         []ReadinessCheck
+	mainRateLimit           MainRateLimitConfig
+	mainRateLimiter         RateLimiter
 	publicRateLimit         PublicRateLimitConfig
-	publicRateLimiter       PublicRateLimiter
+	publicRateLimiter       RateLimiter
 	passwordCost            int
 	logger                  *slog.Logger
 }
@@ -117,9 +142,13 @@ func newAPI(repo MetadataRepository, store storage.BlobStore, opts Options) *API
 		logger = slog.Default()
 	}
 	readinessChecks := append([]ReadinessCheck(nil), opts.ReadinessChecks...)
+	mainRateLimiter := opts.MainRateLimiter
+	if opts.MainRateLimit.Enabled && mainRateLimiter == nil {
+		mainRateLimiter = NewMemoryRateLimiter()
+	}
 	publicRateLimiter := opts.PublicRateLimiter
 	if opts.PublicRateLimit.Enabled && publicRateLimiter == nil {
-		publicRateLimiter = NewMemoryPublicRateLimiter()
+		publicRateLimiter = NewMemoryRateLimiter()
 	}
 
 	return &API{
@@ -130,6 +159,8 @@ func newAPI(repo MetadataRepository, store storage.BlobStore, opts Options) *API
 		sessionTTL:              sessionTTL,
 		bootstrapSecret:         opts.BootstrapSecret,
 		readinessChecks:         readinessChecks,
+		mainRateLimit:           opts.MainRateLimit,
+		mainRateLimiter:         mainRateLimiter,
 		publicRateLimit:         opts.PublicRateLimit,
 		publicRateLimiter:       publicRateLimiter,
 		passwordCost:            passwordCost,

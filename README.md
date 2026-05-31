@@ -97,6 +97,9 @@ trusted-contact workflows, or change public viewer and bundle behavior. See
 - Media streams with `open`, `complete`, and `failed` states
 - Completed encrypted stream and incident ZIP evidence bundle downloads
 - Scoped viewer tokens with a default 24-hour expiry
+- App-level main API route limiting by safe route class, with local in-memory
+  counters by default and optional Valkey/Redis-compatible counters when
+  coordination is explicitly configured
 - App-level public viewer rate limiting by safe route class, with local
   in-memory counters by default and optional Valkey/Redis-compatible counters
   when coordination is explicitly configured

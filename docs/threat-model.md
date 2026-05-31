@@ -105,6 +105,12 @@ viewer tokens, and encrypted evidence bundles.
   details, or conflicting stored values.
 - Optional Valkey/Redis-compatible coordination fails closed at startup when
   explicitly configured but unavailable.
+- Main API route-class rate limiting groups authentication, bootstrap, account,
+  incident, upload, reconciliation, stream, token, download, and admin API
+  requests by safe class labels and a hash of the socket peer identity. Limiter
+  keys do not include raw session tokens, Authorization headers, raw
+  idempotency keys, request bodies, uploaded bytes, incident IDs, stored paths,
+  object keys, plaintext, raw keys, or private deployment details.
 - Private `/v1/health/live` and `/v1/health/ready` routes are mounted only on
   the private API server. Readiness responses are coarse and do not include
   DSNs, credentials, bucket names, object keys, stored paths, local filesystem
@@ -184,7 +190,7 @@ The current backend does not implement incident-mode-specific controls yet, so f
   safety-check timer, dead-man switch notification, or trusted-contact account
   behavior.
 - No built-in TLS, IP allowlist, or general-purpose abuse-throttling system
-  beyond public viewer route-class rate limiting.
+  beyond main API and public viewer route-class rate limiting.
 - Optional PostgreSQL metadata does not change the private `/v1` boundary,
   token hashing, ciphertext-only storage, or backup/restore expectations
   described in [postgresql-metadata-migration.md](postgresql-metadata-migration.md).

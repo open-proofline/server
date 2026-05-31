@@ -101,6 +101,29 @@ func TestLoadDefaultPublicViewerRateLimitConfig(t *testing.T) {
 	}
 }
 
+func TestLoadDefaultMainAPIRateLimitConfig(t *testing.T) {
+	cfg := loadConfigForTest(t, nil)
+
+	want := MainAPIRateLimitConfig{
+		Enabled:            true,
+		Window:             time.Minute,
+		AuthLimit:          30,
+		BootstrapLimit:     5,
+		AccountLimit:       120,
+		IncidentReadLimit:  300,
+		IncidentWriteLimit: 120,
+		UploadLimit:        120,
+		ReconcileLimit:     120,
+		StreamLimit:        120,
+		TokenLimit:         60,
+		DownloadLimit:      30,
+		AdminLimit:         60,
+	}
+	if cfg.MainAPIRateLimit != want {
+		t.Fatalf("main api rate limit = %+v, want %+v", cfg.MainAPIRateLimit, want)
+	}
+}
+
 func TestLoadAuthBootstrapSecret(t *testing.T) {
 	cfg := loadConfigForTest(t, map[string]string{
 		"SAFE_AUTH_BOOTSTRAP_SECRET": " bootstrap-secret ",
@@ -563,6 +586,43 @@ func TestLoadPublicViewerRateLimitConfigFromEnv(t *testing.T) {
 	}
 }
 
+func TestLoadMainAPIRateLimitConfigFromEnv(t *testing.T) {
+	cfg := loadConfigForTest(t, map[string]string{
+		"SAFE_MAIN_API_RATE_LIMIT_ENABLED":        "false",
+		"SAFE_MAIN_API_RATE_LIMIT_WINDOW":         "30s",
+		"SAFE_MAIN_API_RATE_LIMIT_AUTH":           "11",
+		"SAFE_MAIN_API_RATE_LIMIT_BOOTSTRAP":      "12",
+		"SAFE_MAIN_API_RATE_LIMIT_ACCOUNT":        "13",
+		"SAFE_MAIN_API_RATE_LIMIT_INCIDENT_READ":  "14",
+		"SAFE_MAIN_API_RATE_LIMIT_INCIDENT_WRITE": "15",
+		"SAFE_MAIN_API_RATE_LIMIT_UPLOAD":         "16",
+		"SAFE_MAIN_API_RATE_LIMIT_RECONCILE":      "17",
+		"SAFE_MAIN_API_RATE_LIMIT_STREAM":         "18",
+		"SAFE_MAIN_API_RATE_LIMIT_TOKEN":          "19",
+		"SAFE_MAIN_API_RATE_LIMIT_DOWNLOAD":       "20",
+		"SAFE_MAIN_API_RATE_LIMIT_ADMIN":          "21",
+	})
+
+	want := MainAPIRateLimitConfig{
+		Enabled:            false,
+		Window:             30 * time.Second,
+		AuthLimit:          11,
+		BootstrapLimit:     12,
+		AccountLimit:       13,
+		IncidentReadLimit:  14,
+		IncidentWriteLimit: 15,
+		UploadLimit:        16,
+		ReconcileLimit:     17,
+		StreamLimit:        18,
+		TokenLimit:         19,
+		DownloadLimit:      20,
+		AdminLimit:         21,
+	}
+	if cfg.MainAPIRateLimit != want {
+		t.Fatalf("main api rate limit = %+v, want %+v", cfg.MainAPIRateLimit, want)
+	}
+}
+
 func TestLoadRejectsInvalidPublicViewerRateLimitConfig(t *testing.T) {
 	tests := map[string]map[string]string{
 		"invalid enabled": {
@@ -596,6 +656,65 @@ func TestLoadRejectsInvalidPublicViewerRateLimitConfig(t *testing.T) {
 			}
 			if !strings.Contains(err.Error(), "SAFE_PUBLIC_VIEWER_RATE_LIMIT_") {
 				t.Fatalf("expected SAFE_PUBLIC_VIEWER_RATE_LIMIT error, got %v", err)
+			}
+		})
+	}
+}
+
+func TestLoadRejectsInvalidMainAPIRateLimitConfig(t *testing.T) {
+	tests := map[string]map[string]string{
+		"invalid enabled": {
+			"SAFE_MAIN_API_RATE_LIMIT_ENABLED": "sometimes",
+		},
+		"empty window": {
+			"SAFE_MAIN_API_RATE_LIMIT_WINDOW": "",
+		},
+		"zero enabled window": {
+			"SAFE_MAIN_API_RATE_LIMIT_WINDOW": "0",
+		},
+		"invalid auth": {
+			"SAFE_MAIN_API_RATE_LIMIT_AUTH": "many",
+		},
+		"negative bootstrap": {
+			"SAFE_MAIN_API_RATE_LIMIT_BOOTSTRAP": "-1",
+		},
+		"empty account": {
+			"SAFE_MAIN_API_RATE_LIMIT_ACCOUNT": "",
+		},
+		"invalid incident read": {
+			"SAFE_MAIN_API_RATE_LIMIT_INCIDENT_READ": "lots",
+		},
+		"invalid incident write": {
+			"SAFE_MAIN_API_RATE_LIMIT_INCIDENT_WRITE": "lots",
+		},
+		"invalid upload": {
+			"SAFE_MAIN_API_RATE_LIMIT_UPLOAD": "lots",
+		},
+		"invalid reconcile": {
+			"SAFE_MAIN_API_RATE_LIMIT_RECONCILE": "lots",
+		},
+		"invalid stream": {
+			"SAFE_MAIN_API_RATE_LIMIT_STREAM": "lots",
+		},
+		"invalid token": {
+			"SAFE_MAIN_API_RATE_LIMIT_TOKEN": "lots",
+		},
+		"invalid download": {
+			"SAFE_MAIN_API_RATE_LIMIT_DOWNLOAD": "lots",
+		},
+		"invalid admin": {
+			"SAFE_MAIN_API_RATE_LIMIT_ADMIN": "lots",
+		},
+	}
+
+	for name, env := range tests {
+		t.Run(name, func(t *testing.T) {
+			_, err := loadConfigForTestErr(t, env)
+			if err == nil {
+				t.Fatal("expected main api rate limit config error")
+			}
+			if !strings.Contains(err.Error(), "SAFE_MAIN_API_RATE_LIMIT_") {
+				t.Fatalf("expected SAFE_MAIN_API_RATE_LIMIT error, got %v", err)
 			}
 		})
 	}
@@ -900,6 +1019,19 @@ func loadConfigForTestErr(t *testing.T, env map[string]string) (Config, error) {
 		"SAFE_DELETION_TOMBSTONE_RETENTION",
 		"SAFE_TEMP_UPLOAD_CLEANUP_AGE",
 		"SAFE_TEMP_UPLOAD_CLEANUP_DRY_RUN",
+		"SAFE_MAIN_API_RATE_LIMIT_ENABLED",
+		"SAFE_MAIN_API_RATE_LIMIT_WINDOW",
+		"SAFE_MAIN_API_RATE_LIMIT_AUTH",
+		"SAFE_MAIN_API_RATE_LIMIT_BOOTSTRAP",
+		"SAFE_MAIN_API_RATE_LIMIT_ACCOUNT",
+		"SAFE_MAIN_API_RATE_LIMIT_INCIDENT_READ",
+		"SAFE_MAIN_API_RATE_LIMIT_INCIDENT_WRITE",
+		"SAFE_MAIN_API_RATE_LIMIT_UPLOAD",
+		"SAFE_MAIN_API_RATE_LIMIT_RECONCILE",
+		"SAFE_MAIN_API_RATE_LIMIT_STREAM",
+		"SAFE_MAIN_API_RATE_LIMIT_TOKEN",
+		"SAFE_MAIN_API_RATE_LIMIT_DOWNLOAD",
+		"SAFE_MAIN_API_RATE_LIMIT_ADMIN",
 		"SAFE_PUBLIC_VIEWER_RATE_LIMIT_ENABLED",
 		"SAFE_PUBLIC_VIEWER_RATE_LIMIT_WINDOW",
 		"SAFE_PUBLIC_VIEWER_RATE_LIMIT_PAGE",

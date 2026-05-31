@@ -60,7 +60,7 @@ Those repositories do not exist in this repository and should not be implemented
 
 ## Current Backend Scope
 
-Proofline Server receives already-encrypted chunks, stores metadata in SQLite by default or optional PostgreSQL, stores encrypted blobs on local disk by default or in optional S3-compatible object storage, exposes private coarse liveness/readiness checks, performs a startup check against optional Valkey/Redis-compatible coordination when explicitly configured, groups chunks into media streams, serves a private admin web surface under `/admin`, and exposes a token-scoped read-only incident viewer with app-level route-class rate limiting. The Go simulator can produce the documented v1 client-side encryption envelope for development and test flows.
+Proofline Server receives already-encrypted chunks, stores metadata in SQLite by default or optional PostgreSQL, stores encrypted blobs on local disk by default or in optional S3-compatible object storage, exposes private coarse liveness/readiness checks, performs a startup check against optional Valkey/Redis-compatible coordination when explicitly configured, groups chunks into media streams, serves a private admin web surface under `/admin`, applies app-level route-class rate limiting to main API routes, and exposes a token-scoped read-only incident viewer with app-level route-class rate limiting. The Go simulator can produce the documented v1 client-side encryption envelope for development and test flows.
 
 The planned production-cluster scope is additive: SQLite and local filesystem
 storage remain supported, optional PostgreSQL metadata can store incident

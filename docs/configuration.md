@@ -43,6 +43,19 @@ Configuration is read from environment variables when the Proofline API starts.
 | `SAFE_DELETION_TOMBSTONE_RETENTION` | `0` | Retention window for minimal deleted-incident tombstones after deletion completion. `0` disables tombstone pruning. |
 | `SAFE_TEMP_UPLOAD_CLEANUP_AGE` | `0` | Minimum age for startup cleanup of orphaned local temp upload files. `0` disables cleanup. |
 | `SAFE_TEMP_UPLOAD_CLEANUP_DRY_RUN` | `false` | When temp cleanup is enabled, log safe counts without deleting eligible temp files. |
+| `SAFE_MAIN_API_RATE_LIMIT_ENABLED` | `true` | Enables app-level rate limiting for main API route classes. Set to `false` to disable the app-level limiter. |
+| `SAFE_MAIN_API_RATE_LIMIT_WINDOW` | `1m` | Fixed-window duration for app-level main API limits. |
+| `SAFE_MAIN_API_RATE_LIMIT_AUTH` | `30` | Main API login/logout requests allowed per window per hashed socket peer. Set to `0` to disable this route-class limit. |
+| `SAFE_MAIN_API_RATE_LIMIT_BOOTSTRAP` | `5` | First-admin bootstrap requests allowed per window per hashed socket peer. Set to `0` to disable this route-class limit. |
+| `SAFE_MAIN_API_RATE_LIMIT_ACCOUNT` | `120` | Account self-service requests allowed per window per hashed socket peer. Set to `0` to disable this route-class limit. |
+| `SAFE_MAIN_API_RATE_LIMIT_INCIDENT_READ` | `300` | Incident metadata read requests allowed per window per hashed socket peer. Set to `0` to disable this route-class limit. |
+| `SAFE_MAIN_API_RATE_LIMIT_INCIDENT_WRITE` | `120` | Incident create, close, and owner-scoped deletion requests allowed per window per hashed socket peer. Set to `0` to disable this route-class limit. |
+| `SAFE_MAIN_API_RATE_LIMIT_UPLOAD` | `120` | Complete encrypted chunk upload requests allowed per window per hashed socket peer. Set to `0` to disable this route-class limit. |
+| `SAFE_MAIN_API_RATE_LIMIT_RECONCILE` | `120` | Duplicate chunk reconciliation requests allowed per window per hashed socket peer. Set to `0` to disable this route-class limit. |
+| `SAFE_MAIN_API_RATE_LIMIT_STREAM` | `120` | Stream create/read/complete/fail requests allowed per window per hashed socket peer. Set to `0` to disable this route-class limit. |
+| `SAFE_MAIN_API_RATE_LIMIT_TOKEN` | `60` | Incident-token create/revoke requests allowed per window per hashed socket peer. Set to `0` to disable this route-class limit. |
+| `SAFE_MAIN_API_RATE_LIMIT_DOWNLOAD` | `30` | Private chunk and encrypted bundle download requests allowed per window per hashed socket peer. Set to `0` to disable this route-class limit. |
+| `SAFE_MAIN_API_RATE_LIMIT_ADMIN` | `60` | Private admin API requests allowed per window per hashed socket peer. Set to `0` to disable this route-class limit. |
 | `SAFE_PUBLIC_VIEWER_RATE_LIMIT_ENABLED` | `true` | Enables app-level rate limiting for public incident viewer route classes. Set to `false` to disable the app-level limiter. |
 | `SAFE_PUBLIC_VIEWER_RATE_LIMIT_WINDOW` | `1m` | Fixed-window duration for app-level public viewer limits. |
 | `SAFE_PUBLIC_VIEWER_RATE_LIMIT_PAGE` | `60` | Public viewer page lookup requests allowed per window per hashed socket peer. Set to `0` to disable this route-class limit. |
@@ -112,9 +125,10 @@ go run ./cmd/api
 
 Valkey/Redis-compatible coordination is implemented as an optional, explicit
 backend. The current server validates the configured service at startup.
-Public viewer app-level rate-limit counters use the configured Valkey service
-when `SAFE_COORDINATION_BACKEND=valkey` or `redis`; otherwise they use local
-in-memory process counters. Current upload routes still use complete encrypted
+Main API and public viewer app-level rate-limit counters use the configured
+Valkey service when `SAFE_COORDINATION_BACKEND=valkey` or `redis`; otherwise
+they use local in-memory process counters. Current upload routes still use
+complete encrypted
 chunk uploads and do not yet implement upload leases, resumable uploads, or
 Valkey-backed cluster coordination. Complete-upload idempotency keys are stored
 in the selected metadata backend, not Valkey.
@@ -187,13 +201,15 @@ encrypted bytes remain in the selected blob backend. If a configured Valkey
 backend cannot be checked at startup, the server fails closed instead of
 silently running with a misleading cluster configuration.
 
-The current implementation stores only short-lived public viewer rate-limit
-counters in Valkey when coordination is configured. Those keys are
+The current implementation stores only short-lived main API and public viewer
+rate-limit counters in Valkey when coordination is configured. Those keys are
 server-controlled route-class keys using a hash of the socket peer identity;
-they do not include raw `/i/{token}` paths, legacy `/e/{token}` paths, raw
-viewer tokens, request bodies, Authorization headers, uploaded bytes,
-plaintext, raw keys, or private deployment details. The current implementation
-does not store upload leases or idempotency results in Valkey. Future
+they do not include raw `/i/{token}` paths, legacy `/e/{token}` paths, `/v1`
+incident paths, raw viewer tokens, raw session tokens, Authorization headers,
+raw idempotency keys, request bodies, uploaded bytes, plaintext, raw keys,
+stored paths, object keys, or private deployment details. The current
+implementation does not store upload leases or idempotency results in Valkey.
+Future
 upload-operation work must keep Valkey keys server-controlled and must not
 include raw viewer tokens, incident tokens, request bodies, uploaded bytes,
 plaintext, raw keys, private deployment details, raw idempotency keys, or user

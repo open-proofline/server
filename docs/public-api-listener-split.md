@@ -128,7 +128,10 @@ wrapped keys; decrypt evidence; or return raw media keys.
 
 Before any main API route is exposed beyond a private boundary, implementation
 must add app-level route-class limits in addition to deployment-edge controls.
-At minimum:
+The current backend implements main API route-class limits on the existing
+`/v1` handler tree without changing listener defaults. Those limits are a
+prerequisite for future exposure, not a complete public security model. At
+minimum:
 
 | Class | Example routes | Purpose |
 |---|---|---|

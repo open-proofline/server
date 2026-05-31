@@ -12,7 +12,7 @@ func (a *API) privateRoutes() http.Handler {
 	a.registerPrivateIncidentTokenRoutes(mux)
 	mux.HandleFunc("/", a.notFound)
 
-	return a.loggingMiddleware(a.recoveryMiddleware(a.privateSecurityMiddleware(a.privateAuthMiddleware(mux))))
+	return a.loggingMiddleware(a.recoveryMiddleware(a.privateSecurityMiddleware(a.mainRateLimitMiddleware(a.privateAuthMiddleware(mux)))))
 }
 
 func (a *API) registerPrivateHealthRoutes(mux *http.ServeMux) {

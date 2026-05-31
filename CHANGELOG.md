@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added configurable main API route-class rate limiting for authentication,
+  bootstrap, account, incident, upload, reconciliation, stream, token, download,
+  and admin API routes.
 - Added a planning document for the future main API/public viewer listener split
   and private admin-dashboard listener boundary.
 - Added a mode-aware retention policy design covering future retention inputs

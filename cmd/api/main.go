@@ -72,6 +72,8 @@ func run(logger *slog.Logger) error {
 		SessionTTL:              cfg.SessionTTL,
 		BootstrapSecret:         cfg.AuthBootstrapSecret,
 		ReadinessChecks:         backendReadinessChecks(cfg, repo, blobStore, coord),
+		MainRateLimit:           mainRateLimitConfig(cfg.MainAPIRateLimit),
+		MainRateLimiter:         newMainRateLimiter(cfg, coord),
 		PublicRateLimit:         publicRateLimitConfig(cfg.PublicViewerRateLimit),
 		PublicRateLimiter:       newPublicRateLimiter(cfg, coord),
 		Logger:                  logger,
@@ -102,6 +104,24 @@ func run(logger *slog.Logger) error {
 	}
 }
 
+func mainRateLimitConfig(cfg config.MainAPIRateLimitConfig) httpapi.MainRateLimitConfig {
+	return httpapi.MainRateLimitConfig{
+		Enabled:            cfg.Enabled,
+		Window:             cfg.Window,
+		AuthLimit:          cfg.AuthLimit,
+		BootstrapLimit:     cfg.BootstrapLimit,
+		AccountLimit:       cfg.AccountLimit,
+		IncidentReadLimit:  cfg.IncidentReadLimit,
+		IncidentWriteLimit: cfg.IncidentWriteLimit,
+		UploadLimit:        cfg.UploadLimit,
+		ReconcileLimit:     cfg.ReconcileLimit,
+		StreamLimit:        cfg.StreamLimit,
+		TokenLimit:         cfg.TokenLimit,
+		DownloadLimit:      cfg.DownloadLimit,
+		AdminLimit:         cfg.AdminLimit,
+	}
+}
+
 func publicRateLimitConfig(cfg config.PublicViewerRateLimitConfig) httpapi.PublicRateLimitConfig {
 	return httpapi.PublicRateLimitConfig{
 		Enabled:       cfg.Enabled,
@@ -111,6 +131,19 @@ func publicRateLimitConfig(cfg config.PublicViewerRateLimitConfig) httpapi.Publi
 		DownloadLimit: cfg.DownloadLimit,
 		StaticLimit:   cfg.StaticLimit,
 	}
+}
+
+func newMainRateLimiter(cfg config.Config, coord coordination.Coordinator) httpapi.RateLimiter {
+	if !cfg.MainAPIRateLimit.Enabled {
+		return nil
+	}
+	switch cfg.Backends.Coordination {
+	case config.CoordinationBackendValkey, config.CoordinationBackendRedis:
+		if limiter, ok := coord.(httpapi.RateLimiter); ok {
+			return limiter
+		}
+	}
+	return httpapi.NewMemoryRateLimiter()
 }
 
 func newPublicRateLimiter(cfg config.Config, coord coordination.Coordinator) httpapi.PublicRateLimiter {
@@ -123,7 +156,7 @@ func newPublicRateLimiter(cfg config.Config, coord coordination.Coordinator) htt
 			return limiter
 		}
 	}
-	return httpapi.NewMemoryPublicRateLimiter()
+	return httpapi.NewMemoryRateLimiter()
 }
 
 func backendReadinessChecks(cfg config.Config, repo httpapi.MetadataRepository, store storage.BlobStore, coord coordination.Coordinator) []httpapi.ReadinessCheck {
