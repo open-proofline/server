@@ -9,8 +9,8 @@ PostgreSQL metadata support, blob deletion through the storage boundary, and an
 automatic background scheduler. It also includes local read-only operator
 commands for retention preview and deletion job status. It does not add public
 `/v1` exposure, public account workflows, backend decryption, key custody, key
-escrow, mode-specific retention, token pruning, tombstone expiry, object-bucket
-lifecycle enforcement, or playable media export.
+escrow, mode-specific retention, object-bucket lifecycle enforcement, or
+playable media export.
 
 ## Current Behavior
 
@@ -41,6 +41,10 @@ The backend now has private deletion APIs and a background deletion worker:
   to `1m`
 - `SAFE_CLOSED_INCIDENT_RETENTION` is disabled by default and, when positive,
   queues retention-policy deletion for closed incidents older than the window
+- `SAFE_TOKEN_METADATA_RETENTION` is disabled by default and, when positive,
+  prunes expired or revoked incident-token metadata after the audit window
+- `SAFE_DELETION_TOMBSTONE_RETENTION` is disabled by default and, when positive,
+  prunes completed minimal tombstones after the retention window
 - `operator retention-preview` previews closed incidents that would match a
   retention window without creating deletion decisions
 - `operator deletion-status` reports deletion decision counts, retry
@@ -217,14 +221,12 @@ accounted for every blob deletion item.
 
 Retention enforcement should be policy-driven and conservative.
 
-Initial future policy settings should cover:
+Implemented policy settings cover closed-incident retention, token metadata
+pruning, tombstone pruning, and orphan temp upload cleanup. Future policy
+settings may still cover:
 
-- closed incident retention window
 - whether failed streams inherit the incident retention window
-- token metadata audit retention window for expired or revoked token rows
-- deletion tombstone retention window
 - backup generation retention after an incident deletion
-- orphaned temporary upload cleanup age
 
 Open incidents should not be eligible for automatic retention expiry. Closing
 an incident may start the retention window, but it must not itself delete
@@ -239,6 +241,13 @@ Expired and revoked incident viewer token rows may be pruned after an audit
 window. Token pruning must remove only stored token-hash metadata and labels;
 raw tokens are not stored. Token pruning must not delete incidents, streams,
 chunks, checkins, or blobs.
+
+Completed minimal deletion tombstones may be pruned after a configured
+retention window. Tombstone pruning must not run while deletion retry items
+exist or while sensitive child metadata remains. Removing the final tombstone
+means local metadata no longer records that incident ID as deleted, so operators
+must rely on backup expiry, restore reconciliation, and any external audit logs
+needed by the deployment.
 
 Backups must be handled as a separate lifecycle. Deleting live metadata and
 blobs does not remove older SQLite backups, PostgreSQL backups, S3 object
@@ -370,8 +379,6 @@ into separate issues.
 Repository and metadata tasks:
 
 - add optional retention policy settings beyond closed-incident age
-- add repository methods to select token rows for expired/revoked token pruning
-- add tombstone pruning policy if tombstone expiry is needed
 - preserve SQLite support and optional PostgreSQL support
 
 Storage tasks:
@@ -391,7 +398,6 @@ Private/admin or CLI tasks:
 
 Retention tasks:
 
-- add explicit retention settings for token metadata and tombstones
 - defer incident-mode-specific retention until mode-driven retention behavior and
   policy are explicitly designed
 
@@ -400,7 +406,6 @@ Test tasks:
 - keep optional S3-compatible deletion smoke coverage current as deletion,
   retention, and blob-store behavior changes
 - test failed stream retention and deletion with the parent incident
-- test token metadata pruning without incident deletion
 - test backup and restore documentation examples where practical
 
 Documentation tasks:

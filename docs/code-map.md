@@ -24,7 +24,7 @@ with role and grant boundaries in [v1-access-control.md](v1-access-control.md).
 - `.dockerignore`: excludes local runtime, review, and build artifacts from the root Docker build context used by `Dockerfile`.
 - `cmd/api`: starts one private API HTTP server per private bind address and one public incident viewer HTTP server per public bind address, loads config, enforces the local account bootstrap gate, checks the selected coordination backend, opens the selected metadata backend, creates storage, wires shared handlers including private health/readiness checks and public viewer rate limiting, starts the deletion worker, and handles graceful shutdown.
 - `cmd/simclient`: simulates future client flows by logging in, creating an incident, creating a media stream, encrypting and uploading complete chunks, completing or failing streams, sending periodic checkins, and optionally testing hash-failure retry, bundle download, local decrypt verification, durable desktop-recorder staging, local file input, ffmpeg segment capture, restart/resume behavior, and poor-network retry controls. Token-bearing viewer URLs are omitted from simulator output.
-- `internal/config`: reads environment variables such as backend selectors, backend-specific settings, private/public bind address lists, legacy singular bind addresses, data directory, database path, max upload size, public viewer rate limits, HTTP server timeouts, local account bootstrap secret, session TTL, deletion worker interval, and closed-incident retention window.
+- `internal/config`: reads environment variables such as backend selectors, backend-specific settings, private/public bind address lists, legacy singular bind addresses, data directory, database path, max upload size, public viewer rate limits, HTTP server timeouts, local account bootstrap secret, session TTL, deletion worker interval, closed-incident retention window, token metadata retention window, and tombstone retention window.
 - `internal/coordination`: defines the small optional coordination boundary, the default no-coordination backend, and the Valkey/Redis-compatible startup check and public viewer rate-limit counter backend.
 - `internal/db`: opens SQLite, enables foreign keys and WAL mode, applies embedded SQLite migrations, records `schema_migrations`, and runs named compatibility migrations.
 - `internal/envelope`: implements the simulator/test AES-256-GCM client-side chunk envelope, associated data builder, and local simulator key file helpers.
@@ -128,8 +128,10 @@ lookups also fail closed with the same public error shape used for invalid,
 expired, or revoked tokens, so public routes do not reveal deletion state.
 
 `internal/retention.Worker` queues closed-incident retention decisions only
-when `SAFE_CLOSED_INCIDENT_RETENTION` is positive. It processes pending, failed,
-or stale `deleting` decisions in batches, deletes encrypted blobs through
+when `SAFE_CLOSED_INCIDENT_RETENTION` is positive. It can also prune
+expired/revoked viewer-token metadata and completed minimal tombstones when the
+corresponding retention settings are positive. It processes pending, failed, or
+stale `deleting` decisions in batches, deletes encrypted blobs through
 `storage.BlobStore.Remove` using only metadata-derived stored paths, treats a
 missing blob as idempotent success for an existing deletion item, and records
 safe retry error classes for failed blob deletions.

@@ -22,6 +22,8 @@ type MetadataRepository interface {
 	RequestIncidentDeletion(ctx context.Context, params incidents.IncidentDeletionRequest) (incidents.IncidentDeletionStatus, error)
 	GetIncidentDeletionStatus(ctx context.Context, incidentID string) (incidents.IncidentDeletionStatus, error)
 	QueueRetentionIncidentDeletions(ctx context.Context, cutoff time.Time, limit int) (int, error)
+	PruneIncidentTokenMetadata(ctx context.Context, cutoff time.Time, limit int) (int, error)
+	PruneIncidentDeletionTombstones(ctx context.Context, cutoff time.Time, limit int) (int, error)
 	ListRunnableIncidentDeletions(ctx context.Context, limit int, staleDeletingBefore time.Time) ([]incidents.IncidentDeletionStatus, error)
 	MarkIncidentDeletionDeleting(ctx context.Context, decisionID string, staleDeletingBefore time.Time) (incidents.IncidentDeletionStatus, error)
 	ListIncidentDeletionItems(ctx context.Context, decisionID string) ([]incidents.IncidentDeletionItem, error)

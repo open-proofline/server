@@ -70,6 +70,12 @@ incident deletion decisions every minute. Set
 pause deletion processing. Closed-incident retention is disabled by default;
 set `SAFE_CLOSED_INCIDENT_RETENTION` to a positive duration only after the
 deployment has reviewed backup expiry and restore implications.
+Expired/revoked viewer-token metadata pruning and completed tombstone pruning
+are also disabled by default. Set `SAFE_TOKEN_METADATA_RETENTION` or
+`SAFE_DELETION_TOMBSTONE_RETENTION` only after deciding how long token labels,
+token-hash metadata, deletion timestamps, and minimal tombstones are needed for
+audit and restore reconciliation. These pruning settings do not delete backups,
+object-store versions, snapshots, downloaded bundles, or endpoint copies.
 
 Before enabling or changing closed-incident retention, run the local read-only
 preview from a trusted operator shell that uses the same metadata configuration

@@ -200,8 +200,7 @@ The current backend does not implement incident-mode-specific controls yet, so f
   [incident-deletion-retention-enforcement.md](incident-deletion-retention-enforcement.md).
   The backend implements private incident deletion APIs and optional
   closed-incident retention, but it does not implement mode-specific retention,
-  token metadata pruning, tombstone expiry, built-in disk encryption, or
-  object-bucket lifecycle policy enforcement.
+  built-in disk encryption, or object-bucket lifecycle policy enforcement.
 - Cluster backup, restore, and failure runbooks are operational guidance only
   and do not make optional PostgreSQL, S3-compatible storage, or
   Valkey/Redis-compatible coordination production-cluster readiness by
@@ -237,8 +236,7 @@ The Go app does not set `Strict-Transport-Security` by default because local dev
   downloads, static assets, and admin actions.
 - Review viewer-token expiry tuning and revocation workflows.
 - Extend the implemented deletion workflow with deployment-specific backup
-  expiry, restore reconciliation, token pruning, and any needed mode-specific
-  retention policy.
+  expiry, restore reconciliation, and any needed mode-specific retention policy.
 - Prototype the documented hybrid key custody model without weakening the current ciphertext-only backend.
 - Prototype browser decryption only after accepting the browser trust model and malicious-server limitations.
 - Treat server-assisted break-glass access as an optional future mode only after explicit policy, audit, and deployment design.
