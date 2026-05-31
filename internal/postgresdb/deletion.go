@@ -481,6 +481,8 @@ func (r *Repository) CompleteIncidentDeletion(ctx context.Context, decisionID st
 	}
 
 	for _, query := range []string{
+		"DELETE FROM wrapped_key_records WHERE incident_id = $1",
+		"DELETE FROM sharing_grants WHERE incident_id = $1",
 		"DELETE FROM upload_operations WHERE incident_id = $1",
 		"DELETE FROM incident_tokens WHERE incident_id = $1",
 		"DELETE FROM checkins WHERE incident_id = $1",

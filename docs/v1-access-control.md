@@ -4,11 +4,11 @@ This document defines the current local access-control boundary for Proofline's
 authenticated main `/v1` control plane and the future direction for broader
 product access.
 Local username/password accounts and opaque server-side sessions are implemented
-for the main `/v1` API. Account-owner contact public-key registration and
-sharing-grant metadata routes are implemented behind that same reviewed
-boundary. OAuth, JWT, public account portals, trusted-contact accounts,
-notifications, wrapped-key delivery, browser decryption, key escrow, and
-server-side decryption are not implemented.
+for the main `/v1` API. Account-owner contact public-key registration,
+sharing-grant metadata routes, and grant-bound wrapped-key record routes are
+implemented behind that same reviewed boundary. OAuth, JWT, public account
+portals, trusted-contact accounts, notifications, browser decryption, key
+escrow, and server-side decryption are not implemented.
 
 ## Summary
 
@@ -63,8 +63,8 @@ Related source-of-truth docs:
 - No web-client, iOS-client, Android-client, or protocol implementation.
 - No push notification, SMS, Messenger, email, or emergency-services
   integration.
-- No backend decryption, browser decryption, key escrow, wrapped-key delivery,
-  trusted-contact accounts, or break-glass implementation.
+- No backend decryption, browser decryption, key escrow, trusted-contact
+  accounts, or break-glass implementation.
 - No public admin dashboard.
 - No claim that Proofline is production-ready public infrastructure.
 
@@ -80,11 +80,12 @@ Today the backend has two listener groups:
 Current `/v1` routes are on the main handler. The implemented local auth model has admin and user roles, incident ownership, hashed password storage,
 hashed session-token storage, session expiry, logout, account password change,
 admin account creation, admin session revocation, owner-scoped contact
-public-key metadata, and owner-managed sharing grants. Sharing-grant management
-is deliberately stricter than ordinary incident reads: it requires the
-authenticated account to own the incident, and an admin account cannot manage
-another account's grants through the product route set unless it is also the
-incident owner. Reverse-proxy rate
+public-key metadata, owner-managed sharing grants, and owner-managed
+wrapped-key records. Sharing-grant and wrapped-key management are deliberately
+stricter than ordinary incident reads: they require the authenticated account
+to own the incident, and an admin account cannot manage another account's
+grants or wrapped-key records through the product route set unless it is also
+the incident owner. Reverse-proxy rate
 limiting, separate bind addresses, and private network placement are useful
 boundaries, but they are not a public authorization model.
 
@@ -234,16 +235,18 @@ perform an equivalent check before returning data.
 ## Grant And Token Lifecycle
 
 The current implementation separates durable account identity, public-link
-viewer tokens, contact public-key metadata, and owner-scoped sharing grants.
-The grant records are metadata only: they authorize future metadata/ciphertext
-delivery policy, but they do not contain wrapped keys, raw keys, or plaintext
-and do not create trusted-contact sessions.
+viewer tokens, contact public-key metadata, owner-scoped sharing grants, and
+grant-bound wrapped-key records. Grant records are authorization metadata: they
+do not contain raw keys or plaintext and do not create trusted-contact
+sessions. Wrapped-key records contain encrypted media-key material plus public
+wrapping metadata and are delivered only while the bound grant and contact key
+remain active.
 
 Current and expected grant types:
 
 - account-owner sessions or device credentials
 - capture-device upload authorization
-- trusted-contact access grants, currently owner-managed metadata records only
+- trusted-contact access grants, currently owner-managed records only
 - public-link viewer tokens
 - optional operator support grants
 - optional break-glass or escrow grants
@@ -271,6 +274,10 @@ Current sharing grants can be scoped to an incident or one stream, can expire,
 and can be revoked while retaining minimal audit metadata. Contact public keys
 are versioned per contact; only active key versions can receive new grants.
 Revoked contact keys cannot be reactivated.
+Current wrapped-key delivery is owner-authenticated through private `/v1`
+routes. Revoked or expired grants, inactive contact public keys, and revoked or
+rotated wrapped-key records are filtered out of list and read responses. Public
+viewer tokens do not receive wrapped keys.
 
 ## Incident Mode Policy
 
@@ -316,11 +323,10 @@ allowed to obtain raw keys or plaintext.
 
 Trusted-contact sharing follows
 [contact-key-sharing-grants.md](contact-key-sharing-grants.md). Current grants
-authorize future metadata and ciphertext delivery by account owner, incident,
-stream, recipient, data class, expiry, and state. Wrapped-key records are not
-implemented yet; they remain separate access-enabling metadata and should be
-delivered only under an authorized grant. Public viewer tokens should not
-receive wrapped keys by default.
+authorize metadata and ciphertext delivery by account owner, incident, stream,
+recipient, data class, expiry, and state. Current wrapped-key records are
+separate access-enabling metadata and are delivered only under an active
+authorized grant. Public viewer tokens do not receive wrapped keys by default.
 
 ## Audit And Logging Expectations
 
@@ -364,10 +370,10 @@ incremental:
    login. Keep `/admin` dashboard routes on the private-admin listener and
    block `/v1/admin/...` from public reverse-proxy routes until a future
    private admin API route group is explicitly designed.
-2. Keep contact public-key registration and sharing-grant management owner
-   scoped while defining device, trusted-contact, public-link, operator, and
-   optional escrow data model requirements, including wrapped-key metadata, in
-   protocol/client design tasks.
+2. Keep contact public-key registration, sharing-grant management, and
+   wrapped-key record delivery owner scoped while defining device,
+   trusted-contact, public-link, operator, and optional escrow data model
+   requirements in protocol/client design tasks.
 3. Introduce separate future route groups for public product API, private admin
    API, and public incident viewer behavior in design and tests before changing
    exposure.

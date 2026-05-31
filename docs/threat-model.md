@@ -8,7 +8,7 @@ non-emergency interaction records, timed safety checks, and evidence notes. Thos
 fields are metadata only. Current controls apply to local accounts, opaque
 sessions, generic or mode-labeled incidents, encrypted chunk uploads, checkins,
 viewer tokens, contact public-key metadata, owner-scoped sharing-grant
-metadata, and encrypted evidence bundles.
+metadata, grant-bound wrapped-key metadata, and encrypted evidence bundles.
 
 ## Assets
 
@@ -24,10 +24,11 @@ metadata, and encrypted evidence bundles.
   metadata stored with incidents. These fields are server-visible metadata but
   do not grant access, send notifications, change retention, change key custody,
   expose trusted-contact workflows, or change public viewer and bundle behavior.
-- Trusted-contact public-key metadata and owner-scoped sharing-grant records in
-  SQLite by default or optional PostgreSQL. These records are server-visible
-  metadata for future sharing policy. They do not contain contact private keys,
-  raw media keys, wrapped media keys, plaintext, browser fragment secrets, or
+- Trusted-contact public-key metadata, owner-scoped sharing-grant records, and
+  grant-bound wrapped-key records in SQLite by default or optional PostgreSQL.
+  Wrapped-key records contain encrypted media-key material and public wrapping
+  metadata, which is access-enabling metadata. These records do not contain
+  contact private keys, raw media keys, plaintext, browser fragment secrets, or
   server-decryptable key material.
 - Optional Valkey/Redis-compatible coordination is startup-checked when
   explicitly configured, but it is short-lived coordination state only and is
@@ -56,13 +57,13 @@ metadata, and encrypted evidence bundles.
 - Incident viewer URLs containing bearer tokens
 - Simulator-only local encryption key files when developers opt into `--key-file`
 - Future mobile/web recordings, interaction-record metadata, safety-check
-  state, trusted-contact accounts, production client-side keys, wrapped-key
-  delivery, browser decryption, and break-glass key access are out of
-  scope for the current implementation. Planned incident modes are documented
+  state, trusted-contact accounts, production client-side keys, browser
+  decryption, and break-glass key access are out of scope for the current
+  implementation. Planned incident modes are documented
   in [incident-modes.md](incident-modes.md), role and grant boundaries are
   documented in [v1-access-control.md](v1-access-control.md), the intended
   future key custody direction is documented in [key-custody.md](key-custody.md),
-  contact public-key lifecycle, trusted-contact grants, and future wrapped-key
+  contact public-key lifecycle, trusted-contact grants, and wrapped-key
   metadata are described in
   [contact-key-sharing-grants.md](contact-key-sharing-grants.md),
   the simulator-only contact-wrapped key metadata prototype is documented in
@@ -83,7 +84,8 @@ metadata, and encrypted evidence bundles.
   `/v1/auth/login`. Authenticated product routes can create incidents, create
   streams, upload chunks, complete/fail streams, close incidents, create viewer
   tokens, revoke tokens, manage account-owned contact public keys, manage
-  owner-scoped sharing grants, and read encrypted bytes. Existing
+  owner-scoped sharing grants, manage grant-bound wrapped-key records, and read
+  encrypted bytes. Existing
   `/v1/admin/...` JSON routes require an admin account and must not be routed
   from public entry points. They are mounted on the main API/viewer server.
 - `/v1/bootstrap/admin`, `/v1/health/live`, and `/v1/health/ready` are not
@@ -146,14 +148,15 @@ metadata, and encrypted evidence bundles.
   see
   [legacy unowned incident reassignment](legacy-unowned-incident-reassignment.md).
 - Contact public-key routes are scoped to the authenticated account. Current
-  sharing-grant routes are owner-only: users and admins can create, list, read,
-  or revoke grants only for incidents or grants owned by the authenticated
-  account. New grants require an active contact public key owned by the same
-  account and can be scoped to an incident or one stream. The routes store and
-  return public-key and grant metadata only, not contact private keys, raw media
-  keys, wrapped media keys, plaintext, browser fragment secrets, request
-  bodies, uploaded bytes, stored paths, staging paths, object keys, or private
-  deployment details.
+  sharing-grant and wrapped-key routes are owner-only: users and admins can
+  create, list, read, or revoke records only for incidents, grants, or
+  wrapped-key records owned by the authenticated account. New grants require an
+  active contact public key owned by the same account and can be scoped to an
+  incident or one stream. New wrapped-key records require an active, unexpired
+  grant that authorizes ciphertext access and an active contact public key.
+  The routes do not store or return contact private keys, raw media keys,
+  plaintext, browser fragment secrets, request bodies, uploaded bytes, stored
+  paths, staging paths, object keys, or private deployment details.
 - The private admin web surface uses `html/template`, stores browser admin
   sessions in an HttpOnly SameSite cookie scoped to `/admin`, serves embedded
   token-neutral CSS from the private admin prefix without authentication, and
@@ -211,12 +214,12 @@ The current backend does not implement incident-mode-specific controls yet, so f
   they are not a complete security model.
 - `/v1` must not be publicly exposed as-is.
 - No iOS app, Android app, web client, production local recording client,
-  production client key storage, wrapped-key delivery, push notifications, SMS,
-  Messenger integration, or public admin dashboard. The private `/admin` surface
+  production client key storage, push notifications, SMS, Messenger
+  integration, or public admin dashboard. The private `/admin` surface
   is not a complete operator UI, and the local desktop-recorder behavior in
   `cmd/simclient` is simulator/reference flow only.
-- No mode-driven access, escalation, retention, key-custody, wrapped-key
-  delivery, safety-check timer, dead-man switch notification, or
+- No mode-driven access, escalation, retention, key-custody, safety-check
+  timer, dead-man switch notification, browser decryption, backend decryption, or
   trusted-contact account behavior.
 - No built-in TLS, IP allowlist, or general-purpose abuse-throttling system
   beyond main API and public viewer route-class rate limiting.
@@ -256,7 +259,13 @@ The current backend does not implement incident-mode-specific controls yet, so f
 - No account self-service recovery, email verification, second factor
   authentication, delegated identity provider, or public account portal.
 - Viewer links are bearer tokens and must be shared carefully.
-- No implemented production key recovery, Keychain storage, trusted-contact account access, wrapped-key delivery, browser decryption, break-glass key access, or playable export. The future key custody and emergency access design is documented in [key-custody.md](key-custody.md), contact key-sharing and future wrapped-key grants are described in [contact-key-sharing-grants.md](contact-key-sharing-grants.md), browser decryption is designed in [browser-decryption.md](browser-decryption.md), and break-glass access is designed in [break-glass-key-access.md](break-glass-key-access.md).
+- No implemented production key recovery, Keychain storage, trusted-contact
+  account access, browser decryption, break-glass key access, or playable
+  export. The future key custody and emergency access design is documented in
+  [key-custody.md](key-custody.md), contact key-sharing and wrapped-key grants
+  are described in [contact-key-sharing-grants.md](contact-key-sharing-grants.md),
+  browser decryption is designed in [browser-decryption.md](browser-decryption.md),
+  and break-glass access is designed in [break-glass-key-access.md](break-glass-key-access.md).
 
 ## Deployment Guidance
 

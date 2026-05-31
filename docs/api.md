@@ -14,9 +14,10 @@ implemented; deletion and closed-incident retention enforcement are documented
 in [retention-backup-deletion.md](retention-backup-deletion.md). Planned
 mode-driven behavior is documented in [incident-modes.md](incident-modes.md).
 Authenticated account-owner routes can store trusted-contact public-key
-metadata and owner-scoped sharing-grant records, but trusted-contact accounts,
-wrapped-key delivery, browser or backend decryption, public product
-authentication, notifications, and key escrow do not exist yet.
+metadata, owner-scoped sharing-grant records, and wrapped media-key metadata
+for active grants. Trusted-contact accounts, browser or backend decryption,
+public product authentication, notifications, raw key storage, and key escrow
+do not exist yet.
 
 Default bind addresses:
 
@@ -292,8 +293,8 @@ sharing grants through these product routes unless the admin account owns the
 incident. Public viewer routes remain read-only and do not use these grant
 records.
 
-Sharing grants currently store authorization metadata only. They do not deliver
-wrapped media keys, decrypt media, create trusted-contact sessions, send
+Sharing grants authorize metadata, ciphertext, and wrapped-key delivery
+decisions. They do not decrypt media, create trusted-contact sessions, send
 notifications, alter incident-mode behavior, or change public viewer and bundle
 responses.
 
@@ -301,9 +302,9 @@ Grant data classes are:
 
 | Data class | Meaning |
 |---|---|
-| `metadata` | Future metadata access authorization. |
-| `ciphertext` | Future encrypted evidence access authorization. |
-| `metadata_ciphertext` | Future metadata and encrypted evidence access authorization. |
+| `metadata` | Metadata access authorization. |
+| `ciphertext` | Encrypted evidence access authorization. |
+| `metadata_ciphertext` | Metadata and encrypted evidence access authorization. |
 
 ### `POST /v1/incidents/{incident_id}/sharing-grants`
 
@@ -365,6 +366,102 @@ Returns one sharing grant owned by the authenticated account.
 Marks one account-owned sharing grant revoked and records the revoking account.
 Revocation stops future grant-based authorization or delivery. It does not
 delete encrypted chunks, incident metadata, bundle contents, or anything an
+authorized actor may already have downloaded.
+
+## Wrapped Keys
+
+Wrapped-key routes are mounted on the main API listener and require a valid
+local account session. They are account-owner routes: admins are not allowed to
+store, list, read, or revoke another account's wrapped-key records through
+these product routes unless the admin account owns the incident or record.
+
+The backend stores encrypted media-key material only when it is bound to an
+active sharing grant that authorizes ciphertext access. The record includes the
+incident, optional stream, media key ID, grant ID, trusted-contact public key
+ID and version, wrapping algorithm/version, wrapped-key ciphertext, and public
+wrapping metadata. It must not include raw media keys, contact private keys,
+plaintext, unwrapped shared secrets, browser fragment secrets, raw tokens, or
+server escrow material.
+
+Bundle manifests remain key-free. The current public incident viewer does not
+deliver wrapped keys, and public viewer bundle downloads keep their existing
+ciphertext-only behavior.
+
+### `POST /v1/incidents/{incident_id}/wrapped-keys`
+
+Stores one wrapped media-key record for an incident owned by the authenticated
+account. `grant_id` must name an active owner-scoped sharing grant for the same
+incident. The grant must authorize `ciphertext` or `metadata_ciphertext`, must
+not be expired, and must point at an active contact public key. If the grant is
+stream-scoped, `stream_id` must match the grant's stream.
+
+Request:
+
+```json
+{
+  "stream_id": "str_...",
+  "grant_id": "sgr_...",
+  "media_key_id": "media-key-2026-06-01-audio",
+  "wrapping_algorithm": "age-v1-x25519",
+  "wrapping_algorithm_version": "1",
+  "wrapped_key_ciphertext": "base64url-or-profile-encoded-ciphertext",
+  "public_wrapping_metadata": {
+    "profile": "age-v1-x25519"
+  }
+}
+```
+
+Response `201`:
+
+```json
+{
+  "wrapped_key": {
+    "wrapped_key_id": "wkey_...",
+    "owner_account_id": "acct_...",
+    "incident_id": "inc_...",
+    "stream_id": "str_...",
+    "grant_id": "sgr_...",
+    "recipient_type": "trusted_contact",
+    "contact_id": "ctc_...",
+    "contact_public_key_id": "cpk_...",
+    "contact_public_key_version": 1,
+    "media_key_id": "media-key-2026-06-01-audio",
+    "wrapping_algorithm": "age-v1-x25519",
+    "wrapping_algorithm_version": "1",
+    "wrapped_key_ciphertext": "base64url-or-profile-encoded-ciphertext",
+    "public_wrapping_metadata": {
+      "profile": "age-v1-x25519"
+    },
+    "wrapped_key_state": "active",
+    "created_at": "2026-06-01T10:00:00Z",
+    "updated_at": "2026-06-01T10:00:00Z"
+  }
+}
+```
+
+Missing incidents, streams, active grants, or active contact public keys return
+`404 wrapped_key_dependency_not_found`. Metadata-only grants return
+`409 wrapped_key_grant_not_authorized`. Reusing the same owner, incident,
+stream scope, grant, media key ID, and contact public key returns
+`409 wrapped_key_duplicate`.
+
+### `GET /v1/incidents/{incident_id}/wrapped-keys`
+
+Lists active wrapped-key records for an incident owned by the authenticated
+account. The list is delivery-filtered: records are omitted when their grant is
+revoked or expired, their contact public key is no longer active, or the
+wrapped-key record itself is revoked or rotated.
+
+### `GET /v1/wrapped-keys/{wrapped_key_id}`
+
+Returns one active wrapped-key record owned by the authenticated account,
+subject to the same delivery filter as the incident list route.
+
+### `POST /v1/wrapped-keys/{wrapped_key_id}/revoke`
+
+Marks one account-owned wrapped-key record revoked and records the revoking
+account. Revocation stops future delivery of that wrapped-key record. It does
+not delete encrypted chunks, incident metadata, bundle contents, or material an
 authorized actor may already have downloaded.
 
 ## Incidents

@@ -76,9 +76,10 @@ trusted-contact workflows, or change public viewer and bundle behavior. See
 
 Authenticated account owners can also register trusted-contact public-key
 metadata and create or revoke incident/stream-scoped sharing grants for their
-own incidents. These records are authorization and wrapping metadata only: they
-do not add trusted-contact accounts, wrapped media-key delivery, browser or
-backend decryption, public viewer changes, notifications, or key escrow.
+own incidents. Those grants can authorize private API storage and delivery of
+contact-wrapped media-key metadata for owned incidents or streams. These
+records do not add trusted-contact accounts, browser or backend decryption,
+public viewer changes, notifications, raw key storage, or key escrow.
 
 ## What Works Today
 
@@ -103,6 +104,8 @@ backend decryption, public viewer changes, notifications, or key escrow.
   metadata on main incident create/read routes
 - Owner-scoped contact public-key metadata and sharing-grant records for owned
   incidents or streams
+- Owner-scoped wrapped media-key metadata storage and private API delivery for
+  active sharing grants
 - Documented client-side chunk encryption envelope
 - Media streams with `open`, `complete`, and `failed` states
 - Completed encrypted stream and incident ZIP evidence bundle downloads
@@ -131,8 +134,8 @@ backend decryption, public viewer changes, notifications, or key escrow.
 - No implemented resumable or partial upload protocol; current Valkey upload
   leases are short-lived complete-upload hints, not durable evidence truth
 - No implemented live or partial stream chunk access before stream completion
-- No wrapped-key delivery, backend/browser decryption, raw key handling, server
-  escrow, break-glass key access, or playable media export
+- No trusted-contact account delivery, backend/browser decryption, raw key
+  handling, server escrow, break-glass key access, or playable media export
 - No push notifications, SMS, or Messenger integration
 - No OAuth, JWT, public account portal, or public admin dashboard
 - No built-in TLS, mode-specific retention policy, backup lifecycle enforcement, or production deployment hardening
@@ -315,8 +318,8 @@ Please see [SECURITY.md](SECURITY.md) for supported versions and vulnerability r
 - Mode-driven access, escalation, retention, sharing, viewer, and key-custody
   behavior after protocol and security design
 - Server-side support for trusted-contact dead-man switch workflows after access-control design
-- Production key custody, trusted-contact account access, wrapped-key delivery,
-  and browser/client-side decryption
+- Production key custody, trusted-contact account access, grant-scoped contact
+  delivery, and browser/client-side decryption
 - Optional break-glass/dead-man-switch key access
 - Playable media export
 - Reverse-proxy/TLS hardening for incident viewer exposure

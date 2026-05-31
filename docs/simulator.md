@@ -272,8 +272,10 @@ The wrapping profile is `age-v1-x25519` through the maintained
 the media key through the local development contact key before bundle decrypt
 verification. This remains simulator-only: it does not add production key
 custody, backend decryption, browser decryption, key escrow, trusted-contact
-accounts, server-side wrapped-key storage, API routes, database schema, or
-bundle manifest key records.
+accounts, public product authentication, or bundle manifest key records. The
+server now has private authenticated metadata routes for contact public keys,
+sharing grants, and grant-bound wrapped-key records, but this simulator option
+does not call them or add raw key custody behavior.
 
 ## Encryption
 

@@ -2,11 +2,11 @@
 
 This document defines the intended production key custody direction for
 Proofline. The current backend now includes account-owner contact public-key
-metadata and sharing-grant metadata, but this document remains the security
-boundary for production custody. The current implementation does not add
-wrapped-key records, browser decryption, backend decryption, server escrow,
-trusted-contact accounts, simulator envelope changes, or production key custody
-behavior.
+metadata, sharing-grant metadata, and grant-bound wrapped-key record storage and
+delivery, but this document remains the security boundary for production
+custody. The current implementation does not add browser decryption, backend
+decryption, server escrow, trusted-contact accounts, simulator envelope
+changes, or production key custody behavior.
 
 ## Summary
 
@@ -48,7 +48,6 @@ metadata boundary are designed in
 
 ## Non-Goals For This Milestone
 
-- No wrapped-key delivery implementation.
 - No iOS, Android, or web-client code.
 - No browser decryption implementation.
 - No server-side decryption implementation.
@@ -368,28 +367,30 @@ approved together.
 
 ## API And Storage Changes
 
-The current API has owner-scoped contact public-key registration and
-sharing-grant metadata routes behind the authenticated main `/v1` boundary. It
-still has no trusted-contact account model and no route for storing or
-delivering wrapped media keys. Before iOS or production trusted-contact work
-starts, future design should define:
+The current API has owner-scoped contact public-key registration,
+sharing-grant metadata routes, and grant-bound wrapped-key record storage and
+delivery behind the authenticated main `/v1` boundary. It still has no
+trusted-contact account model, browser decryption, backend decryption, or
+server escrow path. Before iOS or production trusted-contact work starts,
+future design should define:
 
 - contact public-key registration, verification, replacement, and revocation
 - device identity and recovery-key enrollment
-- where wrapped media-key metadata is accepted, stored, listed, and removed
-- how wrapped keys attach to incident IDs, stream IDs, media key IDs, contact
-  key IDs, and future sharing grants
-- whether wrapped-key metadata appears in bundle manifests, authenticated API
-  responses, or both
+- how clients choose, validate, and encode wrapping formats for server-stored
+  records
+- whether wrapped-key metadata ever appears in grant-scoped bundle manifests;
+  current bundle manifests remain key-free and current delivery uses
+  authenticated API responses
 - how access-control grants interact with decryption capabilities
 - retention, backup, restore, and deletion behavior for wrapped keys
 - audit fields that are useful without exposing tokens, raw keys, plaintext, or
   sensitive safety data
 
-These API and schema changes must be separate implementation work. They should
-update this document, [security-model.md](security-model.md),
-[threat-model.md](threat-model.md), [encryption.md](encryption.md), and
-deployment guidance before or alongside code changes.
+Future custody, decryption, client, or bundle-manifest changes remain separate
+implementation work. They should update this document,
+[security-model.md](security-model.md), [threat-model.md](threat-model.md),
+[encryption.md](encryption.md), and deployment guidance before or alongside
+code changes.
 
 ## Metadata And Live Dashboard Implications
 
