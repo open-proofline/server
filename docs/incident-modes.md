@@ -2,7 +2,15 @@
 
 Proofline is intended to be broader than an emergency-only recorder. The long-term product direction is private, encrypted incident capture for moments where a user wants a durable record, with emergency escalation available only when the user chooses it or a configured safety check is missed.
 
-This is a planning and schema-design document. It does not add mobile clients, account management, public `/v1` authentication, push notifications, emergency-services integration, incident-mode schema, key custody, browser decryption, or new backend routes. Future account-owner, trusted-contact, public-link, admin/operator, and optional escrow role boundaries are documented in [v1-access-control.md](v1-access-control.md).
+This is a planning and schema-design document for mode-driven behavior. The
+current backend implements optional nullable `incident_mode`, `capture_profile`,
+`escalation_policy`, and `sharing_state` metadata fields on the existing private
+incident create/read routes. Those fields do not add mobile clients, public
+account workflows, public `/v1` exposure, push notifications, emergency-services
+integration, key custody, browser decryption, trusted-contact access, retention
+behavior, or new backend routes. Future account-owner, trusted-contact,
+public-link, admin/operator, and optional escrow role boundaries are documented
+in [v1-access-control.md](v1-access-control.md).
 
 ## Product Framing
 
@@ -59,7 +67,12 @@ The app should not imply that it reports alleged criminal activity, contacts law
 
 ## Future Data Model Direction
 
-The current backend only has generic incidents, streams, chunks, checkins, and incident tokens. Do not add first-class incident-mode fields to the current backend incident schema until protocol shape, access-control behavior, client behavior, migration behavior, retention behavior, and viewer wording are explicitly accepted.
+The current backend has generic incidents, streams, chunks, checkins, incident
+tokens, and optional nullable incident-mode metadata fields. Missing mode fields
+mean the incident remains a generic legacy incident. Stored mode fields are
+server-visible metadata only; they do not grant access, create public links,
+send notifications, change retention, change key custody, release wrapped keys,
+expose plaintext, or change public viewer and bundle behavior.
 
 Future protocol work may add a durable incident record shaped around these concepts:
 
@@ -160,32 +173,47 @@ Future account-enabled clients should distinguish:
 
 Incident labels must not silently grant access. Emergency incidents, interaction records, safety checks, and evidence notes need explicit sharing, escalation, and grant policy before implementation.
 
-The current token-scoped incident viewer is a temporary read-only access model. A future web client may replace it after account management, authorization, key custody, and trusted-contact access are designed. The future `/v1` role, grant, and route-exposure direction is documented in [v1-access-control.md](v1-access-control.md).
+The current token-scoped incident viewer is a temporary read-only access model.
+A future web client may replace it after public account workflows,
+authorization, key custody, and trusted-contact access are designed. The future
+`/v1` role, grant, and route-exposure direction is documented in
+[v1-access-control.md](v1-access-control.md).
 
 ## Migration From Generic Incidents
 
-The migration path from the current backend should be additive and conservative:
+The migration path from the current backend should remain additive and
+conservative:
 
 1. Keep existing incidents readable as generic legacy incidents with no incident-mode value.
 2. Do not backfill old incidents as emergencies, interaction records, safety checks, or evidence notes without an account-owner-controlled classification flow.
-3. Add nullable or versioned fields only after SQLite, PostgreSQL, API, bundle manifest, viewer, retention, and access-control compatibility rules are designed together.
+3. Keep the initial server fields nullable and optional in SQLite, PostgreSQL,
+   and private API responses.
 4. Keep old clients working against generic incident creation until an explicit API version or compatibility plan replaces it.
-5. Make future viewer and bundle behavior tolerate missing mode, capture-profile, escalation, and sharing fields.
+5. Keep current public viewer and bundle behavior tolerant of missing mode,
+   capture-profile, escalation, and sharing fields.
 6. Do not infer key access, trusted-contact grants, public links, or retention windows from a legacy generic incident.
 
-Because current JSON handlers reject unknown fields, clients cannot safely send future incident-mode fields before the server implements them. A future API task must decide whether to extend `POST /v1/incidents`, add versioned product API routes, or accept mode metadata through another explicit protocol path.
+The current private `POST /v1/incidents` route accepts the initial optional mode
+metadata fields documented in [API](api.md). Future fields or mode-driven
+behavior still require an explicit protocol/API compatibility decision.
 
 ## API Compatibility And Viewer Wording
 
 Future API changes should keep current behavior clear:
 
-- Current `/v1/incidents` creates generic incidents only.
+- Current `/v1/incidents` creates generic incidents by default and accepts
+  optional mode metadata.
 - Future public product API routes must wait for implemented authentication and authorization.
 - Future private/admin routes must remain on private listener groups and still require authentication after the future admin API exists.
 - Public incident viewer routes must stay read-only and must not become write, grant-management, admin, escrow, or decryption routes.
 - Bundle manifests may eventually include non-secret incident-mode summaries, but they must not include raw tokens, raw keys, plaintext, private deployment details, server paths, object keys, or unreviewed sensitive context.
 
-Viewer wording should be mode-aware after modes exist. Interaction records and evidence notes should not use emergency-only copy. Safety-check wording should explain the missed-check-in context without implying emergency services were contacted. Emergency incidents can use urgent trusted-contact guidance only when the escalation policy actually grants urgent access.
+Viewer wording should become mode-aware only after mode-driven viewer behavior is
+explicitly implemented. Interaction records and evidence notes should not use
+emergency-only copy. Safety-check wording should explain the missed-check-in
+context without implying emergency services were contacted. Emergency incidents
+can use urgent trusted-contact guidance only when the escalation policy actually
+grants urgent access.
 
 ## Retention And Deletion Implications
 
@@ -199,11 +227,17 @@ Future design should decide:
 - how retention applies to wrapped keys, public links, trusted-contact grants, and bundle manifests
 - what audit fields can be retained without leaking raw tokens, raw keys, plaintext, request bodies, uploaded bytes, or private deployment details
 
-The current backend does not implement automatic expiration or incident deletion APIs. Future work should align with [retention-backup-deletion.md](retention-backup-deletion.md) and [incident-deletion-retention-enforcement.md](incident-deletion-retention-enforcement.md).
+The current backend implements generic incident deletion and optional
+closed-incident retention, but it does not implement mode-specific retention or
+mode-specific deletion behavior. Future work should align with
+[retention-backup-deletion.md](retention-backup-deletion.md) and
+[incident-deletion-retention-enforcement.md](incident-deletion-retention-enforcement.md).
 
 ## Dependencies Before Implementation
 
-First-class incident modes depend on other designs and must not be implemented as a standalone schema label:
+The optional metadata fields are not enough to implement mode-specific product
+behavior. Mode-driven access, escalation, retention, sharing, viewer, or
+key-custody behavior depends on other designs:
 
 - [Future `/v1` access control](v1-access-control.md) for account-owner, capture-device, trusted-contact, public-link, admin/operator, and optional escrow roles
 - [Key custody and emergency access](key-custody.md) for contact-wrapped keys, wrapped-key delivery, and phone-unavailable assumptions
@@ -219,6 +253,8 @@ Any implementation that changes key custody, wrapped-key delivery, browser decry
 Implemented today:
 
 - generic incidents
+- optional nullable incident-mode, capture-profile, escalation-policy, and
+  sharing-state metadata on private incident create/read routes
 - media streams
 - encrypted chunk upload and immutable storage
 - checkins
@@ -229,10 +265,10 @@ Implemented today:
 
 Not implemented today:
 
-- first-class incident modes, capture profiles, escalation policies, or sharing
-  state
-- account management
-- public `/v1` authentication
+- mode-driven access, capture, escalation, sharing, retention, viewer, or
+  key-custody behavior
+- public account workflows
+- public `/v1` product authentication
 - trusted-contact accounts
 - mobile clients
 - non-emergency interaction UX
@@ -250,7 +286,7 @@ When future implementation touches incident modes, update the relevant source-of
 - [Architecture](architecture.md), to show any new data flow, listener, or repository boundary
 - [API](api.md), to document any accepted route, request, response, viewer, or bundle-manifest field
 - [iOS local recorder prototype](ios-local-recorder-prototype.md)
-- [Future /v1 access control](v1-access-control.md)
+- [/v1 access control](v1-access-control.md)
 - [Security model](security-model.md), to preserve storage, logging, listener, access, and ciphertext-only assumptions
 - [Threat model](threat-model.md), to cover mode-specific sharing, escalation, false-positive, and access risks
 - [Key custody](key-custody.md), if sharing, wrapped-key delivery, or decryption behavior changes

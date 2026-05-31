@@ -104,13 +104,22 @@ func readBundleEntry(file *zip.File) ([]byte, error) {
 }
 
 func validateBundleManifest(manifest streamBundleManifest, incidentID, streamID, mediaType string) error {
-	if manifest.IncidentID != incidentID {
+	if manifest.IncidentID == "" {
+		return fmt.Errorf("bundle incident_id is missing")
+	}
+	if manifest.StreamID == "" {
+		return fmt.Errorf("bundle stream_id is missing")
+	}
+	if manifest.MediaType == "" {
+		return fmt.Errorf("bundle media_type is missing")
+	}
+	if incidentID != "" && manifest.IncidentID != incidentID {
 		return fmt.Errorf("bundle incident_id %q does not match %q", manifest.IncidentID, incidentID)
 	}
-	if manifest.StreamID != streamID {
+	if streamID != "" && manifest.StreamID != streamID {
 		return fmt.Errorf("bundle stream_id %q does not match %q", manifest.StreamID, streamID)
 	}
-	if manifest.MediaType != mediaType {
+	if mediaType != "" && manifest.MediaType != mediaType {
 		return fmt.Errorf("bundle media_type %q does not match %q", manifest.MediaType, mediaType)
 	}
 	return nil

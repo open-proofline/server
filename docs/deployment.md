@@ -1,18 +1,17 @@
 # Deployment
 
-Proofline is experimental and not production-ready public infrastructure. Treat the private `/v1` API as unauthenticated admin/write access.
+Proofline is experimental and not production-ready public infrastructure. Treat the private `/v1` API as an authenticated but still private admin/write control plane.
 
 > **Do not expose `/v1` publicly as-is.**
 >
 > Keep private listeners behind localhost, LAN, WireGuard, firewall rules, or a strict reverse proxy. Separate bind addresses are a deployment boundary, not a complete security model.
 
-The future `/v1` access-control direction is documented in
-[v1-access-control.md](v1-access-control.md). That document is planning-only
-and does not change the current deployment rule: unauthenticated `/v1` routes
-must remain private. Future admin/operator routes should use their own private
-listener that can be bound to loopback, LAN, WireGuard, VPN, firewall, or a
-private reverse proxy, but that private placement must not replace admin
-authentication.
+The `/v1` access-control direction is documented in
+[v1-access-control.md](v1-access-control.md). Current local account sessions
+do not change the deployment rule: `/v1` routes must remain private. Future
+admin/operator routes should use their own private listener that can be bound
+to loopback, LAN, WireGuard, VPN, firewall, or a private reverse proxy, but
+that private placement must not replace admin authentication.
 
 The current module and artifact names use the `open-proofline/server` repository namespace. The published GHCR image is `ghcr.io/open-proofline/server`, local examples use the `proofline-server` image name, and release binaries use `proofline-server-*` names. Compatibility identifiers such as the v1 encryption envelope scheme and default SQLite filename may still use earlier `safety-recorder` names until separate protocol or data-layout migrations are explicitly performed.
 
@@ -21,6 +20,7 @@ The current module and artifact names use the `open-proofline/server` repository
 From the repository root:
 
 ```bash
+SAFE_AUTH_BOOTSTRAP_SECRET='replace-with-local-bootstrap-secret' \
 go run ./cmd/api
 ```
 
@@ -30,6 +30,64 @@ Defaults:
 |---|---|
 | Private API | `127.0.0.1:8080` |
 | Public incident viewer | `127.0.0.1:8081` |
+
+The server fails closed until an admin account exists. For a new local
+database, create the first admin while `SAFE_AUTH_BOOTSTRAP_SECRET` is set:
+
+```bash
+curl -sS -X POST http://127.0.0.1:8080/v1/bootstrap/admin \
+  -H 'Content-Type: application/json' \
+  -H 'X-Proofline-Bootstrap-Secret: replace-with-local-bootstrap-secret' \
+  -d '{"username":"admin","password":"replace-with-a-long-local-password"}'
+```
+
+After bootstrap, remove `SAFE_AUTH_BOOTSTRAP_SECRET` and restart. The
+bootstrap route is disabled after an admin account exists. Treat the bootstrap
+secret, account passwords, raw session tokens, raw idempotency keys, and
+Authorization headers as secrets.
+
+The private listener also exposes unauthenticated liveness and readiness
+checks for local operators:
+
+```bash
+curl -fsS http://127.0.0.1:8080/v1/health/live
+curl -fsS http://127.0.0.1:8080/v1/health/ready
+```
+
+`/v1/health/live` checks only that the process is serving requests.
+`/v1/health/ready` checks the selected metadata, blob, and coordination
+backends and returns only coarse backend type and `ok` or `unavailable`
+statuses. It does not expose DSNs, credentials, bucket names, object keys,
+stored paths, local filesystem paths, private hostnames, tokens, request
+bodies, uploaded bytes, raw idempotency keys, plaintext, raw keys, or private
+deployment details.
+Keep these routes on the private listener; they do not make `/v1` safe for
+public exposure.
+
+The deletion worker starts automatically by default and processes durable
+incident deletion decisions every minute. Set
+`SAFE_DELETION_WORKER_INTERVAL=0` only when an operator intentionally wants to
+pause deletion processing. Closed-incident retention is disabled by default;
+set `SAFE_CLOSED_INCIDENT_RETENTION` to a positive duration only after the
+deployment has reviewed backup expiry and restore implications.
+
+The same private listener serves the admin web interface at:
+
+```text
+http://127.0.0.1:8080/admin
+```
+
+When no admin exists and `SAFE_AUTH_BOOTSTRAP_SECRET` is set, `/admin` shows a
+first-admin bootstrap screen. After an admin exists, it shows an admin login
+screen and stores the resulting admin web session in an HttpOnly SameSite
+cookie scoped to `/admin`. Authenticated admin pages list local accounts and
+provide logout, password-change, and account password-reset forms with CSRF
+checks. The CSS under `/admin/static/...` is unauthenticated because it is
+token-neutral static source, but the admin pages and form handlers remain
+private-listener routes.
+
+This is not a public admin dashboard. Do not expose `/admin`, `/admin/...`, or
+`/v1` outside the private boundary.
 
 ## Docker
 
@@ -43,11 +101,26 @@ Run with localhost-only port publishing when everything that talks to the backen
 
 ```bash
 docker run --rm \
+  -e SAFE_AUTH_BOOTSTRAP_SECRET='replace-with-local-bootstrap-secret' \
   -p 127.0.0.1:8080:8080 \
   -p 127.0.0.1:8081:8081 \
   -v proofline-server-data:/data \
   proofline-server
 ```
+
+Create the first admin account through `POST /v1/bootstrap/admin`, then restart
+without `SAFE_AUTH_BOOTSTRAP_SECRET`.
+
+From the host, Docker deployments can use the private readiness route through
+the loopback-published private port:
+
+```bash
+curl -fsS http://127.0.0.1:8080/v1/health/ready
+```
+
+Do not publish or proxy the private health routes on the public incident viewer
+origin. They are intended for local Docker checks, private reverse-proxy
+upstream checks, and operator troubleshooting inside the private boundary.
 
 In this shape both listeners are reachable only through the host loopback interface. It is useful for local testing, SSH port forwarding, or a same-host reverse proxy. It does not expose the private `/v1` API or the incident viewer directly to the network.
 
@@ -60,6 +133,8 @@ Container defaults:
 | `SAFE_DATA_DIR` | `/data` |
 | `SAFE_DB_PATH` | `/data/safety.db` |
 | `SAFE_MAX_UPLOAD_BYTES` | `250MB` |
+| `SAFE_DELETION_WORKER_INTERVAL` | `1m` |
+| `SAFE_CLOSED_INCIDENT_RETENTION` | `0` |
 
 Inside containers, bind to container addresses such as `0.0.0.0`, then restrict host exposure with Docker port publishing, firewall rules, WireGuard, or a reverse proxy.
 
@@ -114,8 +189,9 @@ df -h "$(dirname "$db")"
 
 Treat deployment paths, hostnames, screenshots, logs, and backup locations as
 private operational details. Do not paste raw viewer tokens, request bodies,
-uploaded bytes, plaintext, raw keys, credentials, private deployment details,
-or real user safety data into public issues or support channels. If code-level
+uploaded bytes, raw idempotency keys, plaintext, raw keys, credentials, private
+deployment details, or real user safety data into public issues or support
+channels. If code-level
 SQLite observability or automated checkpoint tuning is needed later, handle it
 as a separate scoped implementation task with tests.
 
@@ -136,7 +212,7 @@ go run ./cmd/api
 
 The S3 backend requires `SAFE_S3_ACCESS_KEY_ID` and `SAFE_S3_SECRET_ACCESS_KEY`. `SAFE_S3_SESSION_TOKEN` is optional. Treat static credentials, bucket names, private endpoints, and deployment-specific prefixes as private deployment details.
 
-S3-compatible storage stores opaque encrypted chunk bytes only. It does not add backend decryption, key escrow, public `/v1` authentication, cloud deployment automation, or production readiness. Uploads still stage local temp files under `SAFE_DATA_DIR/tmp` before a final conditional object write, so the deployment must preserve enough local temp space for in-flight uploads and must include conservative cleanup for abandoned temp files after crashes.
+S3-compatible storage stores opaque encrypted chunk bytes only. It does not add backend decryption, key escrow, public `/v1` exposure, public account workflows, cloud deployment automation, or production readiness. Uploads still stage local temp files under `SAFE_DATA_DIR/tmp` before a final conditional object write, so the deployment must preserve enough local temp space for in-flight uploads and must include conservative cleanup for abandoned temp files after crashes.
 
 Use HTTPS for S3-compatible endpoints unless the endpoint is reachable only on a
 local or private test network. Before storing real evidence, verify the selected
@@ -169,9 +245,11 @@ automatically migrate existing SQLite metadata into PostgreSQL at startup. A
 SQLite-to-PostgreSQL migration should be a separate quiesced operation with
 metadata and encrypted blobs backed up and verified together.
 
-PostgreSQL does not add public `/v1` authentication, cluster-safe idempotency,
-cloud deployment automation, backend decryption, key escrow, or production
-readiness. Keep private `/v1` listeners behind localhost, LAN, WireGuard,
+PostgreSQL does not add public `/v1` exposure, public account workflows, cloud
+deployment automation, backend decryption, key escrow, or production readiness.
+It can store the implemented complete-upload idempotency state, but resumable
+uploads, upload leases, and broader production-cluster readiness remain
+separate work. Keep private `/v1` listeners behind localhost, LAN, WireGuard,
 firewall rules, or a strict private proxy.
 
 ## Optional Valkey / Redis-Compatible Coordination
@@ -196,15 +274,18 @@ with a misleading cluster configuration.
 Valkey coordination is not durable evidence storage and is not a backup source
 of truth. Incident metadata, viewer-token metadata, committed encrypted chunks,
 retention decisions, and deletion decisions remain in the metadata and blob
-backends. Current upload routes do not yet use coordination for upload leases,
-idempotency result caching, resumable uploads, or application-level rate
-limiting.
+backends. When configured, the public viewer app-level rate limiter uses
+Valkey for short-lived route-class counters. Current upload routes do not use
+coordination for upload leases, idempotency result caching, or resumable
+uploads. Complete-upload idempotency keys are durable metadata records, not
+Valkey records.
 
-Treat Valkey passwords, private hostnames, network topology, and future
-coordination keys as private deployment details. Do not expose them in public
-issues, logs, dashboards, screenshots, support tickets, or metrics labels.
-Valkey does not add public `/v1` authentication, cloud deployment automation,
-backend decryption, key escrow, or production readiness.
+Treat Valkey passwords, private hostnames, network topology, rate-limit
+counters, and future coordination keys as private deployment details. Do not
+expose them in public issues, logs, dashboards, screenshots, support tickets,
+or metrics labels.
+Valkey does not add public `/v1` exposure, public account workflows, cloud
+deployment automation, backend decryption, key escrow, or production readiness.
 
 ## Private API Through WireGuard Or A Private Network
 
@@ -212,6 +293,7 @@ For a private API reachable from a WireGuard peer or private LAN, publish or bin
 
 ```bash
 docker run --rm \
+  -e SAFE_AUTH_BOOTSTRAP_SECRET='replace-with-local-bootstrap-secret' \
   -p 10.66.0.1:8080:8080 \
   -p 127.0.0.1:8081:8081 \
   -v proofline-server-data:/data \
@@ -228,7 +310,7 @@ SAFE_PUBLIC_BIND_ADDRS=127.0.0.1:8081 \
 go run ./cmd/api
 ```
 
-This does not add authentication to `/v1`; it only chooses where the unauthenticated private API listens.
+This keeps authenticated `/v1` routes on a private network boundary. Local account sessions reduce accidental unauthenticated access, but they do not make `/v1` suitable for public exposure.
 
 ## Timeout Tuning
 
@@ -260,15 +342,20 @@ Before exposing the public incident viewer:
       the public hostname.
 - [ ] Edge rate limiting covers viewer page lookup, viewer JSON polling, ZIP
       download starts, and public static assets with route-appropriate limits.
+- [ ] App-level public viewer rate limits are reviewed for the deployment and
+      kept aligned with the edge route groups.
 - [ ] Reverse-proxy logs, metrics, dashboards, and rate-limit keys avoid raw
       `/i/{token}` paths, legacy `/e/{token}` paths, query strings attached to
       viewer URLs, request bodies, uploaded bytes, Authorization headers,
-      plaintext, raw keys, and future token-like values.
+      raw idempotency keys, plaintext, raw keys, and future token-like values.
 - [ ] Viewer-token sharing, default expiry, explicit no-expiry tokens, and
       revocation workflows have been reviewed for this deployment.
 - [ ] Retention, backup, restore, and deletion expectations are documented for
       this deployment and reviewed against
       [retention-backup-deletion.md](retention-backup-deletion.md).
+- [ ] `SAFE_CLOSED_INCIDENT_RETENTION` is unset or set to a reviewed duration;
+      backup expiry and restore reconciliation are documented before enabling
+      automatic closed-incident deletion.
 - [ ] Cluster backup, restore, and failure handling has been reviewed against
       [cluster-backup-restore-runbook.md](cluster-backup-restore-runbook.md)
       when optional PostgreSQL, S3-compatible storage, or Valkey/Redis
@@ -278,15 +365,17 @@ Before exposing the public incident viewer:
       publicly.
 - [ ] Monitoring and timeout settings cover public viewer errors, storage or
       database failures, and long encrypted ZIP downloads without logging raw
-      tokens, request bodies, uploaded bytes, plaintext, raw keys, or private
-      deployment details.
+      tokens, request bodies, uploaded bytes, raw idempotency keys, plaintext,
+      raw keys, or private deployment details.
 
-The Go app still has no built-in app-level rate limiter. Apply rate limits at the deployment edge for now, and tune them for the expected recording, polling, and download patterns.
+The Go app includes a small app-level public viewer rate limiter. Keep edge
+rate limiting in place as the first public boundary, and tune both layers for
+the expected viewing, polling, and download patterns.
 
-Future server-assisted break-glass, dead-man-switch key access, account access,
-or trusted-contact workflows would add stronger operator and deployment trust
-requirements. They should remain disabled unless explicitly designed and
-configured; see [v1-access-control.md](v1-access-control.md),
+Future server-assisted break-glass, dead-man-switch key access, public account
+workflows, or trusted-contact workflows would add stronger operator and
+deployment trust requirements. They should remain disabled unless explicitly
+designed and configured; see [v1-access-control.md](v1-access-control.md),
 [break-glass-key-access.md](break-glass-key-access.md),
 [key-custody.md](key-custody.md), and [incident-modes.md](incident-modes.md).
 
@@ -295,9 +384,8 @@ migration tracking, transaction boundaries, configuration shape, integration
 test setup, and restore expectations are documented in
 [PostgreSQL metadata migration path](postgresql-metadata-migration.md).
 PostgreSQL and Valkey support must not be treated as production-cluster
-readiness until idempotency, operation-level coordination behavior,
-backup/restore drills, access-control, and operational hardening are also
-addressed.
+readiness until operation-level coordination behavior, backup/restore drills,
+access-control, and operational hardening are also addressed.
 
 The Go app does not set `Strict-Transport-Security` by default because local development uses plain HTTP. Enable HSTS at the HTTPS reverse proxy only after TLS is working for the production hostname.
 
@@ -315,6 +403,7 @@ One same-host shape is:
 
 ```bash
 docker run --rm \
+  -e SAFE_AUTH_BOOTSTRAP_SECRET='replace-with-local-bootstrap-secret' \
   -p 127.0.0.1:8080:8080 \
   -p 127.0.0.1:8081:8081 \
   -v proofline-server-data:/data \
@@ -399,11 +488,36 @@ Suggested route groups:
 | Viewer ZIP downloads | `GET /i/{token}/streams/{stream_id}/download`, `GET /i/{token}/incident/download` | Limit download starts without cutting off long encrypted ZIP responses; coordinate with proxy and app timeouts. |
 | Public static assets | `GET /static/...` | Static assets are token-neutral and can usually tolerate a looser limit. |
 | Private chunk uploads | `POST /v1/incidents/{incident_id}/chunks` | If routed through a private proxy, tune for expected chunk cadence and upload retries. |
-| Private incident, stream, check-in, token, and admin-style actions | Other `/v1/...` routes | Keep behind a private boundary and use limits as an abuse backstop, not as public authentication. |
+| Private incident, stream, check-in, token, and admin-style actions | Other `/v1/...` routes | Keep behind a private boundary and use limits as an abuse backstop, not as the only security control. |
 
 Rate limiting does not make `/v1` safe to expose publicly. Keep the private API on localhost, LAN, WireGuard, firewall rules, or a private reverse-proxy entry point even when limits are configured.
 
 Exact limits are deployment-specific. Start with conservative values, watch legitimate simulator/client behavior, then adjust. Avoid sending raw `/i/{token}` paths or pre-rename compatibility `/e/{token}` paths to metrics, dashboards, or logs while measuring limiter behavior.
+
+The Go app also applies route-class-aware limits to the public incident viewer
+by default:
+
+| App route class | Default |
+|---|---|
+| Viewer page lookup | 60 requests per 1 minute |
+| Viewer JSON polling | 300 requests per 1 minute |
+| Viewer ZIP downloads | 12 request starts per 1 minute |
+| Public static assets | 600 requests per 1 minute |
+
+Configure these with `SAFE_PUBLIC_VIEWER_RATE_LIMIT_WINDOW`,
+`SAFE_PUBLIC_VIEWER_RATE_LIMIT_PAGE`,
+`SAFE_PUBLIC_VIEWER_RATE_LIMIT_DATA`,
+`SAFE_PUBLIC_VIEWER_RATE_LIMIT_DOWNLOAD`, and
+`SAFE_PUBLIC_VIEWER_RATE_LIMIT_STATIC`. Set an individual limit to `0` to
+disable that route-class limit, or set
+`SAFE_PUBLIC_VIEWER_RATE_LIMIT_ENABLED=false` to disable the app-level limiter.
+
+The app-level limiter groups requests by route class and a hash of the socket
+peer identity. It does not trust `X-Forwarded-For`; when the app sits behind a
+reverse proxy, the app may see only the proxy address. Keep deployment-edge
+rate limiting configured with the proxy's reviewed client-source policy.
+If the configured Valkey-backed limiter becomes unavailable at runtime, public
+viewer requests fail closed with a safe `503 rate_limit_unavailable` response.
 
 ### Traefik Rate-Limiting Example
 
@@ -572,6 +686,7 @@ Avoid logging:
 - request bodies
 - uploaded bytes
 - `Authorization` headers
+- raw `Idempotency-Key` values
 - rate-limit keys or metric labels containing raw viewer tokens
 - plaintext, raw keys, or future token-like values
 

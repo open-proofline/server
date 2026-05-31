@@ -10,9 +10,27 @@ func scanIncident(s scanner) (Incident, error) {
 	var incident Incident
 	var createdAt string
 	var updatedAt string
+	var ownerAccountID sql.NullString
 	var clientLabel sql.NullString
 	var notes sql.NullString
-	if err := s.Scan(&incident.ID, &createdAt, &updatedAt, &incident.Status, &clientLabel, &notes); err != nil {
+	var incidentMode sql.NullString
+	var captureProfile sql.NullString
+	var escalationPolicy sql.NullString
+	var sharingState sql.NullString
+	if err := s.Scan(
+		&incident.ID,
+		&ownerAccountID,
+		&createdAt,
+		&updatedAt,
+		&incident.Status,
+		&clientLabel,
+		&notes,
+		&incidentMode,
+		&captureProfile,
+		&escalationPolicy,
+		&sharingState,
+		&incident.DeletionState,
+	); err != nil {
 		return Incident{}, err
 	}
 	parsedCreatedAt, err := parseDBTime(createdAt)
@@ -25,11 +43,29 @@ func scanIncident(s scanner) (Incident, error) {
 	}
 	incident.CreatedAt = parsedCreatedAt
 	incident.UpdatedAt = parsedUpdatedAt
+	if ownerAccountID.Valid {
+		incident.OwnerAccountID = ownerAccountID.String
+	}
 	if clientLabel.Valid {
 		incident.ClientLabel = clientLabel.String
 	}
 	if notes.Valid {
 		incident.Notes = notes.String
+	}
+	if incidentMode.Valid {
+		incident.IncidentMode = incidentMode.String
+	}
+	if captureProfile.Valid {
+		incident.CaptureProfile = captureProfile.String
+	}
+	if escalationPolicy.Valid {
+		incident.EscalationPolicy = escalationPolicy.String
+	}
+	if sharingState.Valid {
+		incident.SharingState = sharingState.String
+	}
+	if incident.DeletionState == "" {
+		incident.DeletionState = IncidentDeletionStateActive
 	}
 	return incident, nil
 }
@@ -79,6 +115,73 @@ func scanChunk(s scanner) (Chunk, error) {
 		chunk.OriginalFilename = originalFilename.String
 	}
 	return chunk, nil
+}
+
+func scanUploadOperation(s scanner) (UploadOperation, error) {
+	var operation UploadOperation
+	var streamID sql.NullString
+	var originalFilename sql.NullString
+	var chunkID sql.NullString
+	var storedPath sql.NullString
+	var startedAt string
+	var endedAt string
+	var createdAt string
+	var updatedAt string
+	if err := s.Scan(
+		&operation.ID,
+		&operation.Operation,
+		&operation.IdempotencyKeyHash,
+		&operation.IncidentID,
+		&streamID,
+		&operation.ChunkIndex,
+		&operation.MediaType,
+		&startedAt,
+		&endedAt,
+		&originalFilename,
+		&operation.ByteSize,
+		&operation.SHA256Hex,
+		&operation.FingerprintHash,
+		&operation.State,
+		&chunkID,
+		&storedPath,
+		&createdAt,
+		&updatedAt,
+	); err != nil {
+		return UploadOperation{}, err
+	}
+	parsedStartedAt, err := parseDBTime(startedAt)
+	if err != nil {
+		return UploadOperation{}, err
+	}
+	parsedEndedAt, err := parseDBTime(endedAt)
+	if err != nil {
+		return UploadOperation{}, err
+	}
+	parsedCreatedAt, err := parseDBTime(createdAt)
+	if err != nil {
+		return UploadOperation{}, err
+	}
+	parsedUpdatedAt, err := parseDBTime(updatedAt)
+	if err != nil {
+		return UploadOperation{}, err
+	}
+	operation.StartedAt = parsedStartedAt
+	operation.EndedAt = parsedEndedAt
+	operation.CreatedAt = parsedCreatedAt
+	operation.UpdatedAt = parsedUpdatedAt
+	if streamID.Valid {
+		operation.StreamID = streamID.String
+	}
+	if originalFilename.Valid {
+		operation.OriginalFilename = originalFilename.String
+	}
+	if chunkID.Valid {
+		operation.ChunkID = chunkID.String
+	}
+	if storedPath.Valid {
+		operation.StoredPath = storedPath.String
+	}
+	return operation, nil
 }
 
 func scanMediaStream(s scanner) (MediaStream, error) {

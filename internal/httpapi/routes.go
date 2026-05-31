@@ -4,19 +4,52 @@ import "net/http"
 
 func (a *API) privateRoutes() http.Handler {
 	mux := http.NewServeMux()
+	a.registerPrivateHealthRoutes(mux)
+	a.registerPrivateAuthRoutes(mux)
+	a.registerPrivateAdminWebRoutes(mux)
 	a.registerPrivateIncidentRoutes(mux)
 	a.registerPrivateStreamRoutes(mux)
 	a.registerPrivateIncidentTokenRoutes(mux)
 	mux.HandleFunc("/", a.notFound)
 
-	// The private API has no public authentication by design. Deployment must provide the
-	// private boundary, for example localhost, WireGuard, or firewall rules.
-	return a.loggingMiddleware(a.recoveryMiddleware(a.privateSecurityMiddleware(mux)))
+	return a.loggingMiddleware(a.recoveryMiddleware(a.privateSecurityMiddleware(a.privateAuthMiddleware(mux))))
+}
+
+func (a *API) registerPrivateHealthRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("GET /v1/health/live", a.healthLive)
+	mux.HandleFunc("GET /v1/health/ready", a.healthReady)
+}
+
+func (a *API) registerPrivateAuthRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("POST /v1/bootstrap/admin", a.bootstrapAdmin)
+	mux.HandleFunc("POST /v1/auth/login", a.login)
+	mux.HandleFunc("POST /v1/auth/logout", a.logout)
+	mux.HandleFunc("GET /v1/account", a.getCurrentAccount)
+	mux.HandleFunc("POST /v1/account/password", a.changeOwnPassword)
+	mux.HandleFunc("GET /v1/admin/accounts", a.listAccounts)
+	mux.HandleFunc("POST /v1/admin/accounts", a.createAccount)
+	mux.HandleFunc("POST /v1/admin/accounts/{account_id}/password", a.resetAccountPassword)
+	mux.HandleFunc("POST /v1/admin/accounts/{account_id}/sessions/revoke", a.revokeAccountSessions)
+	mux.HandleFunc("GET /v1/admin/incidents/{incident_id}/deletion", a.getAdminIncidentDeletion)
+	mux.HandleFunc("POST /v1/admin/incidents/{incident_id}/deletion", a.requestAdminIncidentDeletion)
+}
+
+func (a *API) registerPrivateAdminWebRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("GET /admin", a.adminWebPage)
+	mux.HandleFunc("POST /admin/bootstrap", a.adminWebBootstrap)
+	mux.HandleFunc("POST /admin/login", a.adminWebLogin)
+	mux.HandleFunc("POST /admin/logout", a.adminWebLogout)
+	mux.HandleFunc("POST /admin/password", a.adminWebChangeOwnPassword)
+	mux.HandleFunc("POST /admin/accounts/{account_id}/password", a.adminWebResetAccountPassword)
+	mux.Handle("GET /admin/static/", a.adminWebStaticHandler())
 }
 
 func (a *API) registerPrivateIncidentRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /v1/incidents", a.createIncident)
 	mux.HandleFunc("GET /v1/incidents/{incident_id}", a.getIncident)
+	mux.HandleFunc("GET /v1/incidents/{incident_id}/deletion", a.getIncidentDeletion)
+	mux.HandleFunc("POST /v1/incidents/{incident_id}/deletion", a.requestIncidentDeletion)
+	mux.HandleFunc("POST /v1/incidents/{incident_id}/chunks/reconcile", a.reconcileChunk)
 	mux.HandleFunc("POST /v1/incidents/{incident_id}/chunks", a.uploadChunk)
 	mux.HandleFunc("GET /v1/incidents/{incident_id}/chunks", a.listChunks)
 	mux.HandleFunc("GET /v1/incidents/{incident_id}/chunks/{media_type}/{chunk_index}", a.getChunkBytes)
@@ -44,7 +77,7 @@ func (a *API) publicRoutes() http.Handler {
 	a.registerPublicIncidentViewerRoutes(mux)
 	mux.HandleFunc("/", a.notFound)
 
-	return a.loggingMiddleware(a.recoveryMiddleware(a.publicSecurityMiddleware(mux)))
+	return a.loggingMiddleware(a.recoveryMiddleware(a.publicSecurityMiddleware(a.publicRateLimitMiddleware(mux))))
 }
 
 func (a *API) registerPublicIncidentViewerRoutes(mux *http.ServeMux) {

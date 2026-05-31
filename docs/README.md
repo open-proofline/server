@@ -12,24 +12,24 @@ This directory contains the detailed documentation for Proofline Server, the Go 
 | [Production cluster scope](production-cluster-scope.md) | Additive path for optional PostgreSQL metadata, optional S3-compatible object storage, and optional Valkey/Redis-compatible coordination. |
 | [Cluster backup, restore, and failure runbook](cluster-backup-restore-runbook.md) | Operational guidance for optional PostgreSQL metadata, S3-compatible encrypted blobs, configuration, coordination, restore validation, and cluster failure modes. |
 | [PostgreSQL metadata migration path](postgresql-metadata-migration.md) | PostgreSQL metadata backend schema parity, migrations, transaction boundaries, tests, migration limits, and restore expectations. |
-| [Cluster-safe upload operation semantics](cluster-safe-upload-semantics.md) | Planning design for future upload operation identity, idempotency state, commit ordering, retry success, conflict handling, and cleanup across metadata and blob backends. |
-| [Resumable upload and upload lease protocol](resumable-upload-lease-protocol.md) | Planning decision to defer resumable uploads and upload leases for a local desktop recorder simulator client while preserving complete encrypted chunk retry semantics, poor-network simulation, and future account-flow shape. |
+| [Cluster-safe upload operation semantics](cluster-safe-upload-semantics.md) | Complete-upload idempotency-key behavior plus remaining cluster-safe upload operation design for commit ordering, retry success, conflict handling, and cleanup across metadata and blob backends. |
+| [Resumable upload and upload lease protocol](resumable-upload-lease-protocol.md) | Planning decision to keep the desktop recorder simulator on complete encrypted chunk retry semantics while deferring resumable uploads and upload leases. |
 | [Incident capture modes](incident-modes.md) | Planned emergency, interaction-record, safety-check, and evidence-note modes, plus future capture-profile, escalation-policy, sharing-state, and migration boundaries. |
-| [Future /v1 access control](v1-access-control.md) | Future role, grant, public product API, private admin API listener, audit, and migration boundaries for account-owner, trusted-contact, public-link, admin/operator, and optional escrow access. |
+| [/v1 access control](v1-access-control.md) | Current local account/session boundary plus future role, grant, public product API, private admin API listener, audit, and migration boundaries for account-owner, trusted-contact, public-link, admin/operator, and optional escrow access. |
 | [Encryption](encryption.md) | Client-side chunk envelope, simulator key file, and local bundle verification. |
 | [iOS local recorder prototype](ios-local-recorder-prototype.md) | Future native incident-capture scope, chunking, encrypted staging, retry, and API mapping. |
 | [Key custody and emergency access](key-custody.md) | Future production key custody, trusted-contact access, and break-glass design. |
-| [Contact-wrapped key metadata simulator prototype](contact-wrapped-key-metadata-simulator.md) | Simulator-only design for modeling trusted-contact public keys, non-secret key IDs, wrapped stream media keys, and safe development metadata without production key custody. |
+| [Contact-wrapped key metadata simulator prototype](contact-wrapped-key-metadata-simulator.md) | Simulator-only prototype for modeling trusted-contact public keys, non-secret key IDs, wrapped stream media keys, and safe development metadata without production key custody. |
 | [Browser-side decryption](browser-decryption.md) | Future incident viewer decryption options, risks, and phased direction. |
 | [Live partial stream access boundary](live-partial-stream-access-boundary.md) | Future live or partial stream access roles, stream-state exposure, partial manifests, caching, and key-custody dependencies. |
 | [Break-glass key access](break-glass-key-access.md) | Future optional server-assisted emergency key access and dead-man-switch design. |
-| [API](api.md) | Current HTTP routes, request examples, response examples, and bundle formats. |
+| [API](api.md) | Current private `/v1` API routes including health/readiness checks, private `/admin` web routes, request examples, response examples, and bundle formats. |
 | [Deployment](deployment.md) | Local, Docker, SQLite WAL operations, reverse proxy, TLS, and public exposure notes. |
 | [Retention, backup, and deletion](retention-backup-deletion.md) | Operational policy for evidence lifecycle, backups, restores, and deletion limits. |
-| [Incident deletion and retention enforcement design](incident-deletion-retention-enforcement.md) | Future design for private/admin deletion decisions, retention jobs, tombstones, blob deletion retry, and safe audit boundaries. |
+| [Incident deletion and retention enforcement](incident-deletion-retention-enforcement.md) | Current private/admin deletion decisions, retention worker behavior, tombstones, blob deletion retry, and remaining lifecycle boundaries. |
 | [Security model](security-model.md) | Current controls, browser headers, logging posture, and security assumptions. |
 | [Threat model](threat-model.md) | Assets, trust boundaries, controls, limitations, and next security steps. |
-| [Simulator](simulator.md) | Simulator commands and test flows. |
+| [Simulator](simulator.md) | Simulator commands, durable desktop-recorder staging, poor-network controls, and test flows. |
 | [Development](development.md) | Repository layout, commands, AI assistance note, branch rulesets, checks, and release checklist notes. |
 | [Compose smoke tests](../compose/README.md) | Local release-smoke stacks for SQLite/local, PostgreSQL/local, SQLite/S3-compatible MinIO, and full PostgreSQL/MinIO/Valkey combinations. |
 | [Codex change control](codex-change-control.md) | Rollback points, scoped Codex tasks, review steps, and issue-first backlog rules. |
@@ -57,7 +57,7 @@ Those repositories do not exist in this repository and should not be implemented
 
 ## Current Backend Scope
 
-Proofline Server receives already-encrypted chunks, stores metadata in SQLite by default or optional PostgreSQL, stores encrypted blobs on local disk by default or in optional S3-compatible object storage, performs a startup check against optional Valkey/Redis-compatible coordination when explicitly configured, groups chunks into media streams, and exposes a token-scoped read-only incident viewer. The Go simulator can produce the documented v1 client-side encryption envelope for development and test flows.
+Proofline Server receives already-encrypted chunks, stores metadata in SQLite by default or optional PostgreSQL, stores encrypted blobs on local disk by default or in optional S3-compatible object storage, exposes private coarse liveness/readiness checks, performs a startup check against optional Valkey/Redis-compatible coordination when explicitly configured, groups chunks into media streams, serves a private admin web surface under `/admin`, and exposes a token-scoped read-only incident viewer with app-level route-class rate limiting. The Go simulator can produce the documented v1 client-side encryption envelope for development and test flows.
 
 The planned production-cluster scope is additive: SQLite and local filesystem
 storage remain supported, optional PostgreSQL metadata can store incident
@@ -72,30 +72,47 @@ see [postgresql-metadata-migration.md](postgresql-metadata-migration.md). It
 does not change the current SQLite default or perform automatic
 SQLite-to-PostgreSQL data migration.
 
-The future cluster-safe upload operation path is a planning design only; see
+The complete-upload idempotency-key path is implemented for private chunk
+uploads; see
 [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md). It does
-not implement idempotency keys, upload operations, resumable uploads, or
-operation-level use of Valkey/Redis-compatible coordination.
+not implement resumable uploads, upload leases, or operation-level use of
+Valkey/Redis-compatible coordination. The private duplicate chunk
+reconciliation route is implemented for comparing an expected chunk fingerprint
+with already accepted metadata without re-uploading ciphertext; see
+[api.md](api.md).
 The resumable upload and upload lease path is also planning-only; see
 [resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md). It
-defers resumable uploads and leases for a local desktop recorder simulator
-client and keeps the current complete encrypted chunk upload contract. The
-future desktop simulator should include adjustable poor-network simulation and
-be ready for account-aware flows once the account and access-control model
-exists.
+continues to defer resumable uploads and leases while the desktop recorder
+simulator measures the current complete encrypted chunk upload contract. The
+desktop simulator in `cmd/simclient` includes durable encrypted staging,
+restart/resume drills, local file input, optional ffmpeg segment capture, and
+adjustable poor-network simulation while continuing to use the current local
+account/session flow and complete encrypted chunk upload API.
 
-The long-term Proofline product direction is broader than emergency-only recording. Future clients should support emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes while keeping capture, escalation, sharing, and legal/export actions separate. The planned incident-mode schema, capture-profile, escalation-policy, sharing-state, and migration boundaries are documented in [incident-modes.md](incident-modes.md), and the future account-owner, trusted-contact, public-link, admin/operator, and optional escrow access boundaries are documented in [v1-access-control.md](v1-access-control.md).
+The long-term Proofline product direction is broader than emergency-only
+recording. Future clients should support emergency incidents, non-emergency
+interaction records, timed safety checks, and evidence notes while keeping
+capture, escalation, sharing, and legal/export actions separate. The current
+private incident create/read routes support optional incident-mode,
+capture-profile, escalation-policy, and sharing-state metadata, but those fields
+do not drive access, notification, retention, sharing, viewer, or key-custody
+behavior. Mode-driven behavior and migration boundaries are documented in
+[incident-modes.md](incident-modes.md). Current local account/session behavior
+and future account-owner, trusted-contact, public-link, admin/operator, and
+optional escrow access boundaries are documented in
+[v1-access-control.md](v1-access-control.md).
 
-The future iOS incident-capture prototype is planned in [ios-local-recorder-prototype.md](ios-local-recorder-prototype.md). Future production key custody is documented in [key-custody.md](key-custody.md), with a simulator-only contact-wrapped key metadata prototype in [contact-wrapped-key-metadata-simulator.md](contact-wrapped-key-metadata-simulator.md), browser decryption and break-glass follow-up designs in [browser-decryption.md](browser-decryption.md) and [break-glass-key-access.md](break-glass-key-access.md), and live or partial stream access boundaries in [live-partial-stream-access-boundary.md](live-partial-stream-access-boundary.md). None of those future designs make the current `/v1` API safe to expose publicly before [v1-access-control.md](v1-access-control.md) is implemented.
+The future iOS incident-capture prototype is planned in [ios-local-recorder-prototype.md](ios-local-recorder-prototype.md). Future production key custody is documented in [key-custody.md](key-custody.md), with a simulator-only contact-wrapped key metadata prototype in [contact-wrapped-key-metadata-simulator.md](contact-wrapped-key-metadata-simulator.md), browser decryption and break-glass follow-up designs in [browser-decryption.md](browser-decryption.md) and [break-glass-key-access.md](break-glass-key-access.md), and live or partial stream access boundaries in [live-partial-stream-access-boundary.md](live-partial-stream-access-boundary.md). None of those future designs make the current private `/v1` API or `/admin` surface safe for broad public exposure.
 
 Evidence bundles are encrypted chunk bundles with JSON manifests. They are not decrypted, playable, or merged media exports.
 
 Retention, backup, and deletion policy is documented in
-[retention-backup-deletion.md](retention-backup-deletion.md), with the future
-incident deletion and retention enforcement design in
+[retention-backup-deletion.md](retention-backup-deletion.md), with incident
+deletion and retention enforcement details in
 [incident-deletion-retention-enforcement.md](incident-deletion-retention-enforcement.md).
-The backend does not yet implement automatic expiration or incident deletion
-APIs.
+The backend implements private incident deletion APIs and an automatic
+background deletion worker; closed-incident retention is disabled unless
+configured with `SAFE_CLOSED_INCIDENT_RETENTION`.
 
 Cluster-style backup, restore, and failure handling for optional PostgreSQL,
 S3-compatible blob storage, and Valkey/Redis-compatible coordination is
@@ -106,4 +123,4 @@ production-ready public infrastructure.
 
 ## Security Reminder
 
-The private `/v1` API has no public user authentication. Keep it behind localhost, LAN, WireGuard, firewall rules, or a strict reverse proxy. Separate private/public bind addresses reduce accidental exposure, but they are not a complete security model.
+The private `/v1` API and `/admin` web surface use local account sessions but are still not public product surfaces. Keep them behind localhost, LAN, WireGuard, firewall rules, or a strict reverse proxy. Separate private/public bind addresses reduce accidental exposure, but they are not a complete security model.

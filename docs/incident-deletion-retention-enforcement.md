@@ -1,12 +1,15 @@
-# Incident Deletion And Retention Enforcement Design
+# Incident Deletion And Retention Enforcement
 
-This document designs future incident deletion and retention enforcement for
-Proofline Server.
+This document describes the implemented baseline for incident deletion and
+retention enforcement in Proofline Server, plus remaining future work.
 
-It is a planning document only. It does not implement incident deletion APIs,
-CLI commands, background jobs, retention configuration, data deletion,
-public `/v1` authentication, account management, backend decryption, key
-custody, key escrow, or playable media export.
+The backend implements private owner-scoped and admin-global deletion request
+routes, durable deletion decisions, deletion item retry state, SQLite and
+PostgreSQL metadata support, blob deletion through the storage boundary, and an
+automatic background scheduler. It does not add a CLI, public `/v1` exposure,
+public account workflows, backend decryption, key custody, key escrow,
+mode-specific retention, token pruning, tombstone expiry, object-bucket
+lifecycle enforcement, or playable media export.
 
 ## Current Behavior
 
@@ -25,9 +28,20 @@ The current backend preserves accepted evidence by default:
 - temporary upload files are normally removed after upload success or failure,
   but crash-orphaned temp files need future cleanup
 
-The backend has no incident deletion API and no automatic retention job today.
-Manual deletion is an operator action and must keep metadata and encrypted
-blobs consistent.
+The backend now has private deletion APIs and a background deletion worker:
+
+- `POST /v1/incidents/{incident_id}/deletion` lets the owning account request
+  deletion for its own incident
+- `POST /v1/admin/incidents/{incident_id}/deletion` lets an admin request
+  deletion for any incident
+- matching private `GET` routes return non-sensitive deletion status
+- `SAFE_DELETION_WORKER_INTERVAL` controls the automatic scheduler and defaults
+  to `1m`
+- `SAFE_CLOSED_INCIDENT_RETENTION` is disabled by default and, when positive,
+  queues retention-policy deletion for closed incidents older than the window
+
+Manual database or blob deletion outside the application should be avoided
+because the metadata and encrypted blob stores need to stay consistent.
 
 ## Goals
 
@@ -51,13 +65,13 @@ blobs consistent.
 
 ## Non-Goals
 
-- No implementation in this design task.
-- No deletion routes, CLI commands, repository methods, migrations, workers, or
-  background scheduler in this issue.
-- No deletion of local test data, database rows, committed blobs, generated
-  bundles, or backups as part of this design task.
-- No public admin routes, public `/v1` exposure, OAuth, JWT, user accounts,
-  cloud service automation, Docker Compose, Kubernetes, or public dashboard.
+- No deletion CLI, dry-run preview command, public deletion route, or public
+  deletion status route.
+- No deletion of generated bundles, downloaded copies, backups, reverse-proxy
+  caches, snapshots, or endpoint copies.
+- No public admin routes, public `/v1` exposure, OAuth, JWT, public account
+  workflows, cloud service automation, Docker Compose, Kubernetes, or public
+  dashboard.
 - No promise of unrecoverable secure erasure from normal file, object, or
   database row deletion.
 - No backend decryption, raw server-held media keys, key escrow, key sharing,
@@ -67,17 +81,17 @@ blobs consistent.
 
 ## Deletion Decisions
 
-Every incident deletion must begin with an explicit deletion decision. A
-decision may be created by a future private/admin route, an authenticated
-private admin API, or a local operator CLI. It must not be created by public
+Every incident deletion begins with an explicit deletion decision. A decision
+may be created by the owner-scoped private route, the admin-global private
+route, or the retention policy worker. It must not be created by public
 incident viewer routes.
 
 A deletion decision should record:
 
 - target incident ID
 - requested action, such as `delete_incident`
-- decision source, such as `manual_admin`, `retention_policy`, or
-  `operator_cli`
+- decision source, such as `account_request`, `admin_request`, or
+  `retention_policy`
 - reason code or policy ID, not free-form sensitive evidence details
 - whether deleting an open incident is explicitly allowed
 - requested time and the non-secret actor or process identifier
@@ -134,7 +148,7 @@ and documented.
 ## Consistency And Retry Model
 
 Database transactions cannot atomically delete local filesystem blobs or
-S3-compatible objects. Future deletion should therefore use a durable
+S3-compatible objects. Deletion therefore uses a durable
 metadata-backed work queue, sometimes called an outbox pattern.
 
 Recommended incident deletion flow:
@@ -169,8 +183,8 @@ reveal whether a deletion exists.
 
 ## Blob Deletion Rules
 
-Blob deletion must be driven by metadata. The future deletion worker, CLI, or
-private/admin route must not accept final stored paths from clients.
+Blob deletion must be driven by metadata. The deletion worker and
+private/admin routes must not accept final stored paths from clients.
 
 For local storage:
 
@@ -243,21 +257,26 @@ implementation.
 
 ## Public And Private Entry Points
 
-The first implementation should prefer a local operator CLI or a private/admin
-entry point that is clearly separated from public incident viewer routes.
+Implemented deletion entry points are clearly separated from public incident
+viewer routes:
+
+- account owner request: `POST /v1/incidents/{incident_id}/deletion`
+- account owner status: `GET /v1/incidents/{incident_id}/deletion`
+- admin-global request: `POST /v1/admin/incidents/{incident_id}/deletion`
+- admin-global status: `GET /v1/admin/incidents/{incident_id}/deletion`
 
 Deletion entry points must:
 
 - run only on a private/admin surface
-- require future admin authentication and authorization when the access-control
-  model exists
+- require local account authentication and owner/admin authorization
 - never be mounted on the public incident viewer listener
 - never accept client-provided stored paths, filesystem paths, object keys, or
   object-store URLs
-- support dry-run or preview output before destructive action where practical
 - return idempotent status for repeated deletion attempts
 - avoid logging raw tokens, request bodies, uploaded bytes, plaintext, raw keys,
   private deployment details, or sensitive evidence metadata
+
+Dry-run or preview output remains future CLI/operator work.
 
 Public incident viewer routes must remain read-only. They should never expose
 deletion controls, deletion job status, tombstone details, retention policy, or
@@ -325,36 +344,29 @@ If a restore reintroduces an incident that was deleted in live state, the
 operator must have a documented reconciliation process. That process is
 deployment-specific and should not rely on public routes.
 
-## Future Implementation Tasks
+## Remaining Future Implementation Tasks
 
-Implementing this design should be split into separate issues.
+The first backend implementation is in place. Remaining work should be split
+into separate issues.
 
 Repository and metadata tasks:
 
-- add metadata schema for deletion decisions, deletion items, deletion state,
-  tombstones, and optional retention policy settings
-- add repository methods to create or find deletion decisions idempotently
-- add repository methods to snapshot deletion items from chunk metadata
-- add repository methods to mark deletion items complete or retryable
-- add repository methods to prune sensitive child metadata after blob deletion
-- add repository methods to select retention-eligible closed incidents and
-  token rows
+- add optional retention policy settings beyond closed-incident age
+- add repository methods to select token rows for expired/revoked token pruning
+- add tombstone pruning policy if tombstone expiry is needed
 - preserve SQLite support and optional PostgreSQL support
 
 Storage tasks:
 
-- add deletion helpers that operate only on server-stored relative paths
-- define idempotent handling for already-missing local files and S3-compatible
-  objects
-- keep local and S3 path validation consistent with existing storage safety
-  checks
+- add empty-directory cleanup for local storage if needed
+- add object-store lifecycle guidance for deployments with S3 versioning or
+  replication
 - avoid exposing object-store keys, bucket URLs, private endpoints, or local
   filesystem paths in logs and responses
 
 Private/admin or CLI tasks:
 
-- add a local operator CLI or private/admin endpoint to request incident
-  deletion
+- add a local operator CLI to request incident deletion
 - add dry-run output for retention candidates and deletion previews
 - add status output for deletion jobs without exposing sensitive evidence
   metadata
@@ -362,35 +374,20 @@ Private/admin or CLI tasks:
 
 Retention tasks:
 
-- add explicit retention settings for closed incidents, token metadata,
-  tombstones, and orphaned temporary upload files
-- add a manual or scheduled retention runner only after dry-run behavior and
-  operator review are documented
-- defer incident-mode-specific retention until first-class incident-mode,
-  capture-profile, escalation-policy, and sharing-state fields exist
+- add explicit retention settings for token metadata, tombstones, and orphaned
+  temporary upload files
+- defer incident-mode-specific retention until mode-driven retention behavior and
+  policy are explicitly designed
 
 Test tasks:
 
-- test that public incident viewer routes remain read-only
-- test that public token failures do not reveal deletion state
-- test idempotent retry after failures before blob deletion, after partial blob
-  deletion, and after metadata pruning
-- test local and S3-compatible stored path safety
-- test open incident deletion guard behavior
+- expand S3-compatible deletion smoke coverage with real object-store tests
 - test failed stream retention and deletion with the parent incident
 - test token metadata pruning without incident deletion
 - test backup and restore documentation examples where practical
 
 Documentation tasks:
 
-- update `docs/api.md` when any private/admin route or CLI behavior exists
-- update `docs/security-model.md` and `docs/threat-model.md` for implemented
-  deletion behavior
-- update `docs/retention-backup-deletion.md` with concrete configuration and
-  operator steps
 - update deployment and backup runbooks for live deletion, backup expiry, and
   restore reconciliation
 - document that normal deletion is not guaranteed secure erasure
-
-These tasks are intentionally future work and are not implemented by this
-planning issue.

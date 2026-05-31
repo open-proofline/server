@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -35,4 +36,42 @@ func New(dataDir string) (*Store, error) {
 		return nil, fmt.Errorf("create temp directory: %w", err)
 	}
 	return &Store{dataDir: dataDir, tempDir: tempDir}, nil
+}
+
+// Check verifies that local blob storage and temp staging directories are
+// present and writable.
+func (s *Store) Check(ctx context.Context) error {
+	if err := checkWritableDir(ctx, s.dataDir); err != nil {
+		return fmt.Errorf("check local blob storage: %w", err)
+	}
+	if err := checkWritableDir(ctx, s.tempDir); err != nil {
+		return fmt.Errorf("check local temp storage: %w", err)
+	}
+	return nil
+}
+
+func checkWritableDir(ctx context.Context, dir string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	info, err := os.Stat(dir)
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("not a directory")
+	}
+	file, err := os.CreateTemp(dir, ".proofline-check-*")
+	if err != nil {
+		return err
+	}
+	name := file.Name()
+	if err := file.Close(); err != nil {
+		_ = os.Remove(name)
+		return err
+	}
+	if err := os.Remove(name); err != nil {
+		return err
+	}
+	return ctx.Err()
 }

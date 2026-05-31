@@ -25,16 +25,108 @@ const (
 	MediaTypeLocation = "location"
 	// MediaTypeMetadata identifies encrypted metadata chunks.
 	MediaTypeMetadata = "metadata"
+
+	// IncidentModeEmergency identifies an incident where the user chose an
+	// emergency capture mode. The label alone does not grant access or notify
+	// anyone.
+	IncidentModeEmergency = "emergency"
+	// IncidentModeInteractionRecord identifies a non-emergency interaction record.
+	IncidentModeInteractionRecord = "interaction_record"
+	// IncidentModeSafetyCheck identifies a timed safety-check incident.
+	IncidentModeSafetyCheck = "safety_check"
+	// IncidentModeEvidenceNote identifies a note or attachment-oriented incident.
+	IncidentModeEvidenceNote = "evidence_note"
+
+	// CaptureProfileAudioVideoLocation records an intent to capture audio, video,
+	// and location where available.
+	CaptureProfileAudioVideoLocation = "audio_video_location"
+	// CaptureProfileAudioLocation records an intent to capture audio and location.
+	CaptureProfileAudioLocation = "audio_location"
+	// CaptureProfileLocationCheckin records a location/check-in oriented flow.
+	CaptureProfileLocationCheckin = "location_checkin"
+	// CaptureProfileNoteOrAttachment records a note or attachment-oriented flow.
+	CaptureProfileNoteOrAttachment = "note_or_attachment"
+	// CaptureProfileCustom records a future client-selected capture combination.
+	CaptureProfileCustom = "custom"
+
+	// EscalationPolicyNone records that no automatic escalation policy was chosen.
+	EscalationPolicyNone = "none"
+	// EscalationPolicyTrustedContactsOnStart records a future trusted-contact
+	// escalation policy. The current backend does not send notifications.
+	EscalationPolicyTrustedContactsOnStart = "trusted_contacts_on_start"
+	// EscalationPolicyTrustedContactsOnMissedCheckin records a future missed
+	// check-in escalation policy. The current backend does not run timers.
+	EscalationPolicyTrustedContactsOnMissedCheckin = "trusted_contacts_on_missed_checkin"
+	// EscalationPolicyUrgentTrustedContactAlert records a future urgent
+	// trusted-contact policy. The current backend does not send notifications.
+	EscalationPolicyUrgentTrustedContactAlert = "urgent_trusted_contact_alert"
+
+	// SharingStatePrivate records that no sharing has been declared for the
+	// incident metadata.
+	SharingStatePrivate = "private"
+	// SharingStateTrustedContactAccess records future trusted-contact access state
+	// metadata. The current backend does not grant trusted-contact access.
+	SharingStateTrustedContactAccess = "trusted_contact_access"
+	// SharingStatePublicLinkCreated records public-link sharing state metadata.
+	SharingStatePublicLinkCreated = "public_link_created"
+	// SharingStateLegalExportCreated records legal/export sharing state metadata.
+	SharingStateLegalExportCreated = "legal_export_created"
+	// SharingStateRevokedOrExpired records that a sharing state was revoked or
+	// expired.
+	SharingStateRevokedOrExpired = "revoked_or_expired"
+
+	// UploadOperationUploadChunk identifies the chunk-upload idempotency route.
+	UploadOperationUploadChunk = "upload_chunk"
+
+	// UploadOperationStateReserved means an idempotency key has been bound to
+	// immutable upload inputs but no final chunk row is confirmed yet.
+	UploadOperationStateReserved = "reserved"
+	// UploadOperationStateMetadataCommitted means the upload operation has a
+	// confirmed final chunk row and can be replayed safely.
+	UploadOperationStateMetadataCommitted = "metadata_committed"
+
+	// IncidentDeletionStateActive means no deletion decision is in progress.
+	IncidentDeletionStateActive = "active"
+	// IncidentDeletionStatePending means deletion state has been durably prepared.
+	IncidentDeletionStatePending = "deletion_pending"
+	// IncidentDeletionStateDeleting means a worker is deleting blobs or metadata.
+	IncidentDeletionStateDeleting = "deleting"
+	// IncidentDeletionStateFailed means deletion stopped with retryable failures.
+	IncidentDeletionStateFailed = "deletion_failed"
+	// IncidentDeletionStateDeleted means sensitive child rows and blobs are gone
+	// or confirmed absent, leaving only a minimal tombstone.
+	IncidentDeletionStateDeleted = "deleted"
+
+	// IncidentDeletionSourceAccountRequest records an owner-scoped private request.
+	IncidentDeletionSourceAccountRequest = "account_request"
+	// IncidentDeletionSourceAdminRequest records an admin-wide private request.
+	IncidentDeletionSourceAdminRequest = "admin_request"
+	// IncidentDeletionSourceRetentionPolicy records an automatic retention decision.
+	IncidentDeletionSourceRetentionPolicy = "retention_policy"
+
+	// IncidentDeletionItemStatePending means the stored path still needs deletion.
+	IncidentDeletionItemStatePending = "pending"
+	// IncidentDeletionItemStateDeleted means the stored path was deleted or
+	// confirmed already absent by a metadata-created deletion item.
+	IncidentDeletionItemStateDeleted = "deleted"
+	// IncidentDeletionItemStateFailed means deletion should be retried.
+	IncidentDeletionItemStateFailed = "failed"
 )
 
 // Incident is the top-level recording session tracked by the backend.
 type Incident struct {
-	ID          string    `json:"id"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
-	Status      string    `json:"status"`
-	ClientLabel string    `json:"client_label,omitempty"`
-	Notes       string    `json:"notes,omitempty"`
+	ID               string    `json:"id"`
+	OwnerAccountID   string    `json:"owner_account_id,omitempty"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
+	Status           string    `json:"status"`
+	ClientLabel      string    `json:"client_label,omitempty"`
+	Notes            string    `json:"notes,omitempty"`
+	IncidentMode     string    `json:"incident_mode,omitempty"`
+	CaptureProfile   string    `json:"capture_profile,omitempty"`
+	EscalationPolicy string    `json:"escalation_policy,omitempty"`
+	SharingState     string    `json:"sharing_state,omitempty"`
+	DeletionState    string    `json:"deletion_state"`
 }
 
 // MediaStream groups encrypted chunks that belong to one recording stream.
@@ -88,6 +180,18 @@ type IncidentDetail struct {
 	Checkins []Checkin     `json:"checkins"`
 }
 
+// CreateIncidentParams contains optional metadata stored with a new incident.
+// Incident mode fields are metadata only; they do not grant access, send
+// notifications, change retention, or change key custody.
+type CreateIncidentParams struct {
+	ClientLabel      string
+	Notes            string
+	IncidentMode     string
+	CaptureProfile   string
+	EscalationPolicy string
+	SharingState     string
+}
+
 // CreateChunkParams contains metadata saved after a chunk file has been safely
 // written and hash-verified.
 type CreateChunkParams struct {
@@ -101,6 +205,92 @@ type CreateChunkParams struct {
 	StoredPath       string
 	ByteSize         int64
 	SHA256Hex        string
+}
+
+// UploadOperation records durable idempotency state for one private write
+// operation. IdempotencyKeyHash stores a SHA-256 hash, never the raw key.
+type UploadOperation struct {
+	ID                 string
+	Operation          string
+	IdempotencyKeyHash string
+	IncidentID         string
+	StreamID           string
+	ChunkIndex         int
+	MediaType          string
+	StartedAt          time.Time
+	EndedAt            time.Time
+	OriginalFilename   string
+	ByteSize           int64
+	SHA256Hex          string
+	FingerprintHash    string
+	State              string
+	ChunkID            string
+	StoredPath         string
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+}
+
+// UploadOperationParams contains the key hash, normalized chunk identity, and
+// immutable request fingerprint fields used to reserve an idempotent upload.
+type UploadOperationParams struct {
+	Operation          string
+	IdempotencyKeyHash string
+	IncidentID         string
+	StreamID           string
+	ChunkIndex         int
+	MediaType          string
+	StartedAt          time.Time
+	EndedAt            time.Time
+	OriginalFilename   string
+	ByteSize           int64
+	SHA256Hex          string
+	FingerprintHash    string
+}
+
+// IncidentDeletionRequest records the non-sensitive inputs for a deletion
+// decision. Stored paths are always snapshotted from metadata by the repository.
+type IncidentDeletionRequest struct {
+	IncidentID      string
+	Source          string
+	ReasonCode      string
+	ActorAccountID  string
+	AllowOpen       bool
+	RequireOwnerID  string
+	RetentionCutoff *time.Time
+}
+
+// IncidentDeletionStatus is the private/admin status response and the scheduler
+// work item. It deliberately excludes stored paths and token hashes.
+type IncidentDeletionStatus struct {
+	DecisionID     string     `json:"decision_id"`
+	IncidentID     string     `json:"incident_id"`
+	Source         string     `json:"source"`
+	ReasonCode     string     `json:"reason_code,omitempty"`
+	ActorAccountID string     `json:"actor_account_id,omitempty"`
+	AllowOpen      bool       `json:"allow_open"`
+	State          string     `json:"state"`
+	ItemCount      int        `json:"item_count"`
+	ErrorCode      string     `json:"error_code,omitempty"`
+	RequestedAt    time.Time  `json:"requested_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+	StartedAt      *time.Time `json:"started_at,omitempty"`
+	CompletedAt    *time.Time `json:"completed_at,omitempty"`
+}
+
+// IncidentDeletionItem is internal retry state for one server-controlled stored
+// path. Do not expose it in public responses or logs.
+type IncidentDeletionItem struct {
+	ID            string
+	DecisionID    string
+	IncidentID    string
+	StoredPath    string
+	State         string
+	Attempts      int
+	ErrorCode     string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	LastAttemptAt *time.Time
+	CompletedAt   *time.Time
 }
 
 // CreateCheckinParams contains optional device metadata for a checkin.
@@ -129,6 +319,50 @@ type IncidentToken struct {
 func ValidMediaType(mediaType string) bool {
 	switch mediaType {
 	case MediaTypeAudio, MediaTypeVideo, MediaTypeLocation, MediaTypeMetadata:
+		return true
+	default:
+		return false
+	}
+}
+
+// ValidIncidentMode reports whether value is one of the server-supported
+// incident-mode identifiers.
+func ValidIncidentMode(value string) bool {
+	switch value {
+	case IncidentModeEmergency, IncidentModeInteractionRecord, IncidentModeSafetyCheck, IncidentModeEvidenceNote:
+		return true
+	default:
+		return false
+	}
+}
+
+// ValidCaptureProfile reports whether value is one of the server-supported
+// capture-profile identifiers.
+func ValidCaptureProfile(value string) bool {
+	switch value {
+	case CaptureProfileAudioVideoLocation, CaptureProfileAudioLocation, CaptureProfileLocationCheckin, CaptureProfileNoteOrAttachment, CaptureProfileCustom:
+		return true
+	default:
+		return false
+	}
+}
+
+// ValidEscalationPolicy reports whether value is one of the server-supported
+// escalation-policy identifiers.
+func ValidEscalationPolicy(value string) bool {
+	switch value {
+	case EscalationPolicyNone, EscalationPolicyTrustedContactsOnStart, EscalationPolicyTrustedContactsOnMissedCheckin, EscalationPolicyUrgentTrustedContactAlert:
+		return true
+	default:
+		return false
+	}
+}
+
+// ValidSharingState reports whether value is one of the server-supported
+// sharing-state identifiers.
+func ValidSharingState(value string) bool {
+	switch value {
+	case SharingStatePrivate, SharingStateTrustedContactAccess, SharingStatePublicLinkCreated, SharingStateLegalExportCreated, SharingStateRevokedOrExpired:
 		return true
 	default:
 		return false

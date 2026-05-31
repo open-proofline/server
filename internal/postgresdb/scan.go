@@ -13,18 +13,54 @@ type scanner interface {
 
 func scanIncident(s scanner) (incidents.Incident, error) {
 	var incident incidents.Incident
+	var ownerAccountID sql.NullString
 	var clientLabel sql.NullString
 	var notes sql.NullString
-	if err := s.Scan(&incident.ID, &incident.CreatedAt, &incident.UpdatedAt, &incident.Status, &clientLabel, &notes); err != nil {
+	var incidentMode sql.NullString
+	var captureProfile sql.NullString
+	var escalationPolicy sql.NullString
+	var sharingState sql.NullString
+	if err := s.Scan(
+		&incident.ID,
+		&ownerAccountID,
+		&incident.CreatedAt,
+		&incident.UpdatedAt,
+		&incident.Status,
+		&clientLabel,
+		&notes,
+		&incidentMode,
+		&captureProfile,
+		&escalationPolicy,
+		&sharingState,
+		&incident.DeletionState,
+	); err != nil {
 		return incidents.Incident{}, err
 	}
 	incident.CreatedAt = incident.CreatedAt.UTC()
 	incident.UpdatedAt = incident.UpdatedAt.UTC()
+	if ownerAccountID.Valid {
+		incident.OwnerAccountID = ownerAccountID.String
+	}
 	if clientLabel.Valid {
 		incident.ClientLabel = clientLabel.String
 	}
 	if notes.Valid {
 		incident.Notes = notes.String
+	}
+	if incidentMode.Valid {
+		incident.IncidentMode = incidentMode.String
+	}
+	if captureProfile.Valid {
+		incident.CaptureProfile = captureProfile.String
+	}
+	if escalationPolicy.Valid {
+		incident.EscalationPolicy = escalationPolicy.String
+	}
+	if sharingState.Valid {
+		incident.SharingState = sharingState.String
+	}
+	if incident.DeletionState == "" {
+		incident.DeletionState = incidents.IncidentDeletionStateActive
 	}
 	return incident, nil
 }
@@ -59,6 +95,53 @@ func scanChunk(s scanner) (incidents.Chunk, error) {
 		chunk.OriginalFilename = originalFilename.String
 	}
 	return chunk, nil
+}
+
+func scanUploadOperation(s scanner) (incidents.UploadOperation, error) {
+	var operation incidents.UploadOperation
+	var streamID sql.NullString
+	var originalFilename sql.NullString
+	var chunkID sql.NullString
+	var storedPath sql.NullString
+	if err := s.Scan(
+		&operation.ID,
+		&operation.Operation,
+		&operation.IdempotencyKeyHash,
+		&operation.IncidentID,
+		&streamID,
+		&operation.ChunkIndex,
+		&operation.MediaType,
+		&operation.StartedAt,
+		&operation.EndedAt,
+		&originalFilename,
+		&operation.ByteSize,
+		&operation.SHA256Hex,
+		&operation.FingerprintHash,
+		&operation.State,
+		&chunkID,
+		&storedPath,
+		&operation.CreatedAt,
+		&operation.UpdatedAt,
+	); err != nil {
+		return incidents.UploadOperation{}, err
+	}
+	operation.StartedAt = operation.StartedAt.UTC()
+	operation.EndedAt = operation.EndedAt.UTC()
+	operation.CreatedAt = operation.CreatedAt.UTC()
+	operation.UpdatedAt = operation.UpdatedAt.UTC()
+	if streamID.Valid {
+		operation.StreamID = streamID.String
+	}
+	if originalFilename.Valid {
+		operation.OriginalFilename = originalFilename.String
+	}
+	if chunkID.Valid {
+		operation.ChunkID = chunkID.String
+	}
+	if storedPath.Valid {
+		operation.StoredPath = storedPath.String
+	}
+	return operation, nil
 }
 
 func scanMediaStream(s scanner) (incidents.MediaStream, error) {

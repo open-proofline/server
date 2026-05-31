@@ -4,8 +4,9 @@ This document records the production-cluster expansion path for Proofline Server
 
 It is a planning and scope document for cluster-related work. Optional
 PostgreSQL metadata, optional S3-compatible object storage, and optional
-Valkey/Redis-compatible coordination startup checks are implemented, but public
-`/v1` authentication, account management, cloud deployment automation,
+Valkey/Redis-compatible coordination startup checks, and local `/v1`
+account/session authentication are implemented, but public product API
+authentication, public account workflows, cloud deployment automation,
 production hardening, and upload-operation use of coordination are not
 implemented.
 
@@ -20,7 +21,7 @@ The current backend remains local-first and experimental:
 - No coordination backend remains the default; Valkey/Redis-compatible
   coordination is available only when explicitly configured.
 - The simulator and local development flow remain supported.
-- The private `/v1` API remains private and unauthenticated.
+- The private `/v1` API remains private and requires local account sessions.
 - The public incident viewer remains token-gated and read-only.
 - The backend stores ciphertext only and does not decrypt chunks.
 
@@ -71,9 +72,11 @@ PostgreSQL stores:
 - chunk metadata
 - checkins
 - viewer-token metadata
-- future retention/deletion state, after that design exists
-- future account and access-control metadata, after that design exists
-- upload operation and idempotency state when cluster uploads are implemented
+- local account and session metadata
+- upload operation and idempotency state for complete chunk uploads
+- incident deletion decisions and retry state
+- future trusted-contact, device, and broader access-control metadata, after
+  that design exists
 
 PostgreSQL support includes:
 
@@ -118,6 +121,8 @@ Valkey or another Redis-compatible service is implemented as optional
 production coordination, not durable storage. The current backend opens and
 checks the configured service at startup; future upload-operation work may use
 it for short-lived leases, in-progress hints, and retry coordination.
+When configured, the current public viewer app-level rate limiter also uses
+Valkey for short-lived route-class counters.
 
 It may be used for:
 
@@ -125,7 +130,7 @@ It may be used for:
 - idempotency result caching
 - short-lived in-progress state
 - retry coordination
-- rate-limit counters, if application-level rate limiting is later implemented
+- public viewer route-class rate-limit counters
 - cleanup coordination for abandoned staging uploads
 
 It must not be used as the final source of truth for:
@@ -149,8 +154,8 @@ The detailed planning design is
 [Cluster-safe upload operation semantics](cluster-safe-upload-semantics.md).
 Resumable upload and upload lease behavior is planned separately in
 [Resumable upload and upload lease protocol](resumable-upload-lease-protocol.md);
-that design defers resumable uploads and leases for a local desktop recorder
-simulator client.
+that design keeps the local desktop recorder simulator on complete encrypted
+chunk retries while deferring resumable uploads and leases.
 
 A safe cluster upload flow should be designed around these steps:
 
@@ -170,8 +175,9 @@ A successful chunk upload should mean encrypted bytes are durably committed outs
 This scope expansion does not by itself add:
 
 - public exposure of the current private `/v1` API
-- public account management
-- OAuth, JWT, sessions, or user accounts
+- public account workflows
+- OAuth, JWT, public account portal, trusted-contact accounts, or external
+  identity integration
 - web, iOS, Android, or shared protocol implementation in this repository
 - backend decryption
 - raw server-held media keys
@@ -190,7 +196,8 @@ Preferred implementation sequence:
 2. Introduce metadata and blob-store interfaces around the current SQLite and filesystem implementations. Implemented.
 3. Add S3-compatible blob storage as an optional backend. Implemented for committed encrypted chunks.
 4. Add PostgreSQL metadata support as an optional backend. Implemented.
-5. Add explicit idempotency and upload-operation semantics for cluster-safe retries.
+5. Add explicit idempotency and upload-operation semantics for complete chunk
+   upload retries. Implemented for SQLite and optional PostgreSQL metadata.
 6. Add optional Valkey/Redis-compatible coordination. Implemented for explicit
    configuration and startup checks; upload-operation use remains future work.
 7. Update deployment, backup, restore, security, and threat-model docs before

@@ -12,6 +12,15 @@ import (
 
 // CreateMediaStream inserts a new open stream for one incident.
 func (r *Repository) CreateMediaStream(ctx context.Context, incidentID, mediaType, label string) (incidents.MediaStream, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return incidents.MediaStream{}, fmt.Errorf("begin create postgres media stream: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	if err := lockActiveIncident(ctx, tx, incidentID); err != nil {
+		return incidents.MediaStream{}, err
+	}
+
 	now := time.Now().UTC()
 	id, err := newID("str")
 	if err != nil {
@@ -27,7 +36,7 @@ func (r *Repository) CreateMediaStream(ctx context.Context, incidentID, mediaTyp
 		UpdatedAt:  now,
 	}
 
-	_, err = r.db.ExecContext(ctx, `
+	_, err = tx.ExecContext(ctx, `
 		INSERT INTO media_streams (
 			id, incident_id, media_type, label, status, created_at, updated_at
 		)
@@ -45,6 +54,9 @@ func (r *Repository) CreateMediaStream(ctx context.Context, incidentID, mediaTyp
 			return incidents.MediaStream{}, incidents.ErrNotFound
 		}
 		return incidents.MediaStream{}, fmt.Errorf("insert postgres media stream: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return incidents.MediaStream{}, fmt.Errorf("commit create postgres media stream: %w", err)
 	}
 	return stream, nil
 }
@@ -150,14 +162,16 @@ func (r *Repository) CompleteMediaStream(ctx context.Context, incidentID, stream
 	if err != nil {
 		return incidents.MediaStream{}, fmt.Errorf("begin complete postgres media stream: %w", err)
 	}
+	defer func() { _ = tx.Rollback() }()
 
+	if err := lockActiveIncident(ctx, tx, incidentID); err != nil {
+		return incidents.MediaStream{}, err
+	}
 	mediaType, err := lockOpenMediaStream(ctx, tx, incidentID, streamID)
 	if err != nil {
-		_ = tx.Rollback()
 		return incidents.MediaStream{}, err
 	}
 	if err := validateCompleteStreamChunkRows(ctx, tx, incidentID, streamID, mediaType, expectedChunkCount); err != nil {
-		_ = tx.Rollback()
 		return incidents.MediaStream{}, err
 	}
 	if _, err := tx.ExecContext(ctx, `
@@ -172,7 +186,6 @@ func (r *Repository) CompleteMediaStream(ctx context.Context, incidentID, stream
 		incidentID,
 		streamID,
 	); err != nil {
-		_ = tx.Rollback()
 		return incidents.MediaStream{}, fmt.Errorf("complete postgres media stream: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
@@ -246,8 +259,11 @@ func (r *Repository) FailMediaStream(ctx context.Context, incidentID, streamID, 
 	if err != nil {
 		return incidents.MediaStream{}, fmt.Errorf("begin fail postgres media stream: %w", err)
 	}
+	defer func() { _ = tx.Rollback() }()
+	if err := lockActiveIncident(ctx, tx, incidentID); err != nil {
+		return incidents.MediaStream{}, err
+	}
 	if _, err := lockOpenMediaStream(ctx, tx, incidentID, streamID); err != nil {
-		_ = tx.Rollback()
 		return incidents.MediaStream{}, err
 	}
 	if _, err := tx.ExecContext(ctx, `
@@ -262,7 +278,6 @@ func (r *Repository) FailMediaStream(ctx context.Context, incidentID, streamID, 
 		incidentID,
 		streamID,
 	); err != nil {
-		_ = tx.Rollback()
 		return incidents.MediaStream{}, fmt.Errorf("fail postgres media stream: %w", err)
 	}
 	if err := tx.Commit(); err != nil {

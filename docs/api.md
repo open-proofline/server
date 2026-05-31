@@ -1,10 +1,19 @@
 # API
 
-This is the current backend-only HTTP surface for Proofline. The API binary starts private API listeners and public incident viewer listeners on one or more configured bind addresses. The `/v1` routes are private and unauthenticated. The incident viewer routes are token-gated and read-only. Planned web, iOS, and Android clients are not part of this repository yet.
+This is the current backend-only HTTP surface for Proofline. The API binary starts private API listeners and public incident viewer listeners on one or more configured bind addresses. The `/v1` routes are private and require local account authentication except for the bootstrap, login, and private health/readiness routes described below. The incident viewer routes are token-gated and read-only. Planned web, iOS, and Android clients are not part of this repository yet.
 
 Media bundle downloads are encrypted chunk bundles. The backend does not decrypt, merge, or produce playable media. The simulator's current encrypted uploads use the envelope documented in [encryption.md](encryption.md), but the API treats uploaded bytes as opaque ciphertext.
 
-The current API stores generic incidents only. Planned incident modes such as emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes are documented in [incident-modes.md](incident-modes.md), along with future capture-profile, escalation-policy, sharing-state, and migration boundaries. First-class incident-mode, escalation-policy, account, and trusted-contact APIs do not exist yet.
+The current API stores incidents owned by local accounts. Incidents are generic
+by default and may include optional `incident_mode`, `capture_profile`,
+`escalation_policy`, and `sharing_state` metadata on the private create/read
+routes. Those fields are metadata only: they do not grant access, send
+notifications, change key custody, expose trusted-contact workflows, or change
+public viewer and bundle behavior. Mode-specific retention behavior is not
+implemented; deletion and closed-incident retention enforcement are documented
+in [retention-backup-deletion.md](retention-backup-deletion.md). Planned
+mode-driven behavior is documented in [incident-modes.md](incident-modes.md).
+Trusted-contact and public product APIs do not exist yet.
 
 Default bind addresses:
 
@@ -28,20 +37,92 @@ Errors use:
 
 Non-upload JSON bodies are limited to 64 KiB. Upload file bytes are limited by `SAFE_MAX_UPLOAD_BYTES`; multipart metadata has a small fixed overhead allowance. `SAFE_MAX_UPLOAD_BYTES` accepts a positive byte count or binary unit suffixes `B`, `K`/`KB`, `M`/`MB`, and `G`/`GB`. Fractional unit values are allowed when they resolve to at least one byte. Non-positive, sub-byte, invalid, and oversized values are rejected during startup.
 
-## Incidents
+## Private Health And Readiness
 
-Incident routes are mounted only on the private API server.
+The private API listener exposes unauthenticated operator checks under `/v1`
+so Docker, local scripts, and private reverse proxies can test process and
+backend readiness without storing a session token. These routes must stay on
+the private listener and must not be forwarded from the public incident viewer
+origin.
 
-### `POST /v1/incidents`
+### `GET /v1/health/live`
 
-Creates an open generic incident. Future clients may classify incidents as emergency incidents, interaction records, safety checks, or evidence notes only after the protocol, access-control, migration, and viewer-wording design is implemented. The current request does not accept an incident mode, capture profile, escalation policy, or sharing state.
+Reports that the HTTP process is serving requests. It does not check backend
+dependencies.
+
+Response `200`:
+
+```json
+{
+  "status": "ok"
+}
+```
+
+### `GET /v1/health/ready`
+
+Checks the selected metadata, blob, and coordination backends at a coarse
+operator level. SQLite and PostgreSQL metadata are checked through the metadata
+database handle, local blob storage checks local staging/storage writability,
+S3-compatible blob storage checks local staging plus bucket reachability, and
+`none`, Valkey, or Redis-compatible coordination uses the configured
+coordination check.
+
+Response `200` when all selected checks pass:
+
+```json
+{
+  "status": "ok",
+  "checks": [
+    {"name": "metadata", "backend": "sqlite", "status": "ok"},
+    {"name": "blob", "backend": "local", "status": "ok"},
+    {"name": "coordination", "backend": "none", "status": "ok"}
+  ]
+}
+```
+
+Response `503` when one or more checks fail:
+
+```json
+{
+  "status": "unavailable",
+  "checks": [
+    {"name": "metadata", "backend": "postgresql", "status": "unavailable"},
+    {"name": "blob", "backend": "s3", "status": "ok"},
+    {"name": "coordination", "backend": "valkey", "status": "ok"}
+  ]
+}
+```
+
+The response deliberately omits DSNs, credentials, bucket names, object keys,
+stored paths, local filesystem paths, private hostnames, request bodies,
+uploaded bytes, tokens, plaintext, raw keys, and underlying error strings.
+
+## Authentication And Accounts
+
+Private `/v1` routes require:
+
+```http
+Authorization: Bearer <session_token>
+```
+
+Session tokens are opaque server-side credentials. The raw token is returned only by login, while the metadata backend stores only its SHA-256 hash. Sessions expire after `SAFE_SESSION_TTL`, defaulting to `12h`, and can be revoked by logout, password reset, or the admin session-revocation route.
+
+On startup, the server fails closed unless an admin account already exists or `SAFE_AUTH_BOOTSTRAP_SECRET` is set. With that secret set, create the first admin through the one-time bootstrap route, then remove the environment variable and restart or redeploy without it. The bootstrap route is disabled after an admin account exists.
+
+### `POST /v1/bootstrap/admin`
+
+Creates the first local admin account when no admin exists. This route does not require a session, but it requires the bootstrap secret header:
+
+```http
+X-Proofline-Bootstrap-Secret: ...
+```
 
 Request:
 
 ```json
 {
-  "client_label": "iphone",
-  "notes": "test incident"
+  "username": "admin",
+  "password": "long local password"
 }
 ```
 
@@ -49,8 +130,164 @@ Response `201`:
 
 ```json
 {
+  "account": {
+    "id": "acct_...",
+    "username": "admin",
+    "role": "admin",
+    "created_at": "2026-05-31T10:00:00Z",
+    "updated_at": "2026-05-31T10:00:00Z",
+    "password_changed_at": "2026-05-31T10:00:00Z"
+  }
+}
+```
+
+### `POST /v1/auth/login`
+
+Authenticates a local account and returns a raw session token once.
+
+Request:
+
+```json
+{
+  "username": "admin",
+  "password": "long local password"
+}
+```
+
+Response `201`:
+
+```json
+{
+  "session_id": "ses_...",
+  "account": {
+    "id": "acct_...",
+    "username": "admin",
+    "role": "admin",
+    "created_at": "2026-05-31T10:00:00Z",
+    "updated_at": "2026-05-31T10:00:00Z",
+    "password_changed_at": "2026-05-31T10:00:00Z"
+  },
+  "token": "...",
+  "created_at": "2026-05-31T10:00:00Z",
+  "expires_at": "2026-05-31T22:00:00Z"
+}
+```
+
+### `POST /v1/auth/logout`
+
+Revokes the current session.
+
+### `GET /v1/account`
+
+Returns the authenticated account.
+
+### `POST /v1/account/password`
+
+Changes the authenticated account password after verifying `current_password`; other sessions for the account are revoked.
+
+### Private Admin Web Routes
+
+The private API listener also serves a small admin web surface outside the
+`/v1` API namespace:
+
+- `GET /admin`
+- `POST /admin/login`
+- `POST /admin/bootstrap`
+- `POST /admin/logout`
+- `POST /admin/password`
+- `POST /admin/accounts/{account_id}/password`
+- `GET /admin/static/styles.css`
+
+`GET /admin` renders either the first-admin bootstrap form, the admin login
+form, or the authenticated admin dashboard. The form handlers reuse the same
+local account records and opaque server-side session store as the JSON API, but
+the browser flow stores the raw session token in an HttpOnly, SameSite=Strict
+cookie scoped to `/admin`.
+
+The bootstrap screen is available only when no admin account exists and
+`SAFE_AUTH_BOOTSTRAP_SECRET` is configured. It requires the bootstrap secret,
+admin username, and admin password. After an admin exists, `/admin` shows the
+login screen and requires an admin account. Non-admin sessions are rejected.
+
+The authenticated dashboard lists local accounts and offers password workflows.
+`POST /admin/logout` revokes the current admin web session. `POST
+/admin/password` changes the current admin account password after verifying the
+current password, then revokes other sessions for that account. `POST
+/admin/accounts/{account_id}/password` lets an admin reset another local
+account password and revokes all sessions for that account. These authenticated
+state-changing forms use a session-bound CSRF token.
+
+`/admin/static/styles.css` is unauthenticated because it is token-neutral static
+CSS from the AGPL-licensed source tree. It does not contain incident data,
+tokens, deployment details, keys, or evidence metadata. The admin HTML pages
+use `Cache-Control: no-store` and conservative browser security headers.
+
+The admin web surface shows only route-boundary status, safe navigation stubs,
+and local account-management data. It does not expose incident evidence, viewer
+tokens, session tokens, password hashes, request bodies, uploaded bytes,
+Authorization headers, plaintext, raw keys, stored paths, object keys, private
+deployment details, or sensitive evidence metadata. It is not a public admin
+dashboard and must stay on the private listener.
+
+### Admin API Routes
+
+The following routes require an admin account session:
+
+- `GET /v1/admin/accounts`
+- `POST /v1/admin/accounts`
+- `POST /v1/admin/accounts/{account_id}/password`
+- `POST /v1/admin/accounts/{account_id}/sessions/revoke`
+- `GET /v1/admin/incidents/{incident_id}/deletion`
+- `POST /v1/admin/incidents/{incident_id}/deletion`
+
+`POST /v1/admin/accounts` accepts `username`, `password`, and `role`, where `role` is `user` or `admin`. Admin password reset and explicit session revocation revoke all sessions for the selected account.
+
+Local account authentication does not make `/v1` a public product API. Keep private listeners behind localhost, LAN, WireGuard, firewall rules, or a strict private reverse proxy until public exposure, abuse controls, rate limiting, CSRF/browser credential rules, and production operations are explicitly designed and reviewed.
+
+## Incidents
+
+Incident routes are mounted only on the private API server and require a valid session. Incidents are owned by the account that creates them. Regular users can access only their own incidents; admins can access incidents across accounts. Legacy unowned incidents are admin-only until a future migration or reassignment workflow is implemented.
+
+### `POST /v1/incidents`
+
+Creates an open incident. When mode fields are omitted, the incident remains a
+generic legacy incident. The request may include optional mode metadata, but
+these fields do not grant access, create public links, send notifications,
+change retention, change key custody, expose trusted-contact workflows, or change
+public viewer and bundle behavior.
+
+Request:
+
+```json
+{
+  "client_label": "iphone",
+  "notes": "test incident",
+  "incident_mode": "interaction_record",
+  "capture_profile": "audio_location",
+  "escalation_policy": "none",
+  "sharing_state": "private"
+}
+```
+
+Optional mode values:
+
+| Field | Accepted values |
+|---|---|
+| `incident_mode` | `emergency`, `interaction_record`, `safety_check`, `evidence_note` |
+| `capture_profile` | `audio_video_location`, `audio_location`, `location_checkin`, `note_or_attachment`, `custom` |
+| `escalation_policy` | `none`, `trusted_contacts_on_start`, `trusted_contacts_on_missed_checkin`, `urgent_trusted_contact_alert` |
+| `sharing_state` | `private`, `trusted_contact_access`, `public_link_created`, `legal_export_created`, `revoked_or_expired` |
+
+Response `201`:
+
+```json
+{
   "incident_id": "inc_...",
-  "status": "open"
+  "status": "open",
+  "incident_mode": "interaction_record",
+  "capture_profile": "audio_location",
+  "escalation_policy": "none",
+  "sharing_state": "private"
 }
 ```
 
@@ -67,7 +304,12 @@ Response `200`:
     "created_at": "2026-05-21T10:00:00Z",
     "updated_at": "2026-05-21T10:00:00Z",
     "status": "open",
-    "client_label": "iphone"
+    "client_label": "iphone",
+    "incident_mode": "interaction_record",
+    "capture_profile": "audio_location",
+    "escalation_policy": "none",
+    "sharing_state": "private",
+    "deletion_state": "active"
   },
   "streams": [],
   "chunks": [],
@@ -79,7 +321,83 @@ Response `200`:
 
 Marks an incident closed. Later chunk uploads return `409 incident_closed`.
 
-Response `200` is the updated incident object.
+Response `200` is the updated private incident object. If the incident has
+optional mode metadata, the same fields shown in the `GET` incident object can
+be present. Closing an incident does not change sharing, retention, viewer,
+notification, or key-custody behavior.
+
+### `POST /v1/incidents/{incident_id}/deletion`
+
+Requests deletion for an incident owned by the authenticated account. Admins
+can use this route only for incidents they own; use the admin route below for
+global deletion. The route creates durable deletion state and snapshots
+server-controlled stored paths from metadata before any blob is deleted. It is
+mounted only on the private API listener.
+
+Request:
+
+```json
+{
+  "reason_code": "account_delete",
+  "allow_open": true
+}
+```
+
+`reason_code` is optional and must be a short non-sensitive code using letters,
+digits, `_`, `-`, `.`, or `:`. It must not contain raw tokens, request bodies,
+evidence notes, private deployment details, plaintext, raw keys, stored paths,
+object keys, or user safety narrative. Open incidents are rejected unless
+`allow_open` is true. Repeating a deletion request for the same incident returns
+the existing deletion decision.
+
+Response `202`:
+
+```json
+{
+  "deletion": {
+    "decision_id": "del_...",
+    "incident_id": "inc_...",
+    "source": "account_request",
+    "reason_code": "account_delete",
+    "actor_account_id": "acct_...",
+    "allow_open": true,
+    "state": "deletion_pending",
+    "item_count": 2,
+    "requested_at": "2026-05-31T10:00:00Z",
+    "updated_at": "2026-05-31T10:00:00Z"
+  }
+}
+```
+
+### `GET /v1/incidents/{incident_id}/deletion`
+
+Returns the non-sensitive deletion status for an incident visible to the
+authenticated account.
+
+### `POST /v1/admin/incidents/{incident_id}/deletion`
+
+Requests deletion for any incident visible to an admin account. The request and
+response shape match the account route, but the `source` is `admin_request`.
+
+### `GET /v1/admin/incidents/{incident_id}/deletion`
+
+Returns the non-sensitive deletion status for any incident by ID. This route
+requires an admin account.
+
+Deletion states are:
+
+| State | Meaning |
+|---|---|
+| `active` | Incident is not being deleted. |
+| `deletion_pending` | A deletion decision exists and blob deletion items have been prepared. |
+| `deleting` | The background worker is deleting encrypted blobs and metadata. |
+| `deletion_failed` | Blob deletion failed and the deletion is retryable. |
+| `deleted` | Encrypted blobs and sensitive child metadata have been removed or confirmed absent. |
+
+While an incident is not `active`, write routes, bundle routes, chunk upload,
+and new incident-token creation fail closed. Public viewer token lookups for
+the incident return the same `404 incident_token_invalid` shape used for
+invalid, expired, or revoked tokens and do not reveal deletion state.
 
 ## Chunks
 
@@ -88,6 +406,12 @@ Chunk routes are mounted only on the private API server.
 ### `POST /v1/incidents/{incident_id}/chunks`
 
 Uploads one already-encrypted chunk as `multipart/form-data`.
+
+Optional header:
+
+- `Idempotency-Key`: stable key for this intended complete chunk upload. The
+  value must be 1-255 visible ASCII characters. The server treats it as
+  token-like: raw values are not logged, returned in errors, or stored raw.
 
 Fields:
 
@@ -125,7 +449,28 @@ New clients should create a media stream and upload chunks with `stream_id`. `st
 
 Streamed chunk identity is `(incident_id, stream_id, chunk_index)`, so each stream can use normal stream-local chunk numbering. Legacy unstreamed chunk identity remains `(incident_id, media_type, chunk_index)` for chunks without `stream_id`.
 
-Duplicate streamed `(incident_id, stream_id, chunk_index)` uploads and duplicate legacy `(incident_id, media_type, chunk_index)` uploads return `409 duplicate_chunk`. Hash mismatches return `400 hash_mismatch` and do not commit a final file.
+Duplicate streamed `(incident_id, stream_id, chunk_index)` uploads and duplicate legacy `(incident_id, media_type, chunk_index)` uploads without an idempotency key return `409 duplicate_chunk`. Hash mismatches return `400 hash_mismatch` and do not commit a final file.
+
+When `Idempotency-Key` is supplied, the server hashes the key and stores durable
+upload-operation state in the configured metadata backend. The key is bound to
+the `upload_chunk` operation and a request fingerprint covering normalized
+chunk identity, `media_type`, `started_at`, `ended_at`, normalized
+`original_filename`, ciphertext byte size, and ciphertext `sha256_hex`.
+
+The first successful idempotent upload returns the normal `201` chunk response.
+An equivalent retry with the same key and same complete encrypted chunk upload
+can return `200 OK` with the same chunk metadata shape and:
+
+```http
+Idempotency-Replayed: true
+```
+
+Reusing the same `Idempotency-Key` with a different chunk identity, metadata
+fingerprint, byte size, or ciphertext hash returns `409 idempotency_conflict`.
+The conflict response is intentionally small and does not include uploaded
+bytes, stored paths, object keys, raw keys, tokens, raw idempotency keys, or
+private deployment details. Replays still upload the complete encrypted chunk;
+this is not a resumable upload or partial-commit protocol.
 
 The repository rechecks incident and stream state when chunk metadata is inserted. If an upload races with incident close or stream completion, the final metadata insert is rejected and the committed blob path is removed.
 
@@ -148,28 +493,23 @@ contain personal or contextual information even after path stripping. Do not use
 legal-record guarantees, or download path construction.
 
 The current API does not implement resumable uploads, upload leases, or
-client-side queue summary endpoints. Future clients should retry complete
-encrypted chunks unless a later explicit resumable-upload protocol is
-implemented. The planning decision is documented in
+client-side queue summary endpoints. Clients should retry complete encrypted
+chunks, use `Idempotency-Key` for ambiguous complete-upload outcomes, and use
+the duplicate chunk reconciliation route when they need to compare a duplicate
+accepted chunk with a local expected fingerprint. The resumable-upload planning
+decision is documented in
 [resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md).
 
-### Planned Duplicate Chunk Reconciliation
+### `POST /v1/incidents/{incident_id}/chunks/reconcile`
 
-This section is a design contract for future implementation. The current server
-does not yet expose the reconciliation route described here; duplicate uploads
-still return `409 duplicate_chunk`.
+Reconciles a duplicate chunk identity against already accepted metadata without
+re-uploading ciphertext. The route is mounted only on the private API server.
 
-The planned API shape is a separate private query workflow, not a public route
-and not an enriched `409 duplicate_chunk` upload response. A separate route lets
-clients compare expected metadata without re-uploading ciphertext, keeps
-duplicate upload errors small, and can coexist with future idempotency-key
-retry success.
-
-Planned route:
-
-```http
-POST /v1/incidents/{incident_id}/chunks/reconcile
-```
+This is a separate private query workflow, not a public route and not an
+enriched `409 duplicate_chunk` upload response. A separate route lets clients
+compare expected metadata without re-uploading ciphertext, keeps duplicate
+upload errors small, and coexists with the current idempotency-key
+retry-success path.
 
 Request:
 
@@ -202,9 +542,10 @@ The comparison fingerprint is:
 - ciphertext `byte_size`
 - ciphertext `sha256_hex`
 
-The route should allow reconciliation after an incident is closed or a stream is
+The route allows reconciliation after an incident is closed or a stream is
 complete or failed, because it is read-only and only confirms already accepted
-metadata. It must not overwrite, replace, delete, or rewrite stored chunks.
+metadata. It does not overwrite, replace, delete, rewrite, or re-commit stored
+chunks.
 
 Matched response `200`:
 
@@ -254,7 +595,8 @@ stored values. If no accepted chunk exists for the requested identity, return
 `404 chunk_not_found`. Invalid identity or fingerprint fields should reuse the
 existing upload validation error codes where practical, such as
 `400 invalid_chunk_index`, `400 invalid_media_type`, or
-`400 invalid_sha256_hex`.
+`400 invalid_sha256_hex`. Invalid or missing `byte_size` returns
+`400 invalid_byte_size`.
 
 Safe reconciliation responses may return server-generated chunk ID, normalized
 identity fields, timestamps, byte size, ciphertext hash, creation time, and
@@ -263,7 +605,7 @@ plaintext, raw keys, raw tokens, request bodies, local filesystem paths,
 `stored_path`, staging paths, object-storage keys, or object-storage
 credentials.
 
-Future implementation should extend `internal/httpapi/uploads_test.go` for:
+HTTP coverage in `internal/httpapi/uploads_test.go` includes:
 
 - matched streamed duplicate reconciliation
 - conflicting streamed duplicate reconciliation
@@ -562,7 +904,7 @@ Response `200`:
 }
 ```
 
-Incident viewer responses include `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`, `Permissions-Policy: geolocation=(), microphone=(), camera=()`, `X-Frame-Options: DENY`, and a strict `Content-Security-Policy` with `frame-ancestors 'none'`. Token-protected pages, JSON, errors, and downloads include `Cache-Control: no-store`. Invalid, expired, and revoked tokens all return `404 incident_token_invalid`.
+Incident viewer responses include `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`, `Permissions-Policy: geolocation=(), microphone=(), camera=()`, `X-Frame-Options: DENY`, and a strict `Content-Security-Policy` with `frame-ancestors 'none'`. Token-protected pages, JSON, errors, and downloads include `Cache-Control: no-store`. Invalid, expired, and revoked tokens all return `404 incident_token_invalid`. App-level public viewer rate limits return `429 rate_limited` with a safe JSON error body and `Retry-After`; limiter backend failures return `503 rate_limit_unavailable`.
 
 The Go app does not set `Strict-Transport-Security` in local/dev HTTP mode. Set HSTS at the HTTPS reverse proxy or deployment edge for production hostnames.
 

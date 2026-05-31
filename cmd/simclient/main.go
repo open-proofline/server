@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 )
 
@@ -20,6 +19,12 @@ func run(ctx context.Context, out io.Writer, args []string) error {
 	if err != nil {
 		return err
 	}
+	if cfg.verifyBundlePath != "" {
+		return runVerifyBundle(out, cfg)
+	}
+	if cfg.desktopRecorder {
+		return runDesktopRecorder(ctx, out, cfg)
+	}
 
 	encryptionKey, err := prepareEncryption(out, cfg)
 	if err != nil {
@@ -27,10 +32,17 @@ func run(ctx context.Context, out io.Writer, args []string) error {
 	}
 
 	sim := client{
-		httpClient: &http.Client{Timeout: clientRequestTimeout},
+		httpClient: newHTTPClient(cfg),
 		apiBase:    cfg.apiBase,
 		viewerBase: cfg.viewerBase,
 	}
+
+	fmt.Fprintln(out, "Logging in...")
+	sessionToken, err := sim.login(ctx, cfg.username, cfg.password)
+	if err != nil {
+		return err
+	}
+	sim.sessionToken = sessionToken
 
 	fmt.Fprintln(out, "Creating incident...")
 	incidentID, err := sim.createIncident(ctx)
@@ -44,7 +56,8 @@ func run(ctx context.Context, out io.Writer, args []string) error {
 	}
 
 	fmt.Fprintf(out, "Incident: %s\n", incidentID)
-	fmt.Fprintf(out, "Incident viewer: %s\n\n", buildViewerURL(sim.viewerBase, token))
+	fmt.Fprintln(out, "Incident viewer token created; URL omitted from output.")
+	fmt.Fprintln(out)
 
 	fmt.Fprintf(out, "Creating %s media stream...\n", cfg.mediaType)
 	streamID, err := sim.createMediaStream(ctx, incidentID, cfg.mediaType)
@@ -52,6 +65,15 @@ func run(ctx context.Context, out io.Writer, args []string) error {
 		return err
 	}
 	fmt.Fprintf(out, "Stream: %s\n\n", streamID)
+
+	bundleVerificationKey := encryptionKey
+	contactWrappedVerification := false
+	if wrappedKey, ok, err := prepareContactWrappedKey(out, cfg, incidentID, streamID, encryptionKey); err != nil {
+		return err
+	} else if ok {
+		bundleVerificationKey = wrappedKey
+		contactWrappedVerification = true
+	}
 
 	if err := uploadChunks(ctx, out, sim, cfg, incidentID, streamID, encryptionKey); err != nil {
 		return err
@@ -66,7 +88,7 @@ func run(ctx context.Context, out io.Writer, args []string) error {
 	}
 
 	if cfg.downloadBundle {
-		if err := downloadAndVerifyBundle(ctx, out, sim, cfg, token, incidentID, streamID, encryptionKey); err != nil {
+		if err := downloadAndVerifyBundle(ctx, out, sim, cfg, token, incidentID, streamID, bundleVerificationKey, contactWrappedVerification); err != nil {
 			return err
 		}
 	}

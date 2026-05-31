@@ -47,6 +47,32 @@ func (r *Repository) ChunkExists(ctx context.Context, incidentID, streamID, medi
 	return true, nil
 }
 
+// GetChunkByIdentity returns one chunk by its stream-scoped or legacy
+// unstreamed immutable identity.
+func (r *Repository) GetChunkByIdentity(ctx context.Context, incidentID, streamID, mediaType string, chunkIndex int) (Chunk, error) {
+	if streamID != "" {
+		row := r.db.QueryRowContext(ctx, `
+			SELECT id, incident_id, stream_id, chunk_index, media_type, started_at, ended_at,
+				original_filename, stored_path, byte_size, sha256_hex, created_at
+			FROM chunks
+			WHERE incident_id = ? AND stream_id = ? AND chunk_index = ?`,
+			incidentID,
+			streamID,
+			chunkIndex,
+		)
+		chunk, err := scanChunk(row)
+		if errors.Is(err, sql.ErrNoRows) {
+			return Chunk{}, ErrNotFound
+		}
+		if err != nil {
+			return Chunk{}, fmt.Errorf("get stream chunk by identity: %w", err)
+		}
+		return chunk, nil
+	}
+
+	return r.GetChunkByKey(ctx, incidentID, mediaType, chunkIndex)
+}
+
 // CreateChunk inserts metadata for a chunk after the blob has been committed to
 // disk.
 func (r *Repository) CreateChunk(ctx context.Context, params CreateChunkParams) (Chunk, error) {
@@ -115,17 +141,21 @@ func (r *Repository) CreateChunk(ctx context.Context, params CreateChunkParams) 
 
 func validateChunkInsertState(ctx context.Context, tx *sql.Tx, params CreateChunkParams) error {
 	var incidentStatus string
+	var deletionState string
 	err := tx.QueryRowContext(ctx, `
-		SELECT status
+		SELECT status, deletion_state
 		FROM incidents
 		WHERE id = ?`,
 		params.IncidentID,
-	).Scan(&incidentStatus)
+	).Scan(&incidentStatus, &deletionState)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ErrNotFound
 	}
 	if err != nil {
 		return fmt.Errorf("read incident status: %w", err)
+	}
+	if deletionState != IncidentDeletionStateActive {
+		return ErrIncidentDeleting
 	}
 	if incidentStatus != StatusOpen {
 		return ErrIncidentClosed

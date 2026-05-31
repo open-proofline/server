@@ -1,10 +1,9 @@
 # Contact-Wrapped Key Metadata Simulator Prototype
 
 This document scopes a simulator/development prototype for contact-wrapped key
-metadata. It is a design document only. It does not add backend decryption,
-server-held raw media keys, key escrow, browser decryption, new API routes,
-database schema changes, account management, production trusted-contact access,
-or client implementations.
+metadata. It does not add backend decryption, server-held raw media keys, key
+escrow, browser decryption, new API routes, database schema changes, public
+account workflows, production trusted-contact access, or client implementations.
 
 The goal is to let Proofline test the shape of contact-wrapped media-key
 metadata before production key custody is implemented. The current backend
@@ -100,6 +99,15 @@ server bundle manifests. This keeps the prototype useful while avoiding a
 server schema or API commitment. Keep these artifacts in ignored local paths or
 temporary directories; do not commit them.
 
+The implemented simulator flow is opt-in with `--wrapped-key-output`. It creates
+or loads a local development contact key file, wraps the simulator media key
+with the maintained `filippo.io/age` library using the `age-v1-x25519` profile,
+writes a local companion artifact, and verifies downloaded bundle decryption by
+reading the artifact and unwrapping through the development contact key. If
+`--contact-key-file` is omitted, the simulator uses
+`proofline-sim-contact.key.json` next to the wrapped-key artifact. Both files are
+local development state and should stay in ignored paths.
+
 ## Development Manifest Shape
 
 A local simulator manifest can use a shape like this:
@@ -118,9 +126,8 @@ A local simulator manifest can use a shape like this:
       "recipient_type": "trusted_contact",
       "contact_id": "contact_dev_alex",
       "contact_key_id": "ckid_...",
-      "wrapping_algorithm": "to-be-selected",
-      "wrapped_key_b64": "base64url-wrapped-media-key-ciphertext",
-      "ephemeral_public_key_b64": "base64url-public-metadata-if-required"
+      "wrapping_algorithm": "age-v1-x25519",
+      "wrapped_key_b64": "base64url-wrapped-media-key-ciphertext"
     }
   ]
 }
@@ -156,8 +163,13 @@ another explicit decryption capability.
 
 ## Cryptographic Evaluation
 
-The prototype should evaluate a standard wrapping format before implementation.
-Candidate directions:
+The simulator implementation currently uses the age v1 X25519 recipient format
+through `filippo.io/age`. That library owns the public-key wrapping, KDF, AEAD,
+message layout, authentication, encoding, and random generation used by the
+wrapped-key ciphertext. The simulator records the profile as `age-v1-x25519` and
+rejects unsupported algorithms when reading artifacts.
+
+Other candidate directions for future production work remain:
 
 - HPKE using a maintained implementation and a documented ciphersuite.
 - An `age`-style recipient stanza for development artifacts if the prototype
@@ -211,13 +223,16 @@ For the design-only milestone:
   `docs/ios-local-recorder-prototype.md`, `docs/security-model.md`, and
   `docs/threat-model.md`
 
-For any later simulator implementation:
+For simulator implementation:
 
 - add tests that prove raw media keys and contact private keys are not written
-  to server manifests, logs, or bundle ZIP entries
-- add tests for malformed wrapped-key metadata and unsupported algorithms
+  to server manifests, logs, or bundle ZIP entries. Implemented for current
+  server bundle entries and manifests.
+- add tests for malformed wrapped-key metadata and unsupported algorithms.
+  Implemented for local simulator artifacts.
 - verify downloaded bundles can be decrypted locally after unwrapping with a
-  development contact private key
+  development contact private key. Implemented for simulator bundle verification
+  when `--wrapped-key-output` is set.
 - run `gofmt -w ./cmd ./internal ./migrations`
 - run `go test ./...`
 - run the simulator smoke flow with bundle download and local decryption

@@ -15,6 +15,7 @@ import (
 	"github.com/open-proofline/server/internal/httpapi"
 	"github.com/open-proofline/server/internal/incidents"
 	"github.com/open-proofline/server/internal/postgresdb"
+	"github.com/open-proofline/server/internal/retention"
 	"github.com/open-proofline/server/internal/storage"
 )
 
@@ -49,6 +50,9 @@ func run(logger *slog.Logger) error {
 		return err
 	}
 	defer closeRepo()
+	if err := checkAuthBootstrap(ctx, repo, cfg); err != nil {
+		return err
+	}
 
 	blobStore, err := newBlobStore(cfg)
 	if err != nil {
@@ -58,10 +62,21 @@ func run(logger *slog.Logger) error {
 	apiOptions := httpapi.Options{
 		MaxUploadBytes:          cfg.MaxUploadBytes,
 		DefaultIncidentTokenTTL: &cfg.DefaultIncidentTokenTTL,
+		SessionTTL:              cfg.SessionTTL,
+		BootstrapSecret:         cfg.AuthBootstrapSecret,
+		ReadinessChecks:         backendReadinessChecks(cfg, repo, blobStore, coord),
+		PublicRateLimit:         publicRateLimitConfig(cfg.PublicViewerRateLimit),
+		PublicRateLimiter:       newPublicRateLimiter(cfg, coord),
 		Logger:                  logger,
 	}
 	privateHandler := httpapi.NewPrivate(repo, blobStore, apiOptions)
 	publicHandler := httpapi.NewPublic(repo, blobStore, apiOptions)
+	deletionWorker := retention.NewWorker(repo, blobStore, retention.Options{
+		Interval:                cfg.DeletionWorkerInterval,
+		ClosedIncidentRetention: cfg.ClosedIncidentRetention,
+		Logger:                  logger,
+	})
+	deletionWorker.Start(ctx)
 	servers := newHTTPServers(cfg, privateHandler, publicHandler)
 
 	errCh := make(chan error, len(servers))
@@ -75,6 +90,50 @@ func run(logger *slog.Logger) error {
 	case err := <-errCh:
 		_ = shutdownServers(servers)
 		return err
+	}
+}
+
+func publicRateLimitConfig(cfg config.PublicViewerRateLimitConfig) httpapi.PublicRateLimitConfig {
+	return httpapi.PublicRateLimitConfig{
+		Enabled:       cfg.Enabled,
+		Window:        cfg.Window,
+		PageLimit:     cfg.PageLimit,
+		DataLimit:     cfg.DataLimit,
+		DownloadLimit: cfg.DownloadLimit,
+		StaticLimit:   cfg.StaticLimit,
+	}
+}
+
+func newPublicRateLimiter(cfg config.Config, coord coordination.Coordinator) httpapi.PublicRateLimiter {
+	if !cfg.PublicViewerRateLimit.Enabled {
+		return nil
+	}
+	switch cfg.Backends.Coordination {
+	case config.CoordinationBackendValkey, config.CoordinationBackendRedis:
+		if limiter, ok := coord.(httpapi.PublicRateLimiter); ok {
+			return limiter
+		}
+	}
+	return httpapi.NewMemoryPublicRateLimiter()
+}
+
+func backendReadinessChecks(cfg config.Config, repo httpapi.MetadataRepository, store storage.BlobStore, coord coordination.Coordinator) []httpapi.ReadinessCheck {
+	return []httpapi.ReadinessCheck{
+		{
+			Name:    "metadata",
+			Backend: cfg.Backends.Metadata,
+			Check:   repo.Check,
+		},
+		{
+			Name:    "blob",
+			Backend: cfg.Backends.Blob,
+			Check:   store.Check,
+		},
+		{
+			Name:    "coordination",
+			Backend: cfg.Backends.Coordination,
+			Check:   coord.Check,
+		},
 	}
 }
 

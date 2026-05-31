@@ -20,33 +20,63 @@ func NewRepository(db *sql.DB) *Repository {
 	return &Repository{db: db}
 }
 
-// CreateIncident inserts a new open incident.
+// Check verifies that the PostgreSQL metadata handle is reachable.
+func (r *Repository) Check(ctx context.Context) error {
+	return r.db.PingContext(ctx)
+}
+
+// CreateIncident inserts a new open legacy incident without an owner account.
 func (r *Repository) CreateIncident(ctx context.Context, clientLabel, notes string) (incidents.Incident, error) {
+	return r.CreateIncidentForAccount(ctx, "", incidents.CreateIncidentParams{
+		ClientLabel: clientLabel,
+		Notes:       notes,
+	})
+}
+
+// CreateIncidentForAccount inserts a new open incident owned by accountID.
+func (r *Repository) CreateIncidentForAccount(ctx context.Context, accountID string, params incidents.CreateIncidentParams) (incidents.Incident, error) {
 	now := time.Now().UTC()
 	id, err := newID("inc")
 	if err != nil {
 		return incidents.Incident{}, err
 	}
 	incident := incidents.Incident{
-		ID:          id,
-		CreatedAt:   now,
-		UpdatedAt:   now,
-		Status:      incidents.StatusOpen,
-		ClientLabel: clientLabel,
-		Notes:       notes,
+		ID:               id,
+		OwnerAccountID:   accountID,
+		CreatedAt:        now,
+		UpdatedAt:        now,
+		Status:           incidents.StatusOpen,
+		ClientLabel:      params.ClientLabel,
+		Notes:            params.Notes,
+		IncidentMode:     params.IncidentMode,
+		CaptureProfile:   params.CaptureProfile,
+		EscalationPolicy: params.EscalationPolicy,
+		SharingState:     params.SharingState,
+		DeletionState:    incidents.IncidentDeletionStateActive,
 	}
 
 	_, err = r.db.ExecContext(ctx, `
-		INSERT INTO incidents (id, created_at, updated_at, status, client_label, notes)
-		VALUES ($1, $2, $3, $4, $5, $6)`,
+		INSERT INTO incidents (
+			id, owner_account_id, created_at, updated_at, status, client_label, notes,
+			incident_mode, capture_profile, escalation_policy, sharing_state
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
 		incident.ID,
+		nullableString(incident.OwnerAccountID),
 		incident.CreatedAt,
 		incident.UpdatedAt,
 		incident.Status,
 		nullableString(incident.ClientLabel),
 		nullableString(incident.Notes),
+		nullableString(incident.IncidentMode),
+		nullableString(incident.CaptureProfile),
+		nullableString(incident.EscalationPolicy),
+		nullableString(incident.SharingState),
 	)
 	if err != nil {
+		if isIntegrityConstraint(err) {
+			return incidents.Incident{}, incidents.ErrNotFound
+		}
 		return incidents.Incident{}, fmt.Errorf("insert postgres incident: %w", err)
 	}
 
@@ -56,9 +86,10 @@ func (r *Repository) CreateIncident(ctx context.Context, clientLabel, notes stri
 // GetIncident returns one incident by ID.
 func (r *Repository) GetIncident(ctx context.Context, id string) (incidents.Incident, error) {
 	row := r.db.QueryRowContext(ctx, `
-		SELECT id, created_at, updated_at, status, client_label, notes
-		FROM incidents
-		WHERE id = $1`, id)
+			SELECT id, owner_account_id, created_at, updated_at, status, client_label, notes,
+				incident_mode, capture_profile, escalation_policy, sharing_state, deletion_state
+			FROM incidents
+			WHERE id = $1`, id)
 
 	incident, err := scanIncident(row)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -103,8 +134,8 @@ func (r *Repository) CloseIncident(ctx context.Context, id string) (incidents.In
 	if err != nil {
 		return incidents.Incident{}, fmt.Errorf("begin close postgres incident: %w", err)
 	}
-	if err := lockIncident(ctx, tx, id); err != nil {
-		_ = tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
+	if err := lockActiveIncident(ctx, tx, id); err != nil {
 		return incidents.Incident{}, err
 	}
 	if _, err := tx.ExecContext(ctx, `
@@ -115,7 +146,6 @@ func (r *Repository) CloseIncident(ctx context.Context, id string) (incidents.In
 		time.Now().UTC(),
 		id,
 	); err != nil {
-		_ = tx.Rollback()
 		return incidents.Incident{}, fmt.Errorf("close postgres incident: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
@@ -124,20 +154,23 @@ func (r *Repository) CloseIncident(ctx context.Context, id string) (incidents.In
 	return r.GetIncident(ctx, id)
 }
 
-func lockIncident(ctx context.Context, tx *sql.Tx, incidentID string) error {
-	var status string
+func lockActiveIncident(ctx context.Context, tx *sql.Tx, incidentID string) error {
+	var deletionState string
 	err := tx.QueryRowContext(ctx, `
-		SELECT status
+		SELECT deletion_state
 		FROM incidents
 		WHERE id = $1
 		FOR UPDATE`,
 		incidentID,
-	).Scan(&status)
+	).Scan(&deletionState)
 	if errors.Is(err, sql.ErrNoRows) {
 		return incidents.ErrNotFound
 	}
 	if err != nil {
 		return fmt.Errorf("lock postgres incident: %w", err)
+	}
+	if deletionState != incidents.IncidentDeletionStateActive {
+		return incidents.ErrIncidentDeleting
 	}
 	return nil
 }

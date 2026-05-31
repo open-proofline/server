@@ -145,8 +145,9 @@ Core constraints:
 - Raw server-side key access or server-side decryption may be acceptable only as a deliberate break-glass/dead-man-switch/emergency-access mode with clear access controls, audit expectations, and deployment warnings.
 - Future product scope includes emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes, but the current backend only stores generic incidents.
 - First-class incident modes, capture profiles, escalation policies, sharing
-  state, account access, trusted-contact accounts, dead-man switch
-  notifications, and public `/v1` authentication are not implemented yet.
+  state, public account workflows, trusted-contact accounts, dead-man switch
+  notifications, and public `/v1` product authentication are not implemented
+  yet.
 - Do not add React, Node, npm, OAuth, JWT, user accounts, SMS, Messenger, push notifications, public admin dashboards, Docker Compose, Kubernetes, or cloud integrations unless explicitly requested.
 - Put newly discovered future work into issues/backlog items unless it is required for the current task.
 - Backlog scanning creates draft Markdown files first, not GitHub issues directly.

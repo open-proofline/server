@@ -40,6 +40,51 @@ func TestLoadDefaultIncidentTokenTTL(t *testing.T) {
 	}
 }
 
+func TestLoadDefaultSessionTTL(t *testing.T) {
+	cfg := loadConfigForTest(t, nil)
+
+	if cfg.SessionTTL != 12*time.Hour {
+		t.Fatalf("default session ttl = %s, want 12h", cfg.SessionTTL)
+	}
+}
+
+func TestLoadDefaultDeletionRetentionConfig(t *testing.T) {
+	cfg := loadConfigForTest(t, nil)
+
+	if cfg.DeletionWorkerInterval != time.Minute {
+		t.Fatalf("deletion worker interval = %s, want 1m", cfg.DeletionWorkerInterval)
+	}
+	if cfg.ClosedIncidentRetention != 0 {
+		t.Fatalf("closed incident retention = %s, want disabled", cfg.ClosedIncidentRetention)
+	}
+}
+
+func TestLoadDefaultPublicViewerRateLimitConfig(t *testing.T) {
+	cfg := loadConfigForTest(t, nil)
+
+	want := PublicViewerRateLimitConfig{
+		Enabled:       true,
+		Window:        time.Minute,
+		PageLimit:     60,
+		DataLimit:     300,
+		DownloadLimit: 12,
+		StaticLimit:   600,
+	}
+	if cfg.PublicViewerRateLimit != want {
+		t.Fatalf("public viewer rate limit = %+v, want %+v", cfg.PublicViewerRateLimit, want)
+	}
+}
+
+func TestLoadAuthBootstrapSecret(t *testing.T) {
+	cfg := loadConfigForTest(t, map[string]string{
+		"SAFE_AUTH_BOOTSTRAP_SECRET": " bootstrap-secret ",
+	})
+
+	if cfg.AuthBootstrapSecret != "bootstrap-secret" {
+		t.Fatalf("bootstrap secret was not trimmed")
+	}
+}
+
 func TestLoadDefaultBackends(t *testing.T) {
 	cfg := loadConfigForTest(t, nil)
 
@@ -415,6 +460,105 @@ func TestLoadCanDisableDefaultIncidentTokenTTL(t *testing.T) {
 	}
 }
 
+func TestLoadSessionTTLFromEnv(t *testing.T) {
+	cfg := loadConfigForTest(t, map[string]string{
+		"SAFE_SESSION_TTL": "6h",
+	})
+
+	if cfg.SessionTTL != 6*time.Hour {
+		t.Fatalf("session ttl = %s, want 6h", cfg.SessionTTL)
+	}
+}
+
+func TestLoadDeletionRetentionConfigFromEnv(t *testing.T) {
+	cfg := loadConfigForTest(t, map[string]string{
+		"SAFE_DELETION_WORKER_INTERVAL":  "30s",
+		"SAFE_CLOSED_INCIDENT_RETENTION": "720h",
+	})
+
+	if cfg.DeletionWorkerInterval != 30*time.Second {
+		t.Fatalf("deletion worker interval = %s, want 30s", cfg.DeletionWorkerInterval)
+	}
+	if cfg.ClosedIncidentRetention != 720*time.Hour {
+		t.Fatalf("closed incident retention = %s, want 720h", cfg.ClosedIncidentRetention)
+	}
+}
+
+func TestLoadCanDisableDeletionWorkerAndRetention(t *testing.T) {
+	cfg := loadConfigForTest(t, map[string]string{
+		"SAFE_DELETION_WORKER_INTERVAL":  "0",
+		"SAFE_CLOSED_INCIDENT_RETENTION": "0",
+	})
+
+	if cfg.DeletionWorkerInterval != 0 {
+		t.Fatalf("deletion worker interval = %s, want disabled", cfg.DeletionWorkerInterval)
+	}
+	if cfg.ClosedIncidentRetention != 0 {
+		t.Fatalf("closed incident retention = %s, want disabled", cfg.ClosedIncidentRetention)
+	}
+}
+
+func TestLoadPublicViewerRateLimitConfigFromEnv(t *testing.T) {
+	cfg := loadConfigForTest(t, map[string]string{
+		"SAFE_PUBLIC_VIEWER_RATE_LIMIT_ENABLED":  "false",
+		"SAFE_PUBLIC_VIEWER_RATE_LIMIT_WINDOW":   "30s",
+		"SAFE_PUBLIC_VIEWER_RATE_LIMIT_PAGE":     "10",
+		"SAFE_PUBLIC_VIEWER_RATE_LIMIT_DATA":     "20",
+		"SAFE_PUBLIC_VIEWER_RATE_LIMIT_DOWNLOAD": "3",
+		"SAFE_PUBLIC_VIEWER_RATE_LIMIT_STATIC":   "100",
+	})
+
+	want := PublicViewerRateLimitConfig{
+		Enabled:       false,
+		Window:        30 * time.Second,
+		PageLimit:     10,
+		DataLimit:     20,
+		DownloadLimit: 3,
+		StaticLimit:   100,
+	}
+	if cfg.PublicViewerRateLimit != want {
+		t.Fatalf("public viewer rate limit = %+v, want %+v", cfg.PublicViewerRateLimit, want)
+	}
+}
+
+func TestLoadRejectsInvalidPublicViewerRateLimitConfig(t *testing.T) {
+	tests := map[string]map[string]string{
+		"invalid enabled": {
+			"SAFE_PUBLIC_VIEWER_RATE_LIMIT_ENABLED": "sometimes",
+		},
+		"empty window": {
+			"SAFE_PUBLIC_VIEWER_RATE_LIMIT_WINDOW": "",
+		},
+		"zero enabled window": {
+			"SAFE_PUBLIC_VIEWER_RATE_LIMIT_WINDOW": "0",
+		},
+		"invalid page": {
+			"SAFE_PUBLIC_VIEWER_RATE_LIMIT_PAGE": "many",
+		},
+		"negative data": {
+			"SAFE_PUBLIC_VIEWER_RATE_LIMIT_DATA": "-1",
+		},
+		"empty download": {
+			"SAFE_PUBLIC_VIEWER_RATE_LIMIT_DOWNLOAD": "",
+		},
+		"invalid static": {
+			"SAFE_PUBLIC_VIEWER_RATE_LIMIT_STATIC": "lots",
+		},
+	}
+
+	for name, env := range tests {
+		t.Run(name, func(t *testing.T) {
+			_, err := loadConfigForTestErr(t, env)
+			if err == nil {
+				t.Fatal("expected public viewer rate limit config error")
+			}
+			if !strings.Contains(err.Error(), "SAFE_PUBLIC_VIEWER_RATE_LIMIT_") {
+				t.Fatalf("expected SAFE_PUBLIC_VIEWER_RATE_LIMIT error, got %v", err)
+			}
+		})
+	}
+}
+
 func TestLoadRejectsInvalidIncidentTokenTTL(t *testing.T) {
 	tests := map[string]string{
 		"negative": "-1s",
@@ -432,6 +576,55 @@ func TestLoadRejectsInvalidIncidentTokenTTL(t *testing.T) {
 			}
 			if !strings.Contains(err.Error(), "parse SAFE_DEFAULT_INCIDENT_TOKEN_TTL") {
 				t.Fatalf("expected SAFE_DEFAULT_INCIDENT_TOKEN_TTL parse context, got %v", err)
+			}
+		})
+	}
+}
+
+func TestLoadRejectsInvalidSessionTTL(t *testing.T) {
+	tests := map[string]string{
+		"negative": "-1s",
+		"invalid":  "forever",
+		"empty":    "",
+	}
+
+	for name, value := range tests {
+		t.Run(name, func(t *testing.T) {
+			_, err := loadConfigForTestErr(t, map[string]string{
+				"SAFE_SESSION_TTL": value,
+			})
+			if err == nil {
+				t.Fatal("expected session ttl config error")
+			}
+			if !strings.Contains(err.Error(), "parse SAFE_SESSION_TTL") {
+				t.Fatalf("expected SAFE_SESSION_TTL parse context, got %v", err)
+			}
+		})
+	}
+}
+
+func TestLoadRejectsInvalidDeletionRetentionConfig(t *testing.T) {
+	tests := map[string]map[string]string{
+		"negative worker": {
+			"SAFE_DELETION_WORKER_INTERVAL": "-1s",
+		},
+		"invalid worker": {
+			"SAFE_DELETION_WORKER_INTERVAL": "soon",
+		},
+		"empty retention": {
+			"SAFE_CLOSED_INCIDENT_RETENTION": "",
+		},
+	}
+
+	for name, env := range tests {
+		t.Run(name, func(t *testing.T) {
+			_, err := loadConfigForTestErr(t, env)
+			if err == nil {
+				t.Fatal("expected deletion retention config error")
+			}
+			if !strings.Contains(err.Error(), "SAFE_DELETION_WORKER_INTERVAL") &&
+				!strings.Contains(err.Error(), "SAFE_CLOSED_INCIDENT_RETENTION") {
+				t.Fatalf("expected deletion env var parse context, got %v", err)
 			}
 		})
 	}
@@ -649,6 +842,16 @@ func loadConfigForTestErr(t *testing.T, env map[string]string) (Config, error) {
 		"SAFE_COORDINATION_BACKEND",
 		"SAFE_MAX_UPLOAD_BYTES",
 		"SAFE_DEFAULT_INCIDENT_TOKEN_TTL",
+		"SAFE_SESSION_TTL",
+		"SAFE_AUTH_BOOTSTRAP_SECRET",
+		"SAFE_DELETION_WORKER_INTERVAL",
+		"SAFE_CLOSED_INCIDENT_RETENTION",
+		"SAFE_PUBLIC_VIEWER_RATE_LIMIT_ENABLED",
+		"SAFE_PUBLIC_VIEWER_RATE_LIMIT_WINDOW",
+		"SAFE_PUBLIC_VIEWER_RATE_LIMIT_PAGE",
+		"SAFE_PUBLIC_VIEWER_RATE_LIMIT_DATA",
+		"SAFE_PUBLIC_VIEWER_RATE_LIMIT_DOWNLOAD",
+		"SAFE_PUBLIC_VIEWER_RATE_LIMIT_STATIC",
 		"SAFE_PRIVATE_READ_HEADER_TIMEOUT",
 		"SAFE_PRIVATE_READ_TIMEOUT",
 		"SAFE_PRIVATE_WRITE_TIMEOUT",

@@ -6,7 +6,7 @@ Configuration is read from environment variables when the Proofline API starts.
 
 | Variable | Default | Notes |
 |---|---|---|
-| `SAFE_PRIVATE_BIND_ADDRS` | `127.0.0.1:8080` | Comma-separated private `/v1` listener addresses. |
+| `SAFE_PRIVATE_BIND_ADDRS` | `127.0.0.1:8080` | Comma-separated private listener addresses for `/v1` and `/admin`. |
 | `SAFE_PUBLIC_BIND_ADDRS` | `127.0.0.1:8081` | Comma-separated public incident viewer listener addresses. |
 | `SAFE_DATA_DIR` | `./data` | Local directory for SQLite, temp uploads, and encrypted blobs unless `SAFE_DB_PATH` points elsewhere. |
 | `SAFE_DB_PATH` | `./data/safety.db` | SQLite database path. The default file name still uses `safety.db` until a separate data-layout migration is performed. |
@@ -35,6 +35,16 @@ Configuration is read from environment variables when the Proofline API starts.
 | `SAFE_VALKEY_WRITE_TIMEOUT` | `5s` | Valkey write timeout. |
 | `SAFE_MAX_UPLOAD_BYTES` | `250MB` | Maximum encrypted file bytes per upload. |
 | `SAFE_DEFAULT_INCIDENT_TOKEN_TTL` | `24h` | Default lifetime for viewer tokens created without `expires_at`. Set to `0` to disable the default for omitted `expires_at` values. |
+| `SAFE_SESSION_TTL` | `12h` | Lifetime for local account sessions created by `/v1/auth/login`. |
+| `SAFE_AUTH_BOOTSTRAP_SECRET` | unset | One-time bootstrap secret required to create the first admin account when no admin exists. Remove after bootstrap. |
+| `SAFE_DELETION_WORKER_INTERVAL` | `1m` | Background deletion maintenance interval. Set to `0` to disable the automatic scheduler while keeping deletion decisions durable for a later run. |
+| `SAFE_CLOSED_INCIDENT_RETENTION` | `0` | Retention window for closed incidents. `0` disables automatic retention deletion; positive Go durations delete closed incidents older than the window. |
+| `SAFE_PUBLIC_VIEWER_RATE_LIMIT_ENABLED` | `true` | Enables app-level rate limiting for public incident viewer route classes. Set to `false` to disable the app-level limiter. |
+| `SAFE_PUBLIC_VIEWER_RATE_LIMIT_WINDOW` | `1m` | Fixed-window duration for app-level public viewer limits. |
+| `SAFE_PUBLIC_VIEWER_RATE_LIMIT_PAGE` | `60` | Public viewer page lookup requests allowed per window per hashed socket peer. Set to `0` to disable this route-class limit. |
+| `SAFE_PUBLIC_VIEWER_RATE_LIMIT_DATA` | `300` | Public viewer JSON polling requests allowed per window per hashed socket peer. Set to `0` to disable this route-class limit. |
+| `SAFE_PUBLIC_VIEWER_RATE_LIMIT_DOWNLOAD` | `12` | Public viewer encrypted ZIP download starts allowed per window per hashed socket peer. Set to `0` to disable this route-class limit. |
+| `SAFE_PUBLIC_VIEWER_RATE_LIMIT_STATIC` | `600` | Public viewer static asset requests allowed per window per hashed socket peer. Set to `0` to disable this route-class limit. |
 | `SAFE_PRIVATE_READ_HEADER_TIMEOUT` | `10s` | Private API HTTP read-header timeout. |
 | `SAFE_PRIVATE_READ_TIMEOUT` | `0s` | Private API HTTP read timeout. `0` disables it for large or slow uploads. |
 | `SAFE_PRIVATE_WRITE_TIMEOUT` | `0s` | Private API HTTP write timeout. `0` disables it for large or slow downloads. |
@@ -90,10 +100,13 @@ go run ./cmd/api
 ```
 
 Valkey/Redis-compatible coordination is implemented as an optional, explicit
-backend. The current server validates the configured service at startup, but
-current upload routes still use complete encrypted chunk uploads and do not yet
-implement upload leases, idempotency keys, resumable uploads, application-level
-rate limiting, or cluster-safe retry semantics.
+backend. The current server validates the configured service at startup.
+Public viewer app-level rate-limit counters use the configured Valkey service
+when `SAFE_COORDINATION_BACKEND=valkey` or `redis`; otherwise they use local
+in-memory process counters. Current upload routes still use complete encrypted
+chunk uploads and do not yet implement upload leases, resumable uploads, or
+Valkey-backed cluster coordination. Complete-upload idempotency keys are stored
+in the selected metadata backend, not Valkey.
 
 `SAFE_DB_PATH` and `SAFE_DATA_DIR` keep their current behavior for the supported `sqlite` and `local` backends. When `SAFE_METADATA_BACKEND=postgresql`, `SAFE_DB_PATH` is not used for metadata. When `SAFE_BLOB_BACKEND=s3`, `SAFE_DATA_DIR/tmp` is still used for local temporary upload staging before final object writes.
 
@@ -109,7 +122,7 @@ documented in
 
 ## S3-Compatible Blob Storage
 
-The S3-compatible backend stores only opaque encrypted chunk bytes. It does not add backend decryption, raw media keys, key escrow, browser decryption, public `/v1` authentication, or production-readiness guarantees.
+The S3-compatible backend stores only opaque encrypted chunk bytes. It does not add backend decryption, raw media keys, key escrow, browser decryption, public `/v1` exposure, public account workflows, or production-readiness guarantees.
 
 Uploads are first staged as local temp files under `SAFE_DATA_DIR/tmp` while the server enforces `SAFE_MAX_UPLOAD_BYTES` and computes SHA-256 over the uploaded ciphertext. After the client-provided hash is verified, the server writes the final object key with conditional no-overwrite behavior. The final object key is derived from server-controlled incident, stream, media type, and chunk index metadata:
 
@@ -152,10 +165,10 @@ go run ./cmd/api
 deployments. `SAFE_VALKEY_ADDR` must be a `host:port`, not a URL, so passwords
 and database numbers stay in their dedicated settings.
 
-Treat Valkey passwords, private hostnames, private network details, and any
-future coordination keys as private deployment details. Do not put them in
-public issues, logs, dashboards, screenshots, support tickets, or metrics
-labels.
+Treat Valkey passwords, private hostnames, private network details,
+rate-limit counter keys, and any future coordination keys as private
+deployment details. Do not put them in public issues, logs, dashboards,
+screenshots, support tickets, or metrics labels.
 
 Coordination is not durable evidence storage. Incident metadata and
 viewer-token metadata remain in the selected metadata backend, and committed
@@ -163,11 +176,17 @@ encrypted bytes remain in the selected blob backend. If a configured Valkey
 backend cannot be checked at startup, the server fails closed instead of
 silently running with a misleading cluster configuration.
 
-The current implementation does not store upload leases or idempotency results
-in Valkey yet. Future upload-operation work must keep Valkey keys
-server-controlled and must not include raw viewer tokens, incident tokens,
-request bodies, uploaded bytes, plaintext, raw keys, private deployment
-details, raw idempotency keys, or user safety data.
+The current implementation stores only short-lived public viewer rate-limit
+counters in Valkey when coordination is configured. Those keys are
+server-controlled route-class keys using a hash of the socket peer identity;
+they do not include raw `/i/{token}` paths, legacy `/e/{token}` paths, raw
+viewer tokens, request bodies, Authorization headers, uploaded bytes,
+plaintext, raw keys, or private deployment details. The current implementation
+does not store upload leases or idempotency results in Valkey. Future
+upload-operation work must keep Valkey keys server-controlled and must not
+include raw viewer tokens, incident tokens, request bodies, uploaded bytes,
+plaintext, raw keys, private deployment details, raw idempotency keys, or user
+safety data.
 
 ## Bind Address Lists
 
@@ -206,6 +225,53 @@ Viewer tokens created without an explicit `expires_at` default to expiring after
 The value uses Go duration strings such as `12h` or `168h`.
 
 Set `SAFE_DEFAULT_INCIDENT_TOKEN_TTL=0` only when you deliberately want omitted `expires_at` values to create tokens that remain valid until revoked.
+
+## Local Account Sessions
+
+The private `/v1` API requires local account sessions. Sessions created by
+`POST /v1/auth/login` expire after `SAFE_SESSION_TTL`, which defaults to `12h`.
+The private `/admin` browser flow uses the same session store and TTL, with the
+raw session token held in an HttpOnly SameSite cookie scoped to `/admin`. The
+value uses Go duration strings such as `6h` or `30m`.
+
+For a new metadata database, startup fails until an admin account exists unless
+`SAFE_AUTH_BOOTSTRAP_SECRET` is set. Use that secret only long enough to call
+`POST /v1/bootstrap/admin` or create the first admin through `/admin`, then
+remove it from the environment and restart.
+Treat the bootstrap secret, account passwords, session tokens, raw
+idempotency keys, and Authorization headers as secrets. They must not appear in
+public issues, logs, dashboards, screenshots, support tickets, or shell
+history.
+
+## Deletion And Retention
+
+The server starts a background deletion worker by default. The worker processes
+durable incident deletion decisions created through private owner-scoped or
+admin routes, deletes encrypted blobs by server-controlled stored paths from
+metadata, prunes sensitive child metadata after blob deletion, and leaves a
+minimal tombstone.
+
+```bash
+SAFE_DELETION_WORKER_INTERVAL=30s \
+go run ./cmd/api
+```
+
+Set `SAFE_DELETION_WORKER_INTERVAL=0` to disable the automatic scheduler. This
+does not delete or discard pending deletion decisions; a later process run with
+the worker enabled can resume them.
+
+Closed-incident retention is disabled by default. To queue deletion decisions
+for closed incidents older than a configured window, set a positive duration:
+
+```bash
+SAFE_CLOSED_INCIDENT_RETENTION=720h \
+go run ./cmd/api
+```
+
+Open incidents are not selected by automatic retention. Deleting an open
+incident requires an explicit private deletion request with `allow_open: true`.
+Mode-specific retention windows, token metadata pruning, tombstone expiry,
+orphan temp cleanup, and backup expiry are not configured by these variables.
 
 ## HTTP Timeouts
 

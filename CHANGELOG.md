@@ -2,6 +2,56 @@
 
 ## Unreleased
 
+## v0.9.0 - 2026-06-01
+
+- Added configurable app-level rate limiting for public incident viewer page,
+  JSON polling, encrypted ZIP download, and static asset route classes, using
+  safe route-class keys with local in-memory counters by default and
+  Valkey/Redis-compatible counters when optional coordination is configured.
+- Added private incident deletion and closed-incident retention enforcement,
+  including SQLite/PostgreSQL deletion decision metadata, owner-scoped and
+  admin-global deletion routes, a retryable background deletion worker, public
+  viewer fail-closed behavior for deleting/deleted incidents, safe maintenance
+  error logging, and updated retention/security/API documentation.
+- Added a durable desktop-recorder simulator mode to `cmd/simclient`, with
+  encrypted local staging, restart/resume upload recovery, generated and local
+  pre-recorded file sources, optional ffmpeg video segment capture,
+  poor-network retry controls, complete-chunk idempotent uploads, bundle
+  decrypt verification, encrypted-only bundle output, offline bundle
+  verification, and token/path-safe simulator output.
+- Added opt-in simulator-only contact-wrapped key metadata artifacts using
+  local development contact keys and the maintained `filippo.io/age` wrapping
+  library, while keeping backend manifests, routes, storage, and decryption
+  behavior unchanged.
+- Ignored the desktop-recorder simulator's default stage key filename so local
+  simulator keys are not accidentally staged when a stage directory lives under
+  the repository.
+- Added optional incident-mode, capture-profile, escalation-policy, and
+  sharing-state metadata fields to private incident creation and read responses,
+  while preserving generic legacy incidents and leaving access, notifications,
+  retention, key custody, public viewer behavior, and bundle behavior unchanged.
+- Added the private duplicate chunk reconciliation route for comparing expected
+  chunk fingerprints with accepted metadata without re-uploading ciphertext or
+  exposing stored values.
+- Added `Idempotency-Key` support for complete encrypted chunk uploads, with
+  hashed key storage in SQLite or PostgreSQL metadata, equivalent retry success,
+  conflict handling for key reuse with different upload inputs, simulator
+  replay coverage, and updated API/security documentation.
+- Added a GitHub Actions job that runs the optional PostgreSQL metadata
+  integration tests against a disposable PostgreSQL service.
+- Added private-only liveness and readiness checks for coarse metadata, blob,
+  and coordination backend status without exposing backend diagnostics on the
+  public incident viewer.
+- Added a private admin-only HTML surface under `/admin`, using Go
+  templates, unauthenticated token-neutral CSS, browser login/bootstrap forms,
+  HttpOnly admin-session cookies, a local account list, admin password-change
+  and account password-reset workflows, authenticated state-changing form CSRF
+  checks, no-store page behavior, and public mux separation.
+- Added local username/password accounts for the private `/v1` API, using bcrypt
+  password hashes, opaque server-side session tokens stored only as hashes,
+  owner/admin incident authorization, admin account management routes, and a
+  fail-closed first-admin bootstrap secret flow.
+
 ## v0.8.0 - 2026-05-30
 
 - Added local Docker Compose smoke-test stacks for SQLite/local,

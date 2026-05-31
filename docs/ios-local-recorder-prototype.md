@@ -1,6 +1,6 @@
 # iOS Local Incident-Capture Prototype Plan
 
-This document scopes a future iOS local incident-capture prototype for Proofline. It is a planning document only. It does not add iOS code, Swift packages, backend routes, database schema, key custody implementation, browser decryption, backend decryption, push notifications, SMS, Messenger integration, user accounts, OAuth, JWT, or public `/v1` authentication.
+This document scopes a future iOS local incident-capture prototype for Proofline. It is a planning document only. It does not add iOS code, Swift packages, backend routes, database schema, key custody implementation, browser decryption, backend decryption, push notifications, SMS, Messenger integration, public account workflows, OAuth, JWT, or public `/v1` exposure.
 
 The prototype should prove that a native iOS client can capture incident media locally, encrypt chunks before upload, stage encrypted chunks durably, retry uploads, and map its local state to the current backend media stream APIs. The Go simulator remains the backend reference flow until a real client exists.
 
@@ -20,7 +20,10 @@ Build the smallest useful native iOS client that exercises the current Proofline
 
 The first prototype should be audio-first. Video capture can be added as a foreground-only track after the audio chunk, staging, and retry loop is proven. Location and device checkins can use the existing checkin API as supporting metadata, but they are not required for the first recorder milestone.
 
-The prototype does not need to implement first-class incident modes yet. It should still be designed so future UI can distinguish emergency incidents, interaction records, timed safety checks, and evidence notes, as described in [incident-modes.md](incident-modes.md).
+The prototype does not need to set incident-mode metadata yet. It should still
+be designed so future UI can distinguish emergency incidents, interaction
+records, timed safety checks, and evidence notes, as described in
+[incident-modes.md](incident-modes.md).
 
 ## Non-Goals
 
@@ -158,9 +161,9 @@ Retry expectations:
 - on `400 hash_mismatch`, treat the local staged record as corrupt and stop retrying that chunk until the user or developer can inspect it
 - on `400 invalid_chunk_index`, `400 invalid_media_type`, or time-range errors, treat the local metadata as a client bug
 - on `409 duplicate_chunk`, reconcile against local state before deciding that
-  the upload already succeeded; after the planned duplicate-chunk
-  reconciliation API exists, compare the expected ciphertext hash and immutable
-  metadata through that private query workflow
+  the upload already succeeded; use the private duplicate chunk reconciliation
+  route to compare the expected ciphertext hash and immutable metadata with
+  accepted server metadata
 - on `409 stream_not_open`, stop uploads for that stream and surface a local stream-state error
 - on `413 upload_too_large`, reduce the chunk duration or encoded bitrate for future chunks; do not split or rewrite the already staged immutable chunk
 - on `5xx` or network loss, keep the chunk pending for retry
@@ -219,18 +222,19 @@ The prototype should include manual or automated test notes for these cases:
 Do not implement these as part of the prototype plan. Track them as future backend issues if they become necessary:
 
 - no app-level `/v1` authentication or authorization suitable for public networks
-- no first-class incident-mode, capture-profile, escalation-policy, or
-  sharing-state field
+- no iOS flow for setting incident-mode, capture-profile, escalation-policy, or
+  sharing-state metadata
 - no account-owner, trusted-contact, or web-client access model
-- no implemented idempotency-key or equivalent retry-success API for ambiguous
-  chunk upload outcomes; future semantics are planned in
+- no resumable or partial-upload API; complete-upload idempotency-key retry
+  success is documented in
   [cluster-safe-upload-semantics.md](cluster-safe-upload-semantics.md)
-- no implemented client API for reconciling a duplicate chunk by expected
-  ciphertext hash; the planned private query workflow is documented in
+- no iOS client implementation for reconciling a duplicate chunk by expected
+  ciphertext hash; the server-side private query workflow is documented in
   [api.md](api.md)
 - no explicit resumable-upload protocol for partially sent large chunks; the
-  current plan defers resumable uploads for a local desktop recorder simulator
-  client and should be revalidated before native iOS work, as documented in
+  current plan uses the local desktop recorder simulator to measure
+  complete-chunk retry behavior before revalidating resumable uploads for
+  native iOS work, as documented in
   [resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md)
 - no endpoint for client-side local queue summaries or upload leases; upload
   leases are future coordination work, not account authentication or public

@@ -21,10 +21,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/open-proofline/server/internal/auth"
 	"github.com/open-proofline/server/internal/db"
 	"github.com/open-proofline/server/internal/httpapi"
 	"github.com/open-proofline/server/internal/incidents"
 	"github.com/open-proofline/server/internal/storage"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type testApp struct {
@@ -32,6 +34,7 @@ type testApp struct {
 	publicHandler  http.Handler
 	dataDir        string
 	db             *sql.DB
+	authToken      string
 }
 
 func newTestApp(t *testing.T) *testApp {
@@ -68,6 +71,24 @@ func newTestAppWithDefaultIncidentTokenTTL(t *testing.T, ttl time.Duration) *tes
 
 func newTestAppWithOptions(t *testing.T, options httpapi.Options) *testApp {
 	t.Helper()
+	if options.PasswordCost == 0 {
+		options.PasswordCost = bcrypt.MinCost
+	}
+
+	return newTestAppWithOptionsAndTestAccount(t, options, true)
+}
+
+func newTestAppWithoutTestAccount(t *testing.T, options httpapi.Options) *testApp {
+	t.Helper()
+	if options.PasswordCost == 0 {
+		options.PasswordCost = bcrypt.MinCost
+	}
+
+	return newTestAppWithOptionsAndTestAccount(t, options, false)
+}
+
+func newTestAppWithOptionsAndTestAccount(t *testing.T, options httpapi.Options, createTestAccount bool) *testApp {
+	t.Helper()
 
 	dataDir := t.TempDir()
 	conn, err := db.Open(context.Background(), filepath.Join(dataDir, "safety.db"))
@@ -82,13 +103,41 @@ func newTestAppWithOptions(t *testing.T, options httpapi.Options) *testApp {
 	if err != nil {
 		t.Fatalf("create storage: %v", err)
 	}
-	var repo httpapi.MetadataRepository = incidents.NewRepository(conn)
+	repo := incidents.NewRepository(conn)
+	authToken := ""
+	if createTestAccount {
+		passwordHash, err := auth.HashPassword("test-password", bcrypt.MinCost)
+		if err != nil {
+			t.Fatalf("hash test account password: %v", err)
+		}
+		account, err := repo.CreateAccount(context.Background(), auth.CreateAccountParams{
+			Username:     "test-admin",
+			PasswordHash: passwordHash,
+			Role:         auth.RoleAdmin,
+		})
+		if err != nil {
+			t.Fatalf("create test account: %v", err)
+		}
+		_, authToken, err = repo.CreateSession(context.Background(), account.ID, time.Now().UTC().Add(24*time.Hour))
+		if err != nil {
+			t.Fatalf("create test auth session: %v", err)
+		}
+	}
+	var metadataRepo httpapi.MetadataRepository = repo
+	if options.ReadinessChecks == nil {
+		options.ReadinessChecks = []httpapi.ReadinessCheck{
+			{Name: "metadata", Backend: "sqlite", Check: repo.Check},
+			{Name: "blob", Backend: "local", Check: blobStore.Check},
+			{Name: "coordination", Backend: "none", Check: func(context.Context) error { return nil }},
+		}
+	}
 
 	return &testApp{
-		privateHandler: httpapi.NewPrivate(repo, blobStore, options),
-		publicHandler:  httpapi.NewPublic(repo, blobStore, options),
+		privateHandler: httpapi.NewPrivate(metadataRepo, blobStore, options),
+		publicHandler:  httpapi.NewPublic(metadataRepo, blobStore, options),
 		dataDir:        dataDir,
 		db:             conn,
+		authToken:      authToken,
 	}
 }
 
@@ -142,7 +191,7 @@ func createIncidentToken(t *testing.T, app *testApp, incidentID string, label st
 	if response.StatusCode != http.StatusCreated {
 		t.Fatalf("expected create incident token status 201, got %d: %s", response.StatusCode, body)
 	}
-	assertNoStore(t, response)
+	assertPrivateJSONSecurityHeaders(t, response)
 
 	var result incidentTokenResponse
 	if err := json.Unmarshal(body, &result); err != nil {
@@ -287,6 +336,18 @@ func uploadChunk(t *testing.T, app *testApp, incidentID string, index int, media
 func uploadChunkWithStream(t *testing.T, app *testApp, incidentID string, streamID string, index int, mediaType string, payload []byte, hash string) (*http.Response, []byte) {
 	t.Helper()
 
+	return uploadChunkWithOptions(t, app, incidentID, streamID, index, mediaType, payload, hash, "chunk.enc", "")
+}
+
+func uploadChunkWithIdempotencyKey(t *testing.T, app *testApp, incidentID string, streamID string, index int, mediaType string, payload []byte, hash string, originalFilename string, idempotencyKey string) (*http.Response, []byte) {
+	t.Helper()
+
+	return uploadChunkWithOptions(t, app, incidentID, streamID, index, mediaType, payload, hash, originalFilename, idempotencyKey)
+}
+
+func uploadChunkWithOptions(t *testing.T, app *testApp, incidentID string, streamID string, index int, mediaType string, payload []byte, hash string, originalFilename string, idempotencyKey string) (*http.Response, []byte) {
+	t.Helper()
+
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
 	if streamID != "" {
@@ -294,11 +355,11 @@ func uploadChunkWithStream(t *testing.T, app *testApp, incidentID string, stream
 	}
 	must(t, writer.WriteField("chunk_index", strconv.Itoa(index)))
 	must(t, writer.WriteField("media_type", mediaType))
-	startedAt := time.Date(2026, 5, 21, 10, 0, 0, 0, time.UTC)
+	startedAt := testChunkStartedAt()
 	must(t, writer.WriteField("started_at", startedAt.Format(time.RFC3339Nano)))
 	must(t, writer.WriteField("ended_at", startedAt.Add(time.Second).Format(time.RFC3339Nano)))
 	must(t, writer.WriteField("sha256_hex", hash))
-	must(t, writer.WriteField("original_filename", "chunk.enc"))
+	must(t, writer.WriteField("original_filename", originalFilename))
 	fileWriter, err := writer.CreateFormFile("file", "upload.enc")
 	if err != nil {
 		t.Fatalf("create form file: %v", err)
@@ -308,10 +369,42 @@ func uploadChunkWithStream(t *testing.T, app *testApp, incidentID string, stream
 	}
 	must(t, writer.Close())
 
-	return post(t, app, "/v1/incidents/"+incidentID+"/chunks", writer.FormDataContentType(), &body)
+	headers := map[string]string{}
+	if idempotencyKey != "" {
+		headers["Idempotency-Key"] = idempotencyKey
+	}
+	return postWithHeaders(t, app, "/v1/incidents/"+incidentID+"/chunks", writer.FormDataContentType(), &body, headers)
+}
+
+func testChunkStartedAt() time.Time {
+	return time.Date(2026, 5, 21, 10, 0, 0, 0, time.UTC)
+}
+
+func testChunkEndedAt() time.Time {
+	return testChunkStartedAt().Add(time.Second)
+}
+
+func testChunkStartedAtString() string {
+	return testChunkStartedAt().Format(time.RFC3339Nano)
+}
+
+func testChunkEndedAtString() string {
+	return testChunkEndedAt().Format(time.RFC3339Nano)
 }
 
 func post(t *testing.T, app *testApp, target string, contentType string, body io.Reader) (*http.Response, []byte) {
+	t.Helper()
+
+	return requestWithAuth(t, app.privateHandler, http.MethodPost, target, contentType, body, app.authToken)
+}
+
+func postWithHeaders(t *testing.T, app *testApp, target string, contentType string, body io.Reader, headers map[string]string) (*http.Response, []byte) {
+	t.Helper()
+
+	return requestWithAuthAndHeaders(t, app.privateHandler, http.MethodPost, target, contentType, body, app.authToken, headers)
+}
+
+func postUnauthenticated(t *testing.T, app *testApp, target string, contentType string, body io.Reader) (*http.Response, []byte) {
 	t.Helper()
 
 	return request(t, app.privateHandler, http.MethodPost, target, contentType, body)
@@ -326,6 +419,12 @@ func postPublic(t *testing.T, app *testApp, target string, contentType string, b
 func get(t *testing.T, app *testApp, target string) (*http.Response, []byte) {
 	t.Helper()
 
+	return requestWithAuth(t, app.privateHandler, http.MethodGet, target, "", nil, app.authToken)
+}
+
+func getUnauthenticated(t *testing.T, app *testApp, target string) (*http.Response, []byte) {
+	t.Helper()
+
 	return request(t, app.privateHandler, http.MethodGet, target, "", nil)
 }
 
@@ -338,9 +437,27 @@ func getPublic(t *testing.T, app *testApp, target string) (*http.Response, []byt
 func request(t *testing.T, handler http.Handler, method string, target string, contentType string, body io.Reader) (*http.Response, []byte) {
 	t.Helper()
 
+	return requestWithAuth(t, handler, method, target, contentType, body, "")
+}
+
+func requestWithAuth(t *testing.T, handler http.Handler, method string, target string, contentType string, body io.Reader, token string) (*http.Response, []byte) {
+	t.Helper()
+
+	return requestWithAuthAndHeaders(t, handler, method, target, contentType, body, token, nil)
+}
+
+func requestWithAuthAndHeaders(t *testing.T, handler http.Handler, method string, target string, contentType string, body io.Reader, token string, headers map[string]string) (*http.Response, []byte) {
+	t.Helper()
+
 	request := httptest.NewRequest(method, target, body)
 	if contentType != "" {
 		request.Header.Set("Content-Type", contentType)
+	}
+	if token != "" {
+		request.Header.Set("Authorization", "Bearer "+token)
+	}
+	for name, value := range headers {
+		request.Header.Set(name, value)
 	}
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, request)
@@ -391,6 +508,7 @@ func assertPublicBrowserSecurityHeaders(t *testing.T, response *http.Response) {
 	if response.Header.Get("X-Frame-Options") != "DENY" {
 		t.Fatalf("expected X-Frame-Options DENY, got %q", response.Header.Get("X-Frame-Options"))
 	}
+	assertNoStrictTransportSecurity(t, response)
 }
 
 func assertPrivateJSONSecurityHeaders(t *testing.T, response *http.Response) {
@@ -401,6 +519,7 @@ func assertPrivateJSONSecurityHeaders(t *testing.T, response *http.Response) {
 	}
 	assertNoSniff(t, response)
 	assertNoStore(t, response)
+	assertNoStrictTransportSecurity(t, response)
 }
 
 func assertContentTypePrefix(t *testing.T, response *http.Response, prefix string) {

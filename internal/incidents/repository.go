@@ -14,12 +14,18 @@ var (
 	ErrNotFound = errors.New("not found")
 	// ErrDuplicate indicates that metadata storage rejected a duplicate chunk identity.
 	ErrDuplicate = errors.New("duplicate")
+	// ErrIdempotencyConflict indicates that an idempotency key was reused with
+	// different immutable upload inputs.
+	ErrIdempotencyConflict = errors.New("idempotency conflict")
 	// ErrInvalidState indicates that a requested state transition is not
 	// allowed for the current stream state.
 	ErrInvalidState = errors.New("invalid state")
 	// ErrIncidentClosed indicates that a chunk insert raced with an incident
 	// close and the incident no longer accepts uploads.
 	ErrIncidentClosed = errors.New("incident closed")
+	// ErrIncidentDeleting indicates that a write raced with an incident deletion
+	// decision and the incident no longer accepts metadata or ciphertext writes.
+	ErrIncidentDeleting = errors.New("incident deleting")
 )
 
 // Repository stores incident metadata and related rows in SQLite.
@@ -32,33 +38,83 @@ func NewRepository(db *sql.DB) *Repository {
 	return &Repository{db: db}
 }
 
-// CreateIncident inserts a new open incident.
+// Check verifies that the SQLite metadata handle is reachable.
+func (r *Repository) Check(ctx context.Context) error {
+	return r.db.PingContext(ctx)
+}
+
+func requireActiveIncidentTx(ctx context.Context, tx *sql.Tx, incidentID string) error {
+	var deletionState string
+	err := tx.QueryRowContext(ctx, `
+		SELECT deletion_state
+		FROM incidents
+		WHERE id = ?`,
+		incidentID,
+	).Scan(&deletionState)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("read incident deletion state: %w", err)
+	}
+	if deletionState != IncidentDeletionStateActive {
+		return ErrIncidentDeleting
+	}
+	return nil
+}
+
+// CreateIncident inserts a new open legacy incident without an owner account.
 func (r *Repository) CreateIncident(ctx context.Context, clientLabel, notes string) (Incident, error) {
+	return r.CreateIncidentForAccount(ctx, "", CreateIncidentParams{
+		ClientLabel: clientLabel,
+		Notes:       notes,
+	})
+}
+
+// CreateIncidentForAccount inserts a new open incident owned by accountID.
+func (r *Repository) CreateIncidentForAccount(ctx context.Context, accountID string, params CreateIncidentParams) (Incident, error) {
 	now := time.Now().UTC()
 	id, err := newID("inc")
 	if err != nil {
 		return Incident{}, err
 	}
 	incident := Incident{
-		ID:          id,
-		CreatedAt:   now,
-		UpdatedAt:   now,
-		Status:      StatusOpen,
-		ClientLabel: clientLabel,
-		Notes:       notes,
+		ID:               id,
+		OwnerAccountID:   accountID,
+		CreatedAt:        now,
+		UpdatedAt:        now,
+		Status:           StatusOpen,
+		ClientLabel:      params.ClientLabel,
+		Notes:            params.Notes,
+		IncidentMode:     params.IncidentMode,
+		CaptureProfile:   params.CaptureProfile,
+		EscalationPolicy: params.EscalationPolicy,
+		SharingState:     params.SharingState,
+		DeletionState:    IncidentDeletionStateActive,
 	}
 
 	_, err = r.db.ExecContext(ctx, `
-		INSERT INTO incidents (id, created_at, updated_at, status, client_label, notes)
-		VALUES (?, ?, ?, ?, ?, ?)`,
+		INSERT INTO incidents (
+			id, owner_account_id, created_at, updated_at, status, client_label, notes,
+			incident_mode, capture_profile, escalation_policy, sharing_state
+		)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		incident.ID,
+		nullableString(incident.OwnerAccountID),
 		formatDBTime(incident.CreatedAt),
 		formatDBTime(incident.UpdatedAt),
 		incident.Status,
 		nullableString(incident.ClientLabel),
 		nullableString(incident.Notes),
+		nullableString(incident.IncidentMode),
+		nullableString(incident.CaptureProfile),
+		nullableString(incident.EscalationPolicy),
+		nullableString(incident.SharingState),
 	)
 	if err != nil {
+		if isConstraint(err) {
+			return Incident{}, ErrNotFound
+		}
 		return Incident{}, fmt.Errorf("insert incident: %w", err)
 	}
 
@@ -68,9 +124,10 @@ func (r *Repository) CreateIncident(ctx context.Context, clientLabel, notes stri
 // GetIncident returns one incident by ID.
 func (r *Repository) GetIncident(ctx context.Context, id string) (Incident, error) {
 	row := r.db.QueryRowContext(ctx, `
-		SELECT id, created_at, updated_at, status, client_label, notes
-		FROM incidents
-		WHERE id = ?`, id)
+			SELECT id, owner_account_id, created_at, updated_at, status, client_label, notes,
+				incident_mode, capture_profile, escalation_policy, sharing_state, deletion_state
+			FROM incidents
+			WHERE id = ?`, id)
 
 	incident, err := scanIncident(row)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -116,10 +173,11 @@ func (r *Repository) CloseIncident(ctx context.Context, id string) (Incident, er
 	result, err := r.db.ExecContext(ctx, `
 		UPDATE incidents
 		SET status = ?, updated_at = ?
-		WHERE id = ?`,
+		WHERE id = ? AND deletion_state = ?`,
 		StatusClosed,
 		formatDBTime(now),
 		id,
+		IncidentDeletionStateActive,
 	)
 	if err != nil {
 		return Incident{}, fmt.Errorf("close incident: %w", err)
@@ -129,6 +187,16 @@ func (r *Repository) CloseIncident(ctx context.Context, id string) (Incident, er
 		return Incident{}, fmt.Errorf("close incident rows affected: %w", err)
 	}
 	if rowsAffected == 0 {
+		incident, getErr := r.GetIncident(ctx, id)
+		if errors.Is(getErr, ErrNotFound) {
+			return Incident{}, ErrNotFound
+		}
+		if getErr != nil {
+			return Incident{}, getErr
+		}
+		if incident.DeletionState != IncidentDeletionStateActive {
+			return Incident{}, ErrIncidentDeleting
+		}
 		return Incident{}, ErrNotFound
 	}
 	return r.GetIncident(ctx, id)

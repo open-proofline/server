@@ -14,15 +14,16 @@ import (
 )
 
 type chunkUpload struct {
-	incidentID string
-	streamID   string
-	chunkIndex int
-	mediaType  string
-	startedAt  time.Time
-	endedAt    time.Time
-	filename   string
-	body       []byte
-	sha256Hex  string
+	incidentID     string
+	streamID       string
+	chunkIndex     int
+	mediaType      string
+	startedAt      time.Time
+	endedAt        time.Time
+	filename       string
+	body           []byte
+	sha256Hex      string
+	idempotencyKey string
 }
 
 func newChunkUpload(incidentID, streamID string, chunkIndex int, mediaType string, size int64, startedAt time.Time) (chunkUpload, error) {
@@ -60,16 +61,24 @@ func buildChunkUpload(incidentID, streamID string, chunkIndex int, mediaType str
 	sum := sha256.Sum256(body)
 	chunkStartedAt := startedAt.Add(time.Duration(chunkIndex-1) * chunkDuration)
 	return chunkUpload{
-		incidentID: incidentID,
-		streamID:   streamID,
-		chunkIndex: chunkIndex,
-		mediaType:  mediaType,
-		startedAt:  chunkStartedAt,
-		endedAt:    chunkStartedAt.Add(chunkDuration),
-		filename:   fmt.Sprintf("%s_%06d.enc", mediaType, chunkIndex),
-		body:       body,
-		sha256Hex:  hex.EncodeToString(sum[:]),
+		incidentID:     incidentID,
+		streamID:       streamID,
+		chunkIndex:     chunkIndex,
+		mediaType:      mediaType,
+		startedAt:      chunkStartedAt,
+		endedAt:        chunkStartedAt.Add(chunkDuration),
+		filename:       fmt.Sprintf("%s_%06d.enc", mediaType, chunkIndex),
+		body:           body,
+		sha256Hex:      hex.EncodeToString(sum[:]),
+		idempotencyKey: simulatorIdempotencyKey(incidentID, streamID, mediaType, chunkIndex),
 	}
+}
+
+func simulatorIdempotencyKey(incidentID, streamID, mediaType string, chunkIndex int) string {
+	if streamID == "" {
+		streamID = "legacy"
+	}
+	return fmt.Sprintf("simclient-%s-%s-%s-%06d", incidentID, streamID, mediaType, chunkIndex)
 }
 
 func loadOrCreateSimulatorKey(path string) (envelope.Key, error) {
@@ -86,14 +95,14 @@ func loadOrCreateSimulatorKey(path string) (envelope.Key, error) {
 		return key, nil
 	}
 	if !errors.Is(err, os.ErrNotExist) {
-		return envelope.Key{}, fmt.Errorf("load key file: %w", err)
+		return envelope.Key{}, safePathError("load key file", err)
 	}
 	key, err = envelope.GenerateKey()
 	if err != nil {
 		return envelope.Key{}, fmt.Errorf("generate encryption key: %w", err)
 	}
 	if err := envelope.SaveKeyFile(path, key); err != nil {
-		return envelope.Key{}, fmt.Errorf("save key file: %w", err)
+		return envelope.Key{}, safePathError("save key file", err)
 	}
 	return key, nil
 }
@@ -110,6 +119,19 @@ func chunkContext(incidentID, streamID, mediaType string, chunkIndex int) envelo
 func sha256Hex(payload []byte) string {
 	sum := sha256.Sum256(payload)
 	return hex.EncodeToString(sum[:])
+}
+
+func validSHA256Hex(value string) bool {
+	if len(value) != 64 {
+		return false
+	}
+	for _, char := range value {
+		if (char >= '0' && char <= '9') || (char >= 'a' && char <= 'f') {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func shouldSimulateFailure(chunkIndex, every int) bool {

@@ -13,7 +13,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/open-proofline/server/internal/auth"
 	"github.com/open-proofline/server/internal/incidents"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func TestPostgresMigrateCreatesSchemaAndRejectsChecksumMismatch(t *testing.T) {
@@ -29,6 +31,11 @@ func TestPostgresMigrateCreatesSchemaAndRejectsChecksumMismatch(t *testing.T) {
 	assertPostgresTable(t, ctx, conn, "chunks")
 	assertPostgresTable(t, ctx, conn, "checkins")
 	assertPostgresTable(t, ctx, conn, "incident_tokens")
+	assertPostgresTable(t, ctx, conn, "accounts")
+	assertPostgresTable(t, ctx, conn, "auth_sessions")
+	assertPostgresTable(t, ctx, conn, "upload_operations")
+	assertPostgresTable(t, ctx, conn, "incident_deletion_decisions")
+	assertPostgresTable(t, ctx, conn, "incident_deletion_items")
 
 	if err := Migrate(ctx, conn); err != nil {
 		t.Fatalf("second Migrate: %v", err)
@@ -114,6 +121,15 @@ func TestPostgresSchemaConstraints(t *testing.T) {
 		now,
 		now,
 		"paused",
+	)))
+	assertPostgresConstraint(t, execErr(conn.ExecContext(ctx, `
+		INSERT INTO incidents (id, created_at, updated_at, status, incident_mode)
+		VALUES ($1, $2, $3, $4, $5)`,
+		"inc_bad_mode",
+		now,
+		now,
+		incidents.StatusOpen,
+		"panic",
 	)))
 	assertPostgresConstraint(t, execErr(conn.ExecContext(ctx, `
 		INSERT INTO media_streams (id, incident_id, media_type, status, created_at, updated_at)
@@ -235,6 +251,38 @@ func TestPostgresRepositoryPreservesCoreSemantics(t *testing.T) {
 	if _, err := repo.CreateChunk(ctx, testChunkParams(incident.ID, firstStream.ID, incidents.MediaTypeAudio, 1)); err != nil {
 		t.Fatalf("create first stream chunk: %v", err)
 	}
+	operationParams := testUploadOperationParams(incident.ID, firstStream.ID)
+	reserved, err := repo.ReserveUploadOperation(ctx, operationParams)
+	if err != nil {
+		t.Fatalf("reserve upload operation: %v", err)
+	}
+	if reserved.State != incidents.UploadOperationStateReserved {
+		t.Fatalf("reserved operation state = %q, want %q", reserved.State, incidents.UploadOperationStateReserved)
+	}
+	conflictingOperation := operationParams
+	conflictingOperation.OriginalFilename = "other.enc"
+	conflictingOperation.FingerprintHash = strings.Repeat("c", 64)
+	if _, err := repo.ReserveUploadOperation(ctx, conflictingOperation); !errors.Is(err, incidents.ErrIdempotencyConflict) {
+		t.Fatalf("conflicting upload operation error = %v, want ErrIdempotencyConflict", err)
+	}
+	firstChunk, err := repo.GetChunkByIdentity(ctx, incident.ID, firstStream.ID, incidents.MediaTypeAudio, 1)
+	if err != nil {
+		t.Fatalf("get first stream chunk by identity: %v", err)
+	}
+	completedOperation, err := repo.CompleteUploadOperation(ctx, operationParams, firstChunk)
+	if err != nil {
+		t.Fatalf("complete upload operation: %v", err)
+	}
+	if completedOperation.State != incidents.UploadOperationStateMetadataCommitted || completedOperation.ChunkID != firstChunk.ID {
+		t.Fatalf("unexpected completed operation: %+v", completedOperation)
+	}
+	replayedOperation, err := repo.ReserveUploadOperation(ctx, operationParams)
+	if err != nil {
+		t.Fatalf("reserve completed upload operation: %v", err)
+	}
+	if replayedOperation.State != incidents.UploadOperationStateMetadataCommitted || replayedOperation.ChunkID != firstChunk.ID {
+		t.Fatalf("expected completed operation replay, got %+v", replayedOperation)
+	}
 	if _, err := repo.CreateChunk(ctx, testChunkParams(incident.ID, secondStream.ID, incidents.MediaTypeAudio, 1)); err != nil {
 		t.Fatalf("create second stream chunk: %v", err)
 	}
@@ -263,6 +311,47 @@ func TestPostgresRepositoryPreservesCoreSemantics(t *testing.T) {
 	}
 	if _, err := repo.CreateChunk(ctx, testChunkParams(incident.ID, "", incidents.MediaTypeAudio, 2)); !errors.Is(err, incidents.ErrIncidentClosed) {
 		t.Fatalf("create chunk on closed incident error = %v, want ErrIncidentClosed", err)
+	}
+	deletionStatus, err := repo.RequestIncidentDeletion(ctx, incidents.IncidentDeletionRequest{
+		IncidentID: incident.ID,
+		Source:     incidents.IncidentDeletionSourceAdminRequest,
+	})
+	if err != nil {
+		t.Fatalf("request deletion: %v", err)
+	}
+	if deletionStatus.State != incidents.IncidentDeletionStatePending || deletionStatus.ItemCount != 3 {
+		t.Fatalf("unexpected postgres deletion status: %+v", deletionStatus)
+	}
+	items, err := repo.ListIncidentDeletionItems(ctx, deletionStatus.DecisionID)
+	if err != nil {
+		t.Fatalf("list deletion items: %v", err)
+	}
+	if len(items) != 3 {
+		t.Fatalf("postgres deletion item count = %d, want 3", len(items))
+	}
+	if _, err := repo.CreateChunk(ctx, testChunkParams(incident.ID, "", incidents.MediaTypeAudio, 2)); !errors.Is(err, incidents.ErrIncidentDeleting) {
+		t.Fatalf("create chunk during deletion error = %v, want ErrIncidentDeleting", err)
+	}
+	if _, err := repo.CreateCheckin(ctx, incident.ID, incidents.CreateCheckinParams{}); !errors.Is(err, incidents.ErrIncidentDeleting) {
+		t.Fatalf("create checkin during deletion error = %v, want ErrIncidentDeleting", err)
+	}
+	if _, err := repo.CreateMediaStream(ctx, incident.ID, incidents.MediaTypeAudio, "late audio"); !errors.Is(err, incidents.ErrIncidentDeleting) {
+		t.Fatalf("create stream during deletion error = %v, want ErrIncidentDeleting", err)
+	}
+	if _, err := repo.FailMediaStream(ctx, incident.ID, secondStream.ID, "late failure"); !errors.Is(err, incidents.ErrIncidentDeleting) {
+		t.Fatalf("fail stream during deletion error = %v, want ErrIncidentDeleting", err)
+	}
+	if _, err := repo.CloseIncident(ctx, incident.ID); !errors.Is(err, incidents.ErrIncidentDeleting) {
+		t.Fatalf("close incident during deletion error = %v, want ErrIncidentDeleting", err)
+	}
+	deletedOperationParams := testUploadOperationParams(incident.ID, secondStream.ID)
+	deletedOperationParams.IdempotencyKeyHash = strings.Repeat("d", 64)
+	deletedOperationParams.FingerprintHash = strings.Repeat("e", 64)
+	if _, err := repo.ReserveUploadOperation(ctx, deletedOperationParams); !errors.Is(err, incidents.ErrIncidentDeleting) {
+		t.Fatalf("reserve upload operation during deletion error = %v, want ErrIncidentDeleting", err)
+	}
+	if _, _, err := repo.CreateIncidentToken(ctx, incident.ID, "trusted contact", nil); !errors.Is(err, incidents.ErrNotFound) {
+		t.Fatalf("create token during deletion error = %v, want ErrNotFound", err)
 	}
 }
 
@@ -309,6 +398,204 @@ func TestPostgresRepositoryHashesAndRevokesIncidentTokens(t *testing.T) {
 	}
 	if _, err := repo.LookupIncidentToken(ctx, rawToken); !errors.Is(err, incidents.ErrNotFound) {
 		t.Fatalf("lookup revoked token error = %v, want ErrNotFound", err)
+	}
+}
+
+func TestPostgresRepositoryStoresIncidentModeFields(t *testing.T) {
+	ctx := context.Background()
+	conn := openPostgresTestDB(t, ctx)
+	if err := Migrate(ctx, conn); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	repo := NewRepository(conn)
+
+	incident, err := repo.CreateIncidentForAccount(ctx, "", incidents.CreateIncidentParams{
+		ClientLabel:      "phone",
+		IncidentMode:     incidents.IncidentModeEmergency,
+		CaptureProfile:   incidents.CaptureProfileAudioVideoLocation,
+		EscalationPolicy: incidents.EscalationPolicyTrustedContactsOnStart,
+		SharingState:     incidents.SharingStatePrivate,
+	})
+	if err != nil {
+		t.Fatalf("create incident: %v", err)
+	}
+	got, err := repo.GetIncident(ctx, incident.ID)
+	if err != nil {
+		t.Fatalf("get incident: %v", err)
+	}
+	if got.IncidentMode != incidents.IncidentModeEmergency ||
+		got.CaptureProfile != incidents.CaptureProfileAudioVideoLocation ||
+		got.EscalationPolicy != incidents.EscalationPolicyTrustedContactsOnStart ||
+		got.SharingState != incidents.SharingStatePrivate {
+		t.Fatalf("incident mode fields were not preserved: %+v", got)
+	}
+}
+
+func TestPostgresRepositoryAccountsAndSessions(t *testing.T) {
+	ctx := context.Background()
+	conn := openPostgresTestDB(t, ctx)
+	if err := Migrate(ctx, conn); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	repo := NewRepository(conn)
+
+	hasAccounts, err := repo.HasAccounts(ctx)
+	if err != nil {
+		t.Fatalf("has accounts: %v", err)
+	}
+	if hasAccounts {
+		t.Fatal("expected fresh schema to have no accounts")
+	}
+	hasAdmin, err := repo.HasAdminAccount(ctx)
+	if err != nil {
+		t.Fatalf("has admin: %v", err)
+	}
+	if hasAdmin {
+		t.Fatal("expected fresh schema to have no admin accounts")
+	}
+
+	adminPasswordHash, err := auth.HashPassword("test-password", bcrypt.MinCost)
+	if err != nil {
+		t.Fatalf("hash admin password: %v", err)
+	}
+	admin, err := repo.CreateAccount(ctx, auth.CreateAccountParams{
+		Username:     "Admin.User",
+		PasswordHash: adminPasswordHash,
+		Role:         auth.RoleAdmin,
+	})
+	if err != nil {
+		t.Fatalf("create admin account: %v", err)
+	}
+	if admin.Username != "admin.user" || admin.Role != auth.RoleAdmin {
+		t.Fatalf("unexpected admin account: %+v", admin)
+	}
+	if _, err := repo.CreateAccount(ctx, auth.CreateAccountParams{
+		Username:     "admin.user",
+		PasswordHash: adminPasswordHash,
+		Role:         auth.RoleAdmin,
+	}); !errors.Is(err, auth.ErrDuplicate) {
+		t.Fatalf("duplicate account error = %v, want ErrDuplicate", err)
+	}
+
+	hasAccounts, err = repo.HasAccounts(ctx)
+	if err != nil {
+		t.Fatalf("has accounts after create: %v", err)
+	}
+	if !hasAccounts {
+		t.Fatal("expected account existence after create")
+	}
+	hasAdmin, err = repo.HasAdminAccount(ctx)
+	if err != nil {
+		t.Fatalf("has admin after create: %v", err)
+	}
+	if !hasAdmin {
+		t.Fatal("expected admin existence after create")
+	}
+
+	gotAdmin, err := repo.GetAccountByUsername(ctx, " ADMIN.USER ")
+	if err != nil {
+		t.Fatalf("get admin by username: %v", err)
+	}
+	if gotAdmin.ID != admin.ID || gotAdmin.PasswordHash != adminPasswordHash {
+		t.Fatalf("got admin %+v, want id %q and stored hash", gotAdmin, admin.ID)
+	}
+
+	updatedHash, err := auth.HashPassword("updated-password", bcrypt.MinCost)
+	if err != nil {
+		t.Fatalf("hash updated password: %v", err)
+	}
+	updatedAdmin, err := repo.UpdateAccountPassword(ctx, admin.ID, updatedHash)
+	if err != nil {
+		t.Fatalf("update admin password: %v", err)
+	}
+	if updatedAdmin.PasswordHash != updatedHash {
+		t.Fatal("updated account did not return new password hash")
+	}
+	if updatedAdmin.PasswordChangedAt.Before(admin.PasswordChangedAt) {
+		t.Fatalf("password_changed_at moved backward: before=%s after=%s", admin.PasswordChangedAt, updatedAdmin.PasswordChangedAt)
+	}
+
+	userPasswordHash, err := auth.HashPassword("regular-password", bcrypt.MinCost)
+	if err != nil {
+		t.Fatalf("hash user password: %v", err)
+	}
+	user, err := repo.CreateAccount(ctx, auth.CreateAccountParams{
+		Username:     "regular-user",
+		PasswordHash: userPasswordHash,
+		Role:         auth.RoleUser,
+	})
+	if err != nil {
+		t.Fatalf("create user account: %v", err)
+	}
+	incident, err := repo.CreateIncidentForAccount(ctx, user.ID, incidents.CreateIncidentParams{ClientLabel: "phone"})
+	if err != nil {
+		t.Fatalf("create owned incident: %v", err)
+	}
+	if incident.OwnerAccountID != user.ID {
+		t.Fatalf("incident owner = %q, want %q", incident.OwnerAccountID, user.ID)
+	}
+
+	session, rawToken, err := repo.CreateSession(ctx, user.ID, time.Now().UTC().Add(time.Hour))
+	if err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+	if rawToken == "" {
+		t.Fatal("raw session token was empty")
+	}
+	var storedHash string
+	if err := conn.QueryRowContext(ctx, `
+		SELECT token_hash
+		FROM auth_sessions
+		WHERE id = $1`,
+		session.ID,
+	).Scan(&storedHash); err != nil {
+		t.Fatalf("read session token hash: %v", err)
+	}
+	if storedHash == rawToken || len(storedHash) != 64 {
+		t.Fatalf("session storage did not use a 64-character hash")
+	}
+	lookedUp, err := repo.LookupSession(ctx, rawToken)
+	if err != nil {
+		t.Fatalf("lookup session: %v", err)
+	}
+	if lookedUp.ID != session.ID || lookedUp.AccountID != user.ID {
+		t.Fatalf("looked up session %+v, want session %q for account %q", lookedUp, session.ID, user.ID)
+	}
+	if err := repo.RevokeSession(ctx, session.ID); err != nil {
+		t.Fatalf("revoke session: %v", err)
+	}
+	if _, err := repo.LookupSession(ctx, rawToken); !errors.Is(err, auth.ErrNotFound) {
+		t.Fatalf("lookup revoked session error = %v, want ErrNotFound", err)
+	}
+
+	expiredSession, expiredRawToken, err := repo.CreateSession(ctx, user.ID, time.Now().UTC().Add(-time.Second))
+	if err != nil {
+		t.Fatalf("create expired session: %v", err)
+	}
+	if _, err := repo.LookupSession(ctx, expiredRawToken); !errors.Is(err, auth.ErrNotFound) {
+		t.Fatalf("lookup expired session %q error = %v, want ErrNotFound", expiredSession.ID, err)
+	}
+
+	keptSession, keptRawToken, err := repo.CreateSession(ctx, user.ID, time.Now().UTC().Add(time.Hour))
+	if err != nil {
+		t.Fatalf("create kept session: %v", err)
+	}
+	revokedSession, revokedRawToken, err := repo.CreateSession(ctx, user.ID, time.Now().UTC().Add(time.Hour))
+	if err != nil {
+		t.Fatalf("create revokable session: %v", err)
+	}
+	revoked, err := repo.RevokeAccountSessions(ctx, user.ID, keptSession.ID)
+	if err != nil {
+		t.Fatalf("revoke account sessions: %v", err)
+	}
+	if revoked != 2 {
+		t.Fatalf("revoked sessions = %d, want 2", revoked)
+	}
+	if _, err := repo.LookupSession(ctx, keptRawToken); err != nil {
+		t.Fatalf("kept session lookup after account revoke: %v", err)
+	}
+	if _, err := repo.LookupSession(ctx, revokedRawToken); !errors.Is(err, auth.ErrNotFound) {
+		t.Fatalf("lookup revoked account session %q error = %v, want ErrNotFound", revokedSession.ID, err)
 	}
 }
 
@@ -446,5 +733,23 @@ func testChunkParams(incidentID, streamID, mediaType string, chunkIndex int) inc
 		StoredPath:       storedPath,
 		ByteSize:         4,
 		SHA256Hex:        strings.Repeat("a", 64),
+	}
+}
+
+func testUploadOperationParams(incidentID, streamID string) incidents.UploadOperationParams {
+	chunk := testChunkParams(incidentID, streamID, incidents.MediaTypeAudio, 1)
+	return incidents.UploadOperationParams{
+		Operation:          incidents.UploadOperationUploadChunk,
+		IdempotencyKeyHash: strings.Repeat("b", 64),
+		IncidentID:         incidentID,
+		StreamID:           streamID,
+		ChunkIndex:         chunk.ChunkIndex,
+		MediaType:          chunk.MediaType,
+		StartedAt:          chunk.StartedAt,
+		EndedAt:            chunk.EndedAt,
+		OriginalFilename:   chunk.OriginalFilename,
+		ByteSize:           chunk.ByteSize,
+		SHA256Hex:          chunk.SHA256Hex,
+		FingerprintHash:    strings.Repeat("a", 64),
 	}
 }

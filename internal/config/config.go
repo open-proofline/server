@@ -5,12 +5,20 @@ import (
 )
 
 const (
-	defaultPrivateBindAddr  = "127.0.0.1:8080"
-	defaultPublicBindAddr   = "127.0.0.1:8081"
-	defaultDataDir          = "./data"
-	defaultDBPath           = "./data/safety.db"
-	defaultMaxUploadBytes   = int64(250 * 1024 * 1024)
-	defaultIncidentTokenTTL = 24 * time.Hour
+	defaultPrivateBindAddr                    = "127.0.0.1:8080"
+	defaultPublicBindAddr                     = "127.0.0.1:8081"
+	defaultDataDir                            = "./data"
+	defaultDBPath                             = "./data/safety.db"
+	defaultMaxUploadBytes                     = int64(250 * 1024 * 1024)
+	defaultIncidentTokenTTL                   = 24 * time.Hour
+	defaultSessionTTL                         = 12 * time.Hour
+	defaultDeletionInterval                   = time.Minute
+	defaultPublicViewerRateLimitEnabled       = true
+	defaultPublicViewerRateLimitWindow        = time.Minute
+	defaultPublicViewerRateLimitPageLimit     = 60
+	defaultPublicViewerRateLimitDataLimit     = 300
+	defaultPublicViewerRateLimitDownloadLimit = 12
+	defaultPublicViewerRateLimitStaticLimit   = 600
 	// Leave room for the multipart envelope added by the HTTP upload handler
 	// so configured upload limits cannot overflow request-size arithmetic.
 	maxConfiguredUploadBytes = int64(1<<63 - 1 - 1024*1024)
@@ -38,6 +46,11 @@ type Config struct {
 	DBPath                  string
 	MaxUploadBytes          int64
 	DefaultIncidentTokenTTL time.Duration
+	SessionTTL              time.Duration
+	AuthBootstrapSecret     string
+	DeletionWorkerInterval  time.Duration
+	ClosedIncidentRetention time.Duration
+	PublicViewerRateLimit   PublicViewerRateLimitConfig
 	PrivateTimeouts         HTTPTimeouts
 	PublicTimeouts          HTTPTimeouts
 }
@@ -79,6 +92,17 @@ type PostgresConfig struct {
 	MaxOpenConns    int
 	MaxIdleConns    int
 	ConnMaxLifetime time.Duration
+}
+
+// PublicViewerRateLimitConfig contains app-level rate limits for public viewer
+// route classes.
+type PublicViewerRateLimitConfig struct {
+	Enabled       bool
+	Window        time.Duration
+	PageLimit     int
+	DataLimit     int
+	DownloadLimit int
+	StaticLimit   int
 }
 
 // HTTPTimeouts groups net/http server timeout settings.
@@ -126,6 +150,23 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	sessionTTL, err := durationFromEnv("SAFE_SESSION_TTL", defaultSessionTTL)
+	if err != nil {
+		return Config{}, err
+	}
+	deletionWorkerInterval, err := durationFromEnv("SAFE_DELETION_WORKER_INTERVAL", defaultDeletionInterval)
+	if err != nil {
+		return Config{}, err
+	}
+	closedIncidentRetention, err := durationFromEnv("SAFE_CLOSED_INCIDENT_RETENTION", 0)
+	if err != nil {
+		return Config{}, err
+	}
+
+	publicViewerRateLimit, err := publicViewerRateLimitConfigFromEnv()
+	if err != nil {
+		return Config{}, err
+	}
 
 	privateTimeouts, err := privateTimeoutsFromEnv()
 	if err != nil {
@@ -147,6 +188,11 @@ func Load() (Config, error) {
 		DBPath:                  envOrDefault("SAFE_DB_PATH", defaultDBPath),
 		MaxUploadBytes:          maxUploadBytes,
 		DefaultIncidentTokenTTL: incidentTokenTTL,
+		SessionTTL:              sessionTTL,
+		AuthBootstrapSecret:     secretFromEnv("SAFE_AUTH_BOOTSTRAP_SECRET"),
+		DeletionWorkerInterval:  deletionWorkerInterval,
+		ClosedIncidentRetention: closedIncidentRetention,
+		PublicViewerRateLimit:   publicViewerRateLimit,
 		PrivateTimeouts:         privateTimeouts,
 		PublicTimeouts:          publicTimeouts,
 	}, nil

@@ -108,20 +108,28 @@ The simulator can load or create a local development key file:
 Encryption is enabled by default:
 
 ```bash
+PROOFLINE_SIM_USERNAME=admin \
+PROOFLINE_SIM_PASSWORD='replace-with-a-long-local-password' \
 go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle
 ```
 
-Expected output includes the non-secret key ID, encrypted chunk uploads, bundle download, and local decrypt verification. The simulator does not print raw keys or plaintext.
+Expected output includes the non-secret key ID, encrypted chunk uploads, bundle
+download, and local decrypt verification. The simulator does not print raw
+keys, plaintext, key-file paths, or token-bearing viewer URLs.
 
 To persist a simulator key locally:
 
 ```bash
+PROOFLINE_SIM_USERNAME=admin \
+PROOFLINE_SIM_PASSWORD='replace-with-a-long-local-password' \
 go run ./cmd/simclient --chunks 5 --interval 1s --download-bundle --key-file /tmp/proofline-sim.key.json
 ```
 
 Run it again with the same path to load the existing key:
 
 ```bash
+PROOFLINE_SIM_USERNAME=admin \
+PROOFLINE_SIM_PASSWORD='replace-with-a-long-local-password' \
 go run ./cmd/simclient --chunks 2 --interval 1s --download-bundle --key-file /tmp/proofline-sim.key.json
 ```
 
@@ -130,12 +138,16 @@ Older examples may use `/tmp/safety-recorder-sim.key.json`; the file name is not
 To preserve the old raw fake chunk behavior for development compatibility:
 
 ```bash
+PROOFLINE_SIM_USERNAME=admin \
+PROOFLINE_SIM_PASSWORD='replace-with-a-long-local-password' \
 go run ./cmd/simclient --encrypt=false
 ```
 
 Bundle decrypt verification defaults on when `--download-bundle` and `--encrypt` are both enabled. It can be disabled with:
 
 ```bash
+PROOFLINE_SIM_USERNAME=admin \
+PROOFLINE_SIM_PASSWORD='replace-with-a-long-local-password' \
 go run ./cmd/simclient --download-bundle --verify-bundle-decryption=false
 ```
 
@@ -153,11 +165,12 @@ Future incident modes do not change the backend ciphertext-only posture by thems
 
 The intended Apple-side equivalent is CryptoKit or Swift Crypto AES-GCM. This repository does not include iOS or Swift code yet.
 
-Future work includes production client key storage, Keychain integration, trusted-contact key access, key sharing, browser/client-side decryption, account-based access, incident-mode sharing, and playable export. The intended production key custody direction is a hybrid trusted-contact model documented in [key-custody.md](key-custody.md), with future access boundaries in [v1-access-control.md](v1-access-control.md), browser decryption constraints in [browser-decryption.md](browser-decryption.md), and optional break-glass design in [break-glass-key-access.md](break-glass-key-access.md). Password-derived keys, passphrases, public-key wrapping, key escrow, backend decryption, and browser decryption are not implemented in this milestone.
+Future work includes production client key storage, Keychain integration, trusted-contact key access, key sharing, browser/client-side decryption, account-based access, incident-mode sharing, and playable export. The intended production key custody direction is a hybrid trusted-contact model documented in [key-custody.md](key-custody.md), with future access boundaries in [v1-access-control.md](v1-access-control.md), browser decryption constraints in [browser-decryption.md](browser-decryption.md), and optional break-glass design in [break-glass-key-access.md](break-glass-key-access.md). Password-derived keys, passphrases, production public-key wrapping, key escrow, backend decryption, and browser decryption are not implemented in this milestone.
 
-The simulator-only contact-wrapped key metadata prototype is planned separately
-in
+The simulator-only contact-wrapped key metadata prototype is implemented
+separately in
 [contact-wrapped-key-metadata-simulator.md](contact-wrapped-key-metadata-simulator.md).
-That design may model contact public keys, non-secret key IDs, and wrapped
+That prototype can model contact public keys, non-secret key IDs, and wrapped
 stream media keys in local development artifacts, but it does not change the
-current v1 envelope or make the backend store raw keys or decrypt media.
+current v1 envelope or make the backend store raw keys, store wrapped keys, or
+decrypt media.

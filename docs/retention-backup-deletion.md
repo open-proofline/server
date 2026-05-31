@@ -1,8 +1,14 @@
 # Retention, Backup, And Deletion
 
-This document defines the operational retention, backup, restore, and deletion policy for the current Proofline backend shape. It is a design and operations document only. It does not add deletion APIs, background jobs, cloud backups, key escrow, or backend decryption.
+This document defines the operational retention, backup, restore, and deletion
+policy for the current Proofline backend shape. The backend implements
+private incident deletion requests, a durable deletion queue, and an automatic
+background worker for deletion and optional closed-incident retention. It does
+not add cloud backups, key escrow, backend decryption, mode-specific retention,
+token metadata pruning, tombstone expiry, orphan temp-file cleanup, or
+object-bucket lifecycle policy enforcement.
 
-The future incident deletion and retention enforcement design is documented in
+Incident deletion and retention enforcement details are documented in
 [incident-deletion-retention-enforcement.md](incident-deletion-retention-enforcement.md).
 
 Proofline is still experimental and not production-ready public infrastructure. Before real-world use, an operator must choose concrete retention windows, backup locations, encryption settings, and restore checks that match the user's safety, privacy, and legal risk model.
@@ -23,12 +29,17 @@ must be treated as short-lived operational state.
 
 The backend stores ciphertext only. It does not store raw media keys, decrypt chunks, produce playable media, or persist generated ZIP bundle files.
 
-Future incident modes such as emergency incidents, interaction records, safety checks, and evidence notes may need different retention defaults. Those modes are not implemented yet and must update this policy before or alongside implementation.
+Incident mode metadata such as emergency incidents, interaction records, safety
+checks, and evidence notes may eventually need different retention defaults. The
+current fields are metadata only and do not change retention. Any future
+mode-specific retention behavior must update this policy before or alongside
+implementation.
 
 ## Retention Principles
 
 - Preserve uploaded evidence unless there is an explicit deletion decision.
-- Keep metadata and encrypted blobs in sync; either both are retained, or both are removed by a future deletion workflow.
+- Keep metadata and encrypted blobs in sync; either both are retained, or both
+  are removed by the deletion workflow.
 - Treat failed and open streams as possible evidence. Do not discard them just because they are not downloadable as completed stream bundles.
 - Keep raw viewer/incident tokens out of storage and logs. Only token hashes are retained in metadata.
 - Treat non-emergency interaction records as potentially sensitive even when they are not urgent safety incidents.
@@ -37,15 +48,19 @@ Future incident modes such as emergency incidents, interaction records, safety c
 
 ## Current Retention Choices
 
-The current implementation does not automatically expire or delete incidents. Operationally, this means retention is evidence-preserving by default until the operator performs a deliberate manual removal or a future deletion feature is implemented.
+The current implementation is evidence-preserving by default. It does not
+delete incidents automatically unless `SAFE_CLOSED_INCIDENT_RETENTION` is set
+to a positive duration. Explicit private owner-scoped and admin deletion
+requests can create deletion decisions at any time, subject to authorization and
+the open-incident guard.
 
 | Data | Current retention choice | Notes |
 |---|---|---|
-| Incidents | Retain open and closed incident rows until explicit operator deletion. | Closing an incident stops later uploads but does not delete evidence. |
-| Chunks | Retain every accepted encrypted chunk with its incident. | Uploaded chunks are immutable and must not be overwritten. |
-| Media streams | Retain open, complete, and failed stream metadata with the incident. | Failed streams may still contain useful uploaded chunks. |
-| Checkins | Retain checkin rows with the incident. | Checkins may contain location and device-status metadata, so they should be deleted with the incident. |
-| Viewer token rows | Retain token-hash metadata with the incident, including expired and revoked tokens. | Raw tokens are returned only once and are not stored. Future pruning may remove expired or revoked token rows after an audit window. |
+| Incidents | Retain open and closed incident rows until an explicit deletion request or configured closed-incident retention decision. | Closing an incident stops later uploads but does not itself delete evidence. Deleted incidents keep a minimal tombstone. |
+| Chunks | Retain every accepted encrypted chunk with its incident until incident deletion. | Uploaded chunks are immutable and must not be overwritten. Deletion snapshots stored paths from metadata before blob removal. |
+| Media streams | Retain open, complete, and failed stream metadata with the incident until incident deletion. | Failed streams may still contain useful uploaded chunks and are deleted with the parent incident. |
+| Checkins | Retain checkin rows with the incident until incident deletion. | Checkins may contain location and device-status metadata, so deletion prunes them with the incident. |
+| Viewer token rows | Retain token-hash metadata with the incident until incident deletion, including expired and revoked tokens. | Raw tokens are returned only once and are not stored. Future pruning may remove expired or revoked token rows after an audit window. |
 | Generated ZIP bundles | Do not retain on the server. | Stream and incident bundles are generated on demand as HTTP responses. Downloaded copies are outside backend control. |
 | Temporary upload files | Remove after successful commit or failed upload cleanup. | Orphaned temp files may exist after crashes and need a future cleanup policy. |
 
@@ -131,23 +146,30 @@ incident bundles before any public viewer exposure.
 
 ## Deletion Policy
 
-The current backend has no incident deletion API and no automatic expiration job. Manual deletion is therefore an operator action, not an application-level feature. Manual deletion must be treated carefully because the database and blob tree need to stay consistent.
+Incident deletion is an application-level private workflow. A deletion begins
+with a durable deletion decision, snapshots server-controlled stored paths from
+chunk metadata, marks the incident `deletion_pending`, and then the background
+worker deletes encrypted blobs through the configured blob backend. After all
+blob deletion items are complete or confirmed absent, the worker prunes
+sensitive child metadata and leaves a minimal tombstone.
 
-The intended future deletion behavior is:
+Deletion behavior:
 
-- delete an incident only through a private/admin path
-- remove or tombstone the incident row, media streams, chunks, checkins, and viewer token rows together
-- remove encrypted blob files or objects by server-controlled stored paths only
-- never accept client-provided filesystem paths, object keys, or object-store URLs for deletion
-- make repeated deletion attempts idempotent
-- keep public incident viewer routes read-only
-- avoid deleting open incidents unless the request explicitly allows it
-- record enough non-sensitive audit information for operational review, without logging raw tokens, request bodies, uploaded bytes, plaintext, or raw keys
+- account-scoped deletion is available at `POST /v1/incidents/{incident_id}/deletion` for the incident owner
+- admin-global deletion is available at `POST /v1/admin/incidents/{incident_id}/deletion`
+- deletion status is available through the matching private `GET` routes
+- encrypted blob files or objects are removed by server-controlled stored paths only
+- client-provided filesystem paths, object keys, and object-store URLs are never accepted for deletion
+- repeated deletion requests return the existing deletion status instead of creating competing work
+- public incident viewer routes remain read-only and fail closed for deleting or deleted incidents
+- open incidents are rejected unless the request explicitly sets `allow_open: true`
+- deletion decisions retain only non-sensitive status fields, such as decision ID, incident ID, source, reason code, actor account ID, item count, timestamps, state, and error class
 
-Future deletion policy should distinguish:
+Current deletion policy still distinguishes:
 
 - deleting one incident
-- expiring closed incidents after an operator-defined retention window
+- expiring closed incidents after an operator-defined retention window through
+  `SAFE_CLOSED_INCIDENT_RETENTION`
 - applying different retention to emergency incidents, interaction records,
   safety checks, and evidence notes after incident-mode, capture-profile,
   escalation-policy, and sharing-state fields exist
@@ -191,22 +213,18 @@ Recommended deployment posture:
 
 Disk encryption does not protect data while the host is running and unlocked, and it does not replace private `/v1` boundaries, TLS at the edge, token handling, rate limiting, backup access control, or future application-level authorization.
 
-## Future Implementation Work
+## Remaining Future Work
 
-Implementing this policy requires separate, explicit issues. The future design
-is expanded in
+The implemented deletion workflow does not complete every lifecycle policy
+area. Remaining future work is expanded in
 [incident-deletion-retention-enforcement.md](incident-deletion-retention-enforcement.md).
 Likely future work includes:
 
-- incident deletion repository methods that transactionally remove metadata
-- storage deletion helpers that operate only on server-stored relative paths
-- private/admin deletion routes or CLI commands with clear authorization assumptions
-- retention policy fields or settings for first-class incident modes, capture
-  profiles, escalation policies, and sharing state after they exist
-- tests for database/blob consistency during deletion failures
+- retention policy fields or settings for mode-driven incident, capture-profile,
+  escalation-policy, and sharing-state behavior
+- a local operator CLI and dry-run previews for deletion or retention candidates
 - orphan temp-file cleanup with a conservative age threshold
-- optional retention configuration for closed incidents and token metadata
+- optional pruning for expired or revoked token metadata
+- tombstone retention and pruning policy
 - backup and restore runbooks with deployment-specific commands
 - documentation updates for any future derived plaintext or persisted bundle outputs
-
-These are intentionally not implemented in this issue.

@@ -1,16 +1,21 @@
 # Security Policy
 
-Proofline is a private encrypted incident-capture backend. It is not production-ready public infrastructure. The private `/v1` API has no public authentication and must stay behind localhost, WireGuard, a firewall, or an equivalent private boundary.
+Proofline is a private encrypted incident-capture backend. It is not production-ready public infrastructure. The private `/v1` API uses local account sessions, and the private `/admin` web surface uses admin cookie sessions, but neither is a public product API and both must stay behind localhost, WireGuard, a firewall, or an equivalent private boundary.
 
-The current implementation supports generic incident capture and token-scoped read-only incident review. Planned future modes include emergency incidents, non-emergency interaction records, timed safety checks, and evidence notes. Those modes do not change the current vulnerability-reporting process until they are implemented.
+The current implementation supports generic incident capture, optional
+incident-mode metadata fields, and token-scoped read-only incident review.
+Mode metadata does not grant access, send notifications, change retention,
+change key custody, expose trusted-contact workflows, or change public viewer
+and bundle behavior. It does not change the current vulnerability-reporting
+process.
 
 ## Supported Versions
 
 | Version | Supported |
 |---|---|
+| 0.9.x | Yes |
 | 0.8.x | Yes |
-| 0.7.x | Yes |
-| < 0.7 | No |
+| < 0.8 | No |
 
 ## Reporting a Vulnerability
 
@@ -36,10 +41,13 @@ Because this project is not yet public-production-ready, response timelines are 
 
 Reports are in scope when they affect the current backend, documentation, or deployment guidance, including:
 
-- private `/v1` route exposure
+- private `/v1` and `/admin` route exposure
+- local account and session authentication for private `/v1` routes and the
+  private `/admin` web surface
 - public incident viewer read-only access
 - viewer/incident token leakage
 - raw token logging
+- raw idempotency-key logging or storage
 - request body logging
 - uploaded file byte logging
 - Authorization header logging
@@ -61,7 +69,7 @@ Reports are in scope when they affect the current backend, documentation, or dep
 
 The following are generally out of scope unless they demonstrate a concrete vulnerability in this repository:
 
-- missing features already documented as absent, such as user accounts, OAuth, JWT, SMS, push notifications, trusted-contact accounts, Android/iOS clients, a web client, first-class incident modes, escalation policies, or a public admin dashboard
+- missing features already documented as absent, such as public account workflows, OAuth, JWT, SMS, push notifications, trusted-contact accounts, Android/iOS clients, a web client, mode-driven escalation behavior, or a public admin dashboard
 - lack of production hardening already documented as a known limitation, without a new exploit path
 - reports requiring public exposure of the private `/v1` API contrary to documented deployment guidance
 - denial-of-service reports based only on unrealistic local access or unbounded physical access
@@ -71,4 +79,4 @@ The following are generally out of scope unless they demonstrate a concrete vuln
 
 ## Public Disclosure Guidance
 
-Please allow time for private triage and remediation before public disclosure. Do not publish raw viewer tokens, incident tokens, request bodies, uploaded bytes, private deployment details, proof-of-concept material, or user safety data.
+Please allow time for private triage and remediation before public disclosure. Do not publish raw viewer tokens, incident tokens, idempotency keys, request bodies, uploaded bytes, private deployment details, proof-of-concept material, or user safety data.

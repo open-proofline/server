@@ -2,9 +2,9 @@
 
 This document defines the product and security boundary for any future live or
 partial media-stream access in Proofline. It is a design document only. It does
-not add routes, schema, browser decryption, backend decryption, public `/v1`
-authentication, user accounts, web-client code, mobile-client code, protocol
-code, notifications, key escrow, or playable media export.
+not add routes, schema, browser decryption, backend decryption, public product
+API exposure, trusted-contact accounts, web-client code, mobile-client code,
+protocol code, notifications, key escrow, or playable media export.
 
 ## Summary
 
@@ -112,9 +112,10 @@ separate from the current token-only viewer. The public incident viewer may
 keep polling `GET /i/{token}/data` for read-only metadata, but it should not
 become a live chunk transport by default.
 
-Private `/v1` routes are currently unauthenticated and private-boundary only.
-Do not make new live or partial routes publicly reachable under `/v1` until the
-future public product API and private admin API split is implemented.
+Private `/v1` routes currently use local account sessions and remain
+private-boundary only. Do not make new live or partial routes publicly reachable
+under `/v1` until the future public product API and private admin API split is
+implemented.
 
 ## Partial Manifest Shape
 
