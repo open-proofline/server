@@ -182,11 +182,11 @@ func (c client) downloadStreamBundle(ctx context.Context, token, streamID string
 	path := "/i/" + url.PathEscape(token) + "/streams/" + url.PathEscape(streamID) + "/download"
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, joinURL(c.viewerBase, path), nil)
 	if err != nil {
-		return nil, fmt.Errorf("build bundle download request")
+		return nil, fmt.Errorf("build bundle download request: %w", err)
 	}
 	response, err := c.httpClient.Do(request)
 	if err != nil {
-		return nil, fmt.Errorf("download bundle request failed")
+		return nil, fmt.Errorf("download bundle request failed: %w", err)
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {

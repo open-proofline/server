@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Ran the review/update stack and applied small behavior-preserving Go
+  readability cleanups across simulator, HTTP wrapped-key metadata, and
+  storage helper code.
 - Added a planning design for a future optional regional stream-ingress relay
   for complete encrypted chunk uploads while keeping the core API authoritative
   for authorization, idempotency, durable blob commits, metadata, and
