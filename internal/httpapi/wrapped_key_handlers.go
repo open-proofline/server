@@ -164,11 +164,19 @@ func createWrappedKeyRecordParams(w http.ResponseWriter, ownerAccountID, inciden
 		writeError(w, http.StatusBadRequest, "invalid_wrapped_key_ciphertext", "wrapped_key_ciphertext is required and must be 16384 bytes or less")
 		return incidents.CreateWrappedKeyRecordParams{}, false
 	}
-	if len(params.PublicWrappingMetadata) == 0 || len(params.PublicWrappingMetadata) > maxWrappedKeyPublicWrappingMetadataBytes || !json.Valid(params.PublicWrappingMetadata) || !jsonObject(params.PublicWrappingMetadata) || publicWrappingMetadataHasForbiddenKeys(params.PublicWrappingMetadata) {
+	if !validPublicWrappingMetadata(params.PublicWrappingMetadata) {
 		writeError(w, http.StatusBadRequest, "invalid_public_wrapping_metadata", "public_wrapping_metadata is required, must be a JSON object, and must be 4096 bytes or less")
 		return incidents.CreateWrappedKeyRecordParams{}, false
 	}
 	return params, true
+}
+
+func validPublicWrappingMetadata(raw json.RawMessage) bool {
+	return len(raw) > 0 &&
+		len(raw) <= maxWrappedKeyPublicWrappingMetadataBytes &&
+		json.Valid(raw) &&
+		jsonObject(raw) &&
+		!publicWrappingMetadataHasForbiddenKeys(raw)
 }
 
 func jsonObject(raw json.RawMessage) bool {
