@@ -6,6 +6,8 @@ in SQLite by default or optional PostgreSQL, encrypted uploaded chunks on local
 disk by default with optional S3-compatible object storage for committed
 encrypted chunks, a private `/admin` dashboard listener, and optional
 Valkey/Redis-compatible short-lived coordination when explicitly configured.
+The future regional stream-ingress relay is planning-only and documented in
+[regional-stream-ingress-relay.md](regional-stream-ingress-relay.md).
 
 This repository is the server/backend component only. In the planned multi-repo layout it corresponds to `open-proofline/server`. Web, iOS, Android, and shared protocol work are expected to live in separate future repositories.
 
@@ -187,6 +189,21 @@ flowchart LR
 Completed stream and incident downloads are ZIP files generated on demand. ZIP entry names are controlled by the server and manifests are generated from trusted database metadata. Bundles contain encrypted chunks and JSON manifests only.
 
 They are not decrypted, playable, or merged media exports.
+
+## Regional Ingress Relay Boundary
+
+The planned regional stream-ingress relay is a separate optional upload edge,
+not a durable evidence store and not a broad API gateway. It should expose only
+a narrow complete-chunk upload route family plus coarse health/readiness
+routes, stage ciphertext temporarily, and forward complete encrypted chunks to
+the core API. The core API remains responsible for account/session or future
+upload authorization, incident and stream state, idempotency decisions,
+duplicate reconciliation, final blob commits, and metadata.
+
+The relay must not expose `/admin`, `/v1/admin/...`, public incident viewer
+routes, bundle downloads, deletion, retention, backup, restore, escrow,
+break-glass, decryption, raw-key, or operator routes. Loss of relay temporary
+staging must be recoverable by client retry.
 
 ## Emergency Services Boundary
 

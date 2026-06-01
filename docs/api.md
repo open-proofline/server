@@ -744,6 +744,13 @@ compare a duplicate accepted chunk with a local expected fingerprint. The
 resumable-upload planning decision is documented in
 [resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md).
 
+The current API does not implement a regional stream-ingress relay or
+service-authenticated relay preflight/commit endpoints. The future relay design
+is documented in [regional-stream-ingress-relay.md](regional-stream-ingress-relay.md).
+Any implementation must keep the core API authoritative for authorization,
+idempotency, final blob commits, and metadata, and must not expose the full
+`/v1` control plane or admin routes through the relay.
+
 ### `POST /v1/incidents/{incident_id}/chunks/reconcile`
 
 Reconciles a duplicate chunk identity against already accepted metadata without

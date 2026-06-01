@@ -47,6 +47,13 @@ contact key-sharing boundaries in
   full PostgreSQL/MinIO/Valkey validation. These files are local release-smoke
   helpers, not production deployment manifests.
 
+There is no implemented `cmd/stream-ingress` package. The future regional
+stream-ingress relay is planning-only in
+[regional-stream-ingress-relay.md](regional-stream-ingress-relay.md). If added
+later, it should be a separate upload-only edge that stages ciphertext
+temporarily and lets the core API remain authoritative for authorization,
+idempotency, durable blob commits, and metadata.
+
 ## Main Request Flow
 
 Main `/v1` routes require `Authorization: Bearer <session_token>` except for

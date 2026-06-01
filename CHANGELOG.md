@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added a planning design for a future optional regional stream-ingress relay
+  for complete encrypted chunk uploads while keeping the core API authoritative
+  for authorization, idempotency, durable blob commits, metadata, and
+  ciphertext-only behavior.
 - Added private owner-scoped wrapped media-key metadata storage and delivery
   routes bound to active sharing grants, while keeping public viewer and bundle
   manifests key-free and preserving backend ciphertext-only behavior.
