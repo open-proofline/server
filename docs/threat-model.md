@@ -240,6 +240,11 @@ The current backend does not implement incident-mode-specific controls yet, so f
   clients should retry complete encrypted chunk uploads; the future design is
   planned in
   [resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md).
+- No implemented regional stream-ingress relay. If added later, the relay must
+  be upload-only, temporary, ciphertext-only, and subordinate to the core API
+  for authorization, idempotency, durable blob commits, and metadata. The
+  future design is planned in
+  [regional-stream-ingress-relay.md](regional-stream-ingress-relay.md).
 - Retention, backup, restore, and deletion policy is documented in
   [retention-backup-deletion.md](retention-backup-deletion.md), with enforcement
   details in

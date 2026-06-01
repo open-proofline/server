@@ -318,6 +318,28 @@ screenshots, support tickets, or metrics labels.
 Valkey does not add public `/v1` exposure, public account workflows, cloud
 deployment automation, backend decryption, key escrow, or production readiness.
 
+## Regional Stream Ingress Relay
+
+The regional stream-ingress relay is not implemented. The planning boundary is
+documented in
+[regional-stream-ingress-relay.md](regional-stream-ingress-relay.md).
+
+If implemented later, the relay should be deployed as a separate upload-only
+edge close to users. It should accept complete encrypted chunks over HTTPS,
+apply anonymous pre-body limits, ask the core API for a cheap upload preflight,
+stage ciphertext only in local temporary storage, verify `sha256_hex`, and
+return success only after the core API confirms committed or equivalent
+success. The core API remains the durable source of truth for authorization,
+incident and stream state, idempotency, final blob commits, and metadata.
+
+Do not route `/admin`, `/v1/admin/...`, public incident viewer routes, bundle
+downloads, deletion, retention, backup, restore, escrow, break-glass,
+decryption, raw-key, or operator routes through a future relay. Relay logs,
+metrics, rate-limit keys, readiness output, and temp paths must not expose raw
+tokens, Authorization headers, request bodies, uploaded bytes, plaintext, raw
+keys, stored paths, staging paths, object keys, object-store credentials,
+private deployment details, or user safety data.
+
 ## Main API Through WireGuard Or A Private Network
 
 For a main API reachable from a WireGuard peer or private LAN, publish or bind

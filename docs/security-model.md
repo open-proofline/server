@@ -1,6 +1,6 @@
 # Security Model
 
-This document summarizes the current Proofline backend security assumptions and controls. For a threat-oriented view, see [threat-model.md](threat-model.md). For planned incident-mode behavior, see [incident-modes.md](incident-modes.md). For `/v1` role and grant boundaries, see [v1-access-control.md](v1-access-control.md). For future production key custody and emergency access design, see [key-custody.md](key-custody.md), the contact key-sharing and wrapped-key grant design in [contact-key-sharing-grants.md](contact-key-sharing-grants.md), the simulator-only wrapped-key metadata prototype in [contact-wrapped-key-metadata-simulator.md](contact-wrapped-key-metadata-simulator.md), [browser-decryption.md](browser-decryption.md), [live-partial-stream-access-boundary.md](live-partial-stream-access-boundary.md), and [break-glass-key-access.md](break-glass-key-access.md). For vulnerability reporting, see [../SECURITY.md](../SECURITY.md).
+This document summarizes the current Proofline backend security assumptions and controls. For a threat-oriented view, see [threat-model.md](threat-model.md). For planned incident-mode behavior, see [incident-modes.md](incident-modes.md). For `/v1` role and grant boundaries, see [v1-access-control.md](v1-access-control.md). For future production key custody and emergency access design, see [key-custody.md](key-custody.md), the contact key-sharing and wrapped-key grant design in [contact-key-sharing-grants.md](contact-key-sharing-grants.md), the simulator-only wrapped-key metadata prototype in [contact-wrapped-key-metadata-simulator.md](contact-wrapped-key-metadata-simulator.md), [browser-decryption.md](browser-decryption.md), [live-partial-stream-access-boundary.md](live-partial-stream-access-boundary.md), [regional-stream-ingress-relay.md](regional-stream-ingress-relay.md), and [break-glass-key-access.md](break-glass-key-access.md). For vulnerability reporting, see [../SECURITY.md](../SECURITY.md).
 
 ## Maturity
 
@@ -295,6 +295,9 @@ Normal file or object removal is not treated as guaranteed secure erasure. Deplo
 - No implemented resumable upload or upload lease protocol; the future design
   is planned in
   [resumable-upload-lease-protocol.md](resumable-upload-lease-protocol.md)
+- No implemented regional stream-ingress relay; the future design is planned
+  in
+  [regional-stream-ingress-relay.md](regional-stream-ingress-relay.md)
 - No implemented mode-driven access, escalation, retention, key-custody,
   trusted-contact account, dead-man switch notification, browser decryption,
   backend decryption, or public account portal behavior

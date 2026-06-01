@@ -79,6 +79,13 @@ accepted as legacy aliases for the main listener only. `SAFE_PUBLIC_BIND_ADDRS`
 and `SAFE_PUBLIC_BIND_ADDR` now fail startup so a previously public viewer bind
 cannot silently become the private-admin listener.
 
+There are no implemented regional stream-ingress relay configuration variables.
+The future relay configuration and service identity shape is planning-only in
+[regional-stream-ingress-relay.md](regional-stream-ingress-relay.md). Any later
+relay settings should use a distinct namespace, keep the relay upload-only, and
+avoid logging service credentials, token fingerprints, staging paths, object
+keys, private endpoints, or other private deployment details.
+
 ## Backend Selection Scaffold
 
 The backend selector variables are a startup validation scaffold for cluster support. Local-first values remain the defaults:

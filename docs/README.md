@@ -14,6 +14,7 @@ This directory contains the detailed documentation for Proofline Server, the Go 
 | [PostgreSQL metadata migration path](postgresql-metadata-migration.md) | PostgreSQL metadata backend schema parity, migrations, transaction boundaries, tests, explicit SQLite-to-PostgreSQL migration runbook, rollback limits, and restore expectations. |
 | [Cluster-safe upload operation semantics](cluster-safe-upload-semantics.md) | Complete-upload idempotency-key behavior plus remaining cluster-safe upload operation design for commit ordering, retry success, conflict handling, and cleanup across metadata and blob backends. |
 | [Resumable upload and upload lease protocol](resumable-upload-lease-protocol.md) | Planning decision to keep the desktop recorder simulator on complete encrypted chunk retry semantics while deferring resumable uploads and partial-upload lease sessions. |
+| [Regional stream ingress relay](regional-stream-ingress-relay.md) | Planning boundary for a future optional regional upload-only relay that stages ciphertext temporarily and lets the core API remain authoritative for authorization, durable commits, idempotency, and metadata. |
 | [Incident capture modes](incident-modes.md) | Planned emergency, interaction-record, safety-check, and evidence-note modes, plus future capture-profile, escalation-policy, sharing-state, and migration boundaries. |
 | [Mode-aware retention policy](mode-aware-retention-policy.md) | Planning boundary for future retention policy based on incident mode, safety-check state, sharing/export state, grants, wrapped keys, tombstones, and backups. |
 | [/v1 access control](v1-access-control.md) | Current local account/session boundary plus future role, grant, public product API, private admin API listener, audit, and migration boundaries for account-owner, trusted-contact, public-link, admin/operator, and optional escrow access. |
@@ -62,6 +63,11 @@ Those repositories do not exist in this repository and should not be implemented
 ## Current Backend Scope
 
 Proofline Server receives already-encrypted chunks, stores metadata in SQLite by default or optional PostgreSQL, stores encrypted blobs on local disk by default or in optional S3-compatible object storage, performs a startup check against optional Valkey/Redis-compatible coordination when explicitly configured, groups chunks into media streams, serves a private admin web surface under `/admin`, applies app-level route-class rate limiting to main API routes, can use Valkey for short-lived complete-upload leases, and exposes a token-scoped read-only incident viewer with app-level route-class rate limiting. The Go simulator can produce the documented v1 client-side encryption envelope for development and test flows.
+
+The future regional stream-ingress relay design is planning-only; see
+[regional-stream-ingress-relay.md](regional-stream-ingress-relay.md). It does
+not add an implemented upload edge, public `/v1` exposure, durable ingress
+storage, backend decryption, key custody, or deployment automation.
 
 The planned production-cluster scope is additive: SQLite and local filesystem
 storage remain supported, optional PostgreSQL metadata can store incident

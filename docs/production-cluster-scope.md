@@ -168,11 +168,31 @@ A safe cluster upload flow should be designed around these steps:
 
 A successful chunk upload should mean encrypted bytes are durably committed outside the staging backend and metadata has been written or confirmed. Loss of pre-commit staging state must be recoverable by client retry.
 
+## Regional Stream Ingress Relay Scope
+
+The future regional stream-ingress relay is planned as an optional upload-only
+edge that can run close to users while the core API remains authoritative. It
+is documented in
+[regional-stream-ingress-relay.md](regional-stream-ingress-relay.md).
+
+The relay may use local in-memory counters for single-node/dev deployments or
+optional Valkey/Redis-compatible counters for multi-node relay deployments,
+but that state must remain short-lived coordination. It must not become the
+source of truth for incident metadata, chunk metadata, upload-operation state,
+committed encrypted chunks, viewer-token metadata, deletion decisions, or
+retention decisions.
+
+Relay temporary staging is not durable evidence storage. A successful upload
+through the relay still requires the core API to commit encrypted bytes to the
+configured blob backend and write or confirm metadata in the configured
+metadata backend.
+
 ## Boundaries And Non-Goals
 
 This scope expansion does not by itself add:
 
 - public exposure of the current main `/v1` API
+- public exposure of the full current `/v1` API through a regional relay
 - public account workflows
 - OAuth, JWT, public account portal, trusted-contact accounts, or external
   identity integration

@@ -249,6 +249,7 @@ Container defaults bind to `0.0.0.0` inside the container. Restrict host exposur
 - [PostgreSQL metadata migration path and SQLite-to-PostgreSQL runbook](docs/postgresql-metadata-migration.md)
 - [Cluster-safe upload operation semantics](docs/cluster-safe-upload-semantics.md)
 - [Resumable upload and upload lease protocol](docs/resumable-upload-lease-protocol.md)
+- [Regional stream ingress relay design](docs/regional-stream-ingress-relay.md)
 - [Incident capture modes](docs/incident-modes.md)
 - [Mode-aware retention policy](docs/mode-aware-retention-policy.md)
 - [/v1 access control](docs/v1-access-control.md)
@@ -314,6 +315,9 @@ Please see [SECURITY.md](SECURITY.md) for supported versions and vulnerability r
 - Continue hardening optional PostgreSQL metadata support while preserving SQLite local/default support
 - Complete the remaining cluster-safe upload operation semantics before multi-node production deployment
 - Keep cluster backup, restore, and failure runbooks current as optional PostgreSQL, S3-compatible storage, and coordination behavior evolve
+- Keep any future regional stream-ingress relay upload-only, temporary,
+  ciphertext-only, and subordinate to the core API for authorization,
+  idempotency, durable blob commits, and metadata
 - WireGuard-only bind/firewall deployment guidance
 - Mode-driven access, escalation, retention, sharing, viewer, and key-custody
   behavior after protocol and security design
